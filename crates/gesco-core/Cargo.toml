@@ -1,0 +1,27 @@
+[package]
+name = "gesco-core"
+description = "Noyau métier pur : entités, invariants, calculs, machines à états. Aucune entrée/sortie."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+ulid.workspace = true
+sha2.workspace = true
+hex.workspace = true
+serde_json.workspace = true
+specta.workspace = true
+argon2.workspace = true
+chacha20poly1305.workspace = true
+zeroize.workspace = true
+ed25519-dalek.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

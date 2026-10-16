@@ -1,0 +1,11 @@
+{
+  "id": "etat_retenues",
+  "version": 1,
+  "libelle": "État des retenues et cotisations du mois",
+  "variables": [
+    { "nom": "mois", "requise": true },
+    { "nom": "projet", "requise": true },
+    { "nom": "elements", "requise": true },
+    { "nom": "date", "requise": true }
+  ]
+}

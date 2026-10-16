@@ -1,0 +1,26 @@
+{
+  "id": "etat_caisse",
+  "version": 2,
+  "libelle": "État de caisse d'une session",
+  "variables": [
+    { "nom": "caissier", "requise": true },
+    { "nom": "ouverture", "requise": true },
+    { "nom": "cloture", "requise": true },
+    { "nom": "statut", "requise": true },
+    { "nom": "fonds", "requise": true },
+    { "nom": "entrees_especes", "requise": true },
+    { "nom": "sorties_especes", "requise": true },
+    { "nom": "theorique", "requise": true },
+    { "nom": "compte", "requise": true },
+    { "nom": "ecart", "requise": true },
+    { "nom": "motif_ecart", "requise": true },
+    { "nom": "modes", "requise": true },
+    { "nom": "nombre_recus", "requise": true },
+    { "nom": "sorties", "requise": false },
+    { "nom": "vise_par", "requise": true },
+    { "nom": "visa", "requise": true },
+    { "nom": "commentaire_visa", "requise": true },
+    { "nom": "qr", "requise": true },
+    { "nom": "reference", "requise": true }
+  ]
+}

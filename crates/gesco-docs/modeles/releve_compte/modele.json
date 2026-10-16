@@ -1,0 +1,13 @@
+{
+  "id": "releve_compte",
+  "version": 1,
+  "libelle": "Relevé de compte d'un élève",
+  "variables": [
+    { "nom": "eleve", "requise": true },
+    { "nom": "matricule", "requise": true },
+    { "nom": "date", "requise": true },
+    { "nom": "inscriptions", "requise": true },
+    { "nom": "qr", "requise": true },
+    { "nom": "reference", "requise": true }
+  ]
+}

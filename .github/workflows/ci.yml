@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.0
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cargo fmt --all --check
+      - run: node outils/ci/verifier-liste-blanche.mjs
+      - run: outils/ci/verifier-marqueurs.sh
+      - run: cargo clippy --workspace --exclude gesco-app --all-targets -- -D warnings
+      - run: cargo test --workspace --exclude gesco-app
+      - run: cargo test --release -p gesco-docs --test moteur
+      - run: cargo install cargo-machete --locked && cargo machete
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g pnpm@12.9.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verifier
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm knip
+      - run: pnpm build
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.0
+          components: clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g pnpm@12.9.1
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - run: pnpm --dir frontend build
+      - run: cargo clippy -p gesco-app -- -D warnings
+      - run: cargo build -p gesco-app

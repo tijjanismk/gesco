@@ -1,0 +1,83 @@
+{
+  "id": "recu",
+  "version": 1,
+  "libelle": "Reçu de versement, deux exemplaires A5 sur une feuille A4",
+  "variables": [
+    {
+      "nom": "numero",
+      "requise": true
+    },
+    {
+      "nom": "date",
+      "requise": true
+    },
+    {
+      "nom": "eleve",
+      "requise": true
+    },
+    {
+      "nom": "matricule",
+      "requise": true
+    },
+    {
+      "nom": "classe",
+      "requise": true
+    },
+    {
+      "nom": "annee",
+      "requise": true
+    },
+    {
+      "nom": "payeur",
+      "requise": true
+    },
+    {
+      "nom": "montant",
+      "requise": true
+    },
+    {
+      "nom": "montant_lettres",
+      "requise": true
+    },
+    {
+      "nom": "mode",
+      "requise": true
+    },
+    {
+      "nom": "reference_paiement",
+      "requise": true
+    },
+    {
+      "nom": "imputations",
+      "requise": true
+    },
+    {
+      "nom": "reste",
+      "requise": true
+    },
+    {
+      "nom": "caissier",
+      "requise": true
+    },
+    {
+      "nom": "annule",
+      "requise": true
+    },
+    {
+      "nom": "motif_annulation",
+      "requise": true
+    },
+    {
+      "nom": "duplicata",
+      "requise": true
+    },
+    {
+      "nom": "qr",
+      "requise": true
+    },
+    {
+      "nom": "reference",
+      "requise": true
+    }
+  ]
+}

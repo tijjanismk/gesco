@@ -1,0 +1,19 @@
+{
+  "id": "engagement",
+  "version": 1,
+  "libelle": "Lettre d'engagement d'un membre du personnel",
+  "variables": [
+    { "nom": "membre", "requise": true },
+    { "nom": "matricule", "requise": true },
+    { "nom": "fonctionnaire", "requise": true },
+    { "nom": "numero_fonctionnaire", "requise": true },
+    { "nom": "nature", "requise": true },
+    { "nom": "fonction", "requise": true },
+    { "nom": "debut", "requise": true },
+    { "nom": "fin", "requise": false },
+    { "nom": "remuneration", "requise": true },
+    { "nom": "heures", "requise": false },
+    { "nom": "note", "requise": true },
+    { "nom": "date", "requise": true }
+  ]
+}

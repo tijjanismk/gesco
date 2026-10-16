@@ -1,0 +1,11 @@
+{
+  "id": "essai",
+  "version": 1,
+  "libelle": "Document d'essai du moteur documentaire",
+  "variables": [
+    { "nom": "titre", "requise": true },
+    { "nom": "date", "requise": true },
+    { "nom": "auteur", "requise": true },
+    { "nom": "lignes", "requise": false }
+  ]
+}

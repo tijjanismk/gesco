@@ -1,0 +1,18 @@
+{
+  "id": "releve_moyennes",
+  "version": 1,
+  "libelle": "Relevé des moyennes des périodes suivies",
+  "variables": [
+    { "nom": "eleve", "requise": true },
+    { "nom": "naissance", "requise": true },
+    { "nom": "matricule", "requise": true },
+    { "nom": "matricule_national", "requise": false },
+    { "nom": "classe", "requise": true },
+    { "nom": "annee", "requise": true },
+    { "nom": "bareme", "requise": true },
+    { "nom": "periodes", "requise": true },
+    { "nom": "date", "requise": true },
+    { "nom": "qr", "requise": true },
+    { "nom": "reference", "requise": true }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "emploi_du_temps",
+  "version": 1,
+  "libelle": "Emploi du temps d'une classe ou d'un enseignant",
+  "variables": [
+    { "nom": "titre", "requise": true },
+    { "nom": "sous_titre", "requise": true },
+    { "nom": "jours", "requise": true },
+    { "nom": "lignes", "requise": true },
+    { "nom": "date", "requise": true }
+  ]
+}

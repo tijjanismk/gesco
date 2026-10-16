@@ -1,0 +1,12 @@
+{
+  "id": "etat_heures",
+  "version": 2,
+  "libelle": "État mensuel des heures des vacataires",
+  "variables": [
+    { "nom": "mois", "requise": true },
+    { "nom": "lignes", "requise": true },
+    { "nom": "total_heures", "requise": true },
+    { "nom": "total_montant", "requise": true },
+    { "nom": "date", "requise": true }
+  ]
+}

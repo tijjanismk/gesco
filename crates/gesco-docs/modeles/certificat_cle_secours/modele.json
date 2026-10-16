@@ -1,0 +1,11 @@
+{
+  "id": "certificat_cle_secours",
+  "version": 1,
+  "libelle": "Certificat de clé de secours",
+  "variables": [
+    { "nom": "date", "requise": true },
+    { "nom": "enveloppe_id", "requise": true },
+    { "nom": "mots", "requise": true },
+    { "nom": "emis_par", "requise": true }
+  ]
+}

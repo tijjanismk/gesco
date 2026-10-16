@@ -1,0 +1,27 @@
+[package]
+name = "gesco-app"
+description = "Binaire Tauri du poste ; embarque le serveur LAN (ADR-014)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+gesco-core.workspace = true
+gesco-services.workspace = true
+serde_json.workspace = true
+tauri = { version = "2.12.1", features = [] }
+tauri-plugin-dialog = "2.8.1"
+tokio.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+keyring-core = "1.0.0"
+windows-native-keyring-store = "1.1.0"
+zeroize.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2.7.1", features = [] }
+
+[lints]
+workspace = true

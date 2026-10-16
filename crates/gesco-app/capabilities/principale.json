@@ -1,0 +1,6 @@
+{
+  "identifier": "principale",
+  "description": "Fenêtre principale. Seule la commande `executer` de l'application est appelée ; la garde Rust décide de tout le reste (R-21). Les dialogues d'ouverture et d'enregistrement ne font que rendre un chemin, que `executer` reçoit ensuite.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save"]
+}

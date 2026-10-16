@@ -1,0 +1,4 @@
+DROP TRIGGER compte_tresorerie_sans_suppression;
+DROP TRIGGER categorie_tresorerie_sans_suppression;
+DROP TABLE compte_tresorerie;
+DROP TABLE categorie_tresorerie;

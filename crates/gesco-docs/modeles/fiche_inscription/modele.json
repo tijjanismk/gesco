@@ -1,0 +1,16 @@
+{
+  "id": "fiche_inscription",
+  "version": 2,
+  "libelle": "Fiche d'inscription d'un élève",
+  "variables": [
+    { "nom": "annee", "requise": true },
+    { "nom": "classe", "requise": true },
+    { "nom": "date", "requise": true },
+    { "nom": "nature", "requise": true },
+    { "nom": "eleve", "requise": true },
+    { "nom": "responsables", "requise": false },
+    { "nom": "photo", "requise": false },
+    { "nom": "qr", "requise": true },
+    { "nom": "reference", "requise": true }
+  ]
+}

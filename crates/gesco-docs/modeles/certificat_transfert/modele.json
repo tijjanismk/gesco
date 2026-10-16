@@ -1,0 +1,20 @@
+{
+  "id": "certificat_transfert",
+  "version": 1,
+  "libelle": "Certificat de transfert d'un élève",
+  "variables": [
+    { "nom": "numero", "requise": true },
+    { "nom": "eleve", "requise": true },
+    { "nom": "naissance", "requise": true },
+    { "nom": "matricule", "requise": true },
+    { "nom": "matricule_national", "requise": false },
+    { "nom": "classe", "requise": true },
+    { "nom": "annee", "requise": true },
+    { "nom": "inscrit_le", "requise": true },
+    { "nom": "date_depart", "requise": true },
+    { "nom": "destination", "requise": true },
+    { "nom": "date", "requise": true },
+    { "nom": "qr", "requise": true },
+    { "nom": "reference", "requise": true }
+  ]
+}

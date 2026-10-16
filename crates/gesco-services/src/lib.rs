@@ -1,0 +1,76 @@
+//! Services métier de GESCO : orchestration, transactions, audit, outbox, effets après validation.
+//!
+//! Toute mutation passe par une [`UniteDeTravail`] ouverte sur le [`Noyau`] : mutation, audit et
+//! événement `outbox` sont validés dans la même transaction (R-17), les effets de bord collectés
+//! pendant la transaction sont exécutés après le commit (R-18).
+
+pub mod absences;
+pub mod administration;
+mod alea;
+pub mod annees;
+pub mod archive;
+pub mod authentification;
+pub mod bulletins;
+pub mod caisse;
+pub mod cantine;
+pub mod cles;
+pub mod commandes;
+pub mod comptes;
+pub mod conges;
+pub mod departs;
+pub mod depenses;
+pub mod documents;
+pub mod documents_paie;
+pub mod effets;
+pub mod eleves;
+pub mod emploi_du_temps;
+pub mod encaissement;
+pub mod engagements;
+pub mod enseignants;
+pub mod erreur;
+pub mod espace;
+pub mod evaluations;
+pub mod export;
+pub mod facturation;
+pub mod fiche_etablissement;
+pub mod fin_annee;
+pub mod fournisseurs;
+pub mod frais;
+pub mod frontiere;
+pub mod fusion;
+pub mod garde;
+pub mod heures;
+pub mod horloge;
+pub mod image;
+pub mod import_eleves;
+pub mod initialisation;
+pub mod inscriptions;
+pub mod journal_tresorerie;
+pub mod licence;
+pub mod livres;
+pub mod mise_a_niveau;
+pub mod noyau;
+pub mod numerotation;
+pub mod paie;
+pub mod paie_mois;
+pub mod paiements_personnel;
+pub mod pedagogie;
+pub mod personnel;
+pub mod recouvrement;
+pub mod referentiel;
+pub mod remises;
+pub mod restauration;
+pub mod roles;
+pub mod sauvegarde;
+pub mod secrets;
+pub mod session;
+pub mod tableau;
+pub mod tresorerie;
+
+pub use erreur::{ErreurService, Resultat};
+pub use espace::EspaceDonnees;
+pub use frontiere::{Application, ErreurCommande, OptionsApplication};
+pub use gesco_db::{Contexte, UniteDeTravail};
+pub use horloge::{Horloge, HorlogeDecalee, HorlogeFixe, HorlogeSysteme};
+pub use noyau::{Noyau, OptionsNoyau};
+pub use session::{Jeton, Session};

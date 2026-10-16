@@ -1,0 +1,11 @@
+{
+  "id": "liste_cantine",
+  "version": 1,
+  "libelle": "Liste des abonnés de la cantine du jour",
+  "variables": [
+    { "nom": "date", "requise": true },
+    { "nom": "classes", "requise": true },
+    { "nom": "total", "requise": true },
+    { "nom": "repas_comptes", "requise": true }
+  ]
+}

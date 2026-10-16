@@ -1,0 +1,12 @@
+{
+  "id": "etat_paie",
+  "version": 1,
+  "libelle": "État de paie du mois, à signer pour acquit",
+  "variables": [
+    { "nom": "mois", "requise": true },
+    { "nom": "projet", "requise": true },
+    { "nom": "lignes", "requise": true },
+    { "nom": "totaux", "requise": true },
+    { "nom": "date", "requise": true }
+  ]
+}

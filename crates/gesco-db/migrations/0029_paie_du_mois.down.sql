@@ -1,0 +1,10 @@
+DROP TRIGGER bulletin_paie_fige;
+DROP TRIGGER absence_confirmee_sans_suppression;
+DROP TRIGGER saisie_paie_sans_suppression;
+DROP TRIGGER bulletin_paie_sans_suppression;
+DROP TRIGGER paie_mois_sans_suppression;
+ALTER TABLE heures_vacation DROP COLUMN bulletin_paie_id;
+DROP TABLE absence_confirmee;
+DROP TABLE saisie_paie;
+DROP TABLE bulletin_paie;
+DROP TABLE paie_mois;

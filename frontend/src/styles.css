@@ -1,0 +1,63 @@
+@import "tailwindcss";
+@import "@fontsource/fira-sans/400.css";
+@import "@fontsource/fira-sans/500.css";
+@import "@fontsource/fira-sans/600.css";
+@import "@fontsource/fira-sans-condensed/400.css";
+
+/* Jetons du blueprint §19.6. La palette Tailwind par défaut est retirée : seuls les jetons
+   existent. Tous les couples texte / fond dépassent 6:1 dans les deux thèmes. */
+:root {
+  --fond: #f1f3f7;
+  --surface: #ffffff;
+  --marine: #16233f;
+  --sur-marine: #e3e8f2;
+  --encre: #1e2533;
+  --muet: #56607a;
+  --primaire: #1f4bb8;
+  --rouge: #b4232b;
+  --vert: #2d6a3e;
+  --ocre: #8a5300;
+}
+
+/* Le mode sombre suit le système, sauf choix contraire de l'utilisateur (classe sur <html>). */
+@media (prefers-color-scheme: dark) {
+  :root:not(.clair) {
+    --fond: #0f1828;
+    --surface: #18233a;
+    --marine: #0a1220;
+    --encre: #e3e8f2;
+    --muet: #9aa6bf;
+    --primaire: #8fb0ff;
+    --rouge: #ff8e8a;
+    --vert: #8fd19e;
+    --ocre: #e8b460;
+  }
+}
+
+:root.sombre {
+  --fond: #0f1828;
+  --surface: #18233a;
+  --marine: #0a1220;
+  --encre: #e3e8f2;
+  --muet: #9aa6bf;
+  --primaire: #8fb0ff;
+  --rouge: #ff8e8a;
+  --vert: #8fd19e;
+  --ocre: #e8b460;
+}
+
+@theme {
+  --color-*: initial;
+  --color-fond: var(--fond);
+  --color-surface: var(--surface);
+  --color-marine: var(--marine);
+  --color-sur-marine: var(--sur-marine);
+  --color-encre: var(--encre);
+  --color-muet: var(--muet);
+  --color-primaire: var(--primaire);
+  --color-rouge: var(--rouge);
+  --color-vert: var(--vert);
+  --color-ocre: var(--ocre);
+  --font-sans: "Fira Sans", system-ui, sans-serif;
+  --font-condensee: "Fira Sans Condensed", "Fira Sans", sans-serif;
+}

@@ -1,0 +1,125 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/gesco-core",
+    "crates/gesco-db",
+    "crates/gesco-services",
+    "crates/gesco-docs",
+    "crates/gesco-sync",
+    "crates/gesco-sms",
+    "crates/gesco-app",
+    "crates/gesco-server",
+    "outils/licence",
+]
+# Copie de libsqlite3-sys pour SQLite3 Multiple Ciphers : une dépendance, pas un membre.
+exclude = ["vendor"]
+# gesco-app exige WebView2 / webkit2gtk et se construit sur le poste cible ;
+# la CI Linux construit et teste tout le reste.
+default-members = [
+    "crates/gesco-core",
+    "crates/gesco-db",
+    "crates/gesco-services",
+    "crates/gesco-docs",
+    "crates/gesco-sync",
+    "crates/gesco-sms",
+    "crates/gesco-server",
+    "outils/licence",
+]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.98"
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+gesco-core = { path = "crates/gesco-core" }
+gesco-db = { path = "crates/gesco-db" }
+gesco-services = { path = "crates/gesco-services" }
+gesco-docs = { path = "crates/gesco-docs" }
+
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.21"
+ulid = { version = "3.0.0", features = ["serde"] }
+sha2 = "0.11.0"
+hex = { version = "0.4.3", features = ["serde"] }
+argon2 = { version = "0.6.0", features = ["password-hash", "getrandom"] }
+chacha20poly1305 = "0.11.0"
+zeroize = { version = "1.9.0", features = ["derive"] }
+rand = "0.10.3"
+getrandom = "0.4.3"
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "json"] }
+tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "fs", "sync", "time"] }
+axum = "0.8.9"
+specta = { version = "=2.0.0-rc.25", features = ["derive", "serde_json"] }
+specta-typescript = "=0.0.12"
+specta-serde = "=0.0.12"
+proptest = "1.11.0"
+tempfile = "3.27.0"
+flate2 = "1.1.10"
+base64 = "0.23.1"
+ed25519-dalek = "3.0.0"
+typst = "0.15.1"
+typst-pdf = "0.15.1"
+typst-layout = "0.15.1"
+# QR code des documents (blueprint §25.9) : sortie SVG seule, sans la pile d'images.
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+# Export Excel de toute liste (R-41, SPEC_PHASE_2 §11) : classeur composé en Rust.
+rust_xlsxwriter = "0.99.1"
+# Lecture des classeurs : import des élèves (SPEC_PHASE_2 §10) et relecture des exports en test.
+calamine = "0.36.1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+panic = "deny"
+indexing_slicing = "warn"
+
+[profile.dev]
+debug = "line-tables-only"
+
+# Sans informations de débogage pour les dépendances : chaque exécutable de test en portait près de
+# 300 Mo, et la quarantaine de tests remplissait le disque.
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+# Les dérivations Argon2 (64 Mio) et le chiffrement des archives restent rapides dans les tests.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
+
+[profile.dev.package.chacha20]
+opt-level = 3
+
+[profile.dev.package.poly1305]
+opt-level = 3
+
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+
+# SQLite3 Multiple Ciphers à la place de SQLite : la base est chiffrée (décision du porteur du
+# projet du 10 octobre 2026). Copie de libsqlite3-sys 0.37.0 dont seule la source compilée change.
+[patch.crates-io]
+libsqlite3-sys = { path = "vendor/libsqlite3-sys" }
+
+# SQLite est du C : compilé optimisé même en mode développement (chiffrement et tests).
+[profile.dev.package.libsqlite3-sys]
+opt-level = 3

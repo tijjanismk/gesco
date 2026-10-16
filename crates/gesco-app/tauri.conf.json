@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "GESCO",
+  "version": "1.0.0",
+  "identifier": "ml.gesco.poste",
+  "build": {
+    "frontendDist": "../../frontend/dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": { "script": "pnpm dev", "cwd": "../../frontend" },
+    "beforeBuildCommand": { "script": "pnpm build", "cwd": "../../frontend" }
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "GESCO",
+        "width": 1366,
+        "height": 768,
+        "minWidth": 1024,
+        "minHeight": 640
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; frame-src blob:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "publisher": "GESCO",
+    "shortDescription": "Gestion scolaire hors ligne",
+    "longDescription": "ERP de gestion scolaire pour les établissements maliens, installé sur le poste de l'école et fonctionnant sans connexion.",
+    "windows": {
+      "webviewInstallMode": { "type": "offlineInstaller", "silent": true },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["French"],
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

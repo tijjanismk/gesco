@@ -1,0 +1,12 @@
+{
+  "id": "numero_annule",
+  "version": 1,
+  "libelle": "Trace d'un numéro de document annulé",
+  "variables": [
+    { "nom": "numero", "requise": true },
+    { "nom": "type_document", "requise": true },
+    { "nom": "exercice", "requise": true },
+    { "nom": "motif", "requise": true },
+    { "nom": "date", "requise": true }
+  ]
+}

@@ -1,0 +1,2 @@
+DROP TRIGGER budget_tresorerie_sans_suppression;
+DROP TABLE budget_tresorerie;

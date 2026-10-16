@@ -1,0 +1,17 @@
+[package]
+name = "gesco-licence"
+description = "Outil de l'éditeur : clés de signature et émission des fichiers de licence. Jamais livré aux écoles."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+gesco-core.workspace = true
+getrandom.workspace = true
+hex.workspace = true
+zeroize.workspace = true
+
+[lints]
+workspace = true

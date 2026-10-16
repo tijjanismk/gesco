@@ -1,0 +1,19 @@
+/target
+/frontend/node_modules
+/frontend/dist
+/frontend/e2e/captures
+/frontend/test-results
+*.db
+*.db-wal
+*.db-shm
+/sauvegardes
+.env
+/crates/gesco-app/gen
+/frontend/tsconfig.tsbuildinfo
+/frontend/playwright-report
+/.claude
+# Jamais dans le dépôt : la clé privée de l'éditeur (hors du dossier, par sûreté) et les licences
+# émises, qui vivent dans Documents\gesco-licences.
+*.hex
+*.lic
+registre.csv

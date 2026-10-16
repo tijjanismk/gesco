@@ -1,0 +1,16 @@
+{
+  "regle": "R-03 — gesco-core n'effectue aucune entrée/sortie. Seules les crates de types, de sérialisation, d'erreurs et de calcul pur sont admises.",
+  "autorisees": [
+    "serde",
+    "serde_json",
+    "thiserror",
+    "ulid",
+    "sha2",
+    "hex",
+    "argon2",
+    "chacha20poly1305",
+    "zeroize",
+    "ed25519-dalek",
+    "specta"
+  ]
+}

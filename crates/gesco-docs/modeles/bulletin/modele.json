@@ -1,0 +1,9 @@
+{
+  "id": "bulletin",
+  "version": 2,
+  "libelle": "Bulletins de notes d'une classe",
+  "variables": [
+    { "nom": "bulletins", "requise": true },
+    { "nom": "afficher", "requise": true }
+  ]
+}
