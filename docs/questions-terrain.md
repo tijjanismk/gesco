@@ -627,3 +627,39 @@ Comment importer les relevés d'Orange Money, Wave, Moov ou de la banque ?
 *Recommandation* : dans un fichier signé, rangé avec la sauvegarde de clôture et copié sur ses destinations ; le journal reste aussi dans la base, et GESCO vérifie la signature d'une archive.
 
 *Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue.
+
+## Phase 5 — SMS aux familles, remises, guichet
+
+Posées le 17 octobre 2026, à l'ouverture de la version 2, après la validation de la phase 8 et de la version 1.1. Déjà décidés au blueprint : le canal abstrait et sa file persistante (§25.3), la translittération et les contraintes du modem (§25.3bis), les données exposées par SMS (§8.5bis), le consentement par type de message et les sanctions jamais envoyées par automate (§25.6).
+
+### T-74 — Matériel d'envoi
+
+Pour envoyer les SMS, quel matériel l'école branchera-t-elle sur le poste ?
+
+*Recommandation* : une clé modem GSM USB qui expose un port série en commandes AT, avec une puce prépayée de l'école : coût marginal, sans internet. N'en essayer qu'une avant d'en acheter plusieurs ; la passerelle d'un opérateur reste un repli possible plus tard.
+
+*Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue — clé modem GSM.
+
+### T-75 — Messages envoyés d'eux-mêmes
+
+Quels messages GESCO envoie-t-il de lui-même ?
+
+*Recommandation* : bulletin à retirer, relance d'impayé, absence du jour. Les convocations et les sanctions ne partent jamais seules : GESCO prépare le message, quelqu'un le relit et décide de l'envoyer.
+
+*Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue — bulletin à retirer, relance d'impayé, absence du jour.
+
+### T-76 — Langue des SMS
+
+En quelle langue partent les SMS ?
+
+*Recommandation* : français sans accents (alphabet GSM-7) : 160 caractères par SMS au lieu de 70, donc moitié moins de crédit. Une autre langue, le bambara par exemple, pourra s'ajouter par un autre catalogue.
+
+*Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue.
+
+### T-77 — Consultation par SMS
+
+Les parents pourront-ils interroger GESCO par SMS avec un code confidentiel (« SOLDE code », « ABS code », « NOTE code ») ?
+
+*Recommandation* : oui, en fin de phase 5, une fois l'envoi essayé avec une vraie clé ; code propre à chaque responsable, croisé avec son numéro, quota par jour, chaque consultation au journal.
+
+*Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue.
