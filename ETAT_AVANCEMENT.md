@@ -4,19 +4,21 @@ Phase courante : **8 — dépenses, trésorerie, emploi du temps, cantine** (`SP
 
 ## Version 1.1
 
+**Version validée par le porteur du projet le 17 octobre 2026, avec la phase 8.**
+
 Spécification `SPEC_VERSION_1_1.md` v1.0, engagée le 17 octobre 2026 : les étapes restées non faites des phases construites, après les réponses du porteur du projet à T-70 à T-73. Les phases 5, 9 et 12 iront dans la version 2 ; la phase 11 attend une école qui la demande. Branche `developpement`.
 
 | Étape | Contenu | État | Validée le |
 |---|---|---|---|
-| 1 | Autres recettes | ✔ | à valider |
-| 2 | Photo à la webcam | ✔ | à valider |
-| 3 | Discipline : dossier de l'élève, avertissement et blâme sur le bulletin | ✔ | à valider |
-| 4 | Heures des vacataires d'après l'emploi du temps | ✔ | à valider |
-| 5 | Archive signée du journal d'audit à la clôture | ✔ | à valider |
-| 6 | Absences par séance, au choix de l'école | ✔ | à valider |
-| 7 | Import des relevés des comptes | ✔ | à valider |
-| 8 | Import du personnel | ✔ | à valider |
-| 9 | Validation, version 1.1.0, installeur | ✔ | à valider |
+| 1 | Autres recettes | ✅ | 2026-10-17 |
+| 2 | Photo à la webcam | ✅ | 2026-10-17 |
+| 3 | Discipline : dossier de l'élève, avertissement et blâme sur le bulletin | ✅ | 2026-10-17 |
+| 4 | Heures des vacataires d'après l'emploi du temps | ✅ | 2026-10-17 |
+| 5 | Archive signée du journal d'audit à la clôture | ✅ | 2026-10-17 |
+| 6 | Absences par séance, au choix de l'école | ✅ | 2026-10-17 |
+| 7 | Import des relevés des comptes | ✅ | 2026-10-17 |
+| 8 | Import du personnel | ✅ | 2026-10-17 |
+| 9 | Validation, version 1.1.0, installeur | ✅ | 2026-10-17 |
 
 **Étape 9 (17 octobre 2026)** : version 1.1.0. Numéro de version 1.1.0 ; notes de version `docs/notes-de-version-1.1.0.md` ; guide d'installation mis à jour ; branche `1.1.x` pour les corrections (`docs/versions.md`). Totaux : 412 tests Rust réussis (3 ignorés) ; 120 vitest ; clippy, fmt, tsc et ESLint verts. Playwright : 65 scénarios, captures jusqu'à 118. Installeur `GESCO_1.1.0_x64-setup.exe` (224,5 Mo, SHA-256 `939D5113…DBD1`), copié avec le guide et les notes de version dans `Documents\GESCO-1.1.0`. École d'essai refaite en 1.1.0 dans `Documents\gesco-ecole-essai`. Corrigé en route dans les scénarios : le relevé par séance se fait en 7e B, le 14 octobre (en 7e A, la seule élève inscrite ce jour-là est exclue) ; la caméra simulée a quinze secondes pour s'allumer.
 
@@ -38,18 +40,20 @@ Spécification `SPEC_VERSION_1_1.md` v1.0, engagée le 17 octobre 2026 : les ét
 
 ## Phase 8
 
+**Phase validée par le porteur du projet le 17 octobre 2026.**
+
 Spécification `SPEC_PHASE_8.md` v1.0, engagée le 16 octobre 2026 : accord au-dessus d'un seuil (T-61), caisse, banque et mobile money (T-62), trésorerie et budget sans SYSCOHADA (T-63), emploi du temps à la main (T-64), journée de l'école (T-38), cantine activable (T-47).
 
 | Étape | Contenu | État | Validée le |
 |---|---|---|---|
-| 1 | Catégories, comptes de trésorerie, réglages | ✔ | à valider |
-| 2 | Dépenses : saisie, accord au seuil, paiement, annulation, pièce | ✔ | à valider |
-| 3 | Fournisseurs et leurs factures | ✔ | à valider |
-| 4 | Transferts, soldes, rapprochement ; dépenses nées des salaires et des avances | ✔ | à valider |
-| 5 | Journal de trésorerie, budget, export Excel | ✔ | à valider |
-| 6 | Journée de l'école et emploi du temps, impressions | ✔ | à valider |
-| 7 | Cantine activable | ✔ | à valider |
-| 8 | Droits et rôles en version 9, tableau de bord, navigation, captures, école d'essai, validation | ✔ | à valider |
+| 1 | Catégories, comptes de trésorerie, réglages | ✅ | 2026-10-17 |
+| 2 | Dépenses : saisie, accord au seuil, paiement, annulation, pièce | ✅ | 2026-10-17 |
+| 3 | Fournisseurs et leurs factures | ✅ | 2026-10-17 |
+| 4 | Transferts, soldes, rapprochement ; dépenses nées des salaires et des avances | ✅ | 2026-10-17 |
+| 5 | Journal de trésorerie, budget, export Excel | ✅ | 2026-10-17 |
+| 6 | Journée de l'école et emploi du temps, impressions | ✅ | 2026-10-17 |
+| 7 | Cantine activable | ✅ | 2026-10-17 |
+| 8 | Droits et rôles en version 9, tableau de bord, navigation, captures, école d'essai, validation | ✅ | 2026-10-17 |
 
 **Étape 8 (16 octobre 2026)** : rôles en version 9, tableau de bord, version 1.0.0. Composition des rôles livrés 9 : le Directeur reçoit la saisie des dépenses, la trésorerie, l'emploi du temps et la cantine ; le Comptable la trésorerie ; le Caissier la saisie et le paiement des dépenses (sous le seuil, le comptable ou le caissier paie) ; le Directeur des études l'emploi du temps ; le Secrétaire la cantine ; la Consultation seule la lecture de la trésorerie ; une base mise à niveau les reçoit à l'ouverture. Tableau de bord : bloc « Trésorerie » (solde de chaque compte, dépenses payées du mois, dépenses à accorder, dû aux fournisseurs et factures échues, budget) ; trois avertissements (dépenses à accorder, factures de fournisseurs échues, budget dépassé). Navigation : Emploi du temps dans « Scolarité » ; Fournisseurs, Comptes et soldes, Journal et budget, Cantine dans « Finance ». Version 1.0.0 ; notes de version `docs/notes-de-version-1.0.0.md` ; guide d'installation mis à jour. Tests : montée de la composition 8 à 9, avertissement des dépenses à accorder ; capture 111. Corrigé en route : l'événement du transfert s'appelle `TransfertTresorerieEnregistre` (un participe accordé, comme les autres). Totaux de la version 1.0.0 : 401 tests Rust réussis (3 ignorés) ; 116 vitest ; clippy, fmt, tsc et ESLint verts. Playwright : 58 scénarios, captures jusqu'à 111. La suite complète se lance avec quatre tâches (`-j 4`) : à huit, la mémoire du poste ne suffit plus.
 
