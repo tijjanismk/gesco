@@ -1,0 +1,4 @@
+DROP TRIGGER consentement_message_sans_suppression;
+DROP TRIGGER joignabilite_numero_sans_suppression;
+DROP TABLE consentement_message;
+DROP TABLE joignabilite_numero;

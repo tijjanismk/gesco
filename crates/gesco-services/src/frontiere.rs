@@ -145,6 +145,10 @@ use crate::livres::{
     DemandeCompteDuMode, DemandeLivre, DemandePointage, DemandeTransfertCompte, EtatComptes,
     LivreCompte, ServiceLivres,
 };
+use crate::messages::{
+    DemandeConsentement, DemandeMessagesResponsable, DemandeRemiseALEssai, MessagesResponsable,
+    ServiceMessages,
+};
 use crate::noyau::{Noyau, OptionsNoyau};
 use crate::paie::{
     DemandeAttribution, DemandeElement, DemandeVersion, ElementsPaie, ReglagesPaie, ServicePaie,
@@ -1028,6 +1032,9 @@ contrat! {
     recette_annuler(DemandeAnnulationRecette) -> RecettesDuMois;
     discipline_registre_lire(()) -> RegistreDiscipline;
     discipline_dossier_lire(DemandeDossierDiscipline) -> DossierDiscipline;
+    responsable_messages_lire(DemandeMessagesResponsable) -> MessagesResponsable;
+    responsable_consentement_definir(DemandeConsentement) -> MessagesResponsable;
+    numero_remettre_a_l_essai(DemandeRemiseALEssai) -> MessagesResponsable;
     sanction_noter(DemandeSanction) -> DossierDiscipline;
     sanction_annuler(DemandeAnnulationSanction) -> DossierDiscipline;
     journal_archive_verifier(DemandeVerificationArchive) -> VerificationArchive;
@@ -4418,6 +4425,36 @@ impl Application {
         let ouverte = appel.ouverte()?;
         appel.session()?;
         crate::archive_journal::verifier_fichier(&ouverte.cle, Path::new(&entree.chemin))
+    }
+
+    async fn responsable_messages_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeMessagesResponsable,
+    ) -> Resultat<MessagesResponsable> {
+        ServiceMessages::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn responsable_consentement_definir(
+        &self,
+        appel: Appel,
+        entree: DemandeConsentement,
+    ) -> Resultat<MessagesResponsable> {
+        ServiceMessages::nouveau(&appel.ouverte()?.noyau)
+            .definir_consentement(appel.session()?, &entree)
+            .await
+    }
+
+    async fn numero_remettre_a_l_essai(
+        &self,
+        appel: Appel,
+        entree: DemandeRemiseALEssai,
+    ) -> Resultat<MessagesResponsable> {
+        ServiceMessages::nouveau(&appel.ouverte()?.noyau)
+            .remettre_a_l_essai(appel.session()?, &entree)
+            .await
     }
 
     async fn discipline_registre_lire(

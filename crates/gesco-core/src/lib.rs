@@ -6,6 +6,7 @@
 pub mod commun;
 pub mod core;
 pub mod finance;
+pub mod notification;
 pub mod paie;
 pub mod pedagogie;
 pub mod rh;

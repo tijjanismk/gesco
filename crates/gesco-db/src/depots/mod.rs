@@ -25,6 +25,7 @@ pub mod fournisseurs;
 pub mod inscriptions;
 pub mod licence;
 pub mod livres;
+pub mod messages;
 pub mod outbox;
 pub mod paie;
 pub mod parametre;

@@ -2315,8 +2315,32 @@ test("version 1.1 : une liste du personnel s'importe après vérification ; la p
   await expect(page.getByRole("row").filter({ hasText: "Touré" }).getByText(texte("import_personnel.categorie_inconnue"))).toBeVisible();
   await capturer("118-import-du-personnel");
   await page.getByRole("button", { name: "Importer 2 personne(s)" }).click();
-  await expect(page.getByText("2 fiche(s) créée(s) ; 2 ligne(s) laissée(s) de côté.")).toBeVisible();
+  // L'import commence par une sauvegarde : il lui faut plus que les cinq secondes ordinaires.
+  await expect(page.getByText("2 fiche(s) créée(s) ; 2 ligne(s) laissée(s) de côté.")).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: texte("import.fermer") }).click();
   await expect(page.getByRole("cell", { name: "Mariam Dembélé" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "Seydou Konaté" })).toBeVisible();
+});
+
+test("phase 5 : la mère d'Awa ne veut plus de relances, elle garde l'avis de bulletin ; les réglages des SMS", async () => {
+  await page.keyboard.press("Control+k");
+  const recherche = page.getByRole("dialog", { name: texte("recherche.titre") });
+  await recherche.getByRole("searchbox").fill("Awa Traoré");
+  await expect(recherche.getByText("Awa Traoré").first()).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Awa Traoré" })).toBeVisible();
+  const mere = page.locator("aside li").filter({ hasText: "Mariam Coulibaly" });
+  const relances = mere.getByLabel(texte("messages.type.impaye"));
+  await expect(relances).toBeChecked();
+  await relances.uncheck();
+  await expect(relances).not.toBeChecked();
+  await expect(mere.getByLabel(texte("messages.type.bulletin"))).toBeChecked();
+  await capturer("119-messages-du-responsable");
+
+  await allerA("nav.parametres");
+  const section = page.getByRole("heading", { name: texte("parametres.theme.messages") });
+  await expect(section).toBeVisible();
+  await expect(page.locator('[id="param-sms.fenetre_envoi"]')).toHaveValue("7-20");
+  await section.scrollIntoViewIfNeeded();
+  await capturer("120-reglages-des-sms");
 });

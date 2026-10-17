@@ -411,6 +411,13 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("discipline_dossier_lire", Permission::STUDENTS_READ),
     Commande::permise("sanction_noter", Permission::SANCTIONS_CREATE),
     Commande::permise("sanction_annuler", Permission::SANCTIONS_CANCEL),
+    // Numéros et consentement des responsables (SPEC_PHASE_5 §2).
+    Commande::permise("responsable_messages_lire", Permission::STUDENTS_READ),
+    Commande::permise(
+        "responsable_consentement_definir",
+        Permission::STUDENTS_UPDATE,
+    ),
+    Commande::permise("numero_remettre_a_l_essai", Permission::STUDENTS_UPDATE),
     // Archive du journal d'audit (blueprint §12.4) : elle s'écrit à la clôture ; on la vérifie.
     Commande::permise("journal_archive_verifier", Permission::CORE_AUDIT_READ),
     // Absences par séance (SPEC_VERSION_1_1 §1, T-71), au choix de l'école.

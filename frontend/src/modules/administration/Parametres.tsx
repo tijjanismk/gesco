@@ -19,8 +19,32 @@ const THEMES: readonly { titre: Cle; prefixes: readonly string[] }[] = [
   { titre: "parametres.theme.sauvegarde", prefixes: ["sauvegarde."] },
   { titre: "parametres.theme.finance", prefixes: ["montant.", "facturation."] },
   { titre: "parametres.theme.personnel", prefixes: ["conge."] },
+  { titre: "parametres.theme.messages", prefixes: ["sms."] },
   { titre: "parametres.theme.documents", prefixes: ["numerotation.", "document.format."] },
 ];
+
+/** Ordre de lecture des réglages des SMS : l'envoi, puis chaque message suivi de ses délais.
+ *  Les autres réglages gardent l'ordre de leur clé. */
+const ORDRE = [
+  "sms.signature",
+  "sms.fenetre_envoi",
+  "sms.debit_par_minute",
+  "sms.plafond_mensuel",
+  "sms.auto_bulletin",
+  "sms.auto_impaye",
+  "sms.impaye_delai_jours",
+  "sms.impaye_intervalle_jours",
+  "sms.impaye_nombre_max",
+  "sms.impaye_montant_min",
+  "sms.auto_absence",
+  "sms.absence_delai_grace_min",
+  "sms.sanction_preparer",
+];
+
+function rang(cle: string): number {
+  const i = ORDRE.indexOf(cle);
+  return i === -1 ? ORDRE.length : i;
+}
 
 function theme(cle: string): Cle {
   return THEMES.find((th) => th.prefixes.some((p) => cle.startsWith(p)))?.titre ?? "parametres.theme.autres";
@@ -37,7 +61,7 @@ export function Parametres() {
       <MessageErreur erreur={parametres.error} />
       {titres.map((titre) => {
         // Les réglages du bulletin, par cycle, ont leur bloc à eux.
-        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && theme(p.cle) === titre);
+        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
         return lignes.length === 0 ? null : (
           <Section key={titre} titre={t(titre)}>
             {lignes.map((p) => (

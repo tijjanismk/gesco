@@ -6,7 +6,7 @@ import { Bouton } from "../../composants/Bouton";
 import { CaseACocher, Champ, Formulaire, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, t } from "../../i18n";
-import type { FicheEleve, Lien, Qualites, ResponsableDeLEleve, SaisieResponsable, Sexe } from "../../types/gesco";
+import type { EtatJoignabilite, FicheEleve, Lien, MessagesResponsable, Qualites, ResponsableDeLEleve, SaisieResponsable, Sexe, TypeMessage } from "../../types/gesco";
 import { ChampsIdentite, identiteVide, saisieDepuis, telephoneLisible } from "./Identite";
 
 const LIENS: Record<Lien, Cle> = {
@@ -78,7 +78,7 @@ export function ResponsablesEleve({ fiche, modifiable }: { fiche: FicheEleve; mo
                 <div className="flex-1 text-sm">
                   <p className="font-medium text-encre">{`${r.identite.prenoms} ${r.identite.nom}`}</p>
                   <p className="text-muet">{resume(r.qualites)}</p>
-                  <p className="font-condensee text-encre">{r.identite.telephones.map(telephoneLisible).join(" · ")}</p>
+                  <MessagesDuResponsable responsableId={r.responsable.id} telephones={r.identite.telephones} recoitNotifications={r.qualites.recoit_notifications} />
                 </div>
                 {modifiable ? <Bouton variante="secondaire" onClick={() => setEdite(r.responsable.id)}>{t("responsables.modifier")}</Bouton> : null}
               </div>
@@ -88,6 +88,87 @@ export function ResponsablesEleve({ fiche, modifiable }: { fiche: FicheEleve; mo
       </ul>
       {modifiable ? <AjoutResponsable fiche={fiche} /> : null}
     </Section>
+  );
+}
+
+const TYPES_MESSAGE: Record<TypeMessage, Cle> = {
+  bulletin: "messages.type.bulletin",
+  impaye: "messages.type.impaye",
+  absence: "messages.type.absence",
+  convocation: "messages.type.convocation",
+};
+
+/** Un numéro pas encore vérifié n'affiche rien : c'est l'état de tous avant le premier envoi. */
+const ETATS: Partial<Record<EtatJoignabilite, { libelle: Cle; couleur: string }>> = {
+  joignable: { libelle: "messages.etat.joignable", couleur: "text-vert" },
+  injoignable: { libelle: "messages.etat.injoignable", couleur: "text-rouge" },
+  invalide: { libelle: "messages.etat.invalide", couleur: "text-rouge" },
+};
+
+/** Les numéros d'un responsable avec leur état, et les types de messages qu'il accepte. Un refus
+ *  vaut pour tous ses enfants ; un numéro mort se remet à l'essai une fois corrigé. */
+function MessagesDuResponsable({ responsableId, telephones, recoitNotifications }: { responsableId: string; telephones: string[]; recoitNotifications: boolean }) {
+  const client = useQueryClient();
+  const cle = ["responsable-messages", responsableId, telephones.join(",")];
+  const messages = useQuery({ queryKey: cle, queryFn: () => appeler("responsable_messages_lire", { responsable_id: responsableId }) });
+  const poser = (m: MessagesResponsable) => client.setQueryData(cle, m);
+  const consentement = useMutation({
+    mutationFn: ({ type, accepte }: { type: TypeMessage; accepte: boolean }) =>
+      appeler("responsable_consentement_definir", { responsable_id: responsableId, type_message: type, accepte }),
+    // La case suit le clic aussitôt ; un refus du noyau la remet comme elle était.
+    onMutate: ({ type, accepte }) => {
+      const avant = client.getQueryData<MessagesResponsable>(cle);
+      if (avant !== undefined) {
+        poser({ ...avant, consentements: avant.consentements.map((c) => (c.type_message === type ? { ...c, accepte } : c)) });
+      }
+      return avant;
+    },
+    onError: (_erreur, _variables, avant) => {
+      if (avant !== undefined) poser(avant);
+    },
+    onSuccess: poser,
+  });
+  const essai = useMutation({
+    mutationFn: (numero: string) => appeler("numero_remettre_a_l_essai", { responsable_id: responsableId, numero }),
+    onSuccess: poser,
+  });
+  const m = messages.data;
+  const etat = (numero: string) => m?.numeros.find((n) => n.numero === numero)?.etat;
+  return (
+    <>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1">
+        {telephones.map((numero) => {
+          const e = etat(numero);
+          return (
+            <li key={numero} className="flex flex-wrap items-center gap-2">
+              <span className="font-condensee text-encre">{telephoneLisible(numero)}</span>
+              {e === undefined || ETATS[e] === undefined ? null : <span className={ETATS[e].couleur}>{t(ETATS[e].libelle)}</span>}
+              {m?.modifiable === true && (e === "injoignable" || e === "invalide") ? (
+                <Bouton variante="secondaire" onClick={() => essai.mutate(numero)} disabled={essai.isPending}>{t("messages.remettre_a_l_essai")}</Bouton>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      {m === undefined ? null : recoitNotifications ? (
+        <fieldset className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+          <legend className="text-muet">{t("messages.recoit")}</legend>
+          {m.consentements.map((c) => (
+            <CaseACocher
+              key={c.type_message}
+              id={`messages-${responsableId}-${c.type_message}`}
+              libelle={t(TYPES_MESSAGE[c.type_message])}
+              coche={c.accepte}
+              desactive={!m.modifiable}
+              surChangement={(accepte) => consentement.mutate({ type: c.type_message, accepte })}
+            />
+          ))}
+        </fieldset>
+      ) : (
+        <p className="text-muet">{t("messages.ne_recoit_rien")}</p>
+      )}
+      <MessageErreur erreur={messages.error ?? consentement.error ?? essai.error} />
+    </>
   );
 }
 

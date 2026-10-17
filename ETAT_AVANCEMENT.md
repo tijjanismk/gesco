@@ -1,16 +1,16 @@
 # État d'avancement
 
-Phase courante : **5 — SMS aux familles, remises, guichet** (`SPEC_PHASE_5.md` v1.0), première phase de la version 2, proposée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 ; elle attend le « implémente ». La phase 8 et la version 1.1 ont été validées par le porteur du projet le 17 octobre 2026.
+Phase courante : **5 — SMS aux familles, remises, guichet** (`SPEC_PHASE_5.md` v1.1), première phase de la version 2, engagée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 ; étape 1 faite. La phase 8 et la version 1.1 ont été validées par le porteur du projet le 17 octobre 2026.
 
 Historique : la phase 8 (`SPEC_PHASE_8.md` v1.2) a été engagée le 16 octobre 2026 après les réponses du porteur du projet à T-61 à T-64 ; ses huit étapes ont été achevées le 16 octobre 2026. **Version 1.0.0** prête : installeur, notes de version, dépôt git local avec l'étiquette `v1.0.0`. Les phases **7 — paie** et **10 — clôture de l'année, installeur, licences** ont été achevées et **validées par le porteur du projet le 16 octobre 2026** ; installeur 0.11.0 remis pour un poste d'essai, avec cent licences libres numérotées. Après la phase 8, une **version 1.0.0** sort (« V1 ») : elle ne reçoit ensuite que des corrections (1.0.x), sur une ligne à part, pendant que le développement continue (phases 5 et 9, puis 11 et 12) ; un historique des versions du code est mis en place à cette occasion. La phase 6 a été validée le 15 octobre 2026, la phase 4 (jalon commercial) le 14 octobre 2026 ; les phases 0.5, 1, 2 et 3 les 10, 7, 9 et 10 octobre 2026. Une étape est validée quand ses tests passent et que ses captures ont été montrées.
 
 ## Phase 5
 
-Spécification `SPEC_PHASE_5.md` v1.0, proposée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 : clé modem GSM USB et puce prépayée (T-74) ; bulletin à retirer, relance d'impayé et absence du jour envoyés d'eux-mêmes, convocations et sanctions toujours décidées par une personne (T-75) ; français sans accents en GSM-7 (T-76) ; consultation par SMS entrant avec un code confidentiel en fin de phase (T-77). Branche `developpement`. Attendu du porteur du projet : le « implémente », une clé modem et une puce pour l'essai réel de l'étape 3, le code USSD du solde de l'opérateur.
+Spécification `SPEC_PHASE_5.md` v1.1, engagée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 : clé modem GSM USB et puce prépayée (T-74) ; bulletin à retirer, relance d'impayé et absence du jour envoyés d'eux-mêmes, convocations et sanctions toujours décidées par une personne (T-75) ; français sans accents en GSM-7 (T-76) ; consultation par SMS entrant avec un code confidentiel en fin de phase (T-77). Branche `developpement`. Attendu du porteur du projet : une clé modem et une puce pour l'essai réel de l'étape 3, le code USSD du solde de l'opérateur.
 
 | Étape | Contenu | État | Validée le |
 |---|---|---|---|
-| 1 | Numéros et consentement : joignabilité, consentement par type, réglages SMS | ☐ | |
+| 1 | Numéros et consentement : joignabilité, consentement par type, réglages SMS | ✅ | 2026-10-17 |
 | 2 | Moteur de notification : file persistante, GSM-7, modèles, canal simulé, écran « Messages » | ☐ | |
 | 3 | Canal modem GSM : port série, envoi, accusés, crédit par USSD, arrêt et alerte | ☐ | |
 | 4 | Messages automatiques : bulletin, impayé, absence du jour ; messages à décider | ☐ | |
@@ -18,6 +18,8 @@ Spécification `SPEC_PHASE_5.md` v1.0, proposée le 17 octobre 2026 après les r
 | 6 | Écran guichet | ☐ | |
 | 7 | Code d'accès et consultation par SMS entrant | ☐ | |
 | 8 | Droits et rôles en version 10, tableau de bord, navigation, captures, école d'essai, validation | ☐ | |
+
+**Étape 1 (17 octobre 2026)** : numéros et consentement. `gesco-core/src/notification/` : types de messages (bulletin, impayé, absence, convocation) et consentement (une ligne absente vaut « accepté ») ; joignabilité d'un numéro (non vérifié, joignable, injoignable au troisième échec d'affilée, invalide sur refus du réseau, remise à l'essai) ; numéro destinataire : le premier de la fiche qui peut recevoir ; réglages des SMS et leurs bornes (`reglages.rs`). Migration 0042 : `joignabilite_numero` (par numéro, partagée par qui partage le téléphone), `consentement_message` (par responsable et par type). Treize réglages `sms.*` livrés : signature, heures d'envoi `7-20`, six SMS par minute, plafond, les trois messages automatiques actifs, délais des relances (7 jours, puis tous les 15, trois au plus), délai de grâce de l'avis d'absence (30 minutes), avis de sanction préparé (éteint) ; ils paraissent dans Paramètres, section « Messages aux familles ». Service `messages.rs` : commandes `responsable_messages_lire` (`students:read`), `responsable_consentement_definir` et `numero_remettre_a_l_essai` (`students:update`). Événements `ConsentementModifie`, `JoignabiliteReinitialisee`. Fiche de l'élève : chaque numéro d'un responsable avec son état (rien tant qu'il n'est pas vérifié), et les messages qu'il reçoit, à cocher. Tests : unitaires (`notification`) et `tests/messages.rs` ; captures 119 et 120. Totaux : 424 tests Rust réussis (3 ignorés) ; 120 vitest ; clippy, fmt, tsc et ESLint verts ; Playwright : 66 scénarios. Corrigé en route : le scénario d'import du personnel attend jusqu'à 30 secondes la fin de l'import, qui commence par une sauvegarde (le disque presque plein la ralentit) ; la case d'un consentement suit le clic aussitôt et revient si l'enregistrement échoue.
 
 ## Version 1.1
 

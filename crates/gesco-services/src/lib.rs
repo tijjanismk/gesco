@@ -52,6 +52,7 @@ pub mod inscriptions;
 pub mod journal_tresorerie;
 pub mod licence;
 pub mod livres;
+pub mod messages;
 pub mod mise_a_niveau;
 pub mod noyau;
 pub mod numerotation;

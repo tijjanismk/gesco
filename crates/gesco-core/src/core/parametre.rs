@@ -34,6 +34,10 @@ pub struct Parametre {
 /// sous le plancher du produit, le verrouillage reste entre 3 et 10 échecs, le matricule garde
 /// une forme lisible.
 pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
+    // SPEC_PHASE_5 §3 et §5 : débit, heures d'envoi, plafond et délais des SMS.
+    if let Some(hors) = crate::notification::reglages::hors_bornes(cle, valeur) {
+        return hors;
+    }
     match (cle, valeur) {
         ("mot_de_passe.longueur_min", ValeurParametre::Entier(n)) => !(8..=64).contains(n),
         ("connexion.echecs_avant_verrouillage", ValeurParametre::Entier(n)) => {
@@ -237,6 +241,39 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         p(
             "matricule.remise_annuelle",
             ValeurParametre::Booleen(true),
+            true,
+        ),
+        // SPEC_PHASE_5 §3 : signature vide, le nom de l'école ; six SMS par minute, de 7 h à
+        // 20 h, sans plafond.
+        p("sms.signature", ValeurParametre::Texte(String::new()), true),
+        p(
+            "sms.fenetre_envoi",
+            ValeurParametre::Texte(crate::notification::reglages::FENETRE_DEFAUT.to_owned()),
+            true,
+        ),
+        p("sms.debit_par_minute", ValeurParametre::Entier(6), true),
+        p("sms.plafond_mensuel", ValeurParametre::Entier(0), true),
+        // T-75 : bulletin à retirer, relance d'impayé, absence du jour partent d'eux-mêmes ; un
+        // avis de sanction ne se prépare que si l'école le veut, et ne part jamais seul.
+        p("sms.auto_bulletin", ValeurParametre::Booleen(true), true),
+        p("sms.auto_impaye", ValeurParametre::Booleen(true), true),
+        p("sms.auto_absence", ValeurParametre::Booleen(true), true),
+        p("sms.impaye_delai_jours", ValeurParametre::Entier(7), true),
+        p(
+            "sms.impaye_intervalle_jours",
+            ValeurParametre::Entier(15),
+            true,
+        ),
+        p("sms.impaye_nombre_max", ValeurParametre::Entier(3), true),
+        p("sms.impaye_montant_min", ValeurParametre::Entier(0), true),
+        p(
+            "sms.absence_delai_grace_min",
+            ValeurParametre::Entier(30),
+            true,
+        ),
+        p(
+            "sms.sanction_preparer",
+            ValeurParametre::Booleen(false),
             true,
         ),
     ];

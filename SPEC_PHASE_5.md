@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 5 — moteur de notification, canal SMS par clé modem GSM, relances d'impayés, avis de bulletin, absences du jour, remise des documents et convocations, écran guichet, consultation par SMS entrant
-**Statut** : v1.0 — proposée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 (toutes les recommandations retenues) ; attend le « implémente »
+**Statut** : v1.1 — engagée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 (toutes les recommandations retenues)
 **Documents parents** : `PROJECT_BLUEPRINT.md` (§3.10, §8.5bis, §19.5, §22.2, §25.3 à §25.8), `SPEC_PHASE_2.md` (responsables, téléphones), `SPEC_PHASE_3.md` (échéances, impayés), `SPEC_PHASE_4.md` (absences, bulletins publiés), `SPEC_VERSION_1_1.md` (discipline), `docs/questions-terrain.md` (T-74 à T-77)
 **Date** : 17 octobre 2026
 
@@ -86,7 +86,7 @@ Modèles proposés :
 - absence : « {ecole} : {eleve} ({classe}) etait absent(e) le {date}, {demi_journee}, sans justification. »
 - convocation : « {ecole} : vous etes convoque(e) le {date} a {heure} au sujet de {eleve}. Motif : {motif}. »
 
-**File** — persistante dans la base, traitée en tâche de fond pendant que GESCO est ouvert sur le poste où la clé est branchée ; l'utilisateur n'attend jamais. Réglages : débit (`sms.debit_par_minute`, 6 par défaut), fenêtre d'envoi (`sms.heure_debut` 7 h, `sms.heure_fin` 20 h ; rien la nuit), plafond mensuel (`sms.plafond_mensuel`, 0 : sans plafond). Réessai d'un échec réseau trois fois, espacé. Expiration : avis d'absence à la fin du jour, relance après 7 jours, avis de bulletin après 15 jours.
+**File** — persistante dans la base, traitée en tâche de fond pendant que GESCO est ouvert sur le poste où la clé est branchée ; l'utilisateur n'attend jamais. Réglages : débit (`sms.debit_par_minute`, 6 par défaut), heures d'envoi (`sms.fenetre_envoi`, « 7-20 » : de 7 h à 20 h ; rien la nuit), plafond mensuel (`sms.plafond_mensuel`, 0 : sans plafond). Réessai d'un échec réseau trois fois, espacé. Expiration : avis d'absence à la fin du jour, relance après 7 jours, avis de bulletin après 15 jours.
 
 **Écran « Messages »** (groupe Communication) : à décider, en attente, envoyés, échoués, avec filtres ; état de la clé, crédit lu, consommation du mois ; un message à décider se relit, se corrige, s'envoie ou s'annule ; un message échoué se renvoie.
 
@@ -102,15 +102,15 @@ Modèles proposés :
 
 ## 5. Messages automatiques
 
-Chacun s'active dans les réglages (`sms.auto.bulletin`, `sms.auto.impaye`, `sms.auto.absence`), tous trois actifs par défaut une fois la clé réglée ; rien ne part tant qu'aucun canal n'est réglé.
+Chacun s'active dans les réglages (`sms.auto_bulletin`, `sms.auto_impaye`, `sms.auto_absence`), tous trois actifs par défaut une fois la clé réglée ; rien ne part tant qu'aucun canal n'est réglé.
 
 **Bulletin à retirer** — à la publication d'un bulletin. Pas de rappel automatique : les bulletins non retirés à J+7 forment une liste (§6) d'où l'on peut renvoyer l'avis.
 
-**Relance d'impayé** — chaque jour, à l'ouverture de GESCO : une échéance non soldée depuis `sms.impaye.delai_jours` (7 par défaut) met en file une relance au payeur, pour le total échu de l'élève (une relance par élève, pas par échéance) ; une nouvelle relance après `sms.impaye.intervalle_jours` (15), au plus `sms.impaye.nombre_max` (3) par échéance ; aucune relance pour un élève parti ou radié, ni pour un total sous `sms.impaye.montant_min` (0). Un versement qui solde avant l'envoi annule la relance en attente.
+**Relance d'impayé** — chaque jour, à l'ouverture de GESCO : une échéance non soldée depuis `sms.impaye_delai_jours` (7 par défaut) met en file une relance au payeur, pour le total échu de l'élève (une relance par élève, pas par échéance) ; une nouvelle relance après `sms.impaye_intervalle_jours` (15), au plus `sms.impaye_nombre_max` (3) par échéance ; aucune relance pour un élève parti ou radié, ni pour un total sous `sms.impaye_montant_min` (0). Un versement qui solde avant l'envoi annule la relance en attente.
 
-**Absence du jour** — à l'enregistrement d'une absence non justifiée (demi-journée, ou séance si l'école relève par séance) ; un avis par élève et par jour, même pour deux demi-journées. Il attend `sms.absence.delai_grace_minutes` (30) avant de partir : une absence corrigée ou justifiée dans ce délai l'annule.
+**Absence du jour** — à l'enregistrement d'une absence non justifiée (demi-journée, ou séance si l'école relève par séance) ; un avis par élève et par jour, même pour deux demi-journées. Il attend `sms.absence_delai_grace_min` (30) avant de partir : une absence corrigée ou justifiée dans ce délai l'annule.
 
-**Messages à décider** — la convocation (§7), et, si l'école le veut (`sms.sanction.preparer`, éteint par défaut), un avis de sanction préparé à la saisie d'une sanction. Ils naissent « à décider » et ne partent qu'après relecture et envoi par une personne qui a le droit `notifications:send_manual`.
+**Messages à décider** — la convocation (§7), et, si l'école le veut (`sms.sanction_preparer`, éteint par défaut), un avis de sanction préparé à la saisie d'une sanction. Ils naissent « à décider » et ne partent qu'après relecture et envoi par une personne qui a le droit `notifications:send_manual`.
 
 ## 6. Remise des documents
 
@@ -144,10 +144,10 @@ Actions sans changer d'écran : encaisser (le formulaire de versement de la phas
 **Consultation** — un SMS entrant de la forme « MOT CODE », sans souci des majuscules ni des espaces :
 - `SOLDE code` : reste à payer de chaque enfant du responsable, prochaine échéance ;
 - `ABS code` : absences de la période en cours, dont non justifiées ;
-- `NOTE code` : moyenne générale de la dernière période publiée ; le rang seulement si l'école l'active (`sms.consultation.rang`, éteint par défaut) ;
+- `NOTE code` : moyenne générale de la dernière période publiée ; le rang seulement si l'école l'active (`sms.consultation_rang`, éteint par défaut) ;
 - `AIDE` : la liste des mots.
 
-**Contrôles** — le code et le numéro appelant doivent appartenir au même responsable. Un numéro inconnu ne reçoit aucune réponse. Un code faux reçoit une réponse « code incorrect » la première fois du jour, puis plus rien ; cinq codes faux dans la journée bloquent le numéro jusqu'au lendemain. Quota par numéro (`sms.consultation.quota_jour`, 5) ; au-delà, plus de réponse jusqu'au lendemain. Chaque consultation, servie ou refusée, est au journal d'audit : numéro, mot, élève, réponse. Activation par l'école (`sms.consultation.active`, éteinte par défaut).
+**Contrôles** — le code et le numéro appelant doivent appartenir au même responsable. Un numéro inconnu ne reçoit aucune réponse. Un code faux reçoit une réponse « code incorrect » la première fois du jour, puis plus rien ; cinq codes faux dans la journée bloquent le numéro jusqu'au lendemain. Quota par numéro (`sms.consultation_quota_jour`, 5) ; au-delà, plus de réponse jusqu'au lendemain. Chaque consultation, servie ou refusée, est au journal d'audit : numéro, mot, élève, réponse. Activation par l'école (`sms.consultation_active`, éteinte par défaut).
 
 ## 10. Droits
 
@@ -177,3 +177,4 @@ Les étapes 1 à 6 se font avec le canal simulé ; l'étape 3 se valide avec une
 | Version | Date | Modification |
 |---|---|---|
 | v1.0 | 2026-10-17 | Création après les réponses du porteur du projet du 17 octobre 2026 (T-74 à T-77) : clé modem GSM, trois messages automatiques (bulletin, impayé, absence du jour), convocations et sanctions toujours décidées par une personne, français sans accents, consultation par SMS entrant en fin de phase |
+| v1.1 | 2026-10-17 | Étape 1 : noms des réglages à un seul point, comme les autres (`sms.auto_bulletin`…) ; heures d'envoi en un réglage `sms.fenetre_envoi` ; un numéro pas encore vérifié n'affiche pas d'état sur la fiche |

@@ -906,6 +906,16 @@ export type CongeAffiche = {
 	depasse_solde: boolean,
 };
 
+/**  Consentement d'un responsable à un type de message. Sans ligne enregistrée, il accepte. */
+export type Consentement = {
+	/**  Responsable. */
+	responsable_id: string,
+	/**  Type de message. */
+	type_message: TypeMessage,
+	/**  Faux : il ne reçoit pas ce type de message. */
+	accepte: boolean,
+};
+
 /**  Contenu figé d'un bulletin : tout ce qui s'imprime. */
 export type ContenuBulletin = {
 	/**  Prénoms et nom de l'élève. */
@@ -1534,6 +1544,12 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	discipline_dossier_lire: Signature<DemandeDossierDiscipline, DossierDiscipline>,
 	/**  Signature de la commande du même nom. */
+	responsable_messages_lire: Signature<DemandeMessagesResponsable, MessagesResponsable>,
+	/**  Signature de la commande du même nom. */
+	responsable_consentement_definir: Signature<DemandeConsentement, MessagesResponsable>,
+	/**  Signature de la commande du même nom. */
+	numero_remettre_a_l_essai: Signature<DemandeRemiseALEssai, MessagesResponsable>,
+	/**  Signature de la commande du même nom. */
 	sanction_noter: Signature<DemandeSanction, DossierDiscipline>,
 	/**  Signature de la commande du même nom. */
 	sanction_annuler: Signature<DemandeAnnulationSanction, DossierDiscipline>,
@@ -1977,6 +1993,16 @@ export type DemandeConnexion = {
 	identifiant: string,
 	/**  Mot de passe. */
 	mot_de_passe: string,
+};
+
+/**  Consentement à enregistrer. */
+export type DemandeConsentement = {
+	/**  Responsable. */
+	responsable_id: string,
+	/**  Type de message. */
+	type_message: TypeMessage,
+	/**  Faux : il ne le reçoit plus. */
+	accepte: boolean,
 };
 
 /**  Correction d'un bulletin publié. */
@@ -2685,6 +2711,12 @@ export type DemandeMembreEnseignant = {
 	statut: StatutEnseignant,
 };
 
+/**  Responsable dont on lit les messages. */
+export type DemandeMessagesResponsable = {
+	/**  Responsable. */
+	responsable_id: string,
+};
+
 /**  Classeur du modèle à écrire. */
 export type DemandeModelePersonnel = {
 	/**  Chemin du classeur, extension `.xlsx` ; rendu par le dialogue du système. */
@@ -3114,6 +3146,14 @@ export type DemandeRemise = {
 	type_frais: TypeFrais,
 	/**  Motif, obligatoire. */
 	motif: string,
+};
+
+/**  Numéro d'un responsable à remettre à l'essai. */
+export type DemandeRemiseALEssai = {
+	/**  Responsable. */
+	responsable_id: string,
+	/**  Un de ses numéros, sous forme canonique. */
+	numero: string,
 };
 
 /**  Réouverture d'une année clôturée, toujours motivée. */
@@ -3953,6 +3993,17 @@ export type EtatImportNote =
 /**  Illisible, hors barème ou en double : la ligne est laissée de côté. */
 "erreur";
 
+/**  État d'un numéro. */
+export type EtatJoignabilite = 
+/**  Aucun SMS n'y a encore été remis. */
+"non_verifie" | 
+/**  Un accusé de remise est revenu. */
+"joignable" | 
+/**  Plusieurs remises ont échoué d'affilée. */
+"injoignable" | 
+/**  Le réseau a refusé le numéro. */
+"invalide";
+
 /**  Évaluation d'une licence à un instant donné. */
 export type EtatLicence = {
 	/**  Situation. */
@@ -4503,6 +4554,16 @@ export type InscriptionAffichee = {
 
 /**  Jeton opaque d'une session, remis au frontend. */
 export type Jeton = string;
+
+/**  Joignabilité d'un numéro canonique. */
+export type Joignabilite = {
+	/**  Numéro, sous forme canonique `+223…`. */
+	numero: string,
+	/**  État. */
+	etat: EtatJoignabilite,
+	/**  Échecs de remise d'affilée depuis le dernier succès. */
+	echecs_consecutifs: number,
+};
 
 /**  Journal des encaissements d'une période. */
 export type JournalEncaissements = {
@@ -5155,6 +5216,18 @@ export type Mention = {
 	seuil: number,
 	/**  Libellé imprimé. */
 	libelle: string,
+};
+
+/**  Ce qu'un responsable reçoit, tel que sa fiche le montre. */
+export type MessagesResponsable = {
+	/**  Responsable. */
+	responsable_id: string,
+	/**  Chacun de ses numéros, dans l'ordre de sa fiche, avec son état. */
+	numeros: Joignabilite[],
+	/**  Son consentement à chaque type de message. */
+	consentements: Consentement[],
+	/**  Vrai si le compte connecté peut les modifier. */
+	modifiable: boolean,
 };
 
 /**  Résultat d'une mise en vigueur. */
@@ -7313,6 +7386,20 @@ export type TypeInscription =
 "reinscription" | 
 /**  L'élève vient d'une autre école, qui est indiquée. */
 "transfert_entrant";
+
+/**
+ *  Type de message aux familles, objet du consentement (§25.6) : un parent qui ne veut plus de
+ *  relances garde l'avis de bulletin.
+ */
+export type TypeMessage = 
+/**  Bulletin à retirer. */
+"bulletin" | 
+/**  Relance d'impayé. */
+"impaye" | 
+/**  Absence du jour. */
+"absence" | 
+/**  Convocation. */
+"convocation";
 
 /**  Nature d'une période. */
 export type TypePeriode = 

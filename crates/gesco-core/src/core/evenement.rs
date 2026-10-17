@@ -242,6 +242,10 @@ pub enum TypeEvenement {
     ReleveImporte,
     /// Une liste du personnel est importée (SPEC_VERSION_1_1 §1, étape 8).
     PersonnelImporte,
+    /// Un responsable accepte ou refuse un type de message (SPEC_PHASE_5 §2, blueprint §25.6).
+    ConsentementModifie,
+    /// Un numéro injoignable ou invalide est remis à l'essai : il reçoit de nouveau.
+    JoignabiliteReinitialisee,
 }
 
 impl TypeEvenement {
@@ -361,6 +365,8 @@ impl TypeEvenement {
         Self::ReleveParSeanceEnregistre,
         Self::ReleveImporte,
         Self::PersonnelImporte,
+        Self::ConsentementModifie,
+        Self::JoignabiliteReinitialisee,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -480,6 +486,8 @@ impl TypeEvenement {
             Self::ReleveParSeanceEnregistre => "ReleveParSeanceEnregistre",
             Self::ReleveImporte => "ReleveImporte",
             Self::PersonnelImporte => "PersonnelImporte",
+            Self::ConsentementModifie => "ConsentementModifie",
+            Self::JoignabiliteReinitialisee => "JoignabiliteReinitialisee",
         }
     }
 
@@ -600,7 +608,9 @@ impl TypeEvenement {
             | Self::JournalArchive
             | Self::ReleveParSeanceEnregistre
             | Self::ReleveImporte
-            | Self::PersonnelImporte => 1,
+            | Self::PersonnelImporte
+            | Self::ConsentementModifie
+            | Self::JoignabiliteReinitialisee => 1,
         }
     }
 
