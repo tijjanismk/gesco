@@ -5,6 +5,7 @@ use gesco_core::commun::{DateCivile, Horodatage, Id, Montant};
 use gesco_core::finance::ModePaiement;
 use gesco_core::tresorerie::CompteTresorerie;
 use gesco_core::tresorerie::livre::{OrigineLigne, Transfert};
+use gesco_core::tresorerie::releve::FormatReleve;
 use sqlx::FromRow;
 
 use crate::Connexion;
@@ -247,6 +248,55 @@ pub async fn choisir_compte_du_mode(
     .bind(contexte.etablissement_id.vers_chaine())
     .bind(mode.nom())
     .bind(compte_id.vers_chaine())
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}
+
+/// Format du relevé d'un compte, s'il a été dit.
+pub async fn format_releve(
+    cnx: &mut Connexion,
+    compte_id: Id<CompteTresorerie>,
+    contexte: &Contexte,
+) -> Resultat<Option<FormatReleve>> {
+    let ligne: Option<(String,)> = sqlx::query_as(
+        "SELECT contenu FROM format_releve WHERE compte_id = ?1 AND etablissement_id = ?2",
+    )
+    .bind(compte_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_optional(cnx)
+    .await?;
+    ligne
+        .map(|(contenu,)| {
+            serde_json::from_str(&contenu)
+                .map_err(|_| ErreurBase::illisible("format_releve", "contenu", &contenu))
+        })
+        .transpose()
+}
+
+/// Garde le format du relevé d'un compte.
+pub async fn garder_format_releve(
+    cnx: &mut Connexion,
+    compte_id: Id<CompteTresorerie>,
+    format: &FormatReleve,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    let contenu = serde_json::to_string(format)
+        .map_err(|_| ErreurBase::illisible("format_releve", "contenu", "format"))?;
+    sqlx::query(
+        "INSERT INTO format_releve (compte_id, etablissement_id, contenu, mis_a_jour_le,
+            mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT (compte_id) DO UPDATE SET contenu = excluded.contenu,
+            mis_a_jour_le = excluded.mis_a_jour_le, mis_a_jour_par = excluded.mis_a_jour_par,
+            identifiant_poste = excluded.identifiant_poste",
+    )
+    .bind(compte_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu)
     .bind(contexte.maintenant.millis_epoque())
     .bind(contexte.auteur())
     .bind(&contexte.poste.0)

@@ -5,10 +5,12 @@
 //! pendant la transaction sont exécutés après le commit (R-18).
 
 pub mod absences;
+pub mod absences_seances;
 pub mod administration;
 mod alea;
 pub mod annees;
 pub mod archive;
+pub mod archive_journal;
 pub mod authentification;
 pub mod bulletins;
 pub mod caisse;
@@ -44,6 +46,7 @@ pub mod heures;
 pub mod horloge;
 pub mod image;
 pub mod import_eleves;
+pub mod import_personnel;
 pub mod initialisation;
 pub mod inscriptions;
 pub mod journal_tresorerie;

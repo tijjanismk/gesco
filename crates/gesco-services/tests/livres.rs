@@ -213,6 +213,55 @@ async fn les_salaires_deviennent_des_depenses_et_un_depot_passe_de_la_caisse_a_l
     assert_eq!(livre["soldes"]["rapproche"], 310_000);
     assert_eq!(livre["soldes"]["a_pointer"], 0);
 
+    // Le relevé de la BDM, en CSV : le dépôt s'y retrouve par sa référence et se coche ; des
+    // frais bancaires inconnus du livre restent à part. Les colonnes se devinent d'après l'en-tête
+    // et se gardent pour le prochain relevé.
+    let releve = dossier.path().join("releve-bdm.csv");
+    std::fs::write(
+        &releve,
+        "Date;Libellé;Débit;Crédit;Référence\n04/10/2026;Versement espèces;;60 000;BV12\n\
+         05/10/2026;Frais de tenue de compte;2 500;;FR-10\n",
+    )
+    .unwrap();
+    let apercu = p
+        .ok(
+            "releve_apercu",
+            Some(&admin),
+            json!({ "compte_id": bdm, "chemin": releve.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(
+        apercu["format"],
+        json!({ "date": 0, "montant": null, "debit": 2, "credit": 3, "reference": 4 })
+    );
+    // Le dépôt est déjà coché : décoché, le relevé le recoche.
+    p.ok(
+        "ligne_tresorerie_pointer",
+        Some(&admin),
+        json!({ "compte_id": bdm, "mois": "2026-10", "origine": "transfert",
+            "origine_id": ligne["origine_id"], "pointee": false }),
+    )
+    .await;
+    let resultat = p
+        .ok(
+            "releve_importer",
+            Some(&admin),
+            json!({ "compte_id": bdm, "chemin": releve.to_string_lossy(), "format": apercu["format"] }),
+        )
+        .await;
+    assert_eq!(resultat["lues"], 2);
+    assert_eq!(resultat["cochees"], 1);
+    assert_eq!(resultat["non_retrouvees"][0]["montant"], -2_500);
+    assert_eq!(resultat["a_pointer"], 0);
+    let apercu = p
+        .ok(
+            "releve_apercu",
+            Some(&admin),
+            json!({ "compte_id": bdm, "chemin": releve.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(apercu["format"]["credit"], 3);
+
     // L'avance en Orange Money annulée : sa dépense l'est aussi, le compte retrouve son solde.
     p.ok(
         "avance_annuler",

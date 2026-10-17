@@ -269,6 +269,34 @@ async fn les_decisions_se_proposent_se_valident_puis_l_annee_se_cloture() {
     let close = p.ok("annee_cloturer", Some(&admin), id_annee.clone()).await;
     assert_eq!(close["statut"], "cloturee");
     assert_eq!(sauvegardes().await, avant + 1);
+    // Le journal de l'année s'archive, signé, dans le dossier des sauvegardes du poste ; un octet
+    // changé rompt la signature (§12.4, T-73).
+    let archive = p.racine.join("sauvegardes").join("journal-2026-2027.gja");
+    let verifiee = p
+        .ok(
+            "journal_archive_verifier",
+            Some(&admin),
+            json!({ "chemin": archive.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(verifiee["valide"], true);
+    assert_eq!(verifiee["annee"], "2026-2027");
+    assert!(verifiee["lignes"].as_u64().unwrap() > 10);
+    let texte = std::fs::read_to_string(&archive).unwrap();
+    let altere = dossier.path().join("journal-altere.gja");
+    std::fs::write(
+        &altere,
+        texte.replacen("\"annee\": \"2026-2027\"", "\"annee\": \"2026-2028\"", 1),
+    )
+    .unwrap();
+    let verifiee = p
+        .ok(
+            "journal_archive_verifier",
+            Some(&admin),
+            json!({ "chemin": altere.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(verifiee["valide"], false);
     let inscrits = p
         .ok(
             "inscriptions_lister",

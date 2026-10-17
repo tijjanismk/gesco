@@ -172,6 +172,9 @@ export const ACCES = {
   categorie_personnel_enregistrer: { type: "permission", permission: "employees:update" },
   fonction_personnel_enregistrer: { type: "permission", permission: "employees:update" },
   personnel_lister: { type: "permission", permission: "employees:read" },
+  personnel_import_modele: { type: "permission", permission: "import:staff" },
+  personnel_import_analyser: { type: "permission", permission: "import:staff" },
+  personnel_import_appliquer: { type: "permission", permission: "import:staff" },
   membre_lire: { type: "permission", permission: "employees:read" },
   ma_fiche_lire: { type: "connecte" },
   membre_enregistrer: { type: "permission", permission: "employees:update" },
@@ -265,6 +268,11 @@ export const ACCES = {
   discipline_dossier_lire: { type: "permission", permission: "students:read" },
   sanction_noter: { type: "permission", permission: "sanctions:create" },
   sanction_annuler: { type: "permission", permission: "sanctions:cancel" },
+  journal_archive_verifier: { type: "permission", permission: "core:audit:read" },
+  absences_seances_lire: { type: "permission", permission: "attendance:create" },
+  absences_seances_enregistrer: { type: "permission", permission: "attendance:create" },
+  releve_apercu: { type: "permission", permission: "treasury:manage" },
+  releve_importer: { type: "permission", permission: "treasury:manage" },
 } as const;
 
 export type NomCommande = keyof typeof ACCES;

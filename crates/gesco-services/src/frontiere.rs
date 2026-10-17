@@ -30,11 +30,13 @@ use crate::absences::{
     AbsencesPeriode, BilanReleve, DemandeAbsencesPeriode, DemandeEnregistrementReleve,
     DemandeJustification, DemandeReleve, ReleveAbsences, ServiceAbsences,
 };
+use crate::absences_seances::{DemandeReleveParSeance, ReleveParSeance, ServiceAbsencesSeances};
 use crate::administration::{
     FicheRole, FicheUtilisateur, PageJournal, RechercheJournal, ServiceAdministration,
     VerificationAudit,
 };
 use crate::annees::ServiceAnnees;
+use crate::archive_journal::{DemandeVerificationArchive, VerificationArchive};
 use crate::authentification::{NouvelUtilisateur, ServiceAuthentification};
 use crate::bulletins::{
     BulletinsClasse, DemandeAppreciation, DemandeBulletins, DemandeCorrection, DemandeIdBulletin,
@@ -123,6 +125,10 @@ use crate::horloge::Horloge;
 use crate::import_eleves::{
     Analyse, Apercu, DemandeAnalyse, FichierImporte, Rapport, Reglages, ServiceImport,
 };
+use crate::import_personnel::{
+    AnalyseImportPersonnel, BilanImportPersonnel, DemandeImportPersonnel, DemandeModelePersonnel,
+    ServiceImportPersonnel,
+};
 use crate::initialisation::{PremierDemarrage, ServiceInitialisation};
 use crate::inscriptions::{
     DemandeAbandon, DemandeChangementClasse, DemandeIdInscription, DemandeInscription,
@@ -134,6 +140,7 @@ use crate::journal_tresorerie::{
     ServiceJournal,
 };
 use crate::licence::{EtatLicenceAffiche, ServiceLicence};
+use crate::livres::{ApercuReleve, DemandeApercuReleve, DemandeImportReleve, ResultatReleve};
 use crate::livres::{
     DemandeCompteDuMode, DemandeLivre, DemandePointage, DemandeTransfertCompte, EtatComptes,
     LivreCompte, ServiceLivres,
@@ -927,6 +934,9 @@ contrat! {
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
     personnel_lister(()) -> Vec<MembreAffiche>;
+    personnel_import_modele(DemandeModelePersonnel) -> FichierEcrit;
+    personnel_import_analyser(DemandeImportPersonnel) -> AnalyseImportPersonnel;
+    personnel_import_appliquer(DemandeImportPersonnel) -> BilanImportPersonnel;
     membre_lire(DemandeIdMembre) -> FicheMembre;
     ma_fiche_lire(()) -> Option<MaFiche>;
     membre_enregistrer(DemandeMembre) -> FicheMembre;
@@ -1020,6 +1030,11 @@ contrat! {
     discipline_dossier_lire(DemandeDossierDiscipline) -> DossierDiscipline;
     sanction_noter(DemandeSanction) -> DossierDiscipline;
     sanction_annuler(DemandeAnnulationSanction) -> DossierDiscipline;
+    journal_archive_verifier(DemandeVerificationArchive) -> VerificationArchive;
+    absences_seances_lire(DemandeReleve) -> ReleveParSeance;
+    absences_seances_enregistrer(DemandeReleveParSeance) -> ReleveParSeance;
+    releve_apercu(DemandeApercuReleve) -> ApercuReleve;
+    releve_importer(DemandeImportReleve) -> ResultatReleve;
 }
 
 impl Application {
@@ -1977,7 +1992,34 @@ impl Application {
                 MotifSauvegarde::AvantClotureAnnee,
             )
             .await?;
-        service.cloturer(session, entree.id).await
+        let annee = service.cloturer(session, entree.id).await?;
+        // Le journal de l'année s'archive, signé, avec la sauvegarde de clôture (§12.4, T-73) :
+        // dans le dossier du poste et sur les destinations. Un échec n'annule pas la clôture ; il
+        // s'affiche en avertissement.
+        let dossiers: Vec<PathBuf> = self
+            .sauvegardes(ouverte)
+            .destinations(session.etablissement_id)
+            .await?
+            .into_iter()
+            .map(|d| PathBuf::from(d.chemin))
+            .collect();
+        if crate::archive_journal::archiver(
+            &ouverte.noyau,
+            session,
+            &ouverte.cle,
+            &annee,
+            &dossiers,
+        )
+        .await
+        .is_err()
+            && let Ok(mut echecs) = self.echecs.lock()
+        {
+            echecs.push(crate::documents::EffetEchoue {
+                cle: "avertissement.archive_journal_echouee".to_owned(),
+                entite_id: annee.id.vers_chaine(),
+            });
+        }
+        Ok(annee)
     }
 
     async fn annee_rouvrir(
@@ -3550,6 +3592,45 @@ impl Application {
             .await
     }
 
+    async fn personnel_import_modele(
+        &self,
+        appel: Appel,
+        entree: DemandeModelePersonnel,
+    ) -> Resultat<FichierEcrit> {
+        appel.session()?;
+        crate::import_personnel::ecrire_modele(entree).await
+    }
+
+    async fn personnel_import_analyser(
+        &self,
+        appel: Appel,
+        entree: DemandeImportPersonnel,
+    ) -> Resultat<AnalyseImportPersonnel> {
+        ServiceImportPersonnel::nouveau(&appel.ouverte()?.noyau)
+            .analyser(appel.session()?, &entree)
+            .await
+    }
+
+    async fn personnel_import_appliquer(
+        &self,
+        appel: Appel,
+        entree: DemandeImportPersonnel,
+    ) -> Resultat<BilanImportPersonnel> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        // R-48 : la sauvegarde précède toute écriture en masse.
+        self.sauvegardes(ouverte)
+            .creer(
+                session.etablissement_id,
+                Some(session),
+                MotifSauvegarde::AvantImport,
+            )
+            .await?;
+        ServiceImportPersonnel::nouveau(&ouverte.noyau)
+            .appliquer(session, &entree)
+            .await
+    }
+
     async fn membre_lire(&self, appel: Appel, entree: DemandeIdMembre) -> Resultat<FicheMembre> {
         ServicePersonnel::nouveau(&appel.ouverte()?.noyau)
             .lire(appel.session()?, entree.id)
@@ -4287,6 +4368,56 @@ impl Application {
         ServiceJournal::nouveau(&appel.ouverte()?.noyau)
             .prevoir(appel.session()?, &entree)
             .await
+    }
+
+    async fn releve_apercu(
+        &self,
+        appel: Appel,
+        entree: DemandeApercuReleve,
+    ) -> Resultat<ApercuReleve> {
+        ServiceLivres::nouveau(&appel.ouverte()?.noyau)
+            .apercu_releve(appel.session()?, &entree)
+            .await
+    }
+
+    async fn releve_importer(
+        &self,
+        appel: Appel,
+        entree: DemandeImportReleve,
+    ) -> Resultat<ResultatReleve> {
+        ServiceLivres::nouveau(&appel.ouverte()?.noyau)
+            .importer_releve(appel.session()?, &entree)
+            .await
+    }
+
+    async fn absences_seances_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeReleve,
+    ) -> Resultat<ReleveParSeance> {
+        ServiceAbsencesSeances::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn absences_seances_enregistrer(
+        &self,
+        appel: Appel,
+        entree: DemandeReleveParSeance,
+    ) -> Resultat<ReleveParSeance> {
+        ServiceAbsencesSeances::nouveau(&appel.ouverte()?.noyau)
+            .enregistrer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn journal_archive_verifier(
+        &self,
+        appel: Appel,
+        entree: DemandeVerificationArchive,
+    ) -> Resultat<VerificationArchive> {
+        let ouverte = appel.ouverte()?;
+        appel.session()?;
+        crate::archive_journal::verifier_fichier(&ouverte.cle, Path::new(&entree.chemin))
     }
 
     async fn discipline_registre_lire(

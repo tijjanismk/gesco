@@ -10,6 +10,7 @@ use gesco_core::rh::Mois;
 use gesco_core::tresorerie::livre::{
     LigneLivre, OrigineLigne, Soldes, Transfert, compte_du_mode, soldes, verifier_transfert,
 };
+use gesco_core::tresorerie::releve::{FormatReleve, LigneDeReleve, lire_lignes, rapprocher};
 use gesco_core::tresorerie::{
     CATEGORIE_SALAIRES, CompteTresorerie, Depense, NatureCompte, StatutDepense,
 };
@@ -351,6 +352,89 @@ pub(crate) async fn rattacher_salaires(unite: &mut UniteDeTravail<Effet>) -> Res
     Ok(faits)
 }
 
+/// Aperçu d'un relevé choisi : l'en-tête, les premières lignes, et les colonnes déjà dites pour
+/// ce compte.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct ApercuReleve {
+    /// Noms des colonnes, d'après la première ligne.
+    pub entetes: Vec<String>,
+    /// Premières lignes.
+    pub exemples: Vec<Vec<String>>,
+    /// Colonnes gardées pour ce compte, ou devinées d'après l'en-tête.
+    pub format: Option<FormatReleve>,
+}
+
+/// Relevé choisi pour un compte.
+#[derive(Debug, Deserialize, specta::Type)]
+pub struct DemandeApercuReleve {
+    /// Compte.
+    pub compte_id: Id<CompteTresorerie>,
+    /// Chemin du fichier.
+    pub chemin: String,
+}
+
+/// Relevé à rapprocher, avec ses colonnes.
+#[derive(Debug, Deserialize, specta::Type)]
+pub struct DemandeImportReleve {
+    /// Compte.
+    pub compte_id: Id<CompteTresorerie>,
+    /// Chemin du fichier.
+    pub chemin: String,
+    /// Colonnes.
+    pub format: FormatReleve,
+}
+
+/// Ce que l'import a fait.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct ResultatReleve {
+    /// Lignes lues du relevé.
+    pub lues: u32,
+    /// Lignes laissées de côté, sans date ou sans montant lisibles.
+    pub ignorees: u32,
+    /// Lignes du livre cochées.
+    pub cochees: u32,
+    /// Lignes du relevé que le livre n'a pas.
+    pub non_retrouvees: Vec<LigneDeReleve>,
+    /// Lignes du livre qui restent à cocher.
+    pub a_pointer: u32,
+}
+
+/// Colonnes devinées d'après l'en-tête : « Date », « Montant », « Débit », « Crédit », « Réf ».
+fn deviner(entetes: &[String]) -> Option<FormatReleve> {
+    let cherche = |mots: &[&str]| {
+        entetes.iter().position(|e| {
+            let e = e.to_lowercase();
+            mots.iter().any(|m| e.contains(m))
+        })
+    };
+    let index = |i: Option<usize>| i.and_then(|i| u32::try_from(i).ok());
+    let date = index(cherche(&["date"]))?;
+    let debit = index(cherche(&["débit", "debit", "sortie", "retrait"]));
+    let credit = index(cherche(&[
+        "crédit", "credit", "entrée", "entree", "dépôt", "depot",
+    ]));
+    let montant = if debit.is_some() || credit.is_some() {
+        None
+    } else {
+        index(cherche(&["montant", "amount", "somme"]))
+    };
+    Some(FormatReleve {
+        date,
+        montant,
+        debit,
+        credit,
+        reference: index(cherche(&["réf", "ref", "transaction", "id"])),
+    })
+}
+
+fn premiere_feuille(chemin: &str) -> Resultat<Vec<Vec<String>>> {
+    crate::import_eleves::lire_fichier(chemin)?
+        .into_iter()
+        .next()
+        .map(|(_, lignes)| lignes)
+        .ok_or(regle("releve.vide"))
+}
+
 /// Service des livres de comptes.
 pub struct ServiceLivres<'n> {
     noyau: &'n Noyau,
@@ -618,6 +702,105 @@ impl<'n> ServiceLivres<'n> {
             },
         )
         .await
+    }
+
+    /// Aperçu d'un relevé choisi pour un compte.
+    pub async fn apercu_releve(
+        &self,
+        session: &Session,
+        demande: &DemandeApercuReleve,
+    ) -> Resultat<ApercuReleve> {
+        let lignes = premiere_feuille(&demande.chemin)?;
+        let entetes = lignes.first().cloned().unwrap_or_default();
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut cnx = self.connexion().await?;
+        let garde = livres::format_releve(&mut cnx, demande.compte_id, &contexte).await?;
+        Ok(ApercuReleve {
+            format: garde.or_else(|| deviner(&entetes)),
+            exemples: lignes.iter().skip(1).take(5).cloned().collect(),
+            entetes,
+        })
+    }
+
+    /// Rapproche un relevé du livre d'un compte : les lignes retrouvées se cochent ; les colonnes
+    /// se gardent pour le prochain relevé.
+    pub async fn importer_releve(
+        &self,
+        session: &Session,
+        demande: &DemandeImportReleve,
+    ) -> Resultat<ResultatReleve> {
+        let f = &demande.format;
+        if f.montant.is_none() && f.debit.is_none() && f.credit.is_none() {
+            return Err(regle("releve.colonne_montant"));
+        }
+        let lignes = premiere_feuille(&demande.chemin)?;
+        let (lues, ignorees) = lire_lignes(&lignes, f);
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Ordinaire)
+            .await?;
+        let comptes = tresorerie::comptes(unite.connexion(), &contexte).await?;
+        let compte = comptes
+            .iter()
+            .find(|c| c.id == demande.compte_id)
+            .cloned()
+            .ok_or(regle("tresorerie.compte_inconnu"))?;
+        let choix = livres::comptes_des_modes(unite.connexion(), &contexte).await?;
+        let livre =
+            lignes_du_compte(unite.connexion(), &compte, &comptes, &choix, &contexte).await?;
+        let couples = rapprocher(&livre, &lues);
+        for (_, j) in &couples {
+            let Some(l) = livre.get(*j) else { continue };
+            let id: Id<LigneLivre> = nouvel_id();
+            livres::pointer(
+                unite.connexion(),
+                &id.vers_chaine(),
+                compte.id,
+                l.origine,
+                &l.origine_id,
+                true,
+                &contexte,
+            )
+            .await?;
+        }
+        livres::garder_format_releve(unite.connexion(), compte.id, f, &contexte).await?;
+        let cochees = u32::try_from(couples.len()).unwrap_or(u32::MAX);
+        let id = compte.id.vers_chaine();
+        unite.auditer(
+            "pointage_tresorerie",
+            &id,
+            Operation::Modification,
+            None,
+            Some(
+                serde_json::json!({ "releve": demande.chemin, "lues": lues.len(),
+                "cochees": cochees, "format": f }),
+            ),
+            "tresorerie.importer_releve",
+        );
+        unite.emettre(
+            TypeEvenement::ReleveImporte,
+            "compte_tresorerie",
+            &id,
+            serde_json::json!({ "lues": lues.len(), "cochees": cochees }),
+        );
+        self.noyau.terminer(unite).await?;
+        let non_retrouvees = lues
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !couples.iter().any(|(r, _)| r == i))
+            .map(|(_, l)| l.clone())
+            .collect();
+        let restantes = livre
+            .len()
+            .saturating_sub(livre.iter().filter(|l| l.pointee).count() + couples.len());
+        Ok(ResultatReleve {
+            lues: u32::try_from(lues.len()).unwrap_or(u32::MAX),
+            ignorees,
+            cochees,
+            non_retrouvees,
+            a_pointer: u32::try_from(restantes).unwrap_or(u32::MAX),
+        })
     }
 
     /// Choisit le compte où arrive l'argent d'un mode ; les salaires qui l'attendaient s'y

@@ -279,6 +279,10 @@ pub const COMMANDES: &[Commande] = &[
         Permission::EMPLOYEES_UPDATE,
     ),
     Commande::permise("personnel_lister", Permission::EMPLOYEES_READ),
+    // Import du personnel (SPEC_VERSION_1_1 §1, étape 8).
+    Commande::permise("personnel_import_modele", Permission::IMPORT_STAFF),
+    Commande::permise("personnel_import_analyser", Permission::IMPORT_STAFF),
+    Commande::permise("personnel_import_appliquer", Permission::IMPORT_STAFF),
     Commande::permise("membre_lire", Permission::EMPLOYEES_READ),
     Commande::connectee("ma_fiche_lire"),
     Commande::permise("membre_enregistrer", Permission::EMPLOYEES_UPDATE),
@@ -407,6 +411,17 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("discipline_dossier_lire", Permission::STUDENTS_READ),
     Commande::permise("sanction_noter", Permission::SANCTIONS_CREATE),
     Commande::permise("sanction_annuler", Permission::SANCTIONS_CANCEL),
+    // Archive du journal d'audit (blueprint §12.4) : elle s'écrit à la clôture ; on la vérifie.
+    Commande::permise("journal_archive_verifier", Permission::CORE_AUDIT_READ),
+    // Absences par séance (SPEC_VERSION_1_1 §1, T-71), au choix de l'école.
+    Commande::permise("absences_seances_lire", Permission::ATTENDANCE_CREATE),
+    Commande::permise(
+        "absences_seances_enregistrer",
+        Permission::ATTENDANCE_CREATE,
+    ),
+    // Import des relevés des comptes (SPEC_VERSION_1_1 §1, T-72).
+    Commande::permise("releve_apercu", Permission::TREASURY_MANAGE),
+    Commande::permise("releve_importer", Permission::TREASURY_MANAGE),
 ];
 
 #[cfg(test)]

@@ -175,6 +175,14 @@ export type Analyse = {
 	matricule_manuel: boolean,
 };
 
+/**  Ce que GESCO a compris de la liste. */
+export type AnalyseImportPersonnel = {
+	/**  Lignes. */
+	lignes: LigneImportPersonnel[],
+	/**  Lignes prêtes à importer. */
+	pretes: number,
+};
+
 /**  Année qui peut recevoir un budget. */
 export type AnneeBudget = {
 	/**  Année. */
@@ -269,6 +277,19 @@ export type ApercuImportNotes = {
 	a_ecrire: number,
 	/**  Lignes en erreur. */
 	erreurs: number,
+};
+
+/**
+ *  Aperçu d'un relevé choisi : l'en-tête, les premières lignes, et les colonnes déjà dites pour
+ *  ce compte.
+ */
+export type ApercuReleve = {
+	/**  Noms des colonnes, d'après la première ligne. */
+	entetes: string[],
+	/**  Premières lignes. */
+	exemples: string[][],
+	/**  Colonnes gardées pour ce compte, ou devinées d'après l'en-tête. */
+	format: FormatReleve | null,
 };
 
 /**  Résumé d'une archive, lu dans son manifeste, sans clé. */
@@ -413,6 +434,14 @@ export type BilanClasse = {
 	exclus: number,
 	/**  Décisions encore à poser : non statué ou rattrapage en attente. */
 	en_attente: number,
+};
+
+/**  Ce que l'import a fait. */
+export type BilanImportPersonnel = {
+	/**  Fiches créées. */
+	importes: number,
+	/**  Lignes laissées de côté : en erreur, déjà au registre, ou refusées à l'enregistrement. */
+	ignorees: number,
 };
 
 /**  Ce qu'a fait la préparation des réinscriptions. */
@@ -1317,6 +1346,12 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	personnel_lister: Signature<null, MembreAffiche[]>,
 	/**  Signature de la commande du même nom. */
+	personnel_import_modele: Signature<DemandeModelePersonnel, FichierEcrit>,
+	/**  Signature de la commande du même nom. */
+	personnel_import_analyser: Signature<DemandeImportPersonnel, AnalyseImportPersonnel>,
+	/**  Signature de la commande du même nom. */
+	personnel_import_appliquer: Signature<DemandeImportPersonnel, BilanImportPersonnel>,
+	/**  Signature de la commande du même nom. */
 	membre_lire: Signature<DemandeIdMembre, FicheMembre>,
 	/**  Signature de la commande du même nom. */
 	ma_fiche_lire: Signature<null, MaFiche | null>,
@@ -1502,6 +1537,16 @@ export type Contrat = {
 	sanction_noter: Signature<DemandeSanction, DossierDiscipline>,
 	/**  Signature de la commande du même nom. */
 	sanction_annuler: Signature<DemandeAnnulationSanction, DossierDiscipline>,
+	/**  Signature de la commande du même nom. */
+	journal_archive_verifier: Signature<DemandeVerificationArchive, VerificationArchive>,
+	/**  Signature de la commande du même nom. */
+	absences_seances_lire: Signature<DemandeReleve, ReleveParSeance>,
+	/**  Signature de la commande du même nom. */
+	absences_seances_enregistrer: Signature<DemandeReleveParSeance, ReleveParSeance>,
+	/**  Signature de la commande du même nom. */
+	releve_apercu: Signature<DemandeApercuReleve, ApercuReleve>,
+	/**  Signature de la commande du même nom. */
+	releve_importer: Signature<DemandeImportReleve, ResultatReleve>,
 };
 
 /**  Cumuls de l'année civile. */
@@ -1690,6 +1735,14 @@ export type DemandeAnnulationVersement = {
 	id: string,
 	/**  Motif ; obligatoire, imprimé sur le reçu. */
 	motif: string,
+};
+
+/**  Relevé choisi pour un compte. */
+export type DemandeApercuReleve = {
+	/**  Compte. */
+	compte_id: string,
+	/**  Chemin du fichier. */
+	chemin: string,
 };
 
 /**  Appréciation d'un élève, dans une matière ou générale. */
@@ -2452,6 +2505,22 @@ export type DemandeImportNotes = {
 	chemin: string,
 };
 
+/**  Liste du personnel choisie. */
+export type DemandeImportPersonnel = {
+	/**  Chemin du fichier. */
+	chemin: string,
+};
+
+/**  Relevé à rapprocher, avec ses colonnes. */
+export type DemandeImportReleve = {
+	/**  Compte. */
+	compte_id: string,
+	/**  Chemin du fichier. */
+	chemin: string,
+	/**  Colonnes. */
+	format: FormatReleve,
+};
+
 /**  Nouvelle inscription, en brouillon. */
 export type DemandeInscription = {
 	/**  Élève. */
@@ -2614,6 +2683,12 @@ export type DemandeMembreEnseignant = {
 	id: string,
 	/**  Statut d'enseignant. */
 	statut: StatutEnseignant,
+};
+
+/**  Classeur du modèle à écrire. */
+export type DemandeModelePersonnel = {
+	/**  Chemin du classeur, extension `.xlsx` ; rendu par le dialogue du système. */
+	chemin: string,
 };
 
 /**  Nouvelle version d'une année en préparation. */
@@ -3017,6 +3092,16 @@ export type DemandeReleve = {
 	date: string,
 };
 
+/**  Relevé par séance à enregistrer. */
+export type DemandeReleveParSeance = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Jour. */
+	date: string,
+	/**  Cases de chaque élève ; un élève omis garde ce qui est enregistré. */
+	lignes: SaisieParSeance[],
+};
+
 /**  Remise proposée. */
 export type DemandeRemise = {
 	/**  Inscription, brouillon ou validée. */
@@ -3228,6 +3313,12 @@ export type DemandeValidation = {
 	id: string,
 	/**  Plan de paiement et frais facultatifs ; absents : plan par défaut, aucun frais facultatif. */
 	choix?: ChoixFrais,
+};
+
+/**  Fichier d'archive à vérifier. */
+export type DemandeVerificationArchive = {
+	/**  Chemin du fichier. */
+	chemin: string,
 };
 
 /**  Versement désigné. */
@@ -3617,6 +3708,18 @@ export type Eleve = {
 	ecole_origine: string,
 	/**  Fiche conservée qui a absorbé celle-ci par une fusion (SPEC_PHASE_2 §8). */
 	fusionne_dans: string | null,
+};
+
+/**  Élève du relevé par séance. */
+export type EleveParSeance = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Prénoms et nom. */
+	eleve: string,
+	/**  Séances où il est noté absent. */
+	absent_a: string[],
+	/**  Exclu ce jour-là : pas compté absent. */
+	exclu: boolean,
 };
 
 /**  Ligne d'une liste d'élèves : le nécessaire pour reconnaître l'élève (R-24). */
@@ -4202,6 +4305,20 @@ export type FonctionPersonnel = {
 	active: boolean,
 };
 
+/**  Colonnes d'un relevé, comptées à partir de zéro dans la ligne d'en-tête. */
+export type FormatReleve = {
+	/**  Colonne de la date. */
+	date: number,
+	/**  Colonne du montant signé (positif pour une entrée), si le relevé n'a qu'une colonne. */
+	montant: number | null,
+	/**  Colonne du débit (une sortie), si le relevé en a deux. */
+	debit: number | null,
+	/**  Colonne du crédit (une entrée), si le relevé en a deux. */
+	credit: number | null,
+	/**  Colonne de la référence de la transaction. */
+	reference: number | null,
+};
+
 /**  Formule de la moyenne d'une matière sur une période (T-28). */
 export type FormuleMatiere = 
 /**
@@ -4606,6 +4723,16 @@ export type LigneCalculee = {
 	montant: Montant,
 };
 
+/**  Ligne lue d'un relevé. */
+export type LigneDeReleve = {
+	/**  Jour. */
+	date: string,
+	/**  Montant signé : positif pour une entrée sur le compte, négatif pour une sortie. */
+	montant: Montant,
+	/**  Référence de la transaction. */
+	reference: string,
+};
+
 /**  Décision d'un élève. */
 export type LigneDecision = {
 	/**  Inscription de l'élève. */
@@ -4719,6 +4846,24 @@ export type LigneImportNote = {
 	etat: EtatImportNote,
 	/**  Clé de l'erreur. */
 	erreur: string | null,
+};
+
+/**  Une ligne de la liste, telle que GESCO la comprend. */
+export type LigneImportPersonnel = {
+	/**  Numéro de la ligne dans le fichier, en-tête compris. */
+	numero: number,
+	/**  Nom. */
+	nom: string,
+	/**  Prénoms. */
+	prenoms: string,
+	/**  Catégorie, telle qu'écrite. */
+	categorie: string,
+	/**  Fonction. */
+	fonction: string,
+	/**  Clés des erreurs qui la laissent de côté. */
+	erreurs: string[],
+	/**  Une personne du même nom est déjà au registre : elle n'est pas importée. */
+	doublon: boolean,
 };
 
 /**  Ligne de la liste des inscriptions : le nécessaire pour reconnaître l'élève (R-24). */
@@ -6034,6 +6179,20 @@ export type ReleveAbsences = {
 	refus: string | null,
 };
 
+/**  Relevé par séance d'une classe pour un jour. */
+export type ReleveParSeance = {
+	/**  L'école relève par séance. */
+	actif: boolean,
+	/**  Jour. */
+	date: string,
+	/**  Séances du jour, dans l'ordre des heures. */
+	seances: SeanceDuJour[],
+	/**  Élèves. */
+	lignes: EleveParSeance[],
+	/**  Clé de la raison pour laquelle ce jour ne se relève pas. */
+	refus: string | null,
+};
+
 /**  Remise d'une inscription. */
 export type Remise = {
 	/**  Identifiant technique. */
@@ -6164,6 +6323,20 @@ export type ResultatInscription = {
 	avertissements: string[],
 };
 
+/**  Ce que l'import a fait. */
+export type ResultatReleve = {
+	/**  Lignes lues du relevé. */
+	lues: number,
+	/**  Lignes laissées de côté, sans date ou sans montant lisibles. */
+	ignorees: number,
+	/**  Lignes du livre cochées. */
+	cochees: number,
+	/**  Lignes du relevé que le livre n'a pas. */
+	non_retrouvees: LigneDeReleve[],
+	/**  Lignes du livre qui restent à cocher. */
+	a_pointer: number,
+};
+
 /**  Issue d'une sauvegarde. */
 export type ResultatSauvegarde = 
 /**  Archive produite et empreinte vérifiée. */
@@ -6279,6 +6452,14 @@ export type SaisieMois = {
 	libelle: string,
 	/**  Retirée avant la validation : elle ne compte plus, elle reste (R-14). */
 	retiree: boolean,
+};
+
+/**  Cases d'un élève : les séances où il est absent. */
+export type SaisieParSeance = {
+	/**  Élève. */
+	inscription_id: string,
+	/**  Séances où il est absent. */
+	absent_a: string[],
 };
 
 /**  Période corrigée par l'école. */
@@ -6469,6 +6650,18 @@ export type SeanceAffichee = {
 	seance: Seance,
 	/**  Classe. */
 	classe: string,
+	/**  Matière. */
+	matiere: string,
+	/**  Enseignant. */
+	enseignant: string,
+};
+
+/**  Séance du jour d'une classe. */
+export type SeanceDuJour = {
+	/**  Séance. */
+	seance_id: string,
+	/**  « 08:00 – 09:00 ». */
+	horaire: string,
 	/**  Matière. */
 	matiere: string,
 	/**  Enseignant. */
@@ -7188,6 +7381,22 @@ pour_cent: number } |
 { type: "montant"; 
 /**  Montant. */
 montant: Montant };
+
+/**  Ce que dit la vérification d'un fichier d'archive. */
+export type VerificationArchive = {
+	/**  La signature est celle de cette école et le fichier n'a pas changé. */
+	valide: boolean,
+	/**  École. */
+	etablissement: string,
+	/**  Année. */
+	annee: string,
+	/**  Premier instant couvert. */
+	du: number,
+	/**  Dernier instant couvert. */
+	au: number,
+	/**  Lignes du journal. */
+	lignes: number,
+};
 
 /**  Résultat d'une vérification complète de la chaîne d'audit. */
 export type VerificationAudit = {

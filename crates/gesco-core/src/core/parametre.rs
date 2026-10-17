@@ -217,6 +217,8 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
             true,
         ),
         p("cantine.active", ValeurParametre::Booleen(false), true),
+        // T-71 : la demi-journée reste la règle ; l'école active le relevé par séance.
+        p("absence.par_seance", ValeurParametre::Booleen(false), true),
         p(
             "cantine.repas_comptes",
             ValeurParametre::Booleen(false),

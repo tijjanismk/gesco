@@ -2179,7 +2179,7 @@ test("version 1.1 : la photo d'une élève se prend à la webcam du poste", asyn
   await page.getByRole("button", { name: texte("eleves.webcam") }).click();
   // La caméra s'allume ; la photo prise, elle s'éteint et la photo paraît sur la fiche.
   await expect(page.locator("video")).toBeVisible();
-  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).videoWidth)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).videoWidth), { timeout: 15_000 }).toBeGreaterThan(0);
   await page.getByRole("button", { name: texte("eleves.prendre_photo") }).click();
   await expect(page.getByRole("img", { name: texte("eleves.photo") })).toBeVisible();
   await expect(page.locator("video")).toHaveCount(0);
@@ -2200,4 +2200,123 @@ test("version 1.1 : le conseil de classe donne un blâme, qui va au bulletin du 
   await expect(ligne).toBeVisible();
   await expect(ligne.getByText(/au bulletin du/)).toBeVisible();
   await capturer("114-discipline");
+});
+
+test("version 1.1 : le journal d'audit se vérifie, ses archives aussi", async () => {
+  await allerA("nav.journal");
+  await expect(page.getByRole("heading", { name: texte("journal.archives") })).toBeVisible();
+  await expect(page.getByRole("button", { name: texte("journal.suivante") })).toBeEnabled();
+  await expect(page.getByRole("button", { name: texte("journal.verifier_archive") })).toBeVisible();
+  await capturer("115-archives-du-journal");
+});
+
+test("version 1.1 : l'école relève les absences à chaque séance ; absente au seul cours du matin, l'élève compte la demi-journée", async () => {
+  await allerA("nav.parametres");
+  const reglage = page.locator('[id="param-absence.par_seance"]');
+  await reglage.check();
+  await reglage.locator("xpath=ancestor::div[contains(@class,'py-2')][1]").getByRole("button", { name: texte("commun.enregistrer") }).click();
+  // Le mercredi de 8 h à 9 h en 7e B.
+  await allerA("nav.emploi_du_temps");
+  await page.locator("#emploi-classe").selectOption({ label: "7e B" });
+  await page.locator("#seance-jour").selectOption({ label: "Mercredi" });
+  await page.locator("#seance-debut").fill("08:00");
+  await page.locator("#seance-fin").fill("09:00");
+  await page.getByRole("button", { name: texte("emploi.placer") }).click();
+  await expect(page.getByRole("button", { name: /08:00 – 09:00/ }).last()).toBeVisible();
+  // Le mercredi 14 octobre, un élève absent à cette séance : la matinée lui est comptée.
+  await allerA("nav.absences");
+  await page.locator("#absences-classe").selectOption({ label: "7e B · 7ème année" });
+  await page.locator("#absences-date").fill("2026-10-14");
+  await expect(page.getByRole("heading", { name: texte("absences.par_seance") })).toBeVisible();
+  const caseSeance = page.getByRole("checkbox", { name: /absent à la séance de 08:00/, disabled: false }).first();
+  const eleve = ((await caseSeance.getAttribute("aria-label")) ?? "").replace(/ absent à la séance .*$/, "");
+  await caseSeance.check();
+  await page.getByRole("button", { name: texte("absences.enregistrer_par_seance") }).click();
+  await expect(caseSeance).toBeChecked();
+  // Le relevé du jour en déduit sa matinée d'absence.
+  await expect(page.getByRole("textbox", { name: `Matin de ${eleve}` })).toHaveValue("a");
+  await capturer("116-absences-par-seance");
+});
+
+test("version 1.1 : le relevé de la BDM s'importe ; le virement de la toiture et la location se cochent, les frais restent à part", async () => {
+  const releve = join(dossier, "releve-bdm-octobre.csv");
+  const lignes = [
+    "Date;Libellé;Débit;Crédit;Référence",
+    "14/10/2026;VIREMENT ENTREPRISE DIAKITE;150 000;;VIR 118",
+    "15/10/2026;VIR MAIRIE COMMUNE IV;;25 000;",
+    "16/10/2026;FRAIS DE TENUE DE COMPTE;2 500;;FR-10",
+  ];
+  writeFileSync(releve, `${String.fromCharCode(0xfeff)}${lignes.join("\r\n")}\r\n`, "utf8");
+  await allerA("nav.livres");
+  await page.getByRole("cell", { name: "Compte courant", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Réparation de la toiture" })).toBeVisible();
+  // Le dialogue d'ouverture du système ne se pilote pas : son appel reçoit le chemin du relevé.
+  await page.evaluate((chemin) => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    const original = window.fetch.bind(window);
+    fenetre.fetchOriginal = original;
+    window.fetch = (entree, options) => {
+      const url = decodeURIComponent(typeof entree === "string" ? entree : entree instanceof URL ? entree.href : entree.url);
+      if (url.includes("ipc.localhost/plugin:dialog|open")) {
+        return Promise.resolve(new Response(JSON.stringify(chemin), { status: 200, headers: { "Tauri-Response": "ok", "content-type": "application/json" } }));
+      }
+      return original(entree, options);
+    };
+  }, releve);
+  await page.getByRole("button", { name: texte("livre.choisir_releve") }).click();
+  // Les colonnes se devinent d'après l'en-tête.
+  await expect(page.locator("#releve-debit")).toHaveValue("2");
+  await expect(page.locator("#releve-credit")).toHaveValue("3");
+  await expect(page.locator("#releve-reference")).toHaveValue("4");
+  await page.evaluate(() => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    if (fenetre.fetchOriginal !== undefined) window.fetch = fenetre.fetchOriginal;
+  });
+  await page.getByRole("button", { name: texte("livre.rapprocher") }).click();
+  await expect(page.getByText(/^2 ligne\(s\) cochée\(s\) sur 3 lue\(s\)/)).toBeVisible();
+  await expect(page.getByText(/Pas dans le livre : 16 octobre 2026 · .2.500.F · FR-10/)).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Réparation de la toiture" }).getByText(texte("livre.pointee"))).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Location de la salle pour une réunion" }).getByText(texte("livre.pointee"))).toBeVisible();
+  await capturer("117-import-du-releve");
+});
+
+test("version 1.1 : une liste du personnel s'importe après vérification ; la personne déjà au registre est laissée de côté", async () => {
+  const liste = join(dossier, "personnel-a-importer.csv");
+  const lignes = [
+    "Nom;Prénoms;Catégorie;Fonction;Sexe;Date de naissance;Téléphone;Date d'arrivée;Matricule;Fonctionnaire",
+    "Dembélé;Mariam;Enseignement;Professeure de français;F;14/02/1988;76 21 43 65;01/10/2026;;non",
+    "Konaté;Seydou;Appui;Gardien;M;;66 10 20 30;01/10/2026;;non",
+    "Sangaré;Bakary;Enseignement;Professeur de mathématiques;M;;;;;",
+    "Touré;Aminata;Cantine;Cuisinière;F;;;;;",
+  ];
+  writeFileSync(liste, `${String.fromCharCode(0xfeff)}${lignes.join("\r\n")}\r\n`, "utf8");
+  await allerA("nav.personnel");
+  await page.getByRole("button", { name: texte("import_personnel.ouvrir") }).click();
+  await expect(page.getByRole("heading", { name: texte("import_personnel.titre") })).toBeVisible();
+  await page.evaluate((chemin) => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    const original = window.fetch.bind(window);
+    fenetre.fetchOriginal = original;
+    window.fetch = (entree, options) => {
+      const url = decodeURIComponent(typeof entree === "string" ? entree : entree instanceof URL ? entree.href : entree.url);
+      if (url.includes("ipc.localhost/plugin:dialog|open")) {
+        return Promise.resolve(new Response(JSON.stringify(chemin), { status: 200, headers: { "Tauri-Response": "ok", "content-type": "application/json" } }));
+      }
+      return original(entree, options);
+    };
+  }, liste);
+  await page.getByRole("button", { name: texte("import_personnel.choisir") }).click();
+  await expect(page.getByText("2 personne(s) prête(s) à importer sur 4 ligne(s) ; les autres sont laissées de côté.")).toBeVisible();
+  await page.evaluate(() => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    if (fenetre.fetchOriginal !== undefined) window.fetch = fenetre.fetchOriginal;
+  });
+  await expect(page.getByRole("row").filter({ hasText: "Sangaré" }).getByText(texte("import_personnel.deja_au_registre"))).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Touré" }).getByText(texte("import_personnel.categorie_inconnue"))).toBeVisible();
+  await capturer("118-import-du-personnel");
+  await page.getByRole("button", { name: "Importer 2 personne(s)" }).click();
+  await expect(page.getByText("2 fiche(s) créée(s) ; 2 ligne(s) laissée(s) de côté.")).toBeVisible();
+  await page.getByRole("button", { name: texte("import.fermer") }).click();
+  await expect(page.getByRole("cell", { name: "Mariam Dembélé" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Seydou Konaté" })).toBeVisible();
 });

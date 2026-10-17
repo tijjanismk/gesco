@@ -234,6 +234,14 @@ pub enum TypeEvenement {
     SanctionNotee,
     /// Une sanction est annulée, avec un motif.
     SanctionAnnulee,
+    /// Le journal d'audit d'une année est archivé dans un fichier signé (blueprint §12.4).
+    JournalArchive,
+    /// Le relevé par séance d'une classe est enregistré pour un jour (SPEC_VERSION_1_1 §1, T-71).
+    ReleveParSeanceEnregistre,
+    /// Le relevé d'un compte est importé ; les lignes retrouvées sont cochées (T-72).
+    ReleveImporte,
+    /// Une liste du personnel est importée (SPEC_VERSION_1_1 §1, étape 8).
+    PersonnelImporte,
 }
 
 impl TypeEvenement {
@@ -349,6 +357,10 @@ impl TypeEvenement {
         Self::RecetteAnnulee,
         Self::SanctionNotee,
         Self::SanctionAnnulee,
+        Self::JournalArchive,
+        Self::ReleveParSeanceEnregistre,
+        Self::ReleveImporte,
+        Self::PersonnelImporte,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -464,6 +476,10 @@ impl TypeEvenement {
             Self::RecetteAnnulee => "RecetteAnnulee",
             Self::SanctionNotee => "SanctionNotee",
             Self::SanctionAnnulee => "SanctionAnnulee",
+            Self::JournalArchive => "JournalArchive",
+            Self::ReleveParSeanceEnregistre => "ReleveParSeanceEnregistre",
+            Self::ReleveImporte => "ReleveImporte",
+            Self::PersonnelImporte => "PersonnelImporte",
         }
     }
 
@@ -580,7 +596,11 @@ impl TypeEvenement {
             | Self::RecetteEnregistree
             | Self::RecetteAnnulee
             | Self::SanctionNotee
-            | Self::SanctionAnnulee => 1,
+            | Self::SanctionAnnulee
+            | Self::JournalArchive
+            | Self::ReleveParSeanceEnregistre
+            | Self::ReleveImporte
+            | Self::PersonnelImporte => 1,
         }
     }
 

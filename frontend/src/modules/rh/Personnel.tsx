@@ -23,6 +23,7 @@ import type {
 } from "../../types/gesco";
 import { telephoneLisible } from "../scolarite/Identite";
 import { EngagementsMembre } from "./Engagements";
+import { ImportPersonnel } from "./ImportPersonnel";
 
 const NATURES: Record<NaturePiece, Cle> = {
   identite: "personnel.piece.identite",
@@ -62,6 +63,7 @@ export function Personnel() {
   const [partis, setPartis] = useState(false);
   const [choisi, setChoisi] = useState<string | null>(null);
   const [creation, setCreation] = useState(false);
+  const [importation, setImportation] = useState(false);
   const permissions = session.data?.permissions ?? [];
   const peutModifier = commandeAutorisee("membre_enregistrer", permissions);
   const cherche = texte.trim().toLowerCase();
@@ -81,10 +83,23 @@ export function Personnel() {
           <Bouton
             onClick={() => {
               setCreation(true);
+              setImportation(false);
               setChoisi(null);
             }}
           >
             {t("personnel.nouveau")}
+          </Bouton>
+        ) : null}
+        {commandeAutorisee("personnel_import_analyser", permissions) ? (
+          <Bouton
+            variante="secondaire"
+            onClick={() => {
+              setImportation(true);
+              setCreation(false);
+              setChoisi(null);
+            }}
+          >
+            {t("import_personnel.ouvrir")}
           </Bouton>
         ) : null}
         <CaseACocher id="personnel-partis" libelle={t("personnel.afficher_partis")} coche={partis} surChangement={setPartis} />
@@ -100,6 +115,7 @@ export function Personnel() {
             surSelection={(m) => {
               setChoisi(m.membre.id);
               setCreation(false);
+              setImportation(false);
             }}
             colonnes={[
               { titre: t("personnel.matricule"), valeur: (m) => m.membre.matricule },
@@ -111,6 +127,9 @@ export function Personnel() {
           />
         </div>
         <aside className="w-full max-w-2xl">
+          {importation && referentiel.data !== undefined ? (
+            <ImportPersonnel categories={referentiel.data.categories} surTermine={() => setImportation(false)} />
+          ) : null}
           {creation && referentiel.data !== undefined ? (
             <FormulaireMembre
               fiche={null}

@@ -3,6 +3,7 @@
 //! écrire, celle du pool pour lire.
 
 pub mod absences;
+pub mod absences_seances;
 pub mod academique;
 pub mod annee_scolaire;
 pub mod audit;

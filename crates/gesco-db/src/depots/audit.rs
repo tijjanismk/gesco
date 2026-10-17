@@ -163,6 +163,26 @@ pub struct FiltreAudit {
     pub jusqua: Option<i64>,
 }
 
+/// Les lignes du journal entre deux instants (le second exclu), dans l'ordre de la chaîne.
+pub async fn entre(
+    cnx: &mut Connexion,
+    depuis: i64,
+    jusqua: i64,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneAudit>> {
+    sqlx::query_as::<_, Ligne>(selectionner!(
+        "WHERE etablissement_id = ?1 AND horodatage >= ?2 AND horodatage < ?3 ORDER BY rowid"
+    ))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(depuis)
+    .bind(jusqua)
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(Ligne::vers_entite)
+    .collect()
+}
+
 /// Une page du journal filtré, de la plus récente à la plus ancienne ligne. Rend une ligne de
 /// plus que demandé quand une page suivante existe.
 pub async fn rechercher(

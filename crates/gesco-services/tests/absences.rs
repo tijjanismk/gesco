@@ -311,3 +311,124 @@ async fn une_journee_se_releve_puis_se_justifie() {
         "erreur.permission_refusee"
     );
 }
+
+/// SPEC_VERSION_1_1 §1, T-71 : réglé par l'école, le relevé se fait à chaque séance de l'emploi du
+/// temps ; absente à toutes les séances du matin, Awa compte la demi-journée ; absente à une
+/// seule, Binta ne la compte pas.
+#[tokio::test]
+async fn l_absence_a_toutes_les_seances_du_matin_compte_la_demi_journee() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let annee = p
+        .ok(
+            "annee_creer",
+            Some(&admin),
+            json!({ "libelle": "2026-2027", "debut": RENTREE_2026, "fin": FIN_2027 }),
+        )
+        .await;
+    p.ok("annee_activer", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    poser_grille(&p, &admin, &annee["id"]).await;
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    let septieme = id_par(&ped["niveaux"], "code", "7");
+    let classe = p
+        .ok(
+            "classe_creer",
+            Some(&admin),
+            json!({ "annee_id": annee["id"], "niveau_id": septieme, "serie_id": null, "libelle": "7e A" }),
+        )
+        .await["id"]
+        .clone();
+    let mut inscriptions = Vec::new();
+    for prenom in ["Awa", "Binta"] {
+        let fiche = eleve(&p, &admin, prenom, true).await;
+        inscriptions.push(
+            p.ok(
+                "inscription_creer",
+                Some(&admin),
+                json!({ "eleve_id": fiche["eleve"]["id"], "classe_id": classe, "date_inscription": "",
+                    "redoublant": false, "etablissement_origine": "" }),
+            )
+            .await["inscription"]["id"]
+                .clone(),
+        );
+    }
+    p.ok(
+        "inscriptions_valider_classe",
+        Some(&admin),
+        json!({ "id": classe }),
+    )
+    .await;
+    // Le lundi : 8 h–9 h et 9 h–10 h, puis 15 h–16 h.
+    let e = p
+        .ok("emploi_du_temps_lire", Some(&admin), Value::Null)
+        .await;
+    let matieres = e["classes"][0]["matieres"].as_array().unwrap().clone();
+    let mut seances = Vec::new();
+    for (i, (debut, fin)) in [(480, 540), (540, 600), (900, 960)].into_iter().enumerate() {
+        let e = p
+            .ok(
+                "seance_placer",
+                Some(&admin),
+                json!({ "id": null, "classe_id": classe, "jour": 1, "debut": debut, "fin": fin,
+                    "matiere_id": matieres[i]["matiere_id"], "enseignant_id": null, "salle": "" }),
+            )
+            .await;
+        seances.push(
+            e["seances"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|s| s["seance"]["plage"]["debut"] == debut)
+                .unwrap()["seance"]["id"]
+                .clone(),
+        );
+    }
+    // Inscrites le 4 octobre ; nous sommes le mardi 6 : le lundi 5 se relève.
+    p.horloge.avancer(2 * 86_400_000);
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let jour = json!({ "classe_id": classe, "date": "2026-10-05" });
+    let saisie = json!({ "classe_id": classe, "date": "2026-10-05", "lignes": [
+        { "inscription_id": inscriptions[0], "absent_a": [seances[0], seances[1]] },
+        { "inscription_id": inscriptions[1], "absent_a": [seances[0]] },
+    ] });
+    assert_eq!(
+        p.refus("absences_seances_enregistrer", Some(&admin), saisie.clone())
+            .await
+            .cle,
+        "absence.par_seance_inactif"
+    );
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        json!({ "cle": "absence.par_seance", "valeur": { "type": "booleen", "valeur": true } }),
+    )
+    .await;
+    let lu = p
+        .ok("absences_seances_lire", Some(&admin), jour.clone())
+        .await;
+    assert_eq!(lu["actif"], true);
+    assert_eq!(lu["seances"].as_array().unwrap().len(), 3);
+    assert_eq!(lu["seances"][0]["horaire"], "08:00 – 09:00");
+    let lu = p
+        .ok("absences_seances_enregistrer", Some(&admin), saisie)
+        .await;
+    assert_eq!(lu["lignes"][0]["absent_a"].as_array().unwrap().len(), 2);
+    let releve = p.ok("absences_releve_lire", Some(&admin), jour).await;
+    let ligne = |i: usize| {
+        releve["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["inscription_id"] == inscriptions[i])
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(ligne(0)["matin"]["nature"], "absence");
+    assert_eq!(ligne(0)["apres_midi"], Value::Null);
+    assert_eq!(ligne(1)["matin"], Value::Null);
+}

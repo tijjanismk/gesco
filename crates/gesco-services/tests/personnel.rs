@@ -346,3 +346,111 @@ async fn le_registre_tient_tout_le_personnel_avec_les_fonctions_de_l_ecole() {
     let verification = p.ok("audit_verifier", Some(&admin), Value::Null).await;
     assert!(verification["lignes_verifiees"].as_u64().unwrap() > 0);
 }
+
+#[tokio::test]
+async fn une_liste_du_personnel_s_importe_apres_verification() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let referentiel = p
+        .ok("personnel_referentiel_lire", Some(&admin), Value::Null)
+        .await;
+    let administration = par_code(&referentiel["categories"], "administration");
+    p.ok(
+        "membre_enregistrer",
+        Some(&admin),
+        membre("Coulibaly", "Awa", &administration, "Secrétaire"),
+    )
+    .await;
+
+    // Le modèle : les colonnes attendues, sans ligne.
+    let modele = dossier.path().join("modele-personnel.xlsx");
+    let ecrit = p
+        .ok(
+            "personnel_import_modele",
+            Some(&admin),
+            json!({ "chemin": modele.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(ecrit["lignes"], 0);
+    assert!(modele.exists());
+
+    // Une liste en CSV, colonnes dans un autre ordre, accents oubliés : deux lignes prêtes, une
+    // personne déjà au registre, une catégorie inconnue, une date illisible.
+    let liste = dossier.path().join("personnel.csv");
+    std::fs::write(
+        &liste,
+        "Prenoms;Nom;Categorie;Fonction;Sexe;Date de naissance;Telephone;Fonctionnaire\n\
+         Moussa;Diarra;Enseignement;Professeur de mathématiques;M;12/03/1985;76 44 55 66;oui\n\
+         Fatoumata;Keïta;Appui;Cuisinière;F;;;\n\
+         Awa;COULIBALY;Direction et administration;Secrétaire;F;;;\n\
+         Bakary;Sanogo;Cantine;Cuisinier;M;;;\n\
+         Oumar;Traoré;Appui;Gardien;M;31/02/1990;;\n",
+    )
+    .unwrap();
+    let analyse = p
+        .ok(
+            "personnel_import_analyser",
+            Some(&admin),
+            json!({ "chemin": liste.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(analyse["pretes"], 2);
+    let lignes = analyse["lignes"].as_array().unwrap();
+    assert_eq!(lignes.len(), 5);
+    assert_eq!(lignes[0]["numero"], 2);
+    assert_eq!(lignes[2]["doublon"], true);
+    assert_eq!(
+        lignes[3]["erreurs"],
+        json!(["import_personnel.categorie_inconnue"])
+    );
+    assert_eq!(
+        lignes[4]["erreurs"],
+        json!(["import_personnel.date_illisible"])
+    );
+    // L'analyse n'écrit rien.
+    let registre = p.ok("personnel_lister", Some(&admin), Value::Null).await;
+    assert_eq!(registre.as_array().unwrap().len(), 1);
+
+    let bilan = p
+        .ok(
+            "personnel_import_appliquer",
+            Some(&admin),
+            json!({ "chemin": liste.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(bilan, json!({ "importes": 2, "ignorees": 3 }));
+    let registre = p.ok("personnel_lister", Some(&admin), Value::Null).await;
+    let registre = registre.as_array().unwrap();
+    assert_eq!(registre.len(), 3);
+    let diarra = registre.iter().find(|m| m["nom"] == "Diarra").unwrap();
+    assert_eq!(diarra["membre"]["matricule"], "P-0002");
+    assert_eq!(diarra["membre"]["fonctionnaire"], true);
+    assert_eq!(diarra["telephones"], json!(["+22376445566"]));
+    assert_eq!(diarra["categorie"], "Enseignement");
+
+    // Relancée, la même liste ne crée personne de plus.
+    let bilan = p
+        .ok(
+            "personnel_import_appliquer",
+            Some(&admin),
+            json!({ "chemin": liste.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(bilan["importes"], 0);
+
+    // Une liste sans les colonnes exigées est refusée.
+    let mauvaise = dossier.path().join("autre.csv");
+    std::fs::write(&mauvaise, "Nom complet;Poste\nMoussa Diarra;Professeur\n").unwrap();
+    assert_eq!(
+        p.refus(
+            "personnel_import_analyser",
+            Some(&admin),
+            json!({ "chemin": mauvaise.to_string_lossy() }),
+        )
+        .await
+        .cle,
+        "import_personnel.colonnes"
+    );
+}

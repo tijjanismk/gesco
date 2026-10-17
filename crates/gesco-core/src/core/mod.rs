@@ -2,6 +2,7 @@
 //! événements, numérotation, clés, sauvegardes et licence. Entités et invariants seulement ; la persistance est dans `gesco-db`.
 
 pub mod annee_scolaire;
+pub mod archive_journal;
 pub mod audit;
 pub mod cle;
 pub mod etablissement;

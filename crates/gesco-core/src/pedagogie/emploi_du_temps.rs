@@ -325,6 +325,29 @@ pub fn minutes_des_jours(
     total
 }
 
+/// Demi-journées d'absence que donnent les absences d'un élève aux séances d'un jour (T-71) :
+/// absent à toutes les séances de la matinée (ou de l'après-midi), et à au moins une, il compte
+/// la demi-journée. Rend (matin, après-midi).
+pub fn demi_journees_absentes(
+    journee: &JourneeCycle,
+    jour: DateCivile,
+    seances_du_jour: &[&Seance],
+    absent_a: &[Id<Seance>],
+) -> (bool, bool) {
+    let plages = journee.plages_du(jour);
+    let absent = |plage: Option<&Plage>| {
+        let Some(plage) = plage else {
+            return false;
+        };
+        let dedans: Vec<&&Seance> = seances_du_jour
+            .iter()
+            .filter(|s| plage.contient(&s.plage))
+            .collect();
+        !dedans.is_empty() && dedans.iter().all(|s| absent_a.contains(&s.id))
+    };
+    (absent(plages.first()), absent(plages.get(1)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -450,8 +473,8 @@ mod tests {
         // Sous la canicule, l'après-midi du jeudi tombe.
         let mut canicule = j.clone();
         canicule.canicule = Some(Canicule {
-            du: avril[0],
-            au: avril[29],
+            du: DateCivile::nouvelle(2027, 4, 1).unwrap_or_else(|| unreachable!()),
+            au: DateCivile::nouvelle(2027, 4, 30).unwrap_or_else(|| unreachable!()),
             matin: Plage {
                 debut: h(7, 30),
                 fin: h(12, 0),
@@ -460,6 +483,29 @@ mod tests {
         assert_eq!(
             minutes_des_jours(&seances, |_| Some(canicule.clone()), avril),
             4 * 120
+        );
+    }
+
+    #[test]
+    fn absent_a_toutes_les_seances_du_matin_il_compte_la_demi_journee() {
+        let j = JourneeCycle::par_defaut(Cycle::PremierCycle);
+        // Lundi 5 avril 2027 : deux séances le matin, une l'après-midi.
+        let lundi = DateCivile::nouvelle(2027, 4, 5).unwrap_or_else(|| unreachable!());
+        let a = seance(1, 1, 1, h(8, 0), h(9, 0), None);
+        let b = seance(2, 1, 1, h(9, 0), h(10, 0), None);
+        let c = seance(3, 1, 1, h(15, 0), h(16, 0), None);
+        let du_jour = [&a, &b, &c];
+        assert_eq!(
+            demi_journees_absentes(&j, lundi, &du_jour, &[a.id, b.id]),
+            (true, false)
+        );
+        assert_eq!(
+            demi_journees_absentes(&j, lundi, &du_jour, &[a.id, c.id]),
+            (false, true)
+        );
+        assert_eq!(
+            demi_journees_absentes(&j, lundi, &du_jour, &[]),
+            (false, false)
         );
     }
 }

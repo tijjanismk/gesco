@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { choisirTableur } from "../../api/fichiers";
 import { aujourdHui } from "../../app/aujourdhui";
 import { commandeAutorisee } from "../../app/navigation";
 import { Bouton } from "../../composants/Bouton";
@@ -9,7 +10,7 @@ import { Champ, Formulaire, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { Tableau } from "../../composants/Tableau";
 import { type Cle, dateCivile, francs, moisCivil, t } from "../../i18n";
-import type { CompteTresorerie, EtatComptes, LigneLivre, ModePaiement, NatureCompte, OrigineLigne } from "../../types/gesco";
+import type { ApercuReleve, CompteTresorerie, EtatComptes, FormatReleve, LigneLivre, ModePaiement, NatureCompte, OrigineLigne } from "../../types/gesco";
 import { lireMontant } from "../paie/calcul";
 import { MODES } from "./Encaissement";
 
@@ -126,7 +127,93 @@ function Livre({ compte, gere, surPointe }: { compte: CompteTresorerie; gere: bo
           </p>
         </>
       )}
+      {gere ? (
+        <ImportReleve
+          compte={compte}
+          surFait={() => {
+            void client.invalidateQueries({ queryKey: ["livre", compte.id] });
+            surPointe();
+          }}
+        />
+      ) : null}
     </Section>
+  );
+}
+
+/** Import d'un relevé du compte (T-72) : les colonnes se disent une fois et se gardent ; les
+ *  lignes retrouvées dans le livre se cochent, les autres se montrent. */
+function ImportReleve({ compte, surFait }: { compte: CompteTresorerie; surFait: () => void }) {
+  const [chemin, setChemin] = useState<string | null>(null);
+  const [apercu, setApercu] = useState<ApercuReleve | null>(null);
+  const [format, setFormat] = useState<FormatReleve | null>(null);
+  const choisir = useMutation({
+    mutationFn: async () => {
+      const choisi = await choisirTableur(t("livre.filtre_releve"));
+      if (choisi === null) return null;
+      const lu = await appeler("releve_apercu", { compte_id: compte.id, chemin: choisi });
+      return { choisi, lu };
+    },
+    onSuccess: (x) => {
+      if (x === null) return;
+      setChemin(x.choisi);
+      setApercu(x.lu);
+      setFormat(x.lu.format ?? { date: 0, montant: null, debit: null, credit: null, reference: null });
+    },
+  });
+  const importer = useMutation({
+    mutationFn: () => appeler("releve_importer", { compte_id: compte.id, chemin: chemin ?? "", format: format ?? { date: 0, montant: null, debit: null, credit: null, reference: null } }),
+    onSuccess: surFait,
+  });
+  const colonne = (id: string, libelle: string, valeur: number | null, facultative: boolean, changer: (v: number | null) => void) => (
+    <Selection
+      id={id}
+      libelle={libelle}
+      valeur={valeur === null ? "" : String(valeur)}
+      surChangement={(v) => changer(v === "" ? null : Number(v))}
+      options={[...(facultative ? [{ valeur: "", libelle: t("livre.colonne_aucune") }] : []), ...(apercu?.entetes ?? []).map((e, i) => ({ valeur: String(i), libelle: e === "" ? t("livre.colonne_n", { n: String(i + 1) }) : e }))]}
+    />
+  );
+  const r = importer.data;
+  return (
+    <div className="flex flex-col gap-2 rounded border border-muet p-3">
+      <p className="text-sm font-medium text-encre">{t("livre.import_releve")}</p>
+      <p className="text-sm text-muet">{t("livre.import_releve_aide")}</p>
+      <div>
+        <Bouton variante="secondaire" onClick={() => choisir.mutate()} disabled={choisir.isPending}>
+          {t("livre.choisir_releve")}
+        </Bouton>
+      </div>
+      {apercu === null || format === null ? null : (
+        <>
+          <div className="flex flex-wrap items-end gap-3">
+            {colonne("releve-date", t("livre.colonne_date"), format.date, false, (v) => setFormat({ ...format, date: v ?? 0 }))}
+            {colonne("releve-montant", t("livre.colonne_montant"), format.montant, true, (v) => setFormat({ ...format, montant: v }))}
+            {colonne("releve-debit", t("livre.colonne_debit"), format.debit, true, (v) => setFormat({ ...format, debit: v }))}
+            {colonne("releve-credit", t("livre.colonne_credit"), format.credit, true, (v) => setFormat({ ...format, credit: v }))}
+            {colonne("releve-reference", t("livre.colonne_reference"), format.reference, true, (v) => setFormat({ ...format, reference: v }))}
+            <Bouton onClick={() => importer.mutate()} disabled={importer.isPending}>
+              {t("livre.rapprocher")}
+            </Bouton>
+          </div>
+          <p className="text-xs text-muet">{apercu.exemples.slice(0, 3).map((l) => l.join(" · ")).join(" | ")}</p>
+        </>
+      )}
+      {r === undefined ? null : (
+        <>
+          <p role="status" className="text-sm text-vert">
+            {t("livre.releve_rapproche", { cochees: String(r.cochees), lues: String(r.lues), a_pointer: String(r.a_pointer) })}
+          </p>
+          {r.non_retrouvees.length === 0 ? null : (
+            <ul className="text-sm text-ocre">
+              {r.non_retrouvees.map((x, i) => (
+                <li key={`${x.date}-${String(i)}`}>{t("livre.non_retrouvee", { date: dateCivile(x.date), montant: francs(x.montant), reference: x.reference })}</li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+      <MessageErreur erreur={choisir.error ?? importer.error} />
+    </div>
   );
 }
 

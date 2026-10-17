@@ -27,3 +27,8 @@ export async function choisirPiece(libelleFiltre: string): Promise<string | null
 export async function enregistrerPieceSous(nom: string): Promise<string | null> {
   return save({ defaultPath: nom });
 }
+
+/** Dialogue d'ouverture du système, filtré sur les archives du journal d'audit `.gja`. */
+export async function choisirArchiveJournal(libelleFiltre: string): Promise<string | null> {
+  return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["gja"] }] });
+}

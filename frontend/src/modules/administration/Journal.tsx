@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { choisirArchiveJournal } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
 import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
@@ -57,6 +58,45 @@ const ENTITES: Record<string, Cle> = {
   regle_evaluation: "entite.regle_evaluation",
   mouvement_caisse: "entite.mouvement_caisse",
   utilisateur_role: "entite.utilisateur_role",
+  absence: "entite.absence",
+  absence_personnel: "entite.absence_personnel",
+  absence_seance: "entite.absence_seance",
+  appreciation: "entite.appreciation",
+  archive_journal: "entite.archive_journal",
+  attribution_element: "entite.attribution_element",
+  avance_salaire: "entite.avance_salaire",
+  budget_tresorerie: "entite.budget_tresorerie",
+  bulletin: "entite.bulletin",
+  categorie_personnel: "entite.categorie_personnel",
+  categorie_tresorerie: "entite.categorie_tresorerie",
+  compte_du_mode: "entite.compte_du_mode",
+  compte_tresorerie: "entite.compte_tresorerie",
+  conge: "entite.conge",
+  depense: "entite.depense",
+  element_paie: "entite.element_paie",
+  engagement: "entite.engagement",
+  exclusion: "entite.exclusion",
+  facture_fournisseur: "entite.facture_fournisseur",
+  fonction_personnel: "entite.fonction_personnel",
+  fournisseur: "entite.fournisseur",
+  heures_vacation: "entite.heures_vacation",
+  import_personnel: "entite.import_personnel",
+  journee_cycle: "entite.journee_cycle",
+  membre_personnel: "entite.membre_personnel",
+  moyenne_reprise: "entite.moyenne_reprise",
+  paie_mois: "entite.paie_mois",
+  paiement_personnel: "entite.paiement_personnel",
+  personne: "entite.personne",
+  piece_depense: "entite.piece_depense",
+  piece_dossier: "entite.piece_dossier",
+  pointage_tresorerie: "entite.pointage_tresorerie",
+  recette_tresorerie: "entite.recette_tresorerie",
+  repas_cantine: "entite.repas_cantine",
+  saisie_paie: "entite.saisie_paie",
+  sanction: "entite.sanction",
+  seance: "entite.seance",
+  transfert_tresorerie: "entite.transfert_tresorerie",
+  type_conge: "entite.type_conge",
 };
 
 function libelleEntite(entite: string): string {
@@ -140,21 +180,25 @@ export function Journal() {
       <MessageErreur erreur={verification.error ?? journal.error} />
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-1">
-          <Tableau
-            nomExport="journal-audit"
-            titre={t("journal.titre")}
-            lignes={journal.data?.lignes ?? []}
-            cle={(l) => l.id}
-            surSelection={(l) => setChoisie(l.id)}
-            colonnes={[
-              { titre: t("journal.horodatage"), valeur: (l) => dateHeure(l.horodatage) },
-              { titre: t("journal.auteur"), valeur: nomAuteur },
-              { titre: t("journal.entite"), valeur: (l) => libelleEntite(l.entite) },
-              { titre: t("journal.operation"), valeur: (l) => t(OPERATIONS[l.operation]) },
-              { titre: t("journal.origine"), valeur: (l) => l.contexte },
-              { titre: t("journal.poste"), valeur: (l) => l.poste },
-            ]}
-          />
+          {journal.data === undefined ? (
+            <p className="text-sm text-muet">{t("commun.chargement")}</p>
+          ) : (
+            <Tableau
+              nomExport="journal-audit"
+              titre={t("journal.titre")}
+              lignes={journal.data.lignes}
+              cle={(l) => l.id}
+              surSelection={(l) => setChoisie(l.id)}
+              colonnes={[
+                { titre: t("journal.horodatage"), valeur: (l) => dateHeure(l.horodatage) },
+                { titre: t("journal.auteur"), valeur: nomAuteur },
+                { titre: t("journal.entite"), valeur: (l) => libelleEntite(l.entite) },
+                { titre: t("journal.operation"), valeur: (l) => t(OPERATIONS[l.operation]) },
+                { titre: t("journal.origine"), valeur: (l) => l.contexte },
+                { titre: t("journal.poste"), valeur: (l) => l.poste },
+              ]}
+            />
+          )}
           <div className="mt-2 flex items-center gap-2">
             <Bouton variante="secondaire" onClick={() => setPage(page - 1)} disabled={page === 0}>{t("journal.precedente")}</Bouton>
             <p className="text-sm text-muet">{t("journal.page", { page: page + 1 })}</p>
@@ -163,7 +207,36 @@ export function Journal() {
         </div>
         {ligne === undefined ? null : <DetailLigne ligne={ligne} auteur={nomAuteur(ligne)} />}
       </div>
+      <ArchivesDuJournal />
     </div>
+  );
+}
+
+/** Archives du journal (blueprint §12.4) : à la clôture, le journal de l'année s'écrit dans un
+ *  fichier signé ; on vérifie qu'un fichier choisi vient de cette école et n'a pas changé. */
+function ArchivesDuJournal() {
+  const verifier = useMutation({
+    mutationFn: async () => {
+      const chemin = await choisirArchiveJournal(t("journal.filtre_archive"));
+      return chemin === null ? null : appeler("journal_archive_verifier", { chemin });
+    },
+  });
+  const v = verifier.data;
+  return (
+    <Section titre={t("journal.archives")}>
+      <p className="text-sm text-muet">{t("journal.archives_aide")}</p>
+      <div>
+        <Bouton variante="secondaire" onClick={() => verifier.mutate()} disabled={verifier.isPending}>
+          {t("journal.verifier_archive")}
+        </Bouton>
+      </div>
+      {v === undefined || v === null ? null : v.valide ? (
+        <p role="status" className="text-sm text-vert">{t("journal.archive_valide", { annee: v.annee, etablissement: v.etablissement, lignes: String(v.lignes) })}</p>
+      ) : (
+        <p role="alert" className="text-sm text-rouge">{t("journal.archive_alteree", { annee: v.annee })}</p>
+      )}
+      <MessageErreur erreur={verifier.error} />
+    </Section>
   );
 }
 

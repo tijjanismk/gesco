@@ -8,6 +8,7 @@ import { CaseACocher, Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, date as dateDuJour, dateCivile, heure, t, texteDeCle } from "../../i18n";
 import type { Absence, AbsenceAffichee, CleAbsence, DemiJournee, LigneReleve } from "../../types/gesco";
+import { ReleveParSeance } from "./ReleveParSeance";
 import { lireAbsence } from "./saisies";
 import { aujourdHui } from "../../app/aujourdhui";
 
@@ -81,7 +82,12 @@ export function Absences() {
             )}
           </div>
           {onglet === "releve" ? (
-            jour === "" ? null : <Releve key={`${classe.classe.id}-${jour}`} classeId={classe.classe.id} jour={jour} peutJustifier={commandeAutorisee("absences_justifier", permissions)} />
+            jour === "" ? null : (
+              <>
+                <ReleveParSeance key={`seances-${classe.classe.id}-${jour}`} classeId={classe.classe.id} jour={jour} />
+                <Releve key={`${classe.classe.id}-${jour}`} classeId={classe.classe.id} jour={jour} peutJustifier={commandeAutorisee("absences_justifier", permissions)} />
+              </>
+            )
           ) : periode === undefined ? null : (
             <AbsencesDeLaPeriode classeId={classe.classe.id} periodeId={periode.periode.id} peutJustifier={commandeAutorisee("absences_justifier", permissions)} />
           )}

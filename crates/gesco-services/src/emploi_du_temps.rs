@@ -656,6 +656,66 @@ pub(crate) async fn minutes_de_l_enseignant(
     )))
 }
 
+/// Séances actives d'une classe un jour, dans l'horaire de ce jour (canicule comprise), par heure,
+/// avec la journée de sa classe ; rien sans année en cours.
+pub(crate) async fn seances_entieres_du_jour(
+    cnx: &mut gesco_db::Connexion,
+    classe_id: Id<Classe>,
+    jour: DateCivile,
+    contexte: &Contexte,
+) -> Resultat<(Option<JourneeCycle>, Vec<Seance>)> {
+    if annee_scolaire::courante(cnx, contexte).await?.is_none() {
+        return Ok((None, Vec::new()));
+    }
+    let c = ServiceEmploiDuTemps::contenu(cnx, contexte).await?;
+    let Some(journee) = c.journee_de(classe_id) else {
+        return Ok((None, Vec::new()));
+    };
+    let plages = journee.plages_du(jour);
+    let numero = jour.jour_de_semaine() + 1;
+    let mut seances: Vec<Seance> = c
+        .seances
+        .iter()
+        .filter(|s| {
+            s.classe_id == classe_id
+                && s.jour == numero
+                && plages.iter().any(|p| p.contient(&s.plage))
+        })
+        .cloned()
+        .collect();
+    seances.sort_by_key(|s| s.plage.debut);
+    Ok((Some(journee), seances))
+}
+
+/// Les mêmes séances, telles que le relevé par séance les montre.
+pub(crate) async fn seances_du_jour(
+    cnx: &mut gesco_db::Connexion,
+    classe_id: Id<Classe>,
+    jour: DateCivile,
+    contexte: &Contexte,
+) -> Resultat<(
+    Option<JourneeCycle>,
+    Vec<crate::absences_seances::SeanceDuJour>,
+)> {
+    let (journee, seances) = seances_entieres_du_jour(cnx, classe_id, jour, contexte).await?;
+    if seances.is_empty() {
+        return Ok((journee, Vec::new()));
+    }
+    let c = ServiceEmploiDuTemps::contenu(cnx, contexte).await?;
+    Ok((
+        journee,
+        seances
+            .iter()
+            .map(|s| crate::absences_seances::SeanceDuJour {
+                seance_id: s.id,
+                horaire: horaire(s.plage),
+                matiere: c.matiere(s.matiere_id),
+                enseignant: c.enseignant(s.enseignant_id),
+            })
+            .collect(),
+    ))
+}
+
 /// Libellé imprimé d'un cycle.
 fn libelle_cycle(cycle: Cycle) -> &'static str {
     match cycle {
