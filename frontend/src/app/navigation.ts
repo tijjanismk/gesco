@@ -1,7 +1,7 @@
 import type { Cle } from "../i18n";
 import { ACCES, type NomCommande } from "../types/acces";
 
-export type IdSection = "accueil" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
+export type IdSection = "accueil" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
 
 interface Section {
   id: IdSection;
@@ -20,6 +20,7 @@ const SECTIONS: readonly Section[] = [
   { id: "notes", libelle: "nav.notes", groupe: "nav.groupe.scolarite", commande: "evaluation_creer" },
   { id: "absences", libelle: "nav.absences", groupe: "nav.groupe.scolarite", commande: "absences_releve_lire" },
   { id: "bulletins", libelle: "nav.bulletins", groupe: "nav.groupe.scolarite", commande: "bulletins_lire" },
+  { id: "discipline", libelle: "nav.discipline", groupe: "nav.groupe.scolarite", commande: "discipline_registre_lire" },
   { id: "emploi-du-temps", libelle: "nav.emploi_du_temps", groupe: "nav.groupe.scolarite", commande: "emploi_du_temps_lire" },
   { id: "fin-annee", libelle: "nav.fin_annee", groupe: "nav.groupe.scolarite", commande: "fin_annee_lire" },
   { id: "caisse", libelle: "nav.caisse", groupe: "nav.groupe.finance", commande: "caisse_ouvrir" },

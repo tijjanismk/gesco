@@ -230,6 +230,10 @@ pub enum TypeEvenement {
     RecetteEnregistree,
     /// Une autre recette est annulée, avec un motif.
     RecetteAnnulee,
+    /// Une sanction est notée au dossier de discipline d'un élève (SPEC_VERSION_1_1 §1).
+    SanctionNotee,
+    /// Une sanction est annulée, avec un motif.
+    SanctionAnnulee,
 }
 
 impl TypeEvenement {
@@ -343,6 +347,8 @@ impl TypeEvenement {
         Self::RepasPointe,
         Self::RecetteEnregistree,
         Self::RecetteAnnulee,
+        Self::SanctionNotee,
+        Self::SanctionAnnulee,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -456,6 +462,8 @@ impl TypeEvenement {
             Self::RepasPointe => "RepasPointe",
             Self::RecetteEnregistree => "RecetteEnregistree",
             Self::RecetteAnnulee => "RecetteAnnulee",
+            Self::SanctionNotee => "SanctionNotee",
+            Self::SanctionAnnulee => "SanctionAnnulee",
         }
     }
 
@@ -570,7 +578,9 @@ impl TypeEvenement {
             | Self::SeancePlacee
             | Self::RepasPointe
             | Self::RecetteEnregistree
-            | Self::RecetteAnnulee => 1,
+            | Self::RecetteAnnulee
+            | Self::SanctionNotee
+            | Self::SanctionAnnulee => 1,
         }
     }
 

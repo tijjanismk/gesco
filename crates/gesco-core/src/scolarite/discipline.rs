@@ -122,11 +122,21 @@ mod tests {
     #[test]
     fn seuls_l_avertissement_et_le_blame_vont_au_bulletin() {
         assert_eq!(
-            verifier_sanction(NatureSanction::Blame, "Bavardages répétés", "Conseil de classe", true),
+            verifier_sanction(
+                NatureSanction::Blame,
+                "Bavardages répétés",
+                "Conseil de classe",
+                true
+            ),
             Ok(())
         );
         assert_eq!(
-            verifier_sanction(NatureSanction::Retenue, "Retard", "Surveillant général", true),
+            verifier_sanction(
+                NatureSanction::Retenue,
+                "Retard",
+                "Surveillant général",
+                true
+            ),
             Err("sanction.periode_reservee_au_conseil")
         );
         assert_eq!(

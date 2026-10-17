@@ -935,6 +935,11 @@ export type ContenuBulletin = {
 	moyenne_annuelle_imprimee?: boolean,
 	/**  Date d'arrivée d'un élève arrivé pendant la période (Q-29). */
 	arrive_le?: string | null,
+	/**
+	 *  Avertissement et blâme du conseil de classe de la période (T-70) :
+	 *  « Blâme : bavardages répétés ».
+	 */
+	sanctions_conseil?: string[],
 };
 
 /**  Contenu d'une grille : ses lignes et ses plans. */
@@ -1489,6 +1494,14 @@ export type Contrat = {
 	recette_saisir: Signature<DemandeRecette, RecettesDuMois>,
 	/**  Signature de la commande du même nom. */
 	recette_annuler: Signature<DemandeAnnulationRecette, RecettesDuMois>,
+	/**  Signature de la commande du même nom. */
+	discipline_registre_lire: Signature<null, RegistreDiscipline>,
+	/**  Signature de la commande du même nom. */
+	discipline_dossier_lire: Signature<DemandeDossierDiscipline, DossierDiscipline>,
+	/**  Signature de la commande du même nom. */
+	sanction_noter: Signature<DemandeSanction, DossierDiscipline>,
+	/**  Signature de la commande du même nom. */
+	sanction_annuler: Signature<DemandeAnnulationSanction, DossierDiscipline>,
 };
 
 /**  Cumuls de l'année civile. */
@@ -1658,6 +1671,14 @@ export type DemandeAnnulationPaiement = {
 /**  Annulation motivée d'une recette. */
 export type DemandeAnnulationRecette = {
 	/**  Recette. */
+	id: string,
+	/**  Motif. */
+	motif: string,
+};
+
+/**  Annulation motivée d'une sanction. */
+export type DemandeAnnulationSanction = {
+	/**  Sanction. */
 	id: string,
 	/**  Motif. */
 	motif: string,
@@ -2057,6 +2078,12 @@ export type DemandeDeverrouillageMotDePasse = {
 	jeton: Jeton,
 	/**  Mot de passe de son utilisateur. */
 	mot_de_passe: string,
+};
+
+/**  Dossier d'un élève à lire. */
+export type DemandeDossierDiscipline = {
+	/**  Inscription. */
+	inscription_id: string,
 };
 
 /**  Identité en cours de saisie, comparée aux fiches existantes. */
@@ -3092,6 +3119,22 @@ export type DemandeSaisiePaie = {
 	libelle: string,
 };
 
+/**  Sanction à noter. */
+export type DemandeSanction = {
+	/**  Inscription de l'élève. */
+	inscription_id: string,
+	/**  Nature. */
+	nature: NatureSanction,
+	/**  Jour, `AAAA-MM-JJ` ; vide : aujourd'hui. */
+	date: string,
+	/**  Motif. */
+	motif: string,
+	/**  Qui l'a décidée. */
+	decidee_par: string,
+	/**  Période du conseil de classe, pour la porter sur le bulletin. */
+	periode_id: string | null,
+};
+
 /**  Séance placée ou déplacée. */
 export type DemandeSeance = {
 	/**  Séance déplacée ; vide pour une nouvelle. */
@@ -3381,6 +3424,22 @@ export type DocumentAffiche = {
 	pdf: string,
 };
 
+/**  Le dossier de discipline d'un élève pour son inscription. */
+export type DossierDiscipline = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Prénoms et nom. */
+	eleve: string,
+	/**  Classe. */
+	classe: string,
+	/**  Sanctions, annulées comprises, par date. */
+	sanctions: SanctionAffichee[],
+	/**  Périodes de son niveau, pour le conseil de classe. */
+	periodes: PeriodeConseil[],
+	/**  Droits de qui consulte. */
+	droits: DroitsDiscipline,
+};
+
 /**  Ce que peut faire le compte connecté. */
 export type DroitsDepenses = {
 	/**  Saisir une dépense. */
@@ -3389,6 +3448,14 @@ export type DroitsDepenses = {
 	approuver: boolean,
 	/**  Payer et annuler. */
 	payer: boolean,
+};
+
+/**  Ce que peut faire le compte connecté. */
+export type DroitsDiscipline = {
+	/**  Noter une sanction. */
+	sanctionner: boolean,
+	/**  Annuler une sanction. */
+	annuler: boolean,
 };
 
 /**  Échéance d'une facture. */
@@ -4597,6 +4664,8 @@ export type LigneHeures = {
 	taux: Montant | null,
 	/**  Heures prévues, en minutes. */
 	minutes_prevues: number,
+	/**  Les heures prévues proposées viennent de l'emploi du temps (T-41), non de l'engagement. */
+	prevues_emploi_du_temps: boolean,
 	/**  Heures faites, en minutes. */
 	minutes_faites: number | null,
 	/**
@@ -5190,6 +5259,17 @@ export type NaturePiece =
 /**  Autre pièce. */
 "autre";
 
+/**  Nature d'une sanction. */
+export type NatureSanction = 
+/**  Avertissement, de la direction ou du conseil de classe. */
+"avertissement" | 
+/**  Blâme, de la direction ou du conseil de classe. */
+"blame" | 
+/**  Retenue : heures de travail en dehors des cours. */
+"retenue" | 
+/**  Convocation des parents. */
+"convocation_parents";
+
 /**  Niveau d'un établissement, copie du référentiel national que l'école renomme ou désactive. */
 export type Niveau = {
 	/**  Identifiant technique. */
@@ -5498,6 +5578,14 @@ export type PeriodeAffichee = {
 	/**  Période. */
 	periode: Periode,
 	/**  « Octobre », « 1er trimestre ». */
+	libelle: string,
+};
+
+/**  Période qu'un conseil de classe peut viser. */
+export type PeriodeConseil = {
+	/**  Période. */
+	periode_id: string,
+	/**  Libellé : « 1er trimestre ». */
 	libelle: string,
 };
 
@@ -5847,6 +5935,16 @@ export type RefusValidation = {
 	eleve: string,
 	/**  Clé de la raison. */
 	cle: string,
+};
+
+/**  Le registre de discipline de l'année courante. */
+export type RegistreDiscipline = {
+	/**  Année. */
+	annee_id: string,
+	/**  Sanctions de l'année, la plus récente d'abord. */
+	sanctions: SanctionAffichee[],
+	/**  Droits de qui consulte. */
+	droits: DroitsDiscipline,
 };
 
 /**  Réglages de l'assistant, valables pour la validation et l'application. */
@@ -6255,6 +6353,46 @@ export type SalaireAPayer = {
 	reste: Montant,
 	/**  Mode proposé, d'après la fiche du membre. */
 	mode_propose: ModePaiement,
+};
+
+/**  Sanction du dossier de discipline d'un élève. */
+export type Sanction = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Inscription de l'élève. */
+	inscription_id: string,
+	/**  Nature. */
+	nature: NatureSanction,
+	/**  Jour de la décision. */
+	date: string,
+	/**  Motif. */
+	motif: string,
+	/**  Qui l'a décidée : la direction, le conseil de classe, le surveillant général. */
+	decidee_par: string,
+	/**  Période du conseil de classe, pour un avertissement ou un blâme porté sur le bulletin. */
+	periode_id: string | null,
+	/**  Qui l'a saisie. */
+	saisie_par: string,
+	/**  Annulée, avec son motif. */
+	annulee: boolean,
+	/**  Motif de l'annulation. */
+	motif_annulation: string,
+};
+
+/**  Sanction affichée. */
+export type SanctionAffichee = {
+	/**  Sanction. */
+	sanction: Sanction,
+	/**  Prénoms et nom de l'élève. */
+	eleve: string,
+	/**  Classe. */
+	classe: string,
+	/**  Période du conseil de classe, pour une sanction portée sur le bulletin. */
+	periode: string | null,
+	/**  Qui l'a saisie. */
+	saisie_par: string,
 };
 
 /**  Trace d'une sauvegarde. */

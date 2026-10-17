@@ -3,6 +3,7 @@
 
 pub mod academique;
 pub mod depart;
+pub mod discipline;
 pub mod fin_annee;
 pub mod fusion;
 pub mod import_eleves;

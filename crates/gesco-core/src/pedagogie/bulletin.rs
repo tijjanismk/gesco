@@ -142,6 +142,10 @@ pub struct ContenuBulletin {
     /// Date d'arrivée d'un élève arrivé pendant la période (Q-29).
     #[serde(default)]
     pub arrive_le: Option<DateCivile>,
+    /// Avertissement et blâme du conseil de classe de la période (T-70) :
+    /// « Blâme : bavardages répétés ».
+    #[serde(default)]
+    pub sanctions_conseil: Vec<String>,
 }
 
 /// Bulletin d'un élève, dans une version.

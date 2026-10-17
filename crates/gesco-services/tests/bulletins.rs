@@ -183,11 +183,65 @@ async fn une_classe_se_calcule_se_valide_se_publie_puis_se_corrige() {
     )
     .await;
 
+    // Discipline (T-70) : le conseil de classe blâme Binta pour le trimestre ; une retenue reste
+    // au dossier sans aller au bulletin, et ne se rattache pas à une période.
+    let sanction = |nature: &str, motif: &str, periode: Value| {
+        json!({ "inscription_id": eleves[1], "nature": nature, "date": "2026-10-04",
+            "motif": motif, "decidee_par": "Conseil de classe", "periode_id": periode })
+    };
+    assert_eq!(
+        p.refus(
+            "sanction_noter",
+            Some(&admin),
+            sanction("retenue", "Devoir non fait", trimestre.clone())
+        )
+        .await
+        .cle,
+        "sanction.periode_reservee_au_conseil"
+    );
+    p.ok(
+        "sanction_noter",
+        Some(&admin),
+        sanction("blame", "Bavardages répétés", trimestre.clone()),
+    )
+    .await;
+    let dossier = p
+        .ok(
+            "sanction_noter",
+            Some(&admin),
+            sanction("retenue", "Devoir non fait", Value::Null),
+        )
+        .await;
+    assert_eq!(dossier["sanctions"].as_array().unwrap().len(), 2);
+    assert_eq!(dossier["sanctions"][0]["periode"], "1er trimestre");
+    let retenue = dossier["sanctions"][1]["sanction"]["id"].clone();
+    let dossier = p
+        .ok(
+            "sanction_annuler",
+            Some(&admin),
+            json!({ "id": retenue, "motif": "Devoir retrouvé" }),
+        )
+        .await;
+    assert_eq!(dossier["sanctions"][1]["sanction"]["annulee"], true);
+    let registre = p
+        .ok("discipline_registre_lire", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(registre["sanctions"].as_array().unwrap().len(), 2);
+    assert_eq!(registre["sanctions"][0]["classe"], "7e A");
+
     let demande = json!({ "classe_id": classe, "periode_id": trimestre });
     let calcul = p
         .ok("resultats_calculer", Some(&admin), demande.clone())
         .await;
     assert_eq!(calcul["evaluations_en_saisie"], 4);
+    assert_eq!(
+        calcul["bulletins"][1]["bulletin"]["contenu"]["sanctions_conseil"],
+        json!(["Blâme : Bavardages répétés"])
+    );
+    assert_eq!(
+        calcul["bulletins"][0]["bulletin"]["contenu"]["sanctions_conseil"],
+        json!([])
+    );
     assert_eq!(calcul["bulletins"].as_array().unwrap().len(), 3);
     let awa = &calcul["bulletins"][0]["bulletin"];
     assert_eq!(awa["statut"], "calcule");

@@ -110,7 +110,7 @@ fn les_deux_mises_en_page_se_composent_avec_les_colonnes_choisies() {
             .composer_avec("bulletin", &variante, &donnees, std::slice::from_ref(&qr))
             .unwrap();
         assert!(document.pdf.starts_with(b"%PDF"));
-        assert_eq!(document.modele_version, 2);
+        assert_eq!(document.modele_version, 3);
         #[cfg(feature = "apercu-svg")]
         if let Some(dossier) = std::env::var_os("GESCO_BULLETIN_SVG") {
             let pages = moteur

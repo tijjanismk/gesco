@@ -2168,6 +2168,7 @@ test("version 1.1 : un don en espèces et une location par virement entrent dans
 test("version 1.1 : la photo d'une élève se prend à la webcam du poste", async () => {
   await allerA("nav.eleves");
   await page.getByRole("button", { name: texte("eleves.nouveau") }).click();
+  await page.locator("#nouvel-eleve-matricule").fill("L/2026/120");
   await page.locator("#nouvel-eleve-nom").fill("Diakité");
   await page.locator("#nouvel-eleve-prenoms").fill("Kadiatou");
   await page.locator("#nouvel-eleve-sexe").selectOption("feminin");
@@ -2183,4 +2184,20 @@ test("version 1.1 : la photo d'une élève se prend à la webcam du poste", asyn
   await expect(page.getByRole("img", { name: texte("eleves.photo") })).toBeVisible();
   await expect(page.locator("video")).toHaveCount(0);
   await capturer("113-photo-webcam");
+});
+
+test("version 1.1 : le conseil de classe donne un blâme, qui va au bulletin du trimestre", async () => {
+  await allerA("nav.discipline");
+  await expect(page.getByRole("heading", { name: texte("discipline.titre"), exact: true })).toBeVisible();
+  await page.locator("#sanction-classe").selectOption({ label: "7e A" });
+  await page.locator("#sanction-eleve").selectOption({ index: 1 });
+  await page.locator("#sanction-nature").selectOption("blame");
+  await page.locator("#sanction-motif").fill("Bavardages répétés en classe");
+  await page.locator("#sanction-decidee").fill("Conseil de classe");
+  await page.locator("#sanction-periode").selectOption({ index: 1 });
+  await page.getByRole("button", { name: texte("discipline.noter") }).click();
+  const ligne = page.getByRole("row").filter({ hasText: "Bavardages répétés en classe" });
+  await expect(ligne).toBeVisible();
+  await expect(ligne.getByText(/au bulletin du/)).toBeVisible();
+  await capturer("114-discipline");
 });

@@ -261,6 +261,10 @@ export const ACCES = {
   recettes_lire: { type: "permission", permission: "treasury:read" },
   recette_saisir: { type: "permission", permission: "treasury:manage" },
   recette_annuler: { type: "permission", permission: "treasury:manage" },
+  discipline_registre_lire: { type: "permission", permission: "students:read" },
+  discipline_dossier_lire: { type: "permission", permission: "students:read" },
+  sanction_noter: { type: "permission", permission: "sanctions:create" },
+  sanction_annuler: { type: "permission", permission: "sanctions:cancel" },
 } as const;
 
 export type NomCommande = keyof typeof ACCES;

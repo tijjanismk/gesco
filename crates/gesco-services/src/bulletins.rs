@@ -251,6 +251,8 @@ impl<'n> ServiceBulletins<'n> {
             absences::de_la_classe(&mut cnx, classe.id, periode.debut, periode.fin, &contexte)
                 .await?;
         let appreciations = bulletins::appreciations(&mut cnx, periode.id, &contexte).await?;
+        let sanctions =
+            crate::discipline::du_conseil_imprimees(&mut cnx, periode.id, &contexte).await?;
         drop(cnx);
         let fiches = ServiceEnseignants::nouveau(self.noyau)
             .lister(session)
@@ -461,6 +463,11 @@ impl<'n> ServiceBulletins<'n> {
                         rang_annuel: annuelle.and_then(|a| a.rang),
                         moyenne_annuelle_imprimee: annuelle.is_some() && annuelle_imprimee,
                         arrive_le: arrive_pendant(*inscrit_le, &periode).then_some(*inscrit_le),
+                        sanctions_conseil: sanctions
+                            .iter()
+                            .filter(|(i, _)| i == inscription_id)
+                            .map(|(_, texte)| texte.clone())
+                            .collect(),
                     },
                 )
             })
@@ -1227,6 +1234,7 @@ pub fn donnees_impression(
             "moyenne_annuelle": c.moyenne_annuelle.filter(|_| c.moyenne_annuelle_imprimee).map(ecrire),
             "rang_annuel": rang(c.rang_annuel),
             "arrive_le": c.arrive_le.map(crate::documents::date_civile_longue),
+            "sanctions": c.sanctions_conseil,
             "etat": etat,
             "qr": piece.chemin(),
             "reference": reference,

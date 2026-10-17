@@ -174,6 +174,31 @@ async fn les_seances_se_placent_dans_la_journee_et_les_conflits_se_signalent() {
         "journee.jours_invalides"
     );
 
+    // Vacataire, Moussa reçoit ses heures prévues d'octobre d'après ses séances : les lundis 5,
+    // 12, 19 et 26, 1 h 45 chaque fois (8 h–9 h et 9 h 45–10 h 30).
+    let registre = p.ok("personnel_lister", Some(&admin), Value::Null).await;
+    let membre = registre
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["nom"] == "Diarra")
+        .unwrap()["membre"]["id"]
+        .clone();
+    p.ok(
+        "engagement_conclure",
+        Some(&admin),
+        json!({ "membre_id": membre, "nature": "vacation", "debut": "2026-10-01", "fin": null,
+            "fonction": "", "remuneration": { "type": "horaire", "taux": 2_500,
+            "minutes_par_semaine": 360 }, "note": "", "remplace": null, "renouvelle": null,
+            "paye_douze_mois": null }),
+    )
+    .await;
+    let heures = p
+        .ok("heures_lire", Some(&admin), json!({ "mois": "2026-10" }))
+        .await;
+    assert_eq!(heures["lignes"][0]["minutes_prevues"], 4 * 105);
+    assert_eq!(heures["lignes"][0]["prevues_emploi_du_temps"], true);
+
     // L'emploi du temps imprimé de la classe et celui du maître.
     let doc = p
         .ok(

@@ -9,14 +9,20 @@ Spécification `SPEC_VERSION_1_1.md` v1.0, engagée le 17 octobre 2026 : les ét
 | Étape | Contenu | État | Validée le |
 |---|---|---|---|
 | 1 | Autres recettes | ✔ | à valider |
-| 2 | Photo à la webcam | ☐ | |
-| 3 | Discipline : dossier de l'élève, avertissement et blâme sur le bulletin | ☐ | |
-| 4 | Heures des vacataires d'après l'emploi du temps | ☐ | |
+| 2 | Photo à la webcam | ✔ | à valider |
+| 3 | Discipline : dossier de l'élève, avertissement et blâme sur le bulletin | ✔ | à valider |
+| 4 | Heures des vacataires d'après l'emploi du temps | ✔ | à valider |
 | 5 | Archive signée du journal d'audit à la clôture | ☐ | |
 | 6 | Absences par séance, au choix de l'école | ☐ | |
 | 7 | Import des relevés des comptes | ☐ | |
 | 8 | Import du personnel | ☐ | |
 | 9 | Validation, version 1.1.0, installeur | ☐ | |
+
+**Étape 4 (17 octobre 2026)** : heures des vacataires d'après l'emploi du temps (T-41). `minutes_des_jours` (noyau) : chaque jour, les séances de son jour de la semaine qui tiennent dans l'horaire de ce jour pour leur classe ; sous la canicule, celles de l'après-midi tombent. Sans saisie, l'état des heures propose les heures prévues d'un vacataire d'après ses séances, sur les jours du mois que couvre son engagement ; à défaut de séances, d'après l'engagement comme avant ; l'écran dit « d'après l'emploi du temps ». Tests : unitaire (avril 2027, avec et sans canicule) et `tests/emploi_du_temps.rs` (quatre lundis d'octobre, 1 h 45 chacun). Pas de capture : l'école d'essai n'a pas de vacataire placé dans l'emploi du temps.
+
+**Étape 3 (17 octobre 2026)** : discipline (T-70). `gesco-core/src/scolarite/discipline.rs` (avertissement, blâme, retenue, convocation des parents ; seuls l'avertissement et le blâme se rattachent à une période). Migration 0039 : `sanction`. Service `discipline.rs` : registre de l'année, dossier d'un élève, sanction notée sur un élève inscrit d'une année ouverte, annulation motivée. Le bulletin porte, au calcul, l'avertissement et le blâme du conseil de sa période (« Conseil de classe : Blâme : … ») ; modèle `bulletin` en version 3. Événements `SanctionNotee`, `SanctionAnnulee`. Écran « Discipline » du groupe Scolarité. Tests dans `tests/bulletins.rs` ; capture 114.
+
+**Étape 2 (17 octobre 2026)** : photo à la webcam. La prise de photo existait depuis la phase 2 sans avoir été essayée dans l'application : un scénario la fait maintenant de bout en bout, avec une caméra simulée (WebView2 `--use-fake-device-for-media-stream`) ; la caméra s'allume, la photo prise s'enregistre et la caméra s'éteint. Sur un vrai poste, WebView2 demande la première fois l'autorisation d'utiliser la caméra. Capture 113.
 
 **Étape 1 (17 octobre 2026)** : autres recettes. `gesco-core/src/tresorerie/recette.rs` (un libellé, un payeur, un montant positif). Migration 0038 : `recette_tresorerie` ; `mouvement_caisse` reconstruite avec la nature `entree_recette` et la recette portée ; `pointage_tresorerie` reconstruite pour cocher une recette. Service `recettes.rs` : recettes du mois, saisie (catégorie « Dons et autres recettes » ou une catégorie de recette de l'école, jamais celle d'un frais ; le mode suit le compte ; en espèces, une entrée dans la session ouverte de qui reçoit), annulation motivée (en espèces, une sortie de régularisation). Les recettes entrent dans le livre de leur compte, le journal du mois et le budget. Événements `RecetteEnregistree`, `RecetteAnnulee`. Écran « Autres recettes » du groupe Finance. Test `tests/recettes.rs` ; capture 112.
 

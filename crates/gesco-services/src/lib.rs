@@ -19,6 +19,7 @@ pub mod comptes;
 pub mod conges;
 pub mod departs;
 pub mod depenses;
+pub mod discipline;
 pub mod documents;
 pub mod documents_paie;
 pub mod effets;

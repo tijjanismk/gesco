@@ -302,6 +302,29 @@ pub fn conflits(
     trouves
 }
 
+/// Minutes de cours que des séances donnent sur des jours (SPEC_VERSION_1_1 §1, T-41) : chaque
+/// jour, les séances de son jour de la semaine qui tiennent dans l'horaire de ce jour pour leur
+/// classe ; sous la canicule, celles de l'après-midi tombent.
+pub fn minutes_des_jours(
+    seances: &[&Seance],
+    journee_de: impl Fn(Id<Classe>) -> Option<JourneeCycle>,
+    jours: impl IntoIterator<Item = DateCivile>,
+) -> i64 {
+    let mut total = 0i64;
+    for jour in jours {
+        let numero = jour.jour_de_semaine() + 1;
+        for s in seances.iter().filter(|s| s.active && s.jour == numero) {
+            let Some(journee) = journee_de(s.classe_id) else {
+                continue;
+            };
+            if journee.plages_du(jour).iter().any(|p| p.contient(&s.plage)) {
+                total = total.saturating_add(i64::from(s.plage.minutes()));
+            }
+        }
+    }
+    total
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -405,6 +428,38 @@ mod tests {
                 .filter(|c| c.nature == NatureConflit::Volume)
                 .count(),
             2
+        );
+    }
+
+    #[test]
+    fn les_heures_d_un_mois_se_comptent_d_apres_les_seances_et_la_canicule() {
+        let j = JourneeCycle::par_defaut(Cycle::PremierCycle);
+        // Lundi 8 h–10 h, mercredi 15 h–16 h (pas d'après-midi le mercredi : ne compte pas).
+        let lundi = seance(1, 1, 1, h(8, 0), h(10, 0), Some(7));
+        let mercredi = seance(2, 1, 3, h(15, 0), h(16, 0), Some(7));
+        let jeudi = seance(3, 1, 4, h(15, 0), h(17, 0), Some(7));
+        let seances = [&lundi, &mercredi, &jeudi];
+        // Avril 2027 : quatre lundis (5, 12, 19, 26), cinq jeudis (1, 8, 15, 22, 29).
+        let avril: Vec<DateCivile> = (1..=30)
+            .map(|d| DateCivile::nouvelle(2027, 4, d).unwrap_or_else(|| unreachable!()))
+            .collect();
+        assert_eq!(
+            minutes_des_jours(&seances, |_| Some(j.clone()), avril.clone()),
+            4 * 120 + 5 * 120
+        );
+        // Sous la canicule, l'après-midi du jeudi tombe.
+        let mut canicule = j.clone();
+        canicule.canicule = Some(Canicule {
+            du: avril[0],
+            au: avril[29],
+            matin: Plage {
+                debut: h(7, 30),
+                fin: h(12, 0),
+            },
+        });
+        assert_eq!(
+            minutes_des_jours(&seances, |_| Some(canicule.clone()), avril),
+            4 * 120
         );
     }
 }

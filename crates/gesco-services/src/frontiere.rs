@@ -59,6 +59,10 @@ use crate::depenses::{
     DemandeAnnulationDepense, DemandeDecisionDepense, DemandeDepense, DemandeMoisDepenses,
     DemandePayerDepense, DemandePieceDepense, DemandePieceDepenseSous, Depenses, ServiceDepenses,
 };
+use crate::discipline::{
+    DemandeAnnulationSanction, DemandeDossierDiscipline, DemandeSanction, DossierDiscipline,
+    RegistreDiscipline, ServiceDiscipline,
+};
 use crate::documents::{
     AtelierDocuments, EffetsEchoues, ServiceDocuments, date_longue, traiter_effets,
 };
@@ -1012,6 +1016,10 @@ contrat! {
     recettes_lire(DemandeMoisRecettes) -> RecettesDuMois;
     recette_saisir(DemandeRecette) -> RecettesDuMois;
     recette_annuler(DemandeAnnulationRecette) -> RecettesDuMois;
+    discipline_registre_lire(()) -> RegistreDiscipline;
+    discipline_dossier_lire(DemandeDossierDiscipline) -> DossierDiscipline;
+    sanction_noter(DemandeSanction) -> DossierDiscipline;
+    sanction_annuler(DemandeAnnulationSanction) -> DossierDiscipline;
 }
 
 impl Application {
@@ -4278,6 +4286,46 @@ impl Application {
     async fn budget_prevoir(&self, appel: Appel, entree: DemandeLigneBudget) -> Resultat<Budget> {
         ServiceJournal::nouveau(&appel.ouverte()?.noyau)
             .prevoir(appel.session()?, &entree)
+            .await
+    }
+
+    async fn discipline_registre_lire(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<RegistreDiscipline> {
+        ServiceDiscipline::nouveau(&appel.ouverte()?.noyau)
+            .registre(appel.session()?)
+            .await
+    }
+
+    async fn discipline_dossier_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeDossierDiscipline,
+    ) -> Resultat<DossierDiscipline> {
+        ServiceDiscipline::nouveau(&appel.ouverte()?.noyau)
+            .dossier(appel.session()?, &entree)
+            .await
+    }
+
+    async fn sanction_noter(
+        &self,
+        appel: Appel,
+        entree: DemandeSanction,
+    ) -> Resultat<DossierDiscipline> {
+        ServiceDiscipline::nouveau(&appel.ouverte()?.noyau)
+            .sanctionner(appel.session()?, &entree)
+            .await
+    }
+
+    async fn sanction_annuler(
+        &self,
+        appel: Appel,
+        entree: DemandeAnnulationSanction,
+    ) -> Resultat<DossierDiscipline> {
+        ServiceDiscipline::nouveau(&appel.ouverte()?.noyau)
+            .annuler(appel.session()?, &entree)
             .await
     }
 

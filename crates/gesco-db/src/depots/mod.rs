@@ -13,6 +13,7 @@ pub mod cantine;
 pub mod conges;
 pub mod departs;
 pub mod depenses;
+pub mod discipline;
 pub mod document;
 pub mod emploi_du_temps;
 pub mod enseignants;

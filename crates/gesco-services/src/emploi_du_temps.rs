@@ -5,13 +5,14 @@
 
 use std::collections::BTreeSet;
 
-use gesco_core::commun::Id;
+use gesco_core::commun::{DateCivile, Id};
 use gesco_core::core::{AnneeScolaire, Operation, Permission, TypeEvenement};
 use gesco_core::pedagogie::emploi_du_temps::{
-    Conflit, JOURS, JourneeCycle, Plage, Seance, conflits, verifier_journee, verifier_seance,
+    Conflit, JOURS, JourneeCycle, Plage, Seance, conflits, minutes_des_jours, verifier_journee,
+    verifier_seance,
 };
 use gesco_core::pedagogie::{Enseignant, Matiere};
-use gesco_core::scolarite::{Classe, Cycle};
+use gesco_core::scolarite::{Classe, Cycle, Personne};
 use gesco_db::depots::{
     academique, annee_scolaire, emploi_du_temps, enseignants, pedagogie, personnes, role,
 };
@@ -619,6 +620,40 @@ impl<'n> ServiceEmploiDuTemps<'n> {
             "date": crate::documents::date_longue(self.noyau.horloge().maintenant()),
         }))
     }
+}
+
+/// Minutes de cours d'un enseignant sur des jours, d'après l'emploi du temps de l'année en cours
+/// (T-41) ; rien s'il n'y a pas d'année en cours ou s'il n'a aucune séance.
+pub(crate) async fn minutes_de_l_enseignant(
+    cnx: &mut gesco_db::Connexion,
+    personne_id: Id<Personne>,
+    jours: Vec<DateCivile>,
+    contexte: &Contexte,
+) -> Resultat<Option<i64>> {
+    let Some(enseignant) = enseignants::enseignants(cnx, contexte)
+        .await?
+        .into_iter()
+        .find(|e| e.personne_id == personne_id && e.actif)
+    else {
+        return Ok(None);
+    };
+    if annee_scolaire::courante(cnx, contexte).await?.is_none() {
+        return Ok(None);
+    }
+    let c = ServiceEmploiDuTemps::contenu(cnx, contexte).await?;
+    let siennes: Vec<&Seance> = c
+        .seances
+        .iter()
+        .filter(|s| s.enseignant_id == Some(enseignant.id))
+        .collect();
+    if siennes.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(minutes_des_jours(
+        &siennes,
+        |classe| c.journee_de(classe),
+        jours,
+    )))
 }
 
 /// Libellé imprimé d'un cycle.

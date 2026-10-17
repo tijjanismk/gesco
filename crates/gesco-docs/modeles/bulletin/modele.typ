@@ -100,6 +100,9 @@
   if a.moyenne_generale { gauche += ([*Moyenne générale*], [*#cellule(b.moyenne) / #b.bareme*]) }
   if a.rang { gauche += ([Rang], [#cellule(b.rang) sur #b.ont_compose]) }
   if a.mention { gauche += ([Mention], [#cellule(b.mention)]) }
+  // L'avertissement et le blâme du conseil de classe de la période.
+  let sanctions = b.at("sanctions", default: ())
+  if sanctions.len() > 0 { gauche += ([Conseil de classe], [#sanctions.join(linebreak())]) }
   if b.moyenne_annuelle != none {
     gauche += ([*Moyenne annuelle*], [*#b.moyenne_annuelle / #b.bareme*])
     if a.rang { gauche += ([Rang annuel], [#cellule(b.rang_annuel)]) }

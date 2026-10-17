@@ -402,6 +402,11 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("recettes_lire", Permission::TREASURY_READ),
     Commande::permise("recette_saisir", Permission::TREASURY_MANAGE),
     Commande::permise("recette_annuler", Permission::TREASURY_MANAGE),
+    // Discipline (SPEC_VERSION_1_1 §1, T-70).
+    Commande::permise("discipline_registre_lire", Permission::STUDENTS_READ),
+    Commande::permise("discipline_dossier_lire", Permission::STUDENTS_READ),
+    Commande::permise("sanction_noter", Permission::SANCTIONS_CREATE),
+    Commande::permise("sanction_annuler", Permission::SANCTIONS_CANCEL),
 ];
 
 #[cfg(test)]

@@ -3,7 +3,7 @@
 //! change plus que par un déverrouillage motivé. La paie (phase 7) paie les heures visées. Les
 //! taux et les montants ne sortent du service que pour un compte qui a `contracts:read` (§7).
 
-use gesco_core::commun::{Id, Montant};
+use gesco_core::commun::{DateCivile, Id, Montant};
 use gesco_core::core::transition::MachineAEtats;
 use gesco_core::core::{Operation, TypeEvenement};
 use gesco_core::rh::heures::{
@@ -40,6 +40,8 @@ pub struct LigneHeures {
     pub taux: Option<Montant>,
     /// Heures prévues, en minutes.
     pub minutes_prevues: i64,
+    /// Les heures prévues proposées viennent de l'emploi du temps (T-41), non de l'engagement.
+    pub prevues_emploi_du_temps: bool,
     /// Heures faites, en minutes.
     pub minutes_faites: Option<i64>,
     /// Montant des heures faites, tronqué au franc ; absent avant la saisie, ou sans
@@ -151,6 +153,19 @@ impl<'n> ServiceHeures<'n> {
             };
             let p = personnes::personne(&mut cnx, m.personne_id, &contexte).await?;
             let minutes_faites = saisie.and_then(|h| h.minutes_faites);
+            // Sans saisie, les heures prévues se proposent d'après les séances du vacataire, sur
+            // les jours du mois que couvre son engagement ; à défaut, d'après l'engagement.
+            let d_apres_emploi = if saisie.is_none() {
+                crate::emploi_du_temps::minutes_de_l_enseignant(
+                    &mut cnx,
+                    m.personne_id,
+                    jours_couverts(&e, mois),
+                    &contexte,
+                )
+                .await?
+            } else {
+                None
+            };
             lignes.push(LigneHeures {
                 id: saisie.map(|h| h.id),
                 engagement_id: e.id,
@@ -158,7 +173,11 @@ impl<'n> ServiceHeures<'n> {
                 matricule: m.matricule.clone(),
                 fonction: e.fonction.clone(),
                 taux: montants.then_some(taux),
-                minutes_prevues: saisie.map_or_else(|| minutes_prevues(&e), |h| h.minutes_prevues),
+                minutes_prevues: saisie.map_or_else(
+                    || d_apres_emploi.unwrap_or_else(|| minutes_prevues(&e)),
+                    |h| h.minutes_prevues,
+                ),
+                prevues_emploi_du_temps: d_apres_emploi.is_some(),
                 minutes_faites,
                 montant: minutes_faites
                     .filter(|_| montants)
@@ -407,4 +426,23 @@ pub(crate) fn mois_long(mois: Mois) -> String {
             || mois.to_string(),
             |t| t.trim_start_matches("1er ").to_owned(),
         )
+}
+
+/// Jours du mois que couvre un engagement.
+fn jours_couverts(e: &Engagement, mois: Mois) -> Vec<DateCivile> {
+    let (Some(premier), Some(dernier)) = (mois.premier_jour(), mois.dernier_jour()) else {
+        return Vec::new();
+    };
+    let debut = premier.max(e.debut);
+    let fin = e.dernier_jour().map_or(dernier, |f| f.min(dernier));
+    let mut jours = Vec::new();
+    let mut jour = debut;
+    while jour <= fin {
+        jours.push(jour);
+        match jour.decaler(1) {
+            Some(suivant) => jour = suivant,
+            None => break,
+        }
+    }
+    jours
 }

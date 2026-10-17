@@ -25,6 +25,7 @@ import { Enseignants } from "../modules/pedagogie/Enseignants";
 import { Absences } from "../modules/pedagogie/Absences";
 import { Bulletins } from "../modules/pedagogie/Bulletins";
 import { EmploiDuTemps } from "../modules/pedagogie/EmploiDuTemps";
+import { Discipline } from "../modules/scolarite/Discipline";
 import { FinAnnee } from "../modules/scolarite/FinAnnee";
 import { Cantine } from "../modules/finance/Cantine";
 import { Depenses } from "../modules/finance/Depenses";
@@ -269,6 +270,8 @@ function Contenu({
       return <FinAnnee />;
     case "emploi-du-temps":
       return <EmploiDuTemps />;
+    case "discipline":
+      return <Discipline />;
     case "depenses":
       return <Depenses />;
     case "fournisseurs":

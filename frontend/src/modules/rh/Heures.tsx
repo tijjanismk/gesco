@@ -151,6 +151,7 @@ function GrilleHeures({ mois, permissions }: { mois: string; permissions: readon
                     onChange={(ev) => changer(l, "prevues", ev.target.value)}
                     onBlur={() => enregistrer(l)}
                   />
+                  {l.prevues_emploi_du_temps && l.id === null ? <div className="text-xs text-muet">{t("heures.d_apres_emploi")}</div> : null}
                 </td>
                 <td className="px-2 py-1">
                   <input
