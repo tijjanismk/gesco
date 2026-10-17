@@ -8,7 +8,7 @@ Spécification `SPEC_VERSION_1_1.md` v1.0, engagée le 17 octobre 2026 : les ét
 
 | Étape | Contenu | État | Validée le |
 |---|---|---|---|
-| 1 | Autres recettes | ☐ | |
+| 1 | Autres recettes | ✔ | à valider |
 | 2 | Photo à la webcam | ☐ | |
 | 3 | Discipline : dossier de l'élève, avertissement et blâme sur le bulletin | ☐ | |
 | 4 | Heures des vacataires d'après l'emploi du temps | ☐ | |
@@ -17,6 +17,8 @@ Spécification `SPEC_VERSION_1_1.md` v1.0, engagée le 17 octobre 2026 : les ét
 | 7 | Import des relevés des comptes | ☐ | |
 | 8 | Import du personnel | ☐ | |
 | 9 | Validation, version 1.1.0, installeur | ☐ | |
+
+**Étape 1 (17 octobre 2026)** : autres recettes. `gesco-core/src/tresorerie/recette.rs` (un libellé, un payeur, un montant positif). Migration 0038 : `recette_tresorerie` ; `mouvement_caisse` reconstruite avec la nature `entree_recette` et la recette portée ; `pointage_tresorerie` reconstruite pour cocher une recette. Service `recettes.rs` : recettes du mois, saisie (catégorie « Dons et autres recettes » ou une catégorie de recette de l'école, jamais celle d'un frais ; le mode suit le compte ; en espèces, une entrée dans la session ouverte de qui reçoit), annulation motivée (en espèces, une sortie de régularisation). Les recettes entrent dans le livre de leur compte, le journal du mois et le budget. Événements `RecetteEnregistree`, `RecetteAnnulee`. Écran « Autres recettes » du groupe Finance. Test `tests/recettes.rs` ; capture 112.
 
 ## Phase 8
 

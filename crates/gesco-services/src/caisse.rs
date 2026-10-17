@@ -453,6 +453,7 @@ pub fn libelle_nature(nature: gesco_core::finance::NatureMouvement) -> &'static 
         N::SortieTransfert => "Dépôt",
         N::EntreeRegularisation => "Remis en caisse",
         N::EntreeTransfert => "Retrait",
+        N::EntreeRecette => "Recette",
     }
 }
 

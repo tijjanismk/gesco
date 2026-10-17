@@ -25,15 +25,18 @@ pub enum OrigineLigne {
     Depense,
     /// Un transfert, côté banque ou mobile money.
     Transfert,
+    /// Une autre recette sur une banque ou un compte mobile money.
+    Recette,
 }
 
 impl OrigineLigne {
     /// Toutes les origines.
-    pub const TOUTES: [Self; 4] = [
+    pub const TOUTES: [Self; 5] = [
         Self::Versement,
         Self::Mouvement,
         Self::Depense,
         Self::Transfert,
+        Self::Recette,
     ];
 
     /// Nom persisté.
@@ -43,6 +46,7 @@ impl OrigineLigne {
             Self::Mouvement => "mouvement",
             Self::Depense => "depense",
             Self::Transfert => "transfert",
+            Self::Recette => "recette",
         }
     }
 

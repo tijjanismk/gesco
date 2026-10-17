@@ -20,6 +20,7 @@ const NATURES_MOUVEMENT: Record<NatureMouvement, Cle> = {
   sortie_transfert: "caisse.sortie_transfert",
   entree_regularisation: "caisse.entree_regularisation",
   entree_transfert: "caisse.entree_transfert",
+  entree_recette: "caisse.entree_recette",
 };
 
 

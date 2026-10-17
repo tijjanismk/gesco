@@ -226,6 +226,10 @@ pub enum TypeEvenement {
     SeancePlacee,
     /// Le repas d'un abonné de la cantine est pointé ou décoché (SPEC_PHASE_8 §9).
     RepasPointe,
+    /// Une recette hors des versements des parents est reçue (SPEC_VERSION_1_1 §1).
+    RecetteEnregistree,
+    /// Une autre recette est annulée, avec un motif.
+    RecetteAnnulee,
 }
 
 impl TypeEvenement {
@@ -337,6 +341,8 @@ impl TypeEvenement {
         Self::JourneeCycleReglee,
         Self::SeancePlacee,
         Self::RepasPointe,
+        Self::RecetteEnregistree,
+        Self::RecetteAnnulee,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -448,6 +454,8 @@ impl TypeEvenement {
             Self::JourneeCycleReglee => "JourneeCycleReglee",
             Self::SeancePlacee => "SeancePlacee",
             Self::RepasPointe => "RepasPointe",
+            Self::RecetteEnregistree => "RecetteEnregistree",
+            Self::RecetteAnnulee => "RecetteAnnulee",
         }
     }
 
@@ -560,7 +568,9 @@ impl TypeEvenement {
             | Self::BudgetPrevu
             | Self::JourneeCycleReglee
             | Self::SeancePlacee
-            | Self::RepasPointe => 1,
+            | Self::RepasPointe
+            | Self::RecetteEnregistree
+            | Self::RecetteAnnulee => 1,
         }
     }
 

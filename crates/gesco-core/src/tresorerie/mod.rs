@@ -5,6 +5,7 @@
 pub mod depense;
 pub mod fournisseur;
 pub mod livre;
+pub mod recette;
 
 use serde::{Deserialize, Serialize};
 

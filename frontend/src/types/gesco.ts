@@ -1483,6 +1483,12 @@ export type Contrat = {
 	repas_pointer: Signature<DemandeRepas, Cantine>,
 	/**  Signature de la commande du même nom. */
 	liste_cantine_produire: Signature<DemandeCantine, DocumentAffiche>,
+	/**  Signature de la commande du même nom. */
+	recettes_lire: Signature<DemandeMoisRecettes, RecettesDuMois>,
+	/**  Signature de la commande du même nom. */
+	recette_saisir: Signature<DemandeRecette, RecettesDuMois>,
+	/**  Signature de la commande du même nom. */
+	recette_annuler: Signature<DemandeAnnulationRecette, RecettesDuMois>,
 };
 
 /**  Cumuls de l'année civile. */
@@ -1644,6 +1650,14 @@ export type DemandeAnnulationFacture = {
 /**  Annulation d'un paiement ou d'une avance, toujours motivée. */
 export type DemandeAnnulationPaiement = {
 	/**  Paiement. */
+	id: string,
+	/**  Motif. */
+	motif: string,
+};
+
+/**  Annulation motivée d'une recette. */
+export type DemandeAnnulationRecette = {
+	/**  Recette. */
 	id: string,
 	/**  Motif. */
 	motif: string,
@@ -2687,6 +2701,12 @@ export type DemandeMoisPayes = {
 	paye_douze_mois: boolean,
 };
 
+/**  Mois des recettes à lire. */
+export type DemandeMoisRecettes = {
+	/**  Mois. */
+	mois: string,
+};
+
 /**  Justification ou annulation d'une absence, avec son motif. */
 export type DemandeMotifAbsence = {
 	/**  Absence. */
@@ -2910,6 +2930,26 @@ export type DemandeRattachement = {
 	saisie: SaisieResponsable | null,
 	/**  Qualités du lien. */
 	qualites: Qualites,
+};
+
+/**  Recette reçue. */
+export type DemandeRecette = {
+	/**  Jour, `AAAA-MM-JJ` ; vide : aujourd'hui. */
+	date: string,
+	/**  Catégorie de recette. */
+	categorie_id: string,
+	/**  Ce qui est reçu. */
+	libelle: string,
+	/**  Qui paie. */
+	payeur: string,
+	/**  Montant. */
+	montant: Montant,
+	/**  Compte où l'argent entre. */
+	compte_id: string,
+	/**  Mode. */
+	mode: ModePaiement,
+	/**  Référence, hors espèces. */
+	reference: string,
 };
 
 /**  Texte cherché. */
@@ -5012,6 +5052,8 @@ export type MouvementCaisse = {
 	depense_id: string | null,
 	/**  Transfert que le mouvement porte. */
 	transfert_id: string | null,
+	/**  Recette que le mouvement porte, ou dont il sort l'annulation. */
+	recette_id: string | null,
 };
 
 /**  Comment le membre est payé ; la paie de la phase 7 s'en sert. */
@@ -5133,7 +5175,9 @@ export type NatureMouvement =
 /**  Entrée qui remet dans la caisse un paiement du personnel annulé. */
 "entree_regularisation" | 
 /**  Espèces retirées d'un autre compte de l'école. */
-"entree_transfert";
+"entree_transfert" | 
+/**  Recette hors des versements des parents : un don, une location (SPEC_VERSION_1_1). */
+"entree_recette";
 
 /**  Nature d'une pièce du dossier. */
 export type NaturePiece = 
@@ -5217,7 +5261,9 @@ export type OrigineLigne =
 /**  Une dépense payée d'une banque ou d'un compte mobile money, salaires et avances compris. */
 "depense" | 
 /**  Un transfert, côté banque ou mobile money. */
-"transfert";
+"transfert" | 
+/**  Une autre recette sur une banque ou un compte mobile money. */
+"recette";
 
 /**  Une page du journal filtré. */
 export type PageJournal = {
@@ -5685,6 +5731,64 @@ export type RapportTest = {
 	reussi: boolean,
 	/**  Clé de traduction du motif d'échec. */
 	motif_echec: string | null,
+};
+
+/**  Recette de l'école hors des versements des parents. */
+export type Recette = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Jour. */
+	date: string,
+	/**  Catégorie de recette. */
+	categorie_id: string,
+	/**  Ce qui est reçu. */
+	libelle: string,
+	/**  Qui paie : un donateur, un locataire, un organisme. */
+	payeur: string,
+	/**  Montant. */
+	montant: Montant,
+	/**  Compte où l'argent entre. */
+	compte_id: string,
+	/**  Mode. */
+	mode: ModePaiement,
+	/**  Référence de la transaction, hors espèces. */
+	reference: string,
+	/**  Session de caisse où entrent les espèces. */
+	session_id: string | null,
+	/**  Qui l'a saisie. */
+	saisie_par: string,
+	/**  Annulée, avec son motif. */
+	annulee: boolean,
+	/**  Motif de l'annulation. */
+	motif_annulation: string,
+};
+
+/**  Recette affichée. */
+export type RecetteAffichee = {
+	/**  Recette. */
+	recette: Recette,
+	/**  Libellé de sa catégorie. */
+	categorie: string,
+	/**  Compte où l'argent est entré. */
+	compte: string,
+};
+
+/**  Les autres recettes d'un mois. */
+export type RecettesDuMois = {
+	/**  Mois. */
+	mois: string,
+	/**  Recettes du mois, annulées comprises, la plus récente d'abord. */
+	recettes: RecetteAffichee[],
+	/**  Total reçu dans le mois, annulations exclues. */
+	total: Montant,
+	/**  Catégories qui reçoivent les autres recettes. */
+	categories: CategorieTresorerie[],
+	/**  Comptes ouverts. */
+	comptes: CompteTresorerie[],
+	/**  Qui consulte a une caisse ouverte. */
+	caisse_ouverte: boolean,
 };
 
 /**  Recherche dans le journal d'audit ; un critère absent ne filtre pas. */

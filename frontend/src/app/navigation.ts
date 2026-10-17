@@ -1,7 +1,7 @@
 import type { Cle } from "../i18n";
 import { ACCES, type NomCommande } from "../types/acces";
 
-export type IdSection = "accueil" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
+export type IdSection = "accueil" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
 
 interface Section {
   id: IdSection;
@@ -27,6 +27,7 @@ const SECTIONS: readonly Section[] = [
   { id: "sessions-caisse", libelle: "nav.sessions_caisse", groupe: "nav.groupe.finance", commande: "caisse_sessions_lister" },
   { id: "journal-encaissements", libelle: "nav.journal_encaissements", groupe: "nav.groupe.finance", commande: "encaissements_lister" },
   { id: "depenses", libelle: "nav.depenses", groupe: "nav.groupe.finance", commande: "depense_saisir" },
+  { id: "recettes", libelle: "nav.recettes", groupe: "nav.groupe.finance", commande: "recettes_lire" },
   { id: "fournisseurs", libelle: "nav.fournisseurs", groupe: "nav.groupe.finance", commande: "facture_fournisseur_enregistrer" },
   { id: "livres", libelle: "nav.livres", groupe: "nav.groupe.finance", commande: "comptes_soldes_lire" },
   { id: "journal-tresorerie", libelle: "nav.journal_tresorerie", groupe: "nav.groupe.finance", commande: "journal_tresorerie_lire" },

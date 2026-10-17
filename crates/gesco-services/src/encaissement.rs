@@ -539,6 +539,7 @@ impl<'n> ServiceEncaissement<'n> {
                 paiement_id: None,
                 depense_id: None,
                 transfert_id: None,
+                recette_id: None,
             })
         };
         let apres = Versement {

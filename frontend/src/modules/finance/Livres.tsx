@@ -24,6 +24,7 @@ const ORIGINES: Record<OrigineLigne, Cle> = {
   mouvement: "livre.origine.mouvement",
   depense: "livre.origine.depense",
   transfert: "livre.origine.transfert",
+  recette: "livre.origine.recette",
 };
 
 /** Nature des comptes qui reçoivent un mode. */

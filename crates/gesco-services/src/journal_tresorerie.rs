@@ -8,7 +8,7 @@ use gesco_core::core::{AnneeScolaire, Operation, TypeEvenement};
 use gesco_core::rh::Mois;
 use gesco_core::tresorerie::livre::soldes;
 use gesco_core::tresorerie::{CategorieTresorerie, Sens};
-use gesco_db::depots::{annee_scolaire, budget, livres, tresorerie};
+use gesco_db::depots::{annee_scolaire, budget, livres, recettes, tresorerie};
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
 use serde::{Deserialize, Serialize};
@@ -184,6 +184,13 @@ impl<'n> ServiceJournal<'n> {
             }
         }
         for (categorie, montant) in budget::depenses_entre(cnx, debut, fin, contexte).await? {
+            ajouter(categorie, montant)?;
+        }
+        // Les autres recettes comptent à leur jour : du premier jour au dernier, la fin exclue.
+        let (Some(du), Some(au)) = (DateCivile::du_jour(debut), DateCivile::du_jour(fin)) else {
+            return Err(calcul());
+        };
+        for (categorie, montant) in recettes::par_categorie_entre(cnx, du, au, contexte).await? {
             ajouter(categorie, montant)?;
         }
         Ok(lignes)

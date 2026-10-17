@@ -467,6 +467,7 @@ impl<'n> ServiceDepenses<'n> {
                 paiement_id: None,
                 depense_id: Some(avant.id),
                 transfert_id: None,
+                recette_id: None,
             };
             caisse::inserer_mouvement(unite.connexion(), &entree, &contexte).await?;
         }
@@ -611,6 +612,7 @@ async fn payer_dans(
             paiement_id: None,
             depense_id: Some(apres.id),
             transfert_id: None,
+            recette_id: None,
         };
         caisse::inserer_mouvement(unite.connexion(), &sortie, contexte).await?;
     }

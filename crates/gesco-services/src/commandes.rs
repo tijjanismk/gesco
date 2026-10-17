@@ -398,6 +398,10 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("cantine_lire", Permission::CANTEEN_MANAGE),
     Commande::permise("repas_pointer", Permission::CANTEEN_MANAGE),
     Commande::permise("liste_cantine_produire", Permission::CANTEEN_MANAGE),
+    // Autres recettes (SPEC_VERSION_1_1 §1).
+    Commande::permise("recettes_lire", Permission::TREASURY_READ),
+    Commande::permise("recette_saisir", Permission::TREASURY_MANAGE),
+    Commande::permise("recette_annuler", Permission::TREASURY_MANAGE),
 ];
 
 #[cfg(test)]

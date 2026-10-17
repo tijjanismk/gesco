@@ -686,6 +686,7 @@ impl<'n> ServicePaiementsPersonnel<'n> {
                 paiement_id: Some(paiement.id),
                 depense_id: None,
                 transfert_id: None,
+                recette_id: None,
             };
             caisse::inserer_mouvement(unite.connexion(), &mouvement, &contexte).await?;
         }
@@ -724,6 +725,7 @@ async fn annuler_dans(
             paiement_id: Some(paiement.id),
             depense_id: None,
             transfert_id: None,
+            recette_id: None,
         };
         caisse::inserer_mouvement(unite.connexion(), &entree, contexte).await?;
     }

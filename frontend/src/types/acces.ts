@@ -258,6 +258,9 @@ export const ACCES = {
   cantine_lire: { type: "permission", permission: "canteen:manage" },
   repas_pointer: { type: "permission", permission: "canteen:manage" },
   liste_cantine_produire: { type: "permission", permission: "canteen:manage" },
+  recettes_lire: { type: "permission", permission: "treasury:read" },
+  recette_saisir: { type: "permission", permission: "treasury:manage" },
+  recette_annuler: { type: "permission", permission: "treasury:manage" },
 } as const;
 
 export type NomCommande = keyof typeof ACCES;

@@ -200,6 +200,7 @@ struct LigneMouvement {
     paiement_id: Option<String>,
     depense_id: Option<String>,
     transfert_id: Option<String>,
+    recette_id: Option<String>,
 }
 
 impl LigneMouvement {
@@ -237,6 +238,11 @@ impl LigneMouvement {
                 .as_deref()
                 .map(|d| lire_id(t, "transfert_id", d))
                 .transpose()?,
+            recette_id: self
+                .recette_id
+                .as_deref()
+                .map(|r| lire_id(t, "recette_id", r))
+                .transpose()?,
         })
     }
 }
@@ -245,7 +251,7 @@ macro_rules! selectionner_mouvement {
     ($suite:literal) => {
         concat!(
             "SELECT id, etablissement_id, session_id, montant, mode, motif, versement_id, le, par,
-                nature, paiement_id, depense_id, transfert_id
+                nature, paiement_id, depense_id, transfert_id, recette_id
              FROM mouvement_caisse ",
             $suite
         )
@@ -266,8 +272,8 @@ pub async fn inserer_mouvement(
     }
     sqlx::query(
         "INSERT INTO mouvement_caisse (id, etablissement_id, session_id, nature, montant, mode, motif, versement_id,
-            le, par, cree_le, cree_par, identifiant_poste, paiement_id, depense_id, transfert_id)
-         VALUES (?1, ?2, ?3, ?13, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?14, ?15, ?16)",
+            le, par, cree_le, cree_par, identifiant_poste, paiement_id, depense_id, transfert_id, recette_id)
+         VALUES (?1, ?2, ?3, ?13, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?14, ?15, ?16, ?17)",
     )
     .bind(mouvement.id.vers_chaine())
     .bind(mouvement.etablissement_id.vers_chaine())
@@ -285,6 +291,7 @@ pub async fn inserer_mouvement(
     .bind(mouvement.paiement_id.map(|p| p.vers_chaine()))
     .bind(mouvement.depense_id.map(|d| d.vers_chaine()))
     .bind(mouvement.transfert_id.map(|t| t.vers_chaine()))
+    .bind(mouvement.recette_id.map(|r| r.vers_chaine()))
     .execute(cnx)
     .await?;
     Ok(())

@@ -139,11 +139,13 @@ pub enum NatureMouvement {
     EntreeRegularisation,
     /// Espèces retirées d'un autre compte de l'école.
     EntreeTransfert,
+    /// Recette hors des versements des parents : un don, une location (SPEC_VERSION_1_1).
+    EntreeRecette,
 }
 
 impl NatureMouvement {
     /// Toutes les natures.
-    pub const TOUTES: [Self; 7] = [
+    pub const TOUTES: [Self; 8] = [
         Self::SortieRegularisation,
         Self::SortieSalaire,
         Self::SortieAvance,
@@ -151,6 +153,7 @@ impl NatureMouvement {
         Self::SortieTransfert,
         Self::EntreeRegularisation,
         Self::EntreeTransfert,
+        Self::EntreeRecette,
     ];
 
     /// Nom persisté.
@@ -163,6 +166,7 @@ impl NatureMouvement {
             Self::SortieTransfert => "sortie_transfert",
             Self::EntreeRegularisation => "entree_regularisation",
             Self::EntreeTransfert => "entree_transfert",
+            Self::EntreeRecette => "entree_recette",
         }
     }
 
@@ -173,7 +177,10 @@ impl NatureMouvement {
 
     /// Vrai pour un mouvement qui fait entrer de l'argent dans le tiroir.
     pub const fn est_entree(&self) -> bool {
-        matches!(self, Self::EntreeRegularisation | Self::EntreeTransfert)
+        matches!(
+            self,
+            Self::EntreeRegularisation | Self::EntreeTransfert | Self::EntreeRecette
+        )
     }
 }
 
@@ -208,6 +215,8 @@ pub struct MouvementCaisse {
     pub depense_id: Option<Id<crate::tresorerie::Depense>>,
     /// Transfert que le mouvement porte.
     pub transfert_id: Option<Id<crate::tresorerie::livre::Transfert>>,
+    /// Recette que le mouvement porte, ou dont il sort l'annulation.
+    pub recette_id: Option<Id<crate::tresorerie::recette::Recette>>,
 }
 
 /// Total théorique des espèces : fonds initial, plus entrées, moins sorties (R-35).

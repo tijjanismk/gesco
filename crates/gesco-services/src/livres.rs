@@ -13,7 +13,9 @@ use gesco_core::tresorerie::livre::{
 use gesco_core::tresorerie::{
     CATEGORIE_SALAIRES, CompteTresorerie, Depense, NatureCompte, StatutDepense,
 };
-use gesco_db::depots::{caisse, depenses, livres, paie, personnel, personnes, tresorerie};
+use gesco_db::depots::{
+    caisse, depenses, livres, paie, personnel, personnes, recettes, tresorerie,
+};
 use gesco_db::unite::Durabilite;
 use gesco_db::{Contexte, UniteDeTravail, nouvel_id};
 use serde::{Deserialize, Serialize};
@@ -190,8 +192,24 @@ pub(crate) async fn lignes_du_compte(
             });
         }
     }
-    // Côté caisse, un transfert est un mouvement de la session : il est déjà compté.
+    // Côté caisse, un transfert ou une recette est un mouvement de la session : il est déjà
+    // compté.
     if compte.nature != NatureCompte::Caisse {
+        for r in recettes::recettes(cnx, contexte).await? {
+            if r.annulee || r.compte_id != compte.id {
+                continue;
+            }
+            lignes.push(LigneLivre {
+                date: r.date,
+                origine: OrigineLigne::Recette,
+                origine_id: r.id.vers_chaine(),
+                libelle: format!("{} · {}", r.libelle, r.payeur),
+                reference: r.reference,
+                entree: r.montant,
+                sortie: Montant::ZERO,
+                pointee: false,
+            });
+        }
         for t in livres::transferts(cnx, contexte).await? {
             let (entree, sortie) = if t.destination_id == compte.id {
                 (t.montant, Montant::ZERO)
@@ -514,6 +532,7 @@ impl<'n> ServiceLivres<'n> {
                 paiement_id: None,
                 depense_id: None,
                 transfert_id: Some(t.id),
+                recette_id: None,
             };
             caisse::inserer_mouvement(unite.connexion(), &mouvement, &contexte).await?;
         }

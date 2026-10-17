@@ -155,6 +155,9 @@ use crate::personnel::{
     DemandeIdPiece, DemandeMembre, DemandeMembreEnseignant, DemandePieceDossier, DemandePieceSous,
     FicheMembre, MaFiche, MembreAffiche, ReferentielPersonnel, ServicePersonnel,
 };
+use crate::recettes::{
+    DemandeAnnulationRecette, DemandeMoisRecettes, DemandeRecette, RecettesDuMois, ServiceRecettes,
+};
 use crate::recouvrement::{
     DemandeJournal, JournalEncaissements, ListeImpayes, ServiceRecouvrement,
 };
@@ -1006,6 +1009,9 @@ contrat! {
     cantine_lire(DemandeCantine) -> Cantine;
     repas_pointer(DemandeRepas) -> Cantine;
     liste_cantine_produire(DemandeCantine) -> DocumentAffiche;
+    recettes_lire(DemandeMoisRecettes) -> RecettesDuMois;
+    recette_saisir(DemandeRecette) -> RecettesDuMois;
+    recette_annuler(DemandeAnnulationRecette) -> RecettesDuMois;
 }
 
 impl Application {
@@ -4272,6 +4278,36 @@ impl Application {
     async fn budget_prevoir(&self, appel: Appel, entree: DemandeLigneBudget) -> Resultat<Budget> {
         ServiceJournal::nouveau(&appel.ouverte()?.noyau)
             .prevoir(appel.session()?, &entree)
+            .await
+    }
+
+    async fn recettes_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeMoisRecettes,
+    ) -> Resultat<RecettesDuMois> {
+        ServiceRecettes::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, entree.mois)
+            .await
+    }
+
+    async fn recette_saisir(
+        &self,
+        appel: Appel,
+        entree: DemandeRecette,
+    ) -> Resultat<RecettesDuMois> {
+        ServiceRecettes::nouveau(&appel.ouverte()?.noyau)
+            .saisir(appel.session()?, &entree)
+            .await
+    }
+
+    async fn recette_annuler(
+        &self,
+        appel: Appel,
+        entree: DemandeAnnulationRecette,
+    ) -> Resultat<RecettesDuMois> {
+        ServiceRecettes::nouveau(&appel.ouverte()?.noyau)
+            .annuler(appel.session()?, &entree)
             .await
     }
 

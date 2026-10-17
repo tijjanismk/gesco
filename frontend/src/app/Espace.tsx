@@ -31,6 +31,7 @@ import { Depenses } from "../modules/finance/Depenses";
 import { Fournisseurs } from "../modules/finance/Fournisseurs";
 import { JournalTresorerie } from "../modules/finance/Journal";
 import { Livres } from "../modules/finance/Livres";
+import { Recettes } from "../modules/finance/Recettes";
 import { Tresorerie } from "../modules/finance/Tresorerie";
 import { Notes } from "../modules/pedagogie/Notes";
 import { Pedagogie } from "../modules/pedagogie/Pedagogie";
@@ -272,6 +273,8 @@ function Contenu({
       return <Depenses />;
     case "fournisseurs":
       return <Fournisseurs />;
+    case "recettes":
+      return <Recettes />;
     case "livres":
       return <Livres />;
     case "journal-tresorerie":

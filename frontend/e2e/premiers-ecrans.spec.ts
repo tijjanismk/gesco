@@ -84,7 +84,8 @@ test.beforeAll(async () => {
       // relevés y sont datés.
       GESCO_DATE_ESSAI: JOUR_ESSAI,
       WEBVIEW2_USER_DATA_FOLDER: join(dossier, "webview"),
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT_DEBOGAGE}`,
+      // Une caméra simulée, acceptée sans question : la photo à la webcam s'essaie sans caméra.
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT_DEBOGAGE} --use-fake-device-for-media-stream --use-fake-ui-for-media-stream`,
     },
     stdio: "ignore",
   });
@@ -2140,4 +2141,46 @@ test("phase 8 : le tableau de bord montre les soldes, les dépenses du mois et l
   await expect(page.getByText(texte("tableau.depenses_du_mois"))).toBeVisible();
   await expect(page.getByText(/catégorie\(s\) dépassée\(s\)/)).toBeVisible();
   await capturer("111-tableau-de-bord-tresorerie");
+});
+
+test("version 1.1 : un don en espèces et une location par virement entrent dans leurs comptes", async () => {
+  await allerA("nav.recettes");
+  await expect(page.getByRole("heading", { name: texte("recette.titre"), exact: true })).toBeVisible();
+  // Le don de l'association des parents, en espèces dans la caisse ouverte.
+  await page.locator("#recette-libelle").fill("Don pour la bibliothèque");
+  await page.locator("#recette-payeur").fill("Association des parents d'élèves");
+  await page.locator("#recette-montant").fill("100 000");
+  await page.locator("#recette-compte").selectOption({ label: "Caisse" });
+  await page.getByRole("button", { name: texte("recette.enregistrer") }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Don pour la bibliothèque" })).toBeVisible();
+  // La location de la salle par la mairie, par virement à la BDM.
+  await page.locator("#recette-libelle").fill("Location de la salle pour une réunion");
+  await page.locator("#recette-payeur").fill("Mairie de la commune IV");
+  await page.locator("#recette-montant").fill("25 000");
+  await page.locator("#recette-compte").selectOption({ label: "Compte courant" });
+  await page.getByRole("textbox", { name: texte("encaissement.reference") }).fill("VIR-2026-0412");
+  await page.getByRole("button", { name: texte("recette.enregistrer") }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Location de la salle pour une réunion" })).toBeVisible();
+  await expect(page.getByText(/125.000.F reçus/).first()).toBeVisible();
+  await capturer("112-autres-recettes");
+});
+
+test("version 1.1 : la photo d'une élève se prend à la webcam du poste", async () => {
+  await allerA("nav.eleves");
+  await page.getByRole("button", { name: texte("eleves.nouveau") }).click();
+  await page.locator("#nouvel-eleve-nom").fill("Diakité");
+  await page.locator("#nouvel-eleve-prenoms").fill("Kadiatou");
+  await page.locator("#nouvel-eleve-sexe").selectOption("feminin");
+  await page.locator("#nouvel-eleve-naissance").fill("2015-03-02");
+  await page.locator("#nouvel-eleve-lieu_naissance").fill("Bamako");
+  await page.getByRole("button", { name: texte("eleves.creer") }).click();
+  await expect(page.getByRole("heading", { name: "Kadiatou Diakité" })).toBeVisible();
+  await page.getByRole("button", { name: texte("eleves.webcam") }).click();
+  // La caméra s'allume ; la photo prise, elle s'éteint et la photo paraît sur la fiche.
+  await expect(page.locator("video")).toBeVisible();
+  await expect.poll(() => page.locator("video").evaluate((v) => (v as HTMLVideoElement).videoWidth)).toBeGreaterThan(0);
+  await page.getByRole("button", { name: texte("eleves.prendre_photo") }).click();
+  await expect(page.getByRole("img", { name: texte("eleves.photo") })).toBeVisible();
+  await expect(page.locator("video")).toHaveCount(0);
+  await capturer("113-photo-webcam");
 });
