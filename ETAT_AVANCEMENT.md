@@ -2,6 +2,22 @@
 
 Phase courante : **8 — dépenses, trésorerie, emploi du temps, cantine** (`SPEC_PHASE_8.md` v1.2), engagée le 16 octobre 2026 après les réponses du porteur du projet à T-61 à T-64 ; ses huit étapes sont achevées le 16 octobre 2026 et attendent la validation du porteur du projet. **Version 1.0.0** prête : installeur, notes de version, dépôt git local avec l'étiquette `v1.0.0`. Les phases **7 — paie** et **10 — clôture de l'année, installeur, licences** ont été achevées et **validées par le porteur du projet le 16 octobre 2026** ; installeur 0.11.0 remis pour un poste d'essai, avec cent licences libres numérotées. Après la phase 8, une **version 1.0.0** sort (« V1 ») : elle ne reçoit ensuite que des corrections (1.0.x), sur une ligne à part, pendant que le développement continue (phases 5 et 9, puis 11 et 12) ; un historique des versions du code est mis en place à cette occasion. La phase 6 a été validée le 15 octobre 2026, la phase 4 (jalon commercial) le 14 octobre 2026 ; les phases 0.5, 1, 2 et 3 les 10, 7, 9 et 10 octobre 2026. Une étape est validée quand ses tests passent et que ses captures ont été montrées.
 
+## Version 1.1
+
+Spécification `SPEC_VERSION_1_1.md` v1.0, engagée le 17 octobre 2026 : les étapes restées non faites des phases construites, après les réponses du porteur du projet à T-70 à T-73. Les phases 5, 9 et 12 iront dans la version 2 ; la phase 11 attend une école qui la demande. Branche `developpement`.
+
+| Étape | Contenu | État | Validée le |
+|---|---|---|---|
+| 1 | Autres recettes | ☐ | |
+| 2 | Photo à la webcam | ☐ | |
+| 3 | Discipline : dossier de l'élève, avertissement et blâme sur le bulletin | ☐ | |
+| 4 | Heures des vacataires d'après l'emploi du temps | ☐ | |
+| 5 | Archive signée du journal d'audit à la clôture | ☐ | |
+| 6 | Absences par séance, au choix de l'école | ☐ | |
+| 7 | Import des relevés des comptes | ☐ | |
+| 8 | Import du personnel | ☐ | |
+| 9 | Validation, version 1.1.0, installeur | ☐ | |
+
 ## Phase 8
 
 Spécification `SPEC_PHASE_8.md` v1.0, engagée le 16 octobre 2026 : accord au-dessus d'un seuil (T-61), caisse, banque et mobile money (T-62), trésorerie et budget sans SYSCOHADA (T-63), emploi du temps à la main (T-64), journée de l'école (T-38), cantine activable (T-47).

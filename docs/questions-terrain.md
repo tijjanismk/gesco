@@ -595,3 +595,35 @@ Un parent peut-il payer avant la rentrée les frais de l'année suivante ?
 Comment les licences s'installent-elles, et que fait GESCO sans licence ?
 
 *Réponse* (porteur du projet, 16 octobre 2026) : **cent licences libres et numérotées**, GESCO-0001 à GESCO-0100 : chacune s'installe sur n'importe quel poste, qui s'y attache ; rien n'empêche hors ligne d'installer deux fois le même fichier, mais chaque numéro est tracé dans le journal du poste. **Sans licence, tout marche**, un bandeau le rappelle (§26.5). La paie, inachevée, se décide à la fin de la phase 10 pour la version remise à l'école d'essai.
+
+### T-70 — Sanctions
+
+L'exclusion temporaire et la radiation existent depuis la phase 4. Que faut-il ajouter pour la discipline ?
+
+*Recommandation* : un dossier de discipline par élève : avertissement, blâme, retenue et convocation des parents, chacun daté, motivé, avec qui l'a décidé ; l'avertissement et le blâme du conseil de classe paraissent sur le bulletin de la période.
+
+*Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue.
+
+### T-71 — Absences par séance
+
+L'école relève-t-elle les absences à chaque séance ?
+
+*Recommandation* : la demi-journée reste la règle (T-37) ; une école qui le veut, surtout un lycée, active le relevé par séance d'après l'emploi du temps. Absent à toutes les séances d'une demi-journée, l'élève compte une demi-journée sur le bulletin.
+
+*Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue.
+
+### T-72 — Relevés des comptes
+
+Comment importer les relevés d'Orange Money, Wave, Moov ou de la banque ?
+
+*Recommandation* : tout fichier Excel ou CSV ; l'école indique une fois, pour chaque compte, les colonnes de la date, du montant et de la référence ; GESCO coche les lignes du livre qu'il retrouve par la référence, puis par le montant et la date, et montre les autres.
+
+*Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue.
+
+### T-73 — Archive du journal d'audit
+
+À la clôture de l'année, où archiver le journal ?
+
+*Recommandation* : dans un fichier signé, rangé avec la sauvegarde de clôture et copié sur ses destinations ; le journal reste aussi dans la base, et GESCO vérifie la signature d'une archive.
+
+*Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue.
