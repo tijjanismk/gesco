@@ -6,7 +6,7 @@ import { Bouton } from "../../composants/Bouton";
 import { CaseACocher } from "../../composants/Champ";
 import { MessageEnregistre, MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, libelleParametre, t } from "../../i18n";
-import type { Parametre, ValeurParametre } from "../../types/gesco";
+import type { ModuleEcole, Parametre, ValeurParametre } from "../../types/gesco";
 import { DocumentEssai } from "../accueil/Accueil";
 import { FicheEtablissement } from "./FicheEtablissement";
 import { ReglagesBulletin } from "./ReglagesBulletin";
@@ -62,14 +62,18 @@ function theme(cle: string): Cle {
 export function Parametres() {
   const parametres = useQuery({ queryKey: ["parametres"], queryFn: () => appeler("parametres_lister", null) });
   const titres: Cle[] = [...THEMES.map((th) => th.titre), "parametres.theme.autres"];
+  // Les messages aux familles éteints, seule leur case d'activation reste.
+  const sms = (parametres.data ?? []).find((p) => p.cle === "sms.actif")?.valeur;
+  const smsActif = sms?.type === "booleen" && sms.valeur;
   return (
     <div className="flex max-w-3xl flex-col gap-4">
       <h1 className="text-xl font-semibold text-encre">{t("parametres.titre")}</h1>
       <FicheEtablissement />
       <MessageErreur erreur={parametres.error} />
+      <ModulesEcole parametres={parametres.data ?? []} />
       {titres.map((titre) => {
         // Les réglages du bulletin, par cycle, ont leur bloc à eux.
-        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
+        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && !p.cle.startsWith("module.") && p.cle !== "sms.actif" && (smsActif || !p.cle.startsWith("sms.")) && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
         return lignes.length === 0 ? null : (
           <Section key={titre} titre={t(titre)}>
             {lignes.map((p) => (
@@ -113,6 +117,59 @@ const CHOIX: Record<string, readonly { valeur: string; libelle: Cle }[]> = {
   ],
 };
 
+/** Modules de l'école, dans l'ordre du noyau, avec le réglage qui allume chacun. */
+const MODULES: readonly { module: ModuleEcole; cle: string; aide: Cle }[] = [
+  { module: "sms", cle: "sms.actif", aide: "modules.aide.sms" },
+  { module: "cantine", cle: "cantine.active", aide: "modules.aide.cantine" },
+  { module: "personnel", cle: "module.personnel", aide: "modules.aide.personnel" },
+  { module: "tresorerie", cle: "module.tresorerie", aide: "modules.aide.tresorerie" },
+  { module: "emploi_du_temps", cle: "module.emploi_du_temps", aide: "modules.aide.emploi_du_temps" },
+  { module: "discipline", cle: "module.discipline", aide: "modules.aide.discipline" },
+];
+
+/** Modules de l'école : la direction allume ou éteint chacun, pour tout le monde. Un module éteint
+ *  quitte la barre latérale et le tableau de bord ; ses données restent. */
+function ModulesEcole({ parametres }: { parametres: readonly Parametre[] }) {
+  const client = useQueryClient();
+  // La case suit le clic aussitôt ; elle revient si l'enregistrement échoue.
+  const [choisis, setChoisis] = useState<Record<string, boolean>>({});
+  const bascule = useMutation({
+    mutationFn: ({ cle, actif }: { cle: string; actif: boolean }) => appeler("parametre_definir", { cle, valeur: { type: "booleen", valeur: actif } }),
+    onMutate: ({ cle, actif }) => setChoisis((c) => ({ ...c, [cle]: actif })),
+    onError: (_e, { cle }) =>
+      setChoisis((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== cle))),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["parametres"] });
+      void client.invalidateQueries({ queryKey: ["session"] });
+      void client.invalidateQueries({ queryKey: ["tableau-de-bord"] });
+      void client.invalidateQueries({ queryKey: ["tresorerie"] });
+    },
+  });
+  const lignes = MODULES.flatMap((m) => {
+    const p = parametres.find((x) => x.cle === m.cle);
+    return p === undefined ? [] : [{ ...m, p }];
+  });
+  if (lignes.length === 0) return null;
+  return (
+    <Section titre={t("modules.titre")}>
+      <p className="text-sm text-muet">{t("modules.aide")}</p>
+      {lignes.map(({ module, cle, aide, p }) => (
+        <div key={module} className="flex flex-col gap-1 border-b border-muet/30 py-2">
+          <CaseACocher
+            id={`module-${module}`}
+            libelle={libelleParametre(cle)}
+            coche={choisis[cle] ?? (p.valeur.type === "booleen" && p.valeur.valeur)}
+            desactive={!p.modifiable_par_utilisateur || bascule.isPending}
+            surChangement={(actif) => bascule.mutate({ cle, actif })}
+          />
+          <p className="pl-6 text-xs text-muet">{t(aide)}</p>
+        </div>
+      ))}
+      <MessageErreur erreur={bascule.error} />
+    </Section>
+  );
+}
+
 function LigneParametre({ parametre }: { parametre: Parametre }) {
   const client = useQueryClient();
   const [texte, setTexte] = useState(enTexte(parametre.valeur));
@@ -134,6 +191,7 @@ function LigneParametre({ parametre }: { parametre: Parametre }) {
       setEnregistre(Date.now());
       void client.invalidateQueries({ queryKey: ["parametres"] });
       void client.invalidateQueries({ queryKey: ["scolarite-reglages"] });
+
     },
   });
   const modifiable = parametre.modifiable_par_utilisateur;

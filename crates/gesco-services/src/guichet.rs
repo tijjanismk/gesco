@@ -117,6 +117,9 @@ pub struct Guichet {
     pub messages: Vec<MessageAffiche>,
     /// Droits de qui consulte.
     pub droits: DroitsGuichet,
+    /// Vrai si l'école a activé les messages aux familles : les SMS et les codes d'accès
+    /// paraissent.
+    pub sms_actif: bool,
 }
 
 /// Élève cherché au guichet.
@@ -331,7 +334,9 @@ impl<'n> ServiceGuichet<'n> {
             }
         }
         let p = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte).await?;
+        let sms_actif = crate::file_sms::module_actif(&mut cnx, &contexte).await?;
         Ok(Guichet {
+            sms_actif,
             eleve_id: demande.eleve_id,
             responsables,
             enfants,
@@ -345,7 +350,7 @@ impl<'n> ServiceGuichet<'n> {
                 remettre: p.contains(&Permission::DOCUMENTS_DELIVER),
                 justifier: p.contains(&Permission::ATTENDANCE_JUSTIFY),
                 convocations: p.contains(&Permission::CONVOCATIONS_CLOSE),
-                codes: p.contains(&Permission::GUARDIANS_ACCESS_CODE),
+                codes: sms_actif && p.contains(&Permission::GUARDIANS_ACCESS_CODE),
             },
         })
     }

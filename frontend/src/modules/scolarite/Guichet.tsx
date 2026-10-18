@@ -142,7 +142,7 @@ function Famille({ f }: { f: FamilleGuichet }) {
                 <span className="font-medium text-encre">{r.nom}</span>
                 <span className="text-muet">{` · ${r.telephones.map(telephoneLisible).join(" · ")}`}</span>
               </div>
-              <CodeAcces r={r} peut={f.droits.codes} surFait={relire} />
+              {f.sms_actif ? <CodeAcces r={r} peut={f.droits.codes} surFait={relire} /> : null}
             </li>
           ))}
         </ul>
@@ -254,7 +254,7 @@ function Famille({ f }: { f: FamilleGuichet }) {
         </ul>
       </Section>
 
-      <Section titre={t("guichet.messages")}>
+      {f.sms_actif ? <Section titre={t("guichet.messages")}>
         {f.messages.length === 0 ? <p className="text-sm text-muet">{t("guichet.aucun_message")}</p> : null}
         <ul className="flex flex-col gap-1 text-sm">
           {f.messages.map((m) => (
@@ -264,7 +264,7 @@ function Famille({ f }: { f: FamilleGuichet }) {
             </li>
           ))}
         </ul>
-      </Section>
+      </Section> : null}
       <MessageErreur erreur={justification.error ?? venue.error} />
     </>
   );

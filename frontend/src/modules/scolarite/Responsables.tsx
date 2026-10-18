@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { useSmsActif } from "../../app/modules";
 import { Bouton } from "../../composants/Bouton";
 import { CaseACocher, Champ, Formulaire, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
@@ -64,6 +65,7 @@ function resume(q: Qualites): string {
 /** Responsables d'un élève (SPEC_PHASE_2 §4.3) : un responsable déjà connu se retrouve par son
  *  téléphone ou son nom, et se lie sans ressaisie (§25.5). */
 export function ResponsablesEleve({ fiche, modifiable }: { fiche: FicheEleve; modifiable: boolean }) {
+  const smsActif = useSmsActif();
   const [edite, setEdite] = useState<string | null>(null);
   return (
     <Section titre={t("responsables.titre")}>
@@ -78,7 +80,12 @@ export function ResponsablesEleve({ fiche, modifiable }: { fiche: FicheEleve; mo
                 <div className="flex-1 text-sm">
                   <p className="font-medium text-encre">{`${r.identite.prenoms} ${r.identite.nom}`}</p>
                   <p className="text-muet">{resume(r.qualites)}</p>
-                  <MessagesDuResponsable responsableId={r.responsable.id} telephones={r.identite.telephones} recoitNotifications={r.qualites.recoit_notifications} />
+                  {smsActif ? (
+                    <MessagesDuResponsable responsableId={r.responsable.id} telephones={r.identite.telephones} recoitNotifications={r.qualites.recoit_notifications} />
+                  ) : (
+                    // Sans les messages aux familles, les numéros paraissent sans leur état.
+                    <p className="font-condensee text-muet">{r.identite.telephones.map(telephoneLisible).join(" · ")}</p>
+                  )}
                 </div>
                 {modifiable ? <Bouton variante="secondaire" onClick={() => setEdite(r.responsable.id)}>{t("responsables.modifier")}</Bouton> : null}
               </div>

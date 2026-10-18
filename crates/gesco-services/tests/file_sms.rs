@@ -100,6 +100,7 @@ async fn la_file_envoie_a_son_tour_par_le_canal_simule() {
     );
 
     // Canal simulé : l'essai part, l'accusé revient, le numéro est joignable.
+    regler(&p, &admin, "sms.actif", json!(true)).await;
     regler(&p, &admin, "sms.canal", json!("simule")).await;
     let bilan = traiter(&p).await;
     assert_eq!((bilan.envoyes, bilan.remis), (1, 1));
@@ -295,6 +296,7 @@ async fn un_message_prepare_attend_la_decision_d_une_personne() {
     let p = poste_vierge(dossier.path()).await;
     p.installer().await;
     let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    regler(&p, &admin, "sms.actif", json!(true)).await;
     regler(&p, &admin, "sms.canal", json!("simule")).await;
 
     // Un message de convocation préparé : il ne part pas seul.

@@ -204,11 +204,14 @@ function Reglages({ reglages, surFait }: { reglages: ReglagesTresorerie; surFait
   const [cantine, setCantine] = useState(reglages.cantine_active);
   const [repas, setRepas] = useState(reglages.repas_comptes);
   const [enregistre, setEnregistre] = useState<number | null>(null);
+  const client = useQueryClient();
   const enregistrer = useMutation({
     mutationFn: () => appeler("tresorerie_reglages_enregistrer", { seuil_accord: lireMontant(seuil) ?? 0, cantine_active: cantine, repas_comptes: repas }),
     onSuccess: (x) => {
       setEnregistre(Date.now());
       surFait(x);
+      // La cantine allumée ou éteinte entre dans la barre latérale ou en sort.
+      void client.invalidateQueries({ queryKey: ["session"] });
     },
   });
   return (

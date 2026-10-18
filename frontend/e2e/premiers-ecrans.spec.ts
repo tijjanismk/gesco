@@ -2325,6 +2325,13 @@ test("version 1.1 : une liste du personnel s'importe après vérification ; la p
 });
 
 test("phase 5 : la mère d'Awa ne veut plus de relances, elle garde l'avis de bulletin ; les réglages des SMS", async () => {
+  // Les messages aux familles sont un module : l'école l'allume dans les paramètres.
+  await allerA("nav.parametres");
+  await expect(page.getByRole("heading", { name: texte("parametres.theme.messages") })).toHaveCount(0);
+  await page.locator("#module-sms").check();
+  await expect(page.getByRole("heading", { name: texte("parametres.theme.messages") })).toBeVisible();
+  await page.getByRole("heading", { name: texte("modules.titre") }).scrollIntoViewIfNeeded();
+  await capturer("128-modules-ecole");
   await page.keyboard.press("Control+k");
   const recherche = page.getByRole("dialog", { name: texte("recherche.titre") });
   await recherche.getByRole("searchbox").fill("Awa Traoré");

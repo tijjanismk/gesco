@@ -26,10 +26,15 @@ fn id_par(liste: &Value, champ: &str, valeur: &str) -> Value {
 }
 
 async fn regler(p: &Poste_, admin: &Jeton, cle: &str, valeur: Value) {
+    let type_valeur = match &valeur {
+        Value::Bool(_) => "booleen",
+        Value::Number(_) => "entier",
+        _ => "texte",
+    };
     p.ok(
         "parametre_definir",
         Some(admin),
-        json!({ "cle": cle, "valeur": { "type": "texte", "valeur": valeur } }),
+        json!({ "cle": cle, "valeur": { "type": type_valeur, "valeur": valeur } }),
     )
     .await;
 }
@@ -150,6 +155,7 @@ async fn une_convocation_part_se_suit_et_s_imprime() {
         .cle,
         "convocation.sms_sans_canal"
     );
+    regler(&p, &admin, "sms.actif", json!(true)).await;
     regler(&p, &admin, "sms.canal", json!("simule")).await;
     let par_sms = p
         .ok(

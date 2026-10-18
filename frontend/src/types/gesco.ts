@@ -5036,6 +5036,11 @@ export type Guichet = {
 	messages: MessageAffiche[],
 	/**  Droits de qui consulte. */
 	droits: DroitsGuichet,
+	/**
+	 *  Vrai si l'école a activé les messages aux familles : les SMS et les codes d'accès
+	 *  paraissent.
+	 */
+	sms_actif: boolean,
 };
 
 /**  Impayé d'une facture à une date. */
@@ -5940,6 +5945,21 @@ export type ModeleSms = {
 	/**  Nombre de SMS de l'exemple. */
 	sms: number,
 };
+
+/**  Module que l'école active ou non. */
+export type ModuleEcole = 
+/**  Messages aux familles par SMS (SPEC_PHASE_5) : éteint, rien ne part ni n'arrive. */
+"sms" | 
+/**  Cantine scolaire (SPEC_PHASE_8). */
+"cantine" | 
+/**  Personnel, heures, congés et paie (SPEC_PHASE_6 et 7). */
+"personnel" | 
+/**  Dépenses, autres recettes, fournisseurs, comptes et trésorerie (SPEC_PHASE_8). */
+"tresorerie" | 
+/**  Emploi du temps (SPEC_PHASE_8). */
+"emploi_du_temps" | 
+/**  Discipline (SPEC_VERSION_1_1). */
+"discipline";
 
 /**  Bulletin de paie d'un membre, dans « Mon compte ». */
 export type MonBulletinPaie = {
@@ -7640,6 +7660,8 @@ export type SessionCourante = {
 	annee_courante: string | null,
 	/**  Jour courant selon l'horloge de GESCO : l'interface ne lit pas celle du poste (R-03). */
 	aujourd_hui: string | null,
+	/**  Modules que l'école a allumés : leurs écrans paraissent. */
+	modules: ModuleEcole[],
 };
 
 /**  Sexe d'une personne. */

@@ -155,6 +155,7 @@ async fn ecole(dossier: &std::path::Path) -> Ecole {
         .map(|l| l["inscription_id"].clone())
         .zip(fiches)
         .collect();
+    regler(&p, &admin, "sms.actif", json!(true)).await;
     regler(&p, &admin, "sms.canal", json!("simule")).await;
     regler(&p, &admin, "sms.fenetre_envoi", json!("0-24")).await;
     Ecole {

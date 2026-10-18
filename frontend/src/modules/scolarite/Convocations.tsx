@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { useSmsActif } from "../../app/modules";
 import { ApercuPdf } from "../../composants/ApercuPdf";
 import { Bouton } from "../../composants/Bouton";
 import { CaseACocher, Champ, Formulaire, Selection } from "../../composants/Champ";
@@ -83,6 +84,7 @@ export function Convocations() {
 }
 
 function NouvelleConvocation({ surFait }: { surFait: (c: ConvocationAffichee) => void }) {
+  const smsActif = useSmsActif();
   const annees = useQuery({ queryKey: ["annees"], queryFn: () => appeler("annees_lister", null) });
   const anneeId = annees.data?.find((a) => a.est_courante)?.id ?? null;
   const inscrits = useQuery({ queryKey: ["inscrits", anneeId], queryFn: () => appeler("inscriptions_lister", { annee_id: anneeId ?? "" }), enabled: anneeId !== null });
@@ -165,7 +167,7 @@ function NouvelleConvocation({ surFait }: { surFait: (c: ConvocationAffichee) =>
             libelle={t("convocations.canal")}
             valeur={canal}
             surChangement={(v) => setCanal((Object.keys(CANAUX) as CanalConvocation[]).find((c) => c === v) ?? "eleve")}
-            options={(Object.keys(CANAUX) as CanalConvocation[]).map((c) => ({ valeur: c, libelle: t(CANAUX[c]) }))}
+            options={(Object.keys(CANAUX) as CanalConvocation[]).filter((c) => smsActif || c !== "sms").map((c) => ({ valeur: c, libelle: t(CANAUX[c]) }))}
           />
         </div>
         {canal === "sms" ? <p className="text-sm text-muet">{t("convocations.sms_aide")}</p> : null}

@@ -23,13 +23,13 @@ use gesco_db::depots::{
 use gesco_db::{Connexion, Contexte};
 
 use crate::erreur::Resultat;
-use crate::file_sms::{MessageAFaire, PARAMETRE_CANAL, mettre_en_file, modele_de, signature};
+use crate::file_sms::{MessageAFaire, canal_en_vigueur, mettre_en_file, modele_de, signature};
 
 const JOUR_MS: i64 = 86_400_000;
 
-/// Vrai si l'école a choisi un canal d'envoi.
+/// Vrai si l'école a activé les messages aux familles et choisi un canal d'envoi.
 async fn canal_actif(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<bool> {
-    Ok(parametre::texte(cnx, PARAMETRE_CANAL, "aucun", contexte).await? != "aucun")
+    Ok(canal_en_vigueur(cnx, contexte).await? != "aucun")
 }
 
 /// Vrai si un message automatique est actif : un canal est choisi et son réglage est coché.

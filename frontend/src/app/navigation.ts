@@ -1,5 +1,6 @@
 import type { Cle } from "../i18n";
 import { ACCES, type NomCommande } from "../types/acces";
+import type { ModuleEcole } from "../types/gesco";
 
 export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
 
@@ -9,6 +10,8 @@ interface Section {
   groupe: Cle;
   /** Commande qui alimente l'écran : sa permission décide si la section s'affiche. */
   commande: NomCommande | null;
+  /** Module que l'école active : éteint, la section ne paraît pas. */
+  module?: ModuleEcole;
 }
 
 /** Barre latérale (§19.2). Une section n'apparaît que si la garde Rust autorise la commande qui
@@ -21,27 +24,27 @@ const SECTIONS: readonly Section[] = [
   { id: "notes", libelle: "nav.notes", groupe: "nav.groupe.scolarite", commande: "evaluation_creer" },
   { id: "absences", libelle: "nav.absences", groupe: "nav.groupe.scolarite", commande: "absences_releve_lire" },
   { id: "bulletins", libelle: "nav.bulletins", groupe: "nav.groupe.scolarite", commande: "bulletins_lire" },
-  { id: "discipline", libelle: "nav.discipline", groupe: "nav.groupe.scolarite", commande: "discipline_registre_lire" },
+  { id: "discipline", libelle: "nav.discipline", groupe: "nav.groupe.scolarite", commande: "discipline_registre_lire", module: "discipline" },
   { id: "remises", libelle: "nav.remises", groupe: "nav.groupe.scolarite", commande: "bulletins_non_retires_lire" },
   { id: "convocations", libelle: "nav.convocations", groupe: "nav.groupe.scolarite", commande: "convocations_lire" },
-  { id: "emploi-du-temps", libelle: "nav.emploi_du_temps", groupe: "nav.groupe.scolarite", commande: "emploi_du_temps_lire" },
+  { id: "emploi-du-temps", libelle: "nav.emploi_du_temps", groupe: "nav.groupe.scolarite", commande: "emploi_du_temps_lire", module: "emploi_du_temps" },
   { id: "fin-annee", libelle: "nav.fin_annee", groupe: "nav.groupe.scolarite", commande: "fin_annee_lire" },
   { id: "caisse", libelle: "nav.caisse", groupe: "nav.groupe.finance", commande: "caisse_ouvrir" },
   { id: "impayes", libelle: "nav.impayes", groupe: "nav.groupe.finance", commande: "impayes_lister" },
   { id: "sessions-caisse", libelle: "nav.sessions_caisse", groupe: "nav.groupe.finance", commande: "caisse_sessions_lister" },
   { id: "journal-encaissements", libelle: "nav.journal_encaissements", groupe: "nav.groupe.finance", commande: "encaissements_lister" },
-  { id: "depenses", libelle: "nav.depenses", groupe: "nav.groupe.finance", commande: "depense_saisir" },
-  { id: "recettes", libelle: "nav.recettes", groupe: "nav.groupe.finance", commande: "recettes_lire" },
-  { id: "fournisseurs", libelle: "nav.fournisseurs", groupe: "nav.groupe.finance", commande: "facture_fournisseur_enregistrer" },
-  { id: "livres", libelle: "nav.livres", groupe: "nav.groupe.finance", commande: "comptes_soldes_lire" },
-  { id: "journal-tresorerie", libelle: "nav.journal_tresorerie", groupe: "nav.groupe.finance", commande: "journal_tresorerie_lire" },
-  { id: "cantine", libelle: "nav.cantine", groupe: "nav.groupe.finance", commande: "cantine_lire" },
-  { id: "tresorerie", libelle: "nav.tresorerie", groupe: "nav.groupe.finance", commande: "tresorerie_lire" },
-  { id: "messages", libelle: "nav.messages", groupe: "nav.groupe.communication", commande: "messages_lire" },
-  { id: "personnel", libelle: "nav.personnel", groupe: "nav.groupe.personnel", commande: "personnel_lister" },
-  { id: "heures", libelle: "nav.heures", groupe: "nav.groupe.personnel", commande: "heures_lire" },
-  { id: "conges", libelle: "nav.conges", groupe: "nav.groupe.personnel", commande: "absences_conges_lire" },
-  { id: "paie", libelle: "nav.paie", groupe: "nav.groupe.personnel", commande: "elements_paie_lire" },
+  { id: "depenses", libelle: "nav.depenses", groupe: "nav.groupe.finance", commande: "depense_saisir", module: "tresorerie" },
+  { id: "recettes", libelle: "nav.recettes", groupe: "nav.groupe.finance", commande: "recettes_lire", module: "tresorerie" },
+  { id: "fournisseurs", libelle: "nav.fournisseurs", groupe: "nav.groupe.finance", commande: "facture_fournisseur_enregistrer", module: "tresorerie" },
+  { id: "livres", libelle: "nav.livres", groupe: "nav.groupe.finance", commande: "comptes_soldes_lire", module: "tresorerie" },
+  { id: "journal-tresorerie", libelle: "nav.journal_tresorerie", groupe: "nav.groupe.finance", commande: "journal_tresorerie_lire", module: "tresorerie" },
+  { id: "cantine", libelle: "nav.cantine", groupe: "nav.groupe.finance", commande: "cantine_lire", module: "cantine" },
+  { id: "tresorerie", libelle: "nav.tresorerie", groupe: "nav.groupe.finance", commande: "tresorerie_lire", module: "tresorerie" },
+  { id: "messages", libelle: "nav.messages", groupe: "nav.groupe.communication", commande: "messages_lire", module: "sms" },
+  { id: "personnel", libelle: "nav.personnel", groupe: "nav.groupe.personnel", commande: "personnel_lister", module: "personnel" },
+  { id: "heures", libelle: "nav.heures", groupe: "nav.groupe.personnel", commande: "heures_lire", module: "personnel" },
+  { id: "conges", libelle: "nav.conges", groupe: "nav.groupe.personnel", commande: "absences_conges_lire", module: "personnel" },
+  { id: "paie", libelle: "nav.paie", groupe: "nav.groupe.personnel", commande: "elements_paie_lire", module: "personnel" },
   // Mise en place de l'année et réglages : repliés, ils ne servent pas tous les jours.
   { id: "classes", libelle: "nav.classes", groupe: "nav.groupe.parametres", commande: "classes_lister" },
   { id: "frais", libelle: "nav.frais", groupe: "nav.groupe.parametres", commande: "grilles_lister" },
@@ -69,6 +72,6 @@ export function commandeAutorisee(commande: NomCommande | null, permissions: rea
   return acces.type !== "permission" || (acces.permission !== undefined && permissions.includes(acces.permission));
 }
 
-export function sectionsAutorisees(permissions: readonly string[]): Section[] {
-  return SECTIONS.filter((s) => commandeAutorisee(s.commande, permissions));
+export function sectionsAutorisees(permissions: readonly string[], modules: readonly ModuleEcole[]): Section[] {
+  return SECTIONS.filter((s) => commandeAutorisee(s.commande, permissions) && (s.module === undefined || modules.includes(s.module)));
 }

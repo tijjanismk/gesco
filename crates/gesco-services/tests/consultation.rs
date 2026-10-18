@@ -113,6 +113,7 @@ async fn famille(dossier: &std::path::Path) -> Famille {
         )
         .await["id"]
         .clone();
+    regler(&p, &admin, "sms.actif", json!(true)).await;
     regler(&p, &admin, "sms.canal", json!("simule")).await;
     regler(&p, &admin, "sms.signature", json!("GS Les Etoiles")).await;
 
@@ -513,5 +514,156 @@ async fn la_cle_simulee_recoit_et_repond() {
     assert!(
         format!("{refus:?}").contains("sms.simulation_impossible"),
         "{refus:?}"
+    );
+}
+
+async fn compte(p: &Poste_, admin: &Jeton, identifiant: &str, role: &str) -> Jeton {
+    let mot_de_passe = format!("ecole-2026-{}", identifiant.len() * 7919);
+    p.ok(
+        "utilisateur_creer",
+        Some(admin),
+        json!({ "identifiant": identifiant, "nom_affiche": identifiant,
+            "mot_de_passe_initial": mot_de_passe, "roles": [role] }),
+    )
+    .await;
+    p.connecter(identifiant, &mot_de_passe).await
+}
+
+/// Rôles livrés en version 10 (SPEC_PHASE_5 §10).
+#[tokio::test]
+async fn les_roles_livres_et_les_messages_aux_familles() {
+    let dossier = tempfile::tempdir().unwrap();
+    let f = famille(dossier.path()).await;
+    let (p, admin) = (&f.p, &f.admin);
+    let secretaire = compte(p, admin, "secretaire", "secretaire").await;
+    let caissier = compte(p, admin, "caissier", "caissier").await;
+    let surveillant = compte(p, admin, "surveillant", "surveillant").await;
+    let lecteur = compte(p, admin, "lecteur", "consultation_seule").await;
+    let demande = json!({ "responsable_id": f.mariam });
+
+    // Le Secrétaire remet les codes et voit la file ; il ne règle pas l'envoi.
+    p.ok("code_acces_remettre", Some(&secretaire), demande.clone())
+        .await;
+    p.ok("messages_lire", Some(&secretaire), json!({ "etat": null }))
+        .await;
+    p.ok("sms_recus_lire", Some(&secretaire), Value::Null).await;
+    p.refus(
+        "message_essai_envoyer",
+        Some(&secretaire),
+        json!({ "numero": "76 00 00 09" }),
+    )
+    .await;
+
+    // Le Caissier remet les bulletins au guichet, pas les codes ; la file ne le regarde pas.
+    let guichet = p
+        .ok(
+            "guichet_lire",
+            Some(&caissier),
+            json!({ "eleve_id": f.awa }),
+        )
+        .await;
+    assert_eq!(guichet["droits"]["remettre"], true);
+    assert_eq!(guichet["droits"]["codes"], false);
+    p.refus("code_acces_revoquer", Some(&caissier), demande.clone())
+        .await;
+    p.refus("messages_lire", Some(&caissier), json!({ "etat": null }))
+        .await;
+
+    // Le Surveillant général tient les convocations et décide des messages préparés.
+    let file = p
+        .ok("messages_lire", Some(&surveillant), json!({ "etat": null }))
+        .await;
+    assert_eq!(file["droits"]["decider"], true);
+    assert_eq!(file["droits"]["configurer"], false);
+    let guichet = p
+        .ok(
+            "guichet_lire",
+            Some(&surveillant),
+            json!({ "eleve_id": f.awa }),
+        )
+        .await;
+    assert_eq!(guichet["droits"]["convocations"], true);
+    p.refus("code_acces_remettre", Some(&surveillant), demande.clone())
+        .await;
+
+    // La Consultation seule lit la file et les SMS reçus, sans rien relancer ni décider.
+    let file = p
+        .ok("messages_lire", Some(&lecteur), json!({ "etat": null }))
+        .await;
+    assert_eq!(file["droits"]["renvoyer"], false);
+    assert_eq!(file["droits"]["decider"], false);
+    assert_eq!(file["droits"]["configurer"], false);
+    p.ok("sms_recus_lire", Some(&lecteur), Value::Null).await;
+    p.refus("code_acces_remettre", Some(&lecteur), demande)
+        .await;
+}
+
+/// Les messages aux familles éteints : rien ne part ni n'arrive, aucun code ne se remet, leurs
+/// écrans quittent la session ; rallumés, la file reprend. Un autre module éteint quitte le
+/// tableau de bord.
+#[tokio::test]
+async fn les_modules_de_l_ecole_s_eteignent_et_se_rallument() {
+    let dossier = tempfile::tempdir().unwrap();
+    let f = famille(dossier.path()).await;
+    let (p, admin) = (&f.p, &f.admin);
+    let session = p.ok("session_courante", Some(admin), Value::Null).await;
+    let modules = session["modules"].as_array().unwrap().clone();
+    assert!(modules.contains(&json!("sms")));
+    assert!(modules.contains(&json!("personnel")));
+    assert!(
+        !modules.contains(&json!("cantine")),
+        "la cantine attend que l'école la veuille"
+    );
+
+    regler(p, admin, "sms.actif", json!(false)).await;
+    p.ok(
+        "message_essai_envoyer",
+        Some(admin),
+        json!({ "numero": "76 00 00 09" }),
+    )
+    .await;
+    let bilan = recevoir(p, MARIAM, "SOLDE AAAAAA").await;
+    assert_eq!((bilan.envoyes, bilan.recus), (0, 0));
+    let refus = p
+        .refus(
+            "code_acces_remettre",
+            Some(admin),
+            json!({ "responsable_id": f.mariam }),
+        )
+        .await;
+    assert!(
+        format!("{refus:?}").contains("sms.module_inactif"),
+        "{refus:?}"
+    );
+    let guichet = p
+        .ok("guichet_lire", Some(admin), json!({ "eleve_id": f.awa }))
+        .await;
+    assert_eq!(guichet["sms_actif"], false);
+    assert_eq!(guichet["droits"]["codes"], false);
+    let session = p.ok("session_courante", Some(admin), Value::Null).await;
+    assert!(
+        !session["modules"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("sms"))
+    );
+
+    // Rallumé : l'essai en attente part, le SMS gardé par le canal arrive.
+    regler(p, admin, "sms.actif", json!(true)).await;
+    let bilan = traiter(p).await;
+    assert_eq!((bilan.envoyes, bilan.recus), (1, 1));
+
+    // Le personnel éteint quitte le tableau de bord, même pour l'administrateur.
+    assert!(p.ok("tableau_de_bord_lire", Some(admin), Value::Null).await["personnel"].is_object());
+    regler(p, admin, "module.personnel", json!(false)).await;
+    let tableau = p.ok("tableau_de_bord_lire", Some(admin), Value::Null).await;
+    assert_eq!(tableau["personnel"], Value::Null);
+    assert_eq!(tableau["paie"], Value::Null);
+    let session = p.ok("session_courante", Some(admin), Value::Null).await;
+    assert!(
+        !session["modules"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("personnel"))
     );
 }

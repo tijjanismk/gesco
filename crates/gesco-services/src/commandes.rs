@@ -419,8 +419,8 @@ pub const COMMANDES: &[Commande] = &[
     ),
     Commande::permise("numero_remettre_a_l_essai", Permission::STUDENTS_UPDATE),
     // File des SMS (SPEC_PHASE_5 §3).
-    Commande::permise("messages_lire", Permission::NOTIFICATIONS_SEND),
-    Commande::permise("message_apercu", Permission::NOTIFICATIONS_SEND),
+    Commande::permise("messages_lire", Permission::NOTIFICATIONS_READ),
+    Commande::permise("message_apercu", Permission::NOTIFICATIONS_READ),
     Commande::permise("message_decider", Permission::NOTIFICATIONS_SEND_MANUAL),
     Commande::permise("message_annuler", Permission::NOTIFICATIONS_SEND_MANUAL),
     Commande::permise("message_renvoyer", Permission::NOTIFICATIONS_SEND),
@@ -456,7 +456,7 @@ pub const COMMANDES: &[Commande] = &[
     // Code d'accès et consultation par SMS entrant (SPEC_PHASE_5 §9).
     Commande::permise("code_acces_remettre", Permission::GUARDIANS_ACCESS_CODE),
     Commande::permise("code_acces_revoquer", Permission::GUARDIANS_ACCESS_CODE),
-    Commande::permise("sms_recus_lire", Permission::NOTIFICATIONS_SEND),
+    Commande::permise("sms_recus_lire", Permission::NOTIFICATIONS_READ),
     Commande::permise("sms_reception_simuler", Permission::NOTIFICATIONS_CONFIGURE),
     // Archive du journal d'audit (blueprint §12.4) : elle s'écrit à la clôture ; on la vérifie.
     Commande::permise("journal_archive_verifier", Permission::CORE_AUDIT_READ),

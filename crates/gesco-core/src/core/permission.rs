@@ -120,6 +120,7 @@ catalogue! {
     TEMPLATES_MANAGE = "templates:manage",
     PERIODS_LOCK = "periods:lock",
     PERIODS_UNLOCK = "periods:unlock",
+    NOTIFICATIONS_READ = "notifications:read",
     NOTIFICATIONS_CONFIGURE = "notifications:configure",
     NOTIFICATIONS_SEND = "notifications:send",
     NOTIFICATIONS_SEND_MANUAL = "notifications:send_manual",
@@ -164,7 +165,14 @@ catalogue! {
 /// Comptable `treasury:read` et `treasury:manage` ; le Caissier `expenses:create` et
 /// `expenses:pay`, puisque sous le seuil le comptable ou le caissier paie ; le Directeur des études
 /// `timetable:manage` ; le Secrétaire `canteen:manage` ; la Consultation seule `treasury:read`.
-pub const COMPOSITION_ROLES_LIVRES: i64 = 9;
+/// Version 10 (SPEC_PHASE_5 §10) : `guardians:access_code` et `notifications:read`, nouvelles ;
+/// le Directeur a tous les droits des messages aux familles, de la remise des documents, des
+/// convocations et des codes d'accès ; le Secrétaire reçoit `guardians:access_code` et
+/// `notifications:read` (il remet les documents et tient les convocations depuis la phase 1) ;
+/// le Caissier `documents:deliver` ; le Surveillant général `convocations:close`,
+/// `notifications:send_manual` et `notifications:read` ; la Consultation seule
+/// `notifications:read`, qui lit la file sans rien relancer.
+pub const COMPOSITION_ROLES_LIVRES: i64 = 10;
 
 /// Rôles livrés avec le produit (§11.4), composés selon SPEC_PHASE_1 §5.2 (Q-44).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -285,7 +293,13 @@ impl RoleSysteme {
                 P::SANCTIONS_UPDATE,
                 P::SANCTIONS_CANCEL,
                 P::CONVOCATIONS_CREATE,
+                P::CONVOCATIONS_UPDATE,
                 P::CONVOCATIONS_CLOSE,
+                P::DOCUMENTS_DELIVER,
+                P::GUARDIANS_ACCESS_CODE,
+                P::NOTIFICATIONS_READ,
+                P::NOTIFICATIONS_CONFIGURE,
+                P::NOTIFICATIONS_SEND,
                 P::NOTIFICATIONS_SEND_MANUAL,
                 P::ACADEMIC_YEAR_CLOSE,
                 P::FEES_MANAGE,
@@ -324,6 +338,8 @@ impl RoleSysteme {
                 P::CONVOCATIONS_CLOSE,
                 P::DOCUMENTS_DELIVER,
                 P::DOCUMENTS_REPRINT,
+                P::GUARDIANS_ACCESS_CODE,
+                P::NOTIFICATIONS_READ,
                 P::REPORTS_GENERATE,
                 P::IMPORT_STUDENTS,
                 P::EMPLOYEES_READ,
@@ -337,6 +353,7 @@ impl RoleSysteme {
                 P::PAYMENTS_CREATE,
                 P::CASHBOX_OPEN,
                 P::CASHBOX_CLOSE,
+                P::DOCUMENTS_DELIVER,
                 P::DOCUMENTS_REPRINT,
                 P::EXPENSES_CREATE,
                 P::EXPENSES_PAY,
@@ -375,6 +392,9 @@ impl RoleSysteme {
                 P::SANCTIONS_UPDATE,
                 P::CONVOCATIONS_CREATE,
                 P::CONVOCATIONS_UPDATE,
+                P::CONVOCATIONS_CLOSE,
+                P::NOTIFICATIONS_READ,
+                P::NOTIFICATIONS_SEND_MANUAL,
             ],
             Self::GestionnaireRh => vec![
                 P::EMPLOYEES_READ,
@@ -393,6 +413,7 @@ impl RoleSysteme {
                 P::CORE_AUDIT_READ,
                 P::LICENCE_READ,
                 P::TREASURY_READ,
+                P::NOTIFICATIONS_READ,
             ],
         }
     }

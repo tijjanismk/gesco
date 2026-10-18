@@ -332,6 +332,12 @@ async fn une_classe_se_calcule_se_valide_se_publie_puis_se_corrige() {
     p.ok(
         "parametre_definir",
         Some(&admin),
+        json!({ "cle": "sms.actif", "valeur": { "type": "booleen", "valeur": true } }),
+    )
+    .await;
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
         json!({ "cle": "sms.canal", "valeur": { "type": "texte", "valeur": "simule" } }),
     )
     .await;

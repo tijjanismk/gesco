@@ -210,15 +210,20 @@ impl<'n> ServiceTableau<'n> {
             .map_err(gesco_db::ErreurBase::from)?;
         let permissions = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte).await?;
         let a = |p: Permission| permissions.contains(&p);
+        // Un module éteint n'a pas de bloc.
+        let modules = crate::modules::actifs(&mut cnx, &contexte).await?;
+        let allume = |m: gesco_core::core::ModuleEcole| modules.contains(&m);
         drop(cnx);
-        let personnel = if a(Permission::EMPLOYEES_READ) {
-            Some(self.personnel(session, aujourd_hui).await?)
-        } else {
-            None
-        };
-        let paie = if a(Permission::PAYROLL_CALCULATE)
-            || a(Permission::PAYROLL_VALIDATE)
-            || a(Permission::PAYROLL_PAY)
+        let personnel =
+            if allume(gesco_core::core::ModuleEcole::Personnel) && a(Permission::EMPLOYEES_READ) {
+                Some(self.personnel(session, aujourd_hui).await?)
+            } else {
+                None
+            };
+        let paie = if allume(gesco_core::core::ModuleEcole::Personnel)
+            && (a(Permission::PAYROLL_CALCULATE)
+                || a(Permission::PAYROLL_VALIDATE)
+                || a(Permission::PAYROLL_PAY))
         {
             Some(
                 crate::paie_mois::ServicePaieMois::nouveau(self.noyau)
@@ -228,10 +233,11 @@ impl<'n> ServiceTableau<'n> {
         } else {
             None
         };
-        let tresorerie = if a(Permission::TREASURY_READ)
-            || a(Permission::EXPENSES_CREATE)
-            || a(Permission::EXPENSES_APPROVE)
-            || a(Permission::EXPENSES_PAY)
+        let tresorerie = if allume(gesco_core::core::ModuleEcole::Tresorerie)
+            && (a(Permission::TREASURY_READ)
+                || a(Permission::EXPENSES_CREATE)
+                || a(Permission::EXPENSES_APPROVE)
+                || a(Permission::EXPENSES_PAY))
         {
             Some(crate::livres::bloc(self.noyau, session).await?)
         } else {

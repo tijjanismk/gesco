@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { useSmsActif } from "../../app/modules";
 import { Bouton } from "../../composants/Bouton";
 import { CaseACocher, Champ, Formulaire, Selection } from "../../composants/Champ";
 import { MessageEnregistre, MessageErreur, Section } from "../../composants/Messages";
@@ -180,6 +181,7 @@ export function FormulaireRemise({ ligne, surFait }: { ligne: LigneRemise; surFa
 }
 
 function NonRetires() {
+  const smsActif = useSmsActif();
   const liste = useQuery({ queryKey: ["non-retires"], queryFn: () => appeler("bulletins_non_retires_lire", null) });
   const [renvoye, setRenvoye] = useState<string | null>(null);
   const renvoi = useMutation({
@@ -201,7 +203,7 @@ function NonRetires() {
             titre={t("remises.non_retires")}
             lignes={l.lignes}
             cle={(x) => x.remise.id}
-            surSelection={l.droits.remettre ? (x) => renvoi.mutate(x.remise.id) : undefined}
+            surSelection={l.droits.remettre && smsActif ? (x) => renvoi.mutate(x.remise.id) : undefined}
             colonnes={[
               { titre: t("remises.colonne.eleve"), valeur: (x) => x.eleve },
               { titre: t("remises.colonne.classe"), valeur: (x) => x.classe },
@@ -210,7 +212,7 @@ function NonRetires() {
               { titre: t("remises.colonne.impaye"), valeur: (x) => (x.impaye_echu === null ? "" : francs(x.impaye_echu)) },
             ]}
           />
-          {l.droits.remettre ? <p className="text-sm text-muet">{t("remises.renvoyer_aide")}</p> : null}
+          {l.droits.remettre && smsActif ? <p className="text-sm text-muet">{t("remises.renvoyer_aide")}</p> : null}
         </>
       )}
     </Section>

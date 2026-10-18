@@ -1,6 +1,6 @@
 # Matrice des permissions des rôles livrés
 
-Fichier généré par `cargo test -p gesco-services --test matrice_permissions` depuis `RoleSysteme::permissions_initiales` (composition livrée v9, `SPEC_PHASE_1.md` §5.2). Ne pas modifier à la main.
+Fichier généré par `cargo test -p gesco-services --test matrice_permissions` depuis `RoleSysteme::permissions_initiales` (composition livrée v10, `SPEC_PHASE_1.md` §5.2). Ne pas modifier à la main.
 
 `x` : permission accordée à la livraison. Les rôles livrés restent modifiables par l'administrateur ; la portée par classe et matière s'ajoute en phase 2.
 
@@ -67,17 +67,18 @@ Fichier généré par `cargo test -p gesco-services --test matrice_permissions` 
 | `sanctions:update` | x | x | | | | | | x | | |
 | `sanctions:cancel` | x | x | | | | | | | | |
 | `convocations:create` | x | x | x | x | | | | x | | |
-| `convocations:update` | x | | x | x | | | | x | | |
-| `convocations:close` | x | x | | x | | | | | | |
-| `documents:deliver` | x | | | x | | | | | | |
+| `convocations:update` | x | x | x | x | | | | x | | |
+| `convocations:close` | x | x | | x | | | | x | | |
+| `documents:deliver` | x | x | | x | x | | | | | |
 | `documents:reprint` | x | | | x | x | | | | | |
 | `templates:manage` | x | | | | | | | | | |
 | `periods:lock` | x | x | x | | | | | | | |
 | `periods:unlock` | x | x | | | | | | | | |
-| `notifications:configure` | x | | | | | | | | | |
-| `notifications:send` | x | | | | | | | | | |
-| `notifications:send_manual` | x | x | | | | | | | | |
-| `guardians:access_code` | x | | | | | | | | | |
+| `notifications:read` | x | x | | x | | | | x | | x |
+| `notifications:configure` | x | x | | | | | | | | |
+| `notifications:send` | x | x | | | | | | | | |
+| `notifications:send_manual` | x | x | | | | | | x | | |
+| `guardians:access_code` | x | x | | x | | | | | | |
 | `import:students` | x | | | x | | | | | | |
 | `import:staff` | x | | | | | | | | x | |
 | `import:grades` | x | x | x | | | | | | | |
@@ -85,4 +86,4 @@ Fichier généré par `cargo test -p gesco-services --test matrice_permissions` 
 | `export:full` | x | | | | | | | | | |
 | `licence:read` | x | x | | | | | | | | x |
 | `licence:install` | x | | | | | | | | | |
-| **Total** | 79 | 45 | 14 | 21 | 8 | 17 | 4 | 8 | 9 | 5 |
+| **Total** | 80 | 51 | 14 | 23 | 9 | 17 | 4 | 11 | 9 | 6 |

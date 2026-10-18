@@ -427,6 +427,8 @@ pub struct SessionCourante {
     pub annee_courante: Option<String>,
     /// Jour courant selon l'horloge de GESCO : l'interface ne lit pas celle du poste (R-03).
     pub aujourd_hui: Option<gesco_core::commun::DateCivile>,
+    /// Modules que l'école a allumés : leurs écrans paraissent.
+    pub modules: Vec<gesco_core::core::ModuleEcole>,
 }
 
 /// Création d'un utilisateur.
@@ -1752,7 +1754,9 @@ impl Application {
         let annee_courante = annee_scolaire::courante(&mut cnx, &contexte)
             .await?
             .map(|a| a.libelle);
+        let modules = crate::modules::actifs(&mut cnx, &contexte).await?;
         Ok(SessionCourante {
+            modules,
             session,
             permissions,
             doit_changer_mot_de_passe: compte.doit_changer_mot_de_passe,

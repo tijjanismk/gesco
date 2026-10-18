@@ -8,6 +8,7 @@ pub mod cle;
 pub mod etablissement;
 pub mod evenement;
 pub mod licence;
+pub mod module;
 pub mod mot_de_passe;
 pub mod numerotation;
 pub mod parametre;
@@ -25,6 +26,7 @@ pub use cle::{
 pub use etablissement::{Etablissement, Organisation, StatutEtablissement};
 pub use evenement::{Evenement, TypeEvenement};
 pub use licence::{Edition, ErreurLicence, EtatLicence, Licence, StatutLicence};
+pub use module::ModuleEcole;
 pub use mot_de_passe::PolitiqueMotDePasse;
 pub use numerotation::{FormatNumero, TypeDocumentNumerote};
 pub use parametre::{Parametre, ValeurParametre};

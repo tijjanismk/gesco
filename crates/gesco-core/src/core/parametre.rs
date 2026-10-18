@@ -247,6 +247,18 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         ),
         // SPEC_PHASE_5 §3 : signature vide, le nom de l'école ; six SMS par minute, de 7 h à
         // 20 h, sans plafond.
+        // Modules de l'école : ce qui existait avant l'écran des modules reste allumé.
+        p("module.personnel", ValeurParametre::Booleen(true), true),
+        p("module.tresorerie", ValeurParametre::Booleen(true), true),
+        p(
+            "module.emploi_du_temps",
+            ValeurParametre::Booleen(true),
+            true,
+        ),
+        p("module.discipline", ValeurParametre::Booleen(true), true),
+        // Les messages aux familles sont un module que l'école active, comme la cantine :
+        // éteint, rien ne part ni n'arrive, et ses écrans disparaissent.
+        p("sms.actif", ValeurParametre::Booleen(false), true),
         // Rien ne part tant que l'école n'a pas choisi son canal.
         p(
             "sms.canal",

@@ -61,6 +61,12 @@ async fn le_guichet_montre_toute_la_famille() {
     p.ok(
         "parametre_definir",
         Some(&admin),
+        json!({ "cle": "sms.actif", "valeur": { "type": "booleen", "valeur": true } }),
+    )
+    .await;
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
         json!({ "cle": "sms.canal", "valeur": { "type": "texte", "valeur": "simule" } }),
     )
     .await;

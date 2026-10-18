@@ -104,8 +104,8 @@ export function Espace({ etablissement }: { etablissement: string }) {
 
   if (courante.isPending) return <p className="p-6 text-muet">{t("commun.chargement")}</p>;
   if (courante.isError) return <div className="p-6"><MessageErreur erreur={courante.error} /></div>;
-  const { session: ouverte, permissions, doit_changer_mot_de_passe } = courante.data;
-  const sections = sectionsAutorisees(permissions);
+  const { session: ouverte, permissions, doit_changer_mot_de_passe, modules } = courante.data;
+  const sections = sectionsAutorisees(permissions, modules);
   const peutChercher = commandeAutorisee("eleves_rechercher", permissions) && !doit_changer_mot_de_passe;
   const groupes = [...new Set(sections.map((s) => s.groupe))];
 

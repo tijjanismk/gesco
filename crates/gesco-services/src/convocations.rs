@@ -13,8 +13,7 @@ use gesco_core::scolarite::convocation::{
 use gesco_core::scolarite::discipline::{NatureSanction, Sanction};
 use gesco_core::scolarite::{Inscription, Responsable};
 use gesco_db::depots::{
-    academique, discipline, file_sms, inscriptions, parametre, personnes, remises_documents, role,
-    utilisateur,
+    academique, discipline, file_sms, inscriptions, personnes, remises_documents, role, utilisateur,
 };
 use gesco_db::unite::Durabilite;
 use gesco_db::{Connexion, Contexte, nouvel_id};
@@ -249,14 +248,7 @@ impl<'n> ServiceConvocations<'n> {
             }
         }
         if demande.canal == CanalConvocation::Sms
-            && parametre::texte(
-                unite.connexion(),
-                crate::file_sms::PARAMETRE_CANAL,
-                "aucun",
-                &contexte,
-            )
-            .await?
-                == "aucun"
+            && crate::file_sms::canal_en_vigueur(unite.connexion(), &contexte).await? == "aucun"
         {
             return Err(regle("convocation.sms_sans_canal"));
         }

@@ -59,6 +59,7 @@ pub mod livres;
 pub mod messages;
 pub mod messages_auto;
 pub mod mise_a_niveau;
+pub mod modules;
 pub mod noyau;
 pub mod numerotation;
 pub mod paie;

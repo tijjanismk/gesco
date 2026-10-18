@@ -27,8 +27,23 @@ fn regle(cle: &'static str) -> ErreurService {
     ErreurService::Regle { cle }
 }
 
+/// Réglage du module des messages aux familles : éteint, rien ne part ni n'arrive.
+pub const PARAMETRE_ACTIF: &str = "sms.actif";
 /// Réglage du canal d'envoi.
 pub const PARAMETRE_CANAL: &str = "sms.canal";
+
+/// Vrai si l'école a activé les messages aux familles.
+pub(crate) async fn module_actif(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<bool> {
+    crate::modules::actif(cnx, gesco_core::core::ModuleEcole::Sms, contexte).await
+}
+
+/// Le canal d'envoi en vigueur : celui que l'école a choisi, `aucun` si le module est éteint.
+pub(crate) async fn canal_en_vigueur(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<String> {
+    if !module_actif(cnx, contexte).await? {
+        return Ok("aucun".to_owned());
+    }
+    Ok(parametre::texte(cnx, PARAMETRE_CANAL, "aucun", contexte).await?)
+}
 /// Réglage de la signature, le nom de l'école en tête des SMS.
 pub const PARAMETRE_SIGNATURE: &str = "sms.signature";
 
@@ -470,7 +485,7 @@ impl<'n> ServiceFile<'n> {
         Ok(FileMessages {
             messages: affiches,
             compteurs,
-            canal: parametre::texte(&mut cnx, PARAMETRE_CANAL, "aucun", &contexte).await?,
+            canal: canal_en_vigueur(&mut cnx, &contexte).await?,
             port: parametre::texte(&mut cnx, PARAMETRE_PORT, "", &contexte).await?,
             etat_canal: Self::etat_canal(&mut cnx, &contexte).await?,
             seuil_credit: parametre::entier(&mut cnx, PARAMETRE_SEUIL_CREDIT, 500, &contexte)
@@ -842,7 +857,7 @@ impl<'n> ServiceFile<'n> {
             expires: file_sms::expirer(&mut cnx, maintenant, &contexte).await?,
             ..BilanFile::default()
         };
-        let nom_canal = parametre::texte(&mut cnx, PARAMETRE_CANAL, "aucun", &contexte).await?;
+        let nom_canal = canal_en_vigueur(&mut cnx, &contexte).await?;
         let initial = Self::etat_canal(&mut cnx, &contexte).await?;
         let mut etat = initial.clone();
         // Les relances d'impayés du jour, au premier passage (SPEC_PHASE_5 §5).
@@ -1132,7 +1147,7 @@ impl<'n> ServiceFile<'n> {
     pub async fn avertissements(&self, session: &Session) -> Resultat<Vec<&'static str>> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
-        let canal = parametre::texte(&mut cnx, PARAMETRE_CANAL, "aucun", &contexte).await?;
+        let canal = canal_en_vigueur(&mut cnx, &contexte).await?;
         if canal == "aucun" {
             return Ok(Vec::new());
         }

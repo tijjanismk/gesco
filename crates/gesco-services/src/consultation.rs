@@ -26,7 +26,7 @@ use gesco_sms::SmsEntrant;
 use serde::{Deserialize, Serialize};
 
 use crate::erreur::{ErreurService, Resultat};
-use crate::file_sms::{MessageAFaire, PARAMETRE_CANAL, PARAMETRE_PORT, PORT_SIMULE};
+use crate::file_sms::{MessageAFaire, PARAMETRE_PORT, PORT_SIMULE, canal_en_vigueur};
 use crate::noyau::Noyau;
 use crate::session::Session;
 
@@ -574,6 +574,9 @@ impl<'n> ServiceConsultation<'n> {
             .noyau
             .commencer(contexte.clone(), Durabilite::Ordinaire)
             .await?;
+        if !crate::file_sms::module_actif(unite.connexion(), &contexte).await? {
+            return Err(regle("sms.module_inactif"));
+        }
         let (_, personne) =
             personnes::responsable(unite.connexion(), demande.responsable_id, &contexte).await?;
         let ancien =
@@ -718,7 +721,7 @@ impl<'n> ServiceConsultation<'n> {
         cnx: &mut Connexion,
         contexte: &Contexte,
     ) -> Resultat<Option<CanalDeSimulation>> {
-        let canal = parametre::texte(cnx, PARAMETRE_CANAL, "aucun", contexte).await?;
+        let canal = canal_en_vigueur(cnx, contexte).await?;
         let port = parametre::texte(cnx, PARAMETRE_PORT, "", contexte).await?;
         Ok(match canal.as_str() {
             "simule" => Some(CanalDeSimulation::Canal),

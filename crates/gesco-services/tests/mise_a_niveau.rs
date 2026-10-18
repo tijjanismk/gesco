@@ -645,3 +645,60 @@ async fn une_base_de_la_composition_8_recoit_les_droits_de_la_tresorerie() {
             .contains(&P::EXPENSES_APPROVE)
     );
 }
+
+#[tokio::test]
+async fn une_base_de_la_composition_9_recoit_les_droits_des_messages_aux_familles() {
+    let (noyau, etablissement_id, _dossier) = installer().await;
+    // Composition 9 : ni code d'accès, ni lecture de la file.
+    executer(&noyau, "DELETE FROM role_permission WHERE permission_code IN ('guardians:access_code', 'notifications:read', 'notifications:configure', 'notifications:send', 'documents:deliver', 'convocations:update', 'convocations:close', 'notifications:send_manual') AND role_id IN (SELECT id FROM role WHERE code IN ('directeur', 'secretaire', 'caissier', 'surveillant', 'consultation_seule'))").await;
+    executer(&noyau, "UPDATE role SET composition_livree = 9").await;
+    mise_a_niveau::completer_roles(&noyau, etablissement_id)
+        .await
+        .unwrap();
+    use Permission as P;
+    let attendues = [
+        (
+            RoleSysteme::Directeur,
+            vec![
+                P::GUARDIANS_ACCESS_CODE,
+                P::NOTIFICATIONS_READ,
+                P::NOTIFICATIONS_CONFIGURE,
+                P::NOTIFICATIONS_SEND,
+                P::NOTIFICATIONS_SEND_MANUAL,
+                P::DOCUMENTS_DELIVER,
+                P::CONVOCATIONS_UPDATE,
+                P::CONVOCATIONS_CLOSE,
+            ],
+        ),
+        (
+            RoleSysteme::Secretaire,
+            vec![
+                P::GUARDIANS_ACCESS_CODE,
+                P::NOTIFICATIONS_READ,
+                P::DOCUMENTS_DELIVER,
+                P::CONVOCATIONS_CLOSE,
+            ],
+        ),
+        (RoleSysteme::Caissier, vec![P::DOCUMENTS_DELIVER]),
+        (
+            RoleSysteme::Surveillant,
+            vec![
+                P::CONVOCATIONS_CLOSE,
+                P::NOTIFICATIONS_READ,
+                P::NOTIFICATIONS_SEND_MANUAL,
+            ],
+        ),
+        (RoleSysteme::ConsultationSeule, vec![P::NOTIFICATIONS_READ]),
+    ];
+    for (role, permissions_attendues) in attendues {
+        let obtenues = permissions(&noyau, etablissement_id, role).await;
+        for p in permissions_attendues {
+            assert!(obtenues.contains(&p), "{role:?} sans {}", p.code());
+        }
+    }
+    // La Consultation seule ne relance rien ; le Caissier ne remet pas de code d'accès.
+    let lecteur = permissions(&noyau, etablissement_id, RoleSysteme::ConsultationSeule).await;
+    assert!(!lecteur.contains(&P::NOTIFICATIONS_SEND));
+    let caissier = permissions(&noyau, etablissement_id, RoleSysteme::Caissier).await;
+    assert!(!caissier.contains(&P::GUARDIANS_ACCESS_CODE));
+}

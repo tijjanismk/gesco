@@ -79,6 +79,7 @@ async fn la_cle_modem_envoie_et_surveille_son_credit() {
     regler(&p, &admin, "sms.fenetre_envoi", json!("0-24")).await;
 
     // Canal « clé » sans port : la clé est absente, la file attend, le tableau de bord le dit.
+    regler(&p, &admin, "sms.actif", json!(true)).await;
     regler(&p, &admin, "sms.canal", json!("modem")).await;
     essai(&p, &admin, "76 00 00 01").await;
     let bilan = traiter(&p).await;
