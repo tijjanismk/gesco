@@ -787,6 +787,8 @@ impl<'n> ServiceBulletins<'n> {
             );
             // L'avis « bulletin à retirer » naît dans la transaction de la publication.
             if apres_statut == StatutBulletin::Publie {
+                crate::remises_documents::a_la_publication(unite.connexion(), avant, &contexte)
+                    .await?;
                 crate::messages_auto::avis_bulletin(unite.connexion(), avant, &contexte).await?;
             }
         }

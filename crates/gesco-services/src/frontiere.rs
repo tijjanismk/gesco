@@ -53,6 +53,11 @@ use crate::conges::{
     AbsencesEtConges, DemandeAbsencePersonnel, DemandeConge, DemandeIdConge, DemandeMoisConges,
     DemandeMotifAbsence, DemandeMotifConge, DemandeTypeConge, ServiceConges,
 };
+use crate::convocations::{
+    ConvocationAffichee, Convocations, DemandeAccuse, DemandeAnnulationConvocation,
+    DemandeClotureConvocation, DemandeConvocation, DemandeConvocationId, DemandeConvocations,
+    DemandeReport, ServiceConvocations,
+};
 use crate::departs::{
     DemandeDepart, DemandeExclusion, DemandeLevee, DemandeTransfert, ServiceDeparts,
     TransfertEnregistre,
@@ -184,6 +189,10 @@ use crate::recouvrement::{
 use crate::referentiel::{DemandeFiliere, FicheClasse, Referentiel, ServiceReferentiel};
 use crate::remises::{
     DemandeDecisionRemise, DemandeIdRemise, DemandeRemise, RemiseEnAttente, ServiceRemises,
+};
+use crate::remises_documents::{
+    DemandeRemiseBulletin, DemandeRemiseId, DemandeRemisesClasse, DemandeSignatureBulletin,
+    LigneRemise, RemisesClasse, ServiceRemisesBulletins,
 };
 use crate::restauration::{self, RapportRestauration, Tentatives};
 use crate::roles::ServiceRoles;
@@ -1087,6 +1096,18 @@ contrat! {
     sms_port_choisir(DemandePort) -> FileMessages;
     sms_credit_lire(()) -> FileMessages;
     sms_reprendre(()) -> FileMessages;
+    remises_classe_lire(DemandeRemisesClasse) -> RemisesClasse;
+    bulletins_non_retires_lire(()) -> RemisesClasse;
+    bulletin_remettre(DemandeRemiseBulletin) -> LigneRemise;
+    bulletin_signer(DemandeSignatureBulletin) -> LigneRemise;
+    bulletin_avis_renvoyer(DemandeRemiseId) -> u32;
+    convocations_lire(DemandeConvocations) -> Convocations;
+    convocation_creer(DemandeConvocation) -> ConvocationAffichee;
+    convocation_accuser(DemandeAccuse) -> ConvocationAffichee;
+    convocation_reporter(DemandeReport) -> ConvocationAffichee;
+    convocation_annuler(DemandeAnnulationConvocation) -> ConvocationAffichee;
+    convocation_clore(DemandeClotureConvocation) -> ConvocationAffichee;
+    convocation_billet_produire(DemandeConvocationId) -> DocumentAffiche;
     sanction_noter(DemandeSanction) -> DossierDiscipline;
     sanction_annuler(DemandeAnnulationSanction) -> DossierDiscipline;
     journal_archive_verifier(DemandeVerificationArchive) -> VerificationArchive;
@@ -4570,6 +4591,140 @@ impl Application {
         ServiceFile::nouveau(&appel.ouverte()?.noyau)
             .essai(appel.session()?, &entree)
             .await
+    }
+
+    async fn remises_classe_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeRemisesClasse,
+    ) -> Resultat<RemisesClasse> {
+        ServiceRemisesBulletins::nouveau(&appel.ouverte()?.noyau)
+            .classe(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bulletin_remettre(
+        &self,
+        appel: Appel,
+        entree: DemandeRemiseBulletin,
+    ) -> Resultat<LigneRemise> {
+        ServiceRemisesBulletins::nouveau(&appel.ouverte()?.noyau)
+            .remettre(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bulletin_signer(
+        &self,
+        appel: Appel,
+        entree: DemandeSignatureBulletin,
+    ) -> Resultat<LigneRemise> {
+        ServiceRemisesBulletins::nouveau(&appel.ouverte()?.noyau)
+            .signer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bulletin_avis_renvoyer(&self, appel: Appel, entree: DemandeRemiseId) -> Resultat<u32> {
+        ServiceRemisesBulletins::nouveau(&appel.ouverte()?.noyau)
+            .renvoyer_avis(appel.session()?, &entree)
+            .await
+    }
+
+    async fn convocations_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeConvocations,
+    ) -> Resultat<Convocations> {
+        ServiceConvocations::nouveau(&appel.ouverte()?.noyau)
+            .lister(appel.session()?, &entree)
+            .await
+    }
+
+    async fn convocation_creer(
+        &self,
+        appel: Appel,
+        entree: DemandeConvocation,
+    ) -> Resultat<ConvocationAffichee> {
+        ServiceConvocations::nouveau(&appel.ouverte()?.noyau)
+            .creer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn convocation_accuser(
+        &self,
+        appel: Appel,
+        entree: DemandeAccuse,
+    ) -> Resultat<ConvocationAffichee> {
+        ServiceConvocations::nouveau(&appel.ouverte()?.noyau)
+            .accuser(appel.session()?, &entree)
+            .await
+    }
+
+    async fn convocation_reporter(
+        &self,
+        appel: Appel,
+        entree: DemandeReport,
+    ) -> Resultat<ConvocationAffichee> {
+        ServiceConvocations::nouveau(&appel.ouverte()?.noyau)
+            .reporter(appel.session()?, &entree)
+            .await
+    }
+
+    async fn convocation_annuler(
+        &self,
+        appel: Appel,
+        entree: DemandeAnnulationConvocation,
+    ) -> Resultat<ConvocationAffichee> {
+        ServiceConvocations::nouveau(&appel.ouverte()?.noyau)
+            .annuler(appel.session()?, &entree)
+            .await
+    }
+
+    async fn convocation_clore(
+        &self,
+        appel: Appel,
+        entree: DemandeClotureConvocation,
+    ) -> Resultat<ConvocationAffichee> {
+        ServiceConvocations::nouveau(&appel.ouverte()?.noyau)
+            .clore(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bulletins_non_retires_lire(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<RemisesClasse> {
+        ServiceRemisesBulletins::nouveau(&appel.ouverte()?.noyau)
+            .non_retires(appel.session()?)
+            .await
+    }
+
+    async fn convocation_billet_produire(
+        &self,
+        appel: Appel,
+        entree: DemandeConvocationId,
+    ) -> Resultat<DocumentAffiche> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let donnees = ServiceConvocations::nouveau(&ouverte.noyau)
+            .donnees_billet(session, &entree)
+            .await?;
+        let contexte = ouverte
+            .noyau
+            .contexte(session.etablissement_id, Some(session));
+        let produit = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+            .produire(
+                contexte,
+                "convocation",
+                "convocation",
+                &entree.id.vers_chaine(),
+                donnees,
+            )
+            .await?;
+        Ok(DocumentAffiche {
+            pdf: base64(&produit.pdf),
+            document: produit.document,
+        })
     }
 
     async fn sms_ports_lister(&self, _appel: Appel, _entree: ()) -> Resultat<Vec<PortDisponible>> {

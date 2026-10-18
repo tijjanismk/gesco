@@ -131,6 +131,15 @@ export type AbsentDuJour = {
 	minutes: number | null,
 };
 
+/**  Ce que l'école sait de la réception. */
+export type AccuseConvocation = 
+/**  Le responsable a confirmé l'avoir reçue. */
+"confirme" | 
+/**  Partie, sans confirmation. */
+"transmis_non_confirme" | 
+/**  Relancé sans réponse. */
+"sans_reponse";
+
 /**  Affectation affichée. */
 export type AffectationAffichee = {
 	/**  Affectation. */
@@ -681,6 +690,17 @@ reduction_points: number;
 famille: ReductionFamille | null } | 
 /**  Le montant se saisit dans la paie du mois. */
 { mode: "saisi" };
+
+/**  Canal par lequel la convocation est partie. */
+export type CanalConvocation = 
+/**  Confiée à l'élève. */
+"eleve" | 
+/**  Remise en main propre au responsable. */
+"main_propre" | 
+/**  Par SMS, après relecture. */
+"sms" | 
+/**  Par WhatsApp, noté à la main. */
+"whatsapp";
 
 /**  Horaire de canicule (T-38) : du … au …, la matinée seule. */
 export type Canicule = {
@@ -1592,6 +1612,30 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	sms_reprendre: Signature<null, FileMessages>,
 	/**  Signature de la commande du même nom. */
+	remises_classe_lire: Signature<DemandeRemisesClasse, RemisesClasse>,
+	/**  Signature de la commande du même nom. */
+	bulletins_non_retires_lire: Signature<null, RemisesClasse>,
+	/**  Signature de la commande du même nom. */
+	bulletin_remettre: Signature<DemandeRemiseBulletin, LigneRemise>,
+	/**  Signature de la commande du même nom. */
+	bulletin_signer: Signature<DemandeSignatureBulletin, LigneRemise>,
+	/**  Signature de la commande du même nom. */
+	bulletin_avis_renvoyer: Signature<DemandeRemiseId, number>,
+	/**  Signature de la commande du même nom. */
+	convocations_lire: Signature<DemandeConvocations, Convocations>,
+	/**  Signature de la commande du même nom. */
+	convocation_creer: Signature<DemandeConvocation, ConvocationAffichee>,
+	/**  Signature de la commande du même nom. */
+	convocation_accuser: Signature<DemandeAccuse, ConvocationAffichee>,
+	/**  Signature de la commande du même nom. */
+	convocation_reporter: Signature<DemandeReport, ConvocationAffichee>,
+	/**  Signature de la commande du même nom. */
+	convocation_annuler: Signature<DemandeAnnulationConvocation, ConvocationAffichee>,
+	/**  Signature de la commande du même nom. */
+	convocation_clore: Signature<DemandeClotureConvocation, ConvocationAffichee>,
+	/**  Signature de la commande du même nom. */
+	convocation_billet_produire: Signature<DemandeConvocationId, DocumentAffiche>,
+	/**  Signature de la commande du même nom. */
 	sanction_noter: Signature<DemandeSanction, DossierDiscipline>,
 	/**  Signature de la commande du même nom. */
 	sanction_annuler: Signature<DemandeAnnulationSanction, DossierDiscipline>,
@@ -1605,6 +1649,62 @@ export type Contrat = {
 	releve_apercu: Signature<DemandeApercuReleve, ApercuReleve>,
 	/**  Signature de la commande du même nom. */
 	releve_importer: Signature<DemandeImportReleve, ResultatReleve>,
+};
+
+/**  Convocation d'un responsable au sujet d'un élève. */
+export type Convocation = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Inscription de l'élève. */
+	inscription_id: string,
+	/**  Responsable convoqué ; aucun : les responsables légaux. */
+	responsable_id: string | null,
+	/**  Sanction « convocation des parents » dont elle naît. */
+	sanction_id: string | null,
+	/**  Motif. */
+	motif: string,
+	/**  Jour du rendez-vous. */
+	date: string,
+	/**  Heure du rendez-vous, `HH:MM`. */
+	heure: string,
+	/**  Canal. */
+	canal: CanalConvocation,
+	/**  Réception. */
+	accuse: AccuseConvocation,
+	/**  Suite. */
+	suite: SuiteConvocation,
+	/**  Émission. */
+	emise_le: number,
+	/**  Qui l'a émise. */
+	emise_par: string,
+	/**  Annulée, avec un motif. */
+	annulee: boolean,
+	/**  Motif de l'annulation. */
+	motif_annulation: string,
+};
+
+/**  Convocation, telle que l'écran la montre. */
+export type ConvocationAffichee = {
+	/**  Convocation. */
+	convocation: Convocation,
+	/**  Prénoms et nom de l'élève. */
+	eleve: string,
+	/**  Classe. */
+	classe: string,
+	/**  Responsable convoqué ; vide : les responsables légaux. */
+	responsable: string,
+	/**  Qui l'a émise. */
+	emise_par: string,
+};
+
+/**  Les convocations. */
+export type Convocations = {
+	/**  Convocations, les rendez-vous les plus proches d'abord. */
+	liste: ConvocationAffichee[],
+	/**  Droits de qui consulte. */
+	droits: DroitsConvocations,
 };
 
 /**  Cumuls de l'année civile. */
@@ -1713,6 +1813,14 @@ export type DemandeAbsencesPeriode = {
 	periode_id: string,
 };
 
+/**  Réception notée. */
+export type DemandeAccuse = {
+	/**  Convocation. */
+	id: string,
+	/**  Réception. */
+	accuse: AccuseConvocation,
+};
+
 /**  Affectation demandée. */
 export type DemandeAffectation = {
 	/**  Classe. */
@@ -1742,6 +1850,14 @@ export type DemandeAnnee = {
 /**  Avance désignée, à annuler avec un motif. */
 export type DemandeAnnulationAvance = {
 	/**  Avance. */
+	id: string,
+	/**  Motif. */
+	motif: string,
+};
+
+/**  Annulation motivée. */
+export type DemandeAnnulationConvocation = {
+	/**  Convocation. */
 	id: string,
 	/**  Motif. */
 	motif: string,
@@ -1991,6 +2107,14 @@ export type DemandeCloture = {
 	motif_ecart: string,
 };
 
+/**  Suite définitive. */
+export type DemandeClotureConvocation = {
+	/**  Convocation. */
+	id: string,
+	/**  Vrai : le responsable est venu. */
+	honoree: boolean,
+};
+
 /**  Clôture d'un engagement. */
 export type DemandeClotureEngagement = {
 	/**  Engagement. */
@@ -2059,6 +2183,36 @@ export type DemandeConsentement = {
 	type_message: TypeMessage,
 	/**  Faux : il ne le reçoit plus. */
 	accepte: boolean,
+};
+
+/**  Convocation à émettre. */
+export type DemandeConvocation = {
+	/**  Inscription de l'élève. */
+	inscription_id: string,
+	/**  Responsable convoqué ; aucun : les responsables légaux. */
+	responsable_id: string | null,
+	/**  Motif. */
+	motif: string,
+	/**  Jour du rendez-vous, `AAAA-MM-JJ`. */
+	date: string,
+	/**  Heure, `HH:MM`. */
+	heure: string,
+	/**  Canal. */
+	canal: CanalConvocation,
+	/**  Sanction « convocation des parents » dont elle naît. */
+	sanction_id: string | null,
+};
+
+/**  Une convocation. */
+export type DemandeConvocationId = {
+	/**  Convocation. */
+	id: string,
+};
+
+/**  Convocations à lire. */
+export type DemandeConvocations = {
+	/**  Vrai : seulement celles en cours. */
+	en_cours: boolean,
 };
 
 /**  Correction d'un bulletin publié. */
@@ -3246,6 +3400,36 @@ export type DemandeRemiseALEssai = {
 	numero: string,
 };
 
+/**  Remise d'un bulletin. */
+export type DemandeRemiseBulletin = {
+	/**  Remise. */
+	id: string,
+	/**  À qui. */
+	remis_a: RemisA,
+	/**  Responsable qui le reçoit. */
+	responsable_id: string | null,
+	/**  Nom de qui le retire, pour une personne autorisée ou un tiers. */
+	nom_retrait: string,
+	/**  Vrai s'il est signé sur place. */
+	signe: boolean,
+	/**  Nom de qui signe. */
+	signataire: string,
+};
+
+/**  Une remise. */
+export type DemandeRemiseId = {
+	/**  Remise. */
+	id: string,
+};
+
+/**  Classe et période dont on lit les remises. */
+export type DemandeRemisesClasse = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Période. */
+	periode_id: string,
+};
+
 /**  Message échoué ou expiré à renvoyer. */
 export type DemandeRenvoi = {
 	/**  Message. */
@@ -3268,6 +3452,16 @@ export type DemandeRepas = {
 	inscription_id: string,
 	/**  Vrai pour un repas pris. */
 	pris: boolean,
+};
+
+/**  Rendez-vous déplacé. */
+export type DemandeReport = {
+	/**  Convocation. */
+	id: string,
+	/**  Nouveau jour, `AAAA-MM-JJ`. */
+	date: string,
+	/**  Nouvelle heure, `HH:MM`. */
+	heure: string,
 };
 
 /**  Moyenne reprise saisie depuis le relevé d'une autre école. */
@@ -3390,6 +3584,14 @@ export type DemandeSerie = {
 export type DemandeSession = {
 	/**  Session. */
 	id: string,
+};
+
+/**  Signature d'un bulletin déjà remis. */
+export type DemandeSignatureBulletin = {
+	/**  Remise. */
+	id: string,
+	/**  Nom de qui signe. */
+	signataire: string,
 };
 
 /**  Transfert d'un élève vers une autre école. */
@@ -3668,6 +3870,16 @@ export type DossierDiscipline = {
 };
 
 /**  Ce que peut faire le compte connecté. */
+export type DroitsConvocations = {
+	/**  Convoquer, imprimer le billet. */
+	creer: boolean,
+	/**  Noter la réception, reporter, annuler. */
+	modifier: boolean,
+	/**  Noter la suite : honorée, non honorée. */
+	clore: boolean,
+};
+
+/**  Ce que peut faire le compte connecté. */
 export type DroitsDepenses = {
 	/**  Saisir une dépense. */
 	saisir: boolean,
@@ -3693,6 +3905,12 @@ export type DroitsMessages = {
 	renvoyer: boolean,
 	/**  Décider d'un message préparé, annuler un message. */
 	decider: boolean,
+};
+
+/**  Ce que peut faire le compte connecté. */
+export type DroitsRemise = {
+	/**  Remettre, faire signer, renvoyer l'avis. */
+	remettre: boolean,
 };
 
 /**  Échéance d'une facture. */
@@ -5236,6 +5454,30 @@ export type LigneReleve = {
 	exclu: boolean,
 };
 
+/**  Remise d'un bulletin, telle que l'écran la montre. */
+export type LigneRemise = {
+	/**  Remise. */
+	remise: RemiseDocument,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Prénoms et nom de l'élève. */
+	eleve: string,
+	/**  Classe. */
+	classe: string,
+	/**  Période : « 1er trimestre ». */
+	periode: string,
+	/**  Responsables de l'élève, à qui le bulletin peut être remis. */
+	responsables: ResponsableRemise[],
+	/**  Qui l'a reçu, en clair. */
+	recu_par: string,
+	/**  Jours écoulés depuis la publication. */
+	jours: number,
+	/**  Vrai s'il est à signaler : non retiré, ou à remettre depuis sept jours. */
+	a_signaler: boolean,
+	/**  Ce que la famille doit d'échu, s'il reste quelque chose. */
+	impaye_echu: Montant | null,
+};
+
 /**  Élève qui n'a pas suivi la période, et sa moyenne reprise. */
 export type LigneReprise = {
 	/**  Inscription. */
@@ -6562,6 +6804,17 @@ export type ReleveParSeance = {
 	refus: string | null,
 };
 
+/**  À qui le document a été remis. */
+export type RemisA = 
+/**  Un responsable de l'élève. */
+"responsable" | 
+/**  L'élève lui-même. */
+"eleve" | 
+/**  Une personne autorisée à retirer pour l'élève. */
+"personne_autorisee" | 
+/**  Une autre personne, nommée. */
+"tiers";
+
 /**  Remise d'une inscription. */
 export type Remise = {
 	/**  Identifiant technique. */
@@ -6592,6 +6845,38 @@ export type Remise = {
 	montant_applique: Montant,
 };
 
+/**  Remise d'un bulletin publié. */
+export type RemiseDocument = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Bulletin en vigueur, la dernière version publiée. */
+	bulletin_id: string,
+	/**  Inscription de l'élève. */
+	inscription_id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  État. */
+	statut: StatutRemiseDocument,
+	/**  À qui il a été remis. */
+	remis_a: RemisA | null,
+	/**  Responsable qui l'a reçu. */
+	responsable_id: string | null,
+	/**  Nom de qui l'a retiré, pour une personne autorisée ou un tiers. */
+	nom_retrait: string,
+	/**  Nom de qui a signé. */
+	signataire: string,
+	/**  Remise. */
+	remis_le: number | null,
+	/**  Signature. */
+	signe_le: number | null,
+	/**  Agent qui l'a remis. */
+	remis_par: string | null,
+	/**  Publication de la version en vigueur. */
+	publie_le: number,
+};
+
 /**  Remise en attente, avec l'élève et la classe. */
 export type RemiseEnAttente = {
 	/**  Remise. */
@@ -6600,6 +6885,14 @@ export type RemiseEnAttente = {
 	eleve: string,
 	/**  Classe. */
 	classe: string,
+};
+
+/**  Remises d'une classe pour une période. */
+export type RemisesClasse = {
+	/**  Une ligne par élève dont le bulletin est publié. */
+	lignes: LigneRemise[],
+	/**  Droits de qui consulte. */
+	droits: DroitsRemise,
 };
 
 /**  Rémunération prévue par l'engagement ; la paie (phase 7) en part. */
@@ -6652,6 +6945,16 @@ export type ResponsableDeLEleve = {
 	identite: Personne,
 	/**  Qualités du lien. */
 	qualites: Qualites,
+};
+
+/**  Responsable d'un élève, tel que la remise le propose. */
+export type ResponsableRemise = {
+	/**  Responsable. */
+	id: string,
+	/**  Prénoms et nom. */
+	nom: string,
+	/**  Lien : père, mère, tuteur… */
+	lien: string,
 };
 
 /**  Responsable trouvé, avec les élèves auxquels il est déjà lié. */
@@ -7433,6 +7736,17 @@ export type StatutRemise =
 /**  Annulée après avoir été accordée : contre-passée. */
 "annulee";
 
+/**  État de la remise d'un document. */
+export type StatutRemiseDocument = 
+/**  Publié, pas encore remis. */
+"a_remettre" | 
+/**  Remis, pas encore signé. */
+"remis" | 
+/**  Remis et signé. */
+"signe" | 
+/**  Resté à remettre quand la période suivante a été publiée. */
+"non_retire";
+
 /**  État d'une session de caisse. */
 export type StatutSession = 
 /**  Ouverte : seuls les encaissements d'une session ouverte sont permis. */
@@ -7448,6 +7762,17 @@ export type StatutVersement =
 "valide" | 
 /**  Annulé par contre-passation ; le reçu reste, marqué annulé. */
 "annule";
+
+/**  Suite donnée à la convocation. */
+export type SuiteConvocation = 
+/**  Le rendez-vous n'a pas encore eu lieu. */
+"en_attente" | 
+/**  Le responsable est venu. */
+"honoree" | 
+/**  Le responsable n'est pas venu. */
+"non_honoree" | 
+/**  Le rendez-vous est déplacé. */
+"reportee";
 
 /**  Tableau de bord : chaque bloc n'est rempli que si le compte a le droit d'en voir le détail. */
 export type TableauDeBord = {

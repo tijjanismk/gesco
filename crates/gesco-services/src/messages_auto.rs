@@ -63,11 +63,22 @@ async fn destinataires(
     garder: impl Fn(&Qualites) -> bool,
     contexte: &Contexte,
 ) -> Resultat<Vec<(Id<Responsable>, String)>> {
+    destinataires_parmi(cnx, eleve_id, type_message, |_, q| garder(q), contexte).await
+}
+
+/// Comme `destinataires`, le filtre voyant aussi le responsable.
+async fn destinataires_parmi(
+    cnx: &mut Connexion,
+    eleve_id: Id<Eleve>,
+    type_message: TypeMessage,
+    garder: impl Fn(Id<Responsable>, &Qualites) -> bool,
+    contexte: &Contexte,
+) -> Resultat<Vec<(Id<Responsable>, String)>> {
     let mut trouves: Vec<(Id<Responsable>, String)> = Vec::new();
     for (_, responsable_id, qualites) in
         personnes::liens_de_l_eleve(cnx, eleve_id, contexte).await?
     {
-        if !garder(&qualites) {
+        if !garder(responsable_id, &qualites) {
             continue;
         }
         let consentements = messages::consentements(cnx, responsable_id, contexte).await?;
@@ -465,4 +476,108 @@ pub(crate) async fn relance_toujours_due(
         .map(|e| (e.echeance.date, e.reste))
         .collect();
     Ok(matches!(impaye(&echeances, aujourd_hui), Ok(Some(du)) if du.plus_ancienne == date))
+}
+
+/// SMS d'une convocation, préparé quand l'école choisit ce canal : il naît « à décider ». Il va
+/// au responsable convoqué ; à défaut, aux responsables légaux.
+pub(crate) async fn preparer_convocation(
+    cnx: &mut Connexion,
+    convocation: &gesco_core::scolarite::convocation::Convocation,
+    contexte: &Contexte,
+) -> Resultat<u32> {
+    let inscription = inscriptions::lire(cnx, convocation.inscription_id, contexte).await?;
+    let (eleve, _) = eleve_et_classe(cnx, &inscription, contexte).await?;
+    let ecole = signature(cnx, contexte).await?;
+    let texte = modele::formuler(
+        &modele_de(cnx, NatureMessage::Convocation, contexte).await?,
+        &[
+            ("ecole", &ecole),
+            ("eleve", &eleve),
+            ("date", &date_courte(convocation.date)),
+            (
+                "heure",
+                &gesco_core::scolarite::convocation::heure_lisible(&convocation.heure),
+            ),
+            ("motif", &convocation.motif),
+        ],
+    );
+    let convoque = convocation.responsable_id;
+    let pour = destinataires_parmi(
+        cnx,
+        inscription.eleve_id,
+        TypeMessage::Convocation,
+        |id, q| convoque.map_or(q.est_responsable_legal, |c| c == id),
+        contexte,
+    )
+    .await?;
+    pour_chacun(
+        cnx,
+        NatureMessage::Convocation,
+        &format!("convocation:{}", convocation.id),
+        inscription.eleve_id,
+        pour,
+        &texte,
+        0,
+        None,
+        contexte,
+    )
+    .await
+}
+
+/// Rappel « bulletin à retirer » envoyé à la main depuis la liste des bulletins non retirés : un
+/// par jour au plus.
+pub(crate) async fn rappel_bulletin(
+    cnx: &mut Connexion,
+    remise: &gesco_core::scolarite::remise_document::RemiseDocument,
+    contexte: &Contexte,
+) -> Resultat<u32> {
+    if !canal_actif(cnx, contexte).await? {
+        return Err(crate::erreur::ErreurService::Regle {
+            cle: "sms.canal_aucun",
+        });
+    }
+    let Some(aujourd_hui) = DateCivile::du_jour(contexte.maintenant) else {
+        return Ok(0);
+    };
+    let inscription = inscriptions::lire(cnx, remise.inscription_id, contexte).await?;
+    let (eleve, classe) = eleve_et_classe(cnx, &inscription, contexte).await?;
+    let periode = pedagogie::periodes(cnx, inscription.annee_id, contexte)
+        .await?
+        .into_iter()
+        .find(|p| p.id == remise.periode_id)
+        .map(|p| p.libelle())
+        .unwrap_or_default();
+    let ecole = signature(cnx, contexte).await?;
+    let texte = modele::formuler(
+        &modele_de(cnx, NatureMessage::Bulletin, contexte).await?,
+        &[
+            ("ecole", &ecole),
+            ("eleve", &eleve),
+            ("classe", &classe),
+            ("periode", &periode),
+        ],
+    );
+    let pour = destinataires(
+        cnx,
+        inscription.eleve_id,
+        TypeMessage::Bulletin,
+        |_| true,
+        contexte,
+    )
+    .await?;
+    pour_chacun(
+        cnx,
+        NatureMessage::Bulletin,
+        &format!(
+            "bulletin:{}:{}:rappel:{aujourd_hui}",
+            inscription.id, remise.periode_id
+        ),
+        inscription.eleve_id,
+        pour,
+        &texte,
+        0,
+        None,
+        contexte,
+    )
+    .await
 }

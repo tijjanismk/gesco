@@ -2,6 +2,7 @@
 //! invariants et transitions ; la persistance est dans `gesco-db`.
 
 pub mod academique;
+pub mod convocation;
 pub mod depart;
 pub mod discipline;
 pub mod fin_annee;
@@ -11,6 +12,7 @@ pub mod inscription;
 pub mod matricule;
 pub mod personne;
 pub mod recherche;
+pub mod remise_document;
 pub mod telephone;
 
 pub use academique::{Classe, Cycle, DiplomeTerminal, ModeEvaluation, Niveau, Serie};

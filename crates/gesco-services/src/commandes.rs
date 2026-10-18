@@ -435,6 +435,22 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("sms_port_choisir", Permission::NOTIFICATIONS_CONFIGURE),
     Commande::permise("sms_credit_lire", Permission::NOTIFICATIONS_CONFIGURE),
     Commande::permise("sms_reprendre", Permission::NOTIFICATIONS_CONFIGURE),
+    // Remise des bulletins et convocations (SPEC_PHASE_5 §6 et §7).
+    Commande::permise("remises_classe_lire", Permission::STUDENTS_READ),
+    Commande::permise("bulletins_non_retires_lire", Permission::STUDENTS_READ),
+    Commande::permise("bulletin_remettre", Permission::DOCUMENTS_DELIVER),
+    Commande::permise("bulletin_signer", Permission::DOCUMENTS_DELIVER),
+    Commande::permise("bulletin_avis_renvoyer", Permission::DOCUMENTS_DELIVER),
+    Commande::permise("convocations_lire", Permission::STUDENTS_READ),
+    Commande::permise("convocation_creer", Permission::CONVOCATIONS_CREATE),
+    Commande::permise("convocation_accuser", Permission::CONVOCATIONS_UPDATE),
+    Commande::permise("convocation_reporter", Permission::CONVOCATIONS_UPDATE),
+    Commande::permise("convocation_annuler", Permission::CONVOCATIONS_UPDATE),
+    Commande::permise("convocation_clore", Permission::CONVOCATIONS_CLOSE),
+    Commande::permise(
+        "convocation_billet_produire",
+        Permission::CONVOCATIONS_CREATE,
+    ),
     // Archive du journal d'audit (blueprint §12.4) : elle s'écrit à la clôture ; on la vérifie.
     Commande::permise("journal_archive_verifier", Permission::CORE_AUDIT_READ),
     // Absences par séance (SPEC_VERSION_1_1 §1, T-71), au choix de l'école.

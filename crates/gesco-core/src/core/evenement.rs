@@ -260,6 +260,22 @@ pub enum TypeEvenement {
     PortSmsChoisi,
     /// La file des SMS, arrêtée faute de crédit, repart à la main.
     FileSmsReprise,
+    /// Un bulletin publié est remis à un responsable, à l'élève ou à un tiers (SPEC_PHASE_5 §6).
+    DocumentRemis,
+    /// Un bulletin remis est signé.
+    DocumentSigne,
+    /// L'avis d'un bulletin non retiré est renvoyé.
+    AvisBulletinRenvoye,
+    /// Un responsable est convoqué au sujet d'un élève (SPEC_PHASE_5 §7).
+    ConvocationEmise,
+    /// L'école note ce qu'elle sait de la réception d'une convocation.
+    ConvocationAccusee,
+    /// Le rendez-vous d'une convocation est déplacé.
+    ConvocationReportee,
+    /// Une convocation a sa suite : honorée ou non honorée.
+    ConvocationCloturee,
+    /// Une convocation est annulée, avec un motif.
+    ConvocationAnnulee,
 }
 
 impl TypeEvenement {
@@ -388,6 +404,14 @@ impl TypeEvenement {
         Self::ModeleMessageModifie,
         Self::PortSmsChoisi,
         Self::FileSmsReprise,
+        Self::DocumentRemis,
+        Self::DocumentSigne,
+        Self::AvisBulletinRenvoye,
+        Self::ConvocationEmise,
+        Self::ConvocationAccusee,
+        Self::ConvocationReportee,
+        Self::ConvocationCloturee,
+        Self::ConvocationAnnulee,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -516,6 +540,14 @@ impl TypeEvenement {
             Self::ModeleMessageModifie => "ModeleMessageModifie",
             Self::PortSmsChoisi => "PortSmsChoisi",
             Self::FileSmsReprise => "FileSmsReprise",
+            Self::DocumentRemis => "DocumentRemis",
+            Self::DocumentSigne => "DocumentSigne",
+            Self::AvisBulletinRenvoye => "AvisBulletinRenvoye",
+            Self::ConvocationEmise => "ConvocationEmise",
+            Self::ConvocationAccusee => "ConvocationAccusee",
+            Self::ConvocationReportee => "ConvocationReportee",
+            Self::ConvocationCloturee => "ConvocationCloturee",
+            Self::ConvocationAnnulee => "ConvocationAnnulee",
         }
     }
 
@@ -645,7 +677,15 @@ impl TypeEvenement {
             | Self::MessageRenvoye
             | Self::ModeleMessageModifie
             | Self::PortSmsChoisi
-            | Self::FileSmsReprise => 1,
+            | Self::FileSmsReprise
+            | Self::DocumentRemis
+            | Self::DocumentSigne
+            | Self::AvisBulletinRenvoye
+            | Self::ConvocationEmise
+            | Self::ConvocationAccusee
+            | Self::ConvocationReportee
+            | Self::ConvocationCloturee
+            | Self::ConvocationAnnulee => 1,
         }
     }
 

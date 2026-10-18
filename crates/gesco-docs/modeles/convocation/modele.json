@@ -1,0 +1,15 @@
+{
+  "id": "convocation",
+  "version": 1,
+  "libelle": "Billet de convocation",
+  "variables": [
+    { "nom": "eleve", "requise": true },
+    { "nom": "classe", "requise": true },
+    { "nom": "responsable", "requise": true },
+    { "nom": "motif", "requise": true },
+    { "nom": "date", "requise": true },
+    { "nom": "heure", "requise": true },
+    { "nom": "emise_le", "requise": true },
+    { "nom": "emise_par", "requise": true }
+  ]
+}

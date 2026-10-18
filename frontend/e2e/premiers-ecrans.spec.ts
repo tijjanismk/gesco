@@ -2398,3 +2398,38 @@ test("phase 5 : la clé modem s'essaie, garde son port, envoie et lit le crédit
   await expect(page.getByText(/Crédit de la puce : 5\s000\sF/)).toBeVisible();
   await capturer("122-cle-modem");
 });
+
+test("phase 5 : un bulletin de la 7e A se remet à l'oncle de l'élève ; ceux du 1er trimestre sont non retirés", async () => {
+  await allerA("nav.remises");
+  await page.locator("#remises-classe").selectOption({ label: "7e A" });
+  await page.locator("#remises-periode").selectOption({ label: "3e trimestre" });
+  const premiere = page.locator("tbody tr").first();
+  await expect(premiere).toContainText(texte("remises.statut.a_remettre"));
+  await premiere.click();
+  await page.locator("[id^=remis-a-]").selectOption("tiers");
+  await page.locator("[id^=remis-nom-]").fill("Bakary Diallo, son oncle");
+  await page.locator("[id^=remis-signe-]").uncheck();
+  await page.getByRole("button", { name: texte("remises.remettre") }).click();
+  await expect(page.locator("tbody tr").first()).toContainText(`${texte("remises.statut.remis")} · Bakary Diallo, son oncle`);
+  // Les bulletins du 1er trimestre, jamais remis, sont non retirés depuis la publication du 2e.
+  await page.locator("#remises-periode").selectOption({ label: "1er trimestre" });
+  await expect(page.locator("tbody tr").first()).toContainText(texte("remises.statut.non_retire"));
+  await capturer("123-remise-des-bulletins");
+});
+
+test("phase 5 : un responsable est convoqué par le billet confié à l'élève ; sa réception se note", async () => {
+  await allerA("nav.convocations");
+  await page.locator("#convocation-eleve").selectOption({ index: 1 });
+  await page.locator("#convocation-motif").fill("Travail insuffisant en mathématiques");
+  await page.locator("#convocation-date").fill("2026-10-20");
+  await page.locator("#convocation-heure").fill("10:30");
+  await page.locator("#convocation-canal").selectOption("eleve");
+  await page.getByRole("button", { name: texte("convocations.convoquer") }).click();
+  const ligne = page.getByRole("row").filter({ hasText: "Travail insuffisant en mathématiques" });
+  await expect(ligne).toContainText(texte("convocations.accuse.transmis_non_confirme"));
+  await page.getByRole("button", { name: texte("convocations.noter").replace("{accuse}", texte("convocations.accuse.confirme")) }).click();
+  await expect(ligne).toContainText(texte("convocations.accuse.confirme"));
+  await capturer("124-convocations");
+  await page.getByRole("button", { name: texte("convocations.imprimer") }).click();
+  await expect(page.locator("iframe")).toBeVisible({ timeout: 30_000 });
+});

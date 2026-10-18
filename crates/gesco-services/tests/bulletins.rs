@@ -360,6 +360,86 @@ async fn une_classe_se_calcule_se_valide_se_publie_puis_se_corrige() {
         "{textes:?}"
     );
     assert_eq!(publie["document"]["type_document"], "bulletin");
+
+    // Remise (SPEC_PHASE_5 §6) : publiés, les trois bulletins sont à remettre.
+    let remises = || {
+        p.ok(
+            "remises_classe_lire",
+            Some(&admin),
+            json!({ "classe_id": classe, "periode_id": trimestre }),
+        )
+    };
+    let lues = remises().await;
+    let ligne = |lues: &Value, prenom: &str| {
+        lues["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["eleve"].as_str().unwrap().starts_with(prenom))
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(lues["lignes"].as_array().unwrap().len(), 3);
+    assert!(
+        lues["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|l| l["remise"]["statut"] == "a_remettre")
+    );
+    // Awa : remis à sa mère, signé sur place. Binta : remis à l'élève, signé plus tard.
+    let awa = ligne(&lues, "Awa");
+    let remis = p
+        .ok(
+            "bulletin_remettre",
+            Some(&admin),
+            json!({ "id": awa["remise"]["id"], "remis_a": "responsable",
+                "responsable_id": awa["responsables"][0]["id"], "nom_retrait": "", "signe": true,
+                "signataire": "Mariam Coulibaly" }),
+        )
+        .await;
+    assert_eq!(remis["remise"]["statut"], "signe");
+    assert_eq!(remis["recu_par"], awa["responsables"][0]["nom"]);
+    assert_eq!(
+        p.refus(
+            "bulletin_remettre",
+            Some(&admin),
+            json!({ "id": awa["remise"]["id"], "remis_a": "eleve", "responsable_id": null,
+                "nom_retrait": "", "signe": false, "signataire": "" }),
+        )
+        .await
+        .cle,
+        "remise.deja_remis"
+    );
+    let binta = ligne(&lues, "Binta");
+    assert_eq!(
+        p.refus(
+            "bulletin_remettre",
+            Some(&admin),
+            json!({ "id": binta["remise"]["id"], "remis_a": "tiers", "responsable_id": null,
+                "nom_retrait": " ", "signe": false, "signataire": "" }),
+        )
+        .await
+        .cle,
+        "remise.nom_exige"
+    );
+    let remis = p
+        .ok(
+            "bulletin_remettre",
+            Some(&admin),
+            json!({ "id": binta["remise"]["id"], "remis_a": "eleve", "responsable_id": null,
+                "nom_retrait": "", "signe": false, "signataire": "" }),
+        )
+        .await;
+    assert_eq!(remis["remise"]["statut"], "remis");
+    let signe = p
+        .ok(
+            "bulletin_signer",
+            Some(&admin),
+            json!({ "id": binta["remise"]["id"], "signataire": "Mère de Binta" }),
+        )
+        .await;
+    assert_eq!(signe["remise"]["statut"], "signe");
     // Relecture à l'œil : `GESCO_ECRIRE_BULLETINS=chemin.pdf` dépose les bulletins publiés.
     if let Some(chemin) = std::env::var_os("GESCO_ECRIRE_BULLETINS") {
         use base64::Engine;
@@ -452,6 +532,10 @@ async fn une_classe_se_calcule_se_valide_se_publie_puis_se_corrige() {
         .ok("messages_lire", Some(&admin), json!({ "etat": null }))
         .await;
     assert_eq!(avis(&file).len(), 3);
+    // Corrigé, le bulletin d'Awa est de nouveau à remettre ; celui de Binta reste signé.
+    let lues = remises().await;
+    assert_eq!(ligne(&lues, "Awa")["remise"]["statut"], "a_remettre");
+    assert_eq!(ligne(&lues, "Binta")["remise"]["statut"], "signe");
     let lu = p.ok("bulletins_lire", Some(&admin), demande.clone()).await;
     let awa = &lu["bulletins"][0];
     assert_eq!(awa["bulletin"]["version"], 2);
@@ -521,5 +605,34 @@ async fn une_classe_se_calcule_se_valide_se_publie_puis_se_corrige() {
         .await
         .cle,
         "bulletin.non_corrigeable"
+    );
+
+    // Une semaine plus tard, les bulletins d'Awa et de Coumba ne sont pas retirés ; la liste dit
+    // ce que la famille doit ; l'avis se renvoie.
+    p.horloge.avancer(7 * 86_400_000);
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let non_retires = p
+        .ok("bulletins_non_retires_lire", Some(&admin), Value::Null)
+        .await;
+    let lignes = non_retires["lignes"].as_array().unwrap();
+    assert_eq!(lignes.len(), 2);
+    assert!(
+        lignes
+            .iter()
+            .all(|l| l["jours"].as_i64().unwrap() >= 7 && l["a_signaler"] == true)
+    );
+    let coumba = lignes
+        .iter()
+        .find(|l| l["eleve"].as_str().unwrap().starts_with("Coumba"))
+        .unwrap();
+    assert!(coumba["impaye_echu"].as_i64().unwrap() > 0);
+    assert_eq!(
+        p.ok(
+            "bulletin_avis_renvoyer",
+            Some(&admin),
+            json!({ "id": coumba["remise"]["id"] }),
+        )
+        .await,
+        1
     );
 }

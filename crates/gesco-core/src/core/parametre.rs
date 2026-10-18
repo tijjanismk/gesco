@@ -91,6 +91,7 @@ pub const FORMATS_PAR_DEFAUT: &[(&str, &str)] = &[
     ("document.format.etat_heures", "a4"),
     ("document.format.bulletin_paie", "a4"),
     ("document.format.etat_retenues", "a4"),
+    ("document.format.convocation", "a5"),
 ];
 
 /// Format par défaut d'un document qui a un réglage de format.

@@ -42,6 +42,8 @@ import { Heures } from "../modules/rh/Heures";
 import { Personnel } from "../modules/rh/Personnel";
 import { Paie } from "../modules/paie/Paie";
 import { Messages } from "../modules/communication/Messages";
+import { Convocations } from "../modules/scolarite/Convocations";
+import { Remises } from "../modules/scolarite/Remises";
 import { commandeAutorisee, GROUPES_REPLIES, type IdSection, sectionsAutorisees } from "./navigation";
 import { RechercheGlobale } from "./RechercheGlobale";
 import { useSession } from "./session";
@@ -275,6 +277,10 @@ function Contenu({
       return <Discipline />;
     case "messages":
       return <Messages />;
+    case "remises":
+      return <Remises />;
+    case "convocations":
+      return <Convocations />;
     case "depenses":
       return <Depenses />;
     case "fournisseurs":
