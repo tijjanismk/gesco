@@ -314,13 +314,15 @@ struct LigneEtatCanal {
     raison: Option<String>,
     echecs_credit: i64,
     cle_absente: i64,
+    relances_le: Option<String>,
 }
 
 /// État du canal des SMS ; l'état neuf s'il n'a jamais été enregistré.
 pub async fn etat_canal(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<EtatCanal> {
     let t = "etat_canal_sms";
     let Some(l) = sqlx::query_as::<_, LigneEtatCanal>(
-        "SELECT credit, credit_texte, credit_lu_le, arretee, raison, echecs_credit, cle_absente
+        "SELECT credit, credit_texte, credit_lu_le, arretee, raison, echecs_credit, cle_absente,
+            relances_le
          FROM etat_canal_sms WHERE etablissement_id = ?1",
     )
     .bind(contexte.etablissement_id.vers_chaine())
@@ -344,6 +346,14 @@ pub async fn etat_canal(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<Et
         echecs_credit: u8::try_from(l.echecs_credit)
             .map_err(|_| ErreurBase::illisible(t, "echecs_credit", l.echecs_credit))?,
         cle_absente: crate::depots::booleen(l.cle_absente),
+        relances_le: l
+            .relances_le
+            .as_deref()
+            .map(|d| {
+                gesco_core::commun::DateCivile::analyser(d)
+                    .ok_or_else(|| ErreurBase::illisible(t, "relances_le", d))
+            })
+            .transpose()?,
     })
 }
 
@@ -355,13 +365,14 @@ pub async fn enregistrer_etat_canal(
 ) -> Resultat<()> {
     sqlx::query(
         "INSERT INTO etat_canal_sms (etablissement_id, credit, credit_texte, credit_lu_le,
-            arretee, raison, echecs_credit, cle_absente, mis_a_jour_le, mis_a_jour_par,
-            identifiant_poste)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            arretee, raison, echecs_credit, cle_absente, relances_le, mis_a_jour_le,
+            mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?12, ?9, ?10, ?11)
          ON CONFLICT (etablissement_id) DO UPDATE SET credit = excluded.credit,
             credit_texte = excluded.credit_texte, credit_lu_le = excluded.credit_lu_le,
             arretee = excluded.arretee, raison = excluded.raison,
             echecs_credit = excluded.echecs_credit, cle_absente = excluded.cle_absente,
+            relances_le = excluded.relances_le,
             mis_a_jour_le = excluded.mis_a_jour_le, mis_a_jour_par = excluded.mis_a_jour_par,
             identifiant_poste = excluded.identifiant_poste",
     )
@@ -376,7 +387,44 @@ pub async fn enregistrer_etat_canal(
     .bind(contexte.maintenant.millis_epoque())
     .bind(contexte.auteur())
     .bind(&contexte.poste.0)
+    .bind(etat.relances_le.map(|d| d.to_string()))
     .execute(cnx)
     .await?;
     Ok(())
+}
+
+/// Messages d'un fait, de tout état.
+pub async fn par_fait(
+    cnx: &mut Connexion,
+    cle_fait: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<Message>> {
+    sqlx::query_as::<_, LigneMessage>(selectionner_message!(
+        "WHERE etablissement_id = ?1 AND cle_fait = ?2 ORDER BY cree_le, id"
+    ))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(cle_fait)
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(LigneMessage::vers_entite)
+    .collect()
+}
+
+/// Messages dont la clé de fait commence ainsi (les relances successives d'une échéance).
+pub async fn par_prefixe(
+    cnx: &mut Connexion,
+    prefixe: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<Message>> {
+    sqlx::query_as::<_, LigneMessage>(selectionner_message!(
+        "WHERE etablissement_id = ?1 AND substr(cle_fait, 1, length(?2)) = ?2 ORDER BY cree_le, id"
+    ))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(prefixe)
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(LigneMessage::vers_entite)
+    .collect()
 }

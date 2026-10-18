@@ -101,6 +101,8 @@ debug = false
 # remplissait le disque (18 octobre 2026). Un échec garde son fichier et sa ligne.
 [profile.test]
 debug = false
+# Sans compilation incrémentale : son cache dépassait 19 Go pendant la suite complète.
+incremental = false
 
 [profile.release]
 lto = "thin"

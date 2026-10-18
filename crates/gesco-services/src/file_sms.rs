@@ -843,6 +843,12 @@ impl<'n> ServiceFile<'n> {
         let nom_canal = parametre::texte(&mut cnx, PARAMETRE_CANAL, "aucun", &contexte).await?;
         let initial = Self::etat_canal(&mut cnx, &contexte).await?;
         let mut etat = initial.clone();
+        // Les relances d'impayés du jour, au premier passage (SPEC_PHASE_5 §5).
+        let aujourd_hui = DateCivile::du_jour(maintenant);
+        if nom_canal != "aucun" && aujourd_hui.is_some() && etat.relances_le != aujourd_hui {
+            crate::messages_auto::relances_du_jour(&mut cnx, &contexte).await?;
+            etat.relances_le = aujourd_hui;
+        }
         let modem = if nom_canal == "modem" {
             let port = parametre::texte(&mut cnx, PARAMETRE_PORT, "", &contexte).await?;
             source.modem(&port).filter(|m| m.verifier().is_ok())
@@ -902,6 +908,14 @@ impl<'n> ServiceFile<'n> {
         for mut m in a_envoyer {
             if plafond > 0 && sms_du_mois + i64::from(m.sms) > plafond {
                 break;
+            }
+            if m.nature == NatureMessage::Impaye
+                && !crate::messages_auto::relance_toujours_due(&mut cnx, &m, &contexte).await?
+            {
+                m.etat = EtatMessage::Annule;
+                m.motif_annulation = "Échéance soldée avant l'envoi".to_owned();
+                file_sms::mettre_a_jour(&mut cnx, &m, &contexte).await?;
+                continue;
             }
             let joignabilite = messages::joignabilite(&mut cnx, &m.numero, &contexte).await?;
             if joignabilite.as_ref().is_some_and(|j| !j.peut_recevoir()) {

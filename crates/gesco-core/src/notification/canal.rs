@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::commun::Horodatage;
+use crate::commun::{DateCivile, Horodatage};
 
 /// Échecs de crédit d'affilée qui arrêtent la file.
 pub const ECHECS_CREDIT_MAX: u8 = 5;
@@ -60,6 +60,8 @@ pub struct EtatCanal {
     pub echecs_credit: u8,
     /// Vrai si la clé ne répondait pas au dernier passage.
     pub cle_absente: bool,
+    /// Jour des dernières relances d'impayés.
+    pub relances_le: Option<DateCivile>,
 }
 
 impl EtatCanal {

@@ -285,6 +285,9 @@ impl<'n> ServiceDiscipline<'n> {
             motif_annulation: String::new(),
         };
         discipline::inserer(unite.connexion(), &sanction, &contexte).await?;
+        // Si l'école le veut, un avis préparé attend la décision d'une personne.
+        crate::messages_auto::preparer_avis_sanction(unite.connexion(), &sanction, &contexte)
+            .await?;
         let id = sanction.id.vers_chaine();
         unite.auditer(
             "sanction",

@@ -328,10 +328,37 @@ async fn une_classe_se_calcule_se_valide_se_publie_puis_se_corrige() {
             .await,
         3
     );
+    // L'école envoie ses SMS : la publication met en file l'avis « bulletin à retirer ».
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        json!({ "cle": "sms.canal", "valeur": { "type": "texte", "valeur": "simule" } }),
+    )
+    .await;
     let publie = p
         .ok("bulletins_publier", Some(&admin), demande.clone())
         .await;
     assert!(publie["pdf"].as_str().unwrap().len() > 1000);
+    let avis = |file: &Value| -> Vec<String> {
+        file["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| m["message"]["nature"] == "bulletin")
+            .map(|m| m["message"]["texte"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let file = p
+        .ok("messages_lire", Some(&admin), json!({ "etat": null }))
+        .await;
+    let textes = avis(&file);
+    assert_eq!(textes.len(), 3, "un avis par élève");
+    assert!(
+        textes
+            .iter()
+            .any(|t| t.contains("le bulletin de 1er trimestre de Awa Traore (7e A) est disponible")),
+        "{textes:?}"
+    );
     assert_eq!(publie["document"]["type_document"], "bulletin");
     // Relecture à l'œil : `GESCO_ECRIRE_BULLETINS=chemin.pdf` dépose les bulletins publiés.
     if let Some(chemin) = std::env::var_os("GESCO_ECRIRE_BULLETINS") {
@@ -420,6 +447,11 @@ async fn une_classe_se_calcule_se_valide_se_publie_puis_se_corrige() {
     );
     p.ok("bulletins_publier", Some(&admin), demande.clone())
         .await;
+    // Republié après correction, le bulletin ne renvoie pas d'avis.
+    let file = p
+        .ok("messages_lire", Some(&admin), json!({ "etat": null }))
+        .await;
+    assert_eq!(avis(&file).len(), 3);
     let lu = p.ok("bulletins_lire", Some(&admin), demande.clone()).await;
     let awa = &lu["bulletins"][0];
     assert_eq!(awa["bulletin"]["version"], 2);

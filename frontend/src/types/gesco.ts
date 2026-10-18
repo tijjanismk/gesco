@@ -4088,6 +4088,8 @@ export type EtatCanal = {
 	echecs_credit: number,
 	/**  Vrai si la clé ne répondait pas au dernier passage. */
 	cle_absente: boolean,
+	/**  Jour des dernières relances d'impayés. */
+	relances_le: string | null,
 };
 
 /**  Soldes des comptes et compte de chaque mode. */

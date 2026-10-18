@@ -446,6 +446,20 @@ impl<'n> ServiceAbsences<'n> {
             );
         }
         absences::noter_releve(unite.connexion(), classe.id, demande.date, &contexte).await?;
+        // L'avis d'absence du jour suit le relevé : créé, complété ou annulé.
+        let mut vus = Vec::new();
+        for (inscription_id, _, _, _) in &changements {
+            if !vus.contains(inscription_id) {
+                vus.push(*inscription_id);
+                crate::messages_auto::actualiser_avis_absence(
+                    unite.connexion(),
+                    *inscription_id,
+                    demande.date,
+                    &contexte,
+                )
+                .await?;
+            }
+        }
         // Ce qui reste relevé ce jour, une fois les changements appliqués.
         let mut du_jour: Vec<Absence> = avant
             .into_iter()
@@ -559,6 +573,20 @@ impl<'n> ServiceAbsences<'n> {
                 serde_json::json!({ "date": avant.date, "demi_journee": avant.demi_journee,
                     "nature": avant.nature, "motif": motif }),
             );
+        }
+        // Justifiée pendant le délai de grâce, l'absence n'est plus annoncée.
+        let mut vus = Vec::new();
+        for avant in &a_justifier {
+            if !vus.contains(&(avant.inscription_id, avant.date)) {
+                vus.push((avant.inscription_id, avant.date));
+                crate::messages_auto::actualiser_avis_absence(
+                    unite.connexion(),
+                    avant.inscription_id,
+                    avant.date,
+                    &contexte,
+                )
+                .await?;
+            }
         }
         self.noyau.terminer(unite).await?;
         Ok(u32::try_from(a_justifier.len()).unwrap_or(u32::MAX))

@@ -785,6 +785,10 @@ impl<'n> ServiceBulletins<'n> {
                 serde_json::json!({ "inscription_id": avant.inscription_id,
                     "periode_id": avant.periode_id, "version": avant.version }),
             );
+            // L'avis « bulletin à retirer » naît dans la transaction de la publication.
+            if apres_statut == StatutBulletin::Publie {
+                crate::messages_auto::avis_bulletin(unite.connexion(), avant, &contexte).await?;
+            }
         }
         self.noyau.terminer(unite).await?;
         Ok(())
