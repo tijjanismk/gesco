@@ -1,6 +1,7 @@
 //! Conversation en commandes AT avec une clé modem (3GPP TS 27.005 et 27.007) : une commande, ses
 //! lignes de réponse jusqu'à `OK` ou une erreur ; l'envoi d'une trame après l'invite `>` ; les
-//! lignes que la clé envoie d'elle-même (accusés de remise `+CDS`, réponses USSD `+CUSD`).
+//! lignes que la clé envoie d'elle-même (accusés de remise `+CDS`, réponses USSD `+CUSD`, annonce
+//! d'un SMS reçu `+CMTI`) ; la lecture et l'effacement des SMS reçus (`AT+CMGL`, `AT+CMGD`).
 
 use std::io::{self, Read, Write};
 use std::time::{Duration, Instant};
@@ -98,6 +99,7 @@ pub struct Session {
     attente_accuse: bool,
     non_sollicites: Vec<NonSollicite>,
     delai: Duration,
+    sms_a_lire: bool,
 }
 
 fn erreur_port(e: &io::Error) -> ErreurAt {
@@ -118,6 +120,8 @@ impl Session {
             attente_accuse: false,
             non_sollicites: Vec::new(),
             delai,
+            // À l'ouverture, la puce peut garder des SMS reçus pendant que GESCO était fermé.
+            sms_a_lire: true,
         }
     }
 
@@ -159,8 +163,10 @@ impl Session {
                 self.attente_accuse = true;
             } else if ligne.starts_with("+CUSD:") {
                 self.non_sollicites.push(NonSollicite::Ussd(ligne));
-            } else if ligne.starts_with("+CMTI:") || ligne == "RING" {
-                // SMS reçu ou appel : la consultation par SMS entrant viendra à l'étape 7.
+            } else if ligne.starts_with("+CMTI:") {
+                self.sms_a_lire = true;
+            } else if ligne == "RING" {
+                // Un appel : la clé ne décroche pas.
             } else {
                 lignes.push(ligne);
             }
@@ -243,6 +249,43 @@ impl Session {
             .find_map(|l| code(l, "+CMGS:"))
             .and_then(|n| u8::try_from(n).ok())
             .ok_or(ErreurAt::Erreur)
+    }
+
+    /// SMS reçus que la puce garde, s'il en est arrivé depuis la dernière lecture : chacun est lu
+    /// en mode PDU puis effacé de la puce, qui n'en garde qu'une vingtaine. Rend les trames.
+    ///
+    /// # Errors
+    /// La clé ne répond pas ou refuse la lecture.
+    pub fn lire_sms_recus(&mut self) -> Result<Vec<String>, ErreurAt> {
+        // Une lecture brève ramasse les annonces arrivées entre deux passages.
+        self.lire_lignes(Duration::from_millis(10))?;
+        if !self.sms_a_lire {
+            return Ok(Vec::new());
+        }
+        let lignes = self.commande("AT+CMGL=4")?;
+        let mut trames = Vec::new();
+        let mut index = Vec::new();
+        let mut iter = lignes.iter();
+        while let Some(ligne) = iter.next() {
+            let Some(reste) = ligne.strip_prefix("+CMGL:") else {
+                continue;
+            };
+            if let Some(n) = reste
+                .split(',')
+                .next()
+                .and_then(|n| n.trim().parse::<u32>().ok())
+            {
+                index.push(n);
+            }
+            if let Some(trame) = iter.next() {
+                trames.push(trame.clone());
+            }
+        }
+        for n in index {
+            self.commande(&format!("AT+CMGD={n}"))?;
+        }
+        self.sms_a_lire = false;
+        Ok(trames)
     }
 
     /// Envoie un code USSD (`#111#`) et rend le texte de la réponse de l'opérateur.

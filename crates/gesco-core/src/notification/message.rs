@@ -32,17 +32,20 @@ pub enum NatureMessage {
     Sanction,
     /// Message d'essai de la clé, vers un numéro saisi.
     Essai,
+    /// Réponse à une consultation par SMS entrant (SPEC_PHASE_5 §9).
+    Consultation,
 }
 
 impl NatureMessage {
     /// Toutes les natures.
-    pub const TOUTES: [Self; 6] = [
+    pub const TOUTES: [Self; 7] = [
         Self::Bulletin,
         Self::Impaye,
         Self::Absence,
         Self::Convocation,
         Self::Sanction,
         Self::Essai,
+        Self::Consultation,
     ];
 
     /// Nom persisté.
@@ -54,6 +57,7 @@ impl NatureMessage {
             Self::Convocation => "convocation",
             Self::Sanction => "sanction",
             Self::Essai => "essai",
+            Self::Consultation => "consultation",
         }
     }
 
@@ -62,15 +66,22 @@ impl NatureMessage {
         Self::TOUTES.into_iter().find(|n| n.nom() == nom)
     }
 
-    /// Type de message dont le consentement décide ; aucun pour un essai.
+    /// Type de message dont le consentement décide ; aucun pour un essai ni pour la réponse à
+    /// une demande du parent.
     pub const fn consentement(&self) -> Option<TypeMessage> {
         match self {
             Self::Bulletin => Some(TypeMessage::Bulletin),
             Self::Impaye => Some(TypeMessage::Impaye),
             Self::Absence => Some(TypeMessage::Absence),
             Self::Convocation | Self::Sanction => Some(TypeMessage::Convocation),
-            Self::Essai => None,
+            Self::Essai | Self::Consultation => None,
         }
+    }
+
+    /// Vrai si le message part même hors des heures d'envoi : le parent attend la réponse à sa
+    /// demande.
+    pub const fn hors_fenetre(&self) -> bool {
+        matches!(self, Self::Consultation)
     }
 
     /// Vrai si le message naît « à décider » : une personne le relit avant qu'il parte (§25.6).
@@ -87,6 +98,8 @@ impl NatureMessage {
             Self::Impaye => Some(7 * JOUR),
             Self::Convocation | Self::Sanction => Some(7 * JOUR),
             Self::Essai => Some(JOUR),
+            // Une réponse qui n'est pas partie dans les deux heures n'a plus de sens.
+            Self::Consultation => Some(2 * 3_600 * 1_000),
             Self::Absence => None,
         }
     }

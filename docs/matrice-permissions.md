@@ -77,6 +77,7 @@ Fichier généré par `cargo test -p gesco-services --test matrice_permissions` 
 | `notifications:configure` | x | | | | | | | | | |
 | `notifications:send` | x | | | | | | | | | |
 | `notifications:send_manual` | x | x | | | | | | | | |
+| `guardians:access_code` | x | | | | | | | | | |
 | `import:students` | x | | | x | | | | | | |
 | `import:staff` | x | | | | | | | | x | |
 | `import:grades` | x | x | x | | | | | | | |
@@ -84,4 +85,4 @@ Fichier généré par `cargo test -p gesco-services --test matrice_permissions` 
 | `export:full` | x | | | | | | | | | |
 | `licence:read` | x | x | | | | | | | | x |
 | `licence:install` | x | | | | | | | | | |
-| **Total** | 78 | 45 | 14 | 21 | 8 | 17 | 4 | 8 | 9 | 5 |
+| **Total** | 79 | 45 | 14 | 21 | 8 | 17 | 4 | 8 | 9 | 5 |

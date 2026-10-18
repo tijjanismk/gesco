@@ -249,6 +249,30 @@ pub async fn a_envoyer(
     .collect()
 }
 
+/// Comme [`a_envoyer`], pour une seule nature : hors des heures d'envoi, les réponses aux
+/// consultations partent seules.
+pub async fn a_envoyer_de_nature(
+    cnx: &mut Connexion,
+    maintenant: Horodatage,
+    nature: NatureMessage,
+    limite: i64,
+    contexte: &Contexte,
+) -> Resultat<Vec<Message>> {
+    sqlx::query_as::<_, LigneMessage>(selectionner_message!(
+        "WHERE etablissement_id = ?1 AND etat = 'en_attente' AND pas_avant <= ?2 AND nature = ?4
+         ORDER BY pas_avant, cree_le, id LIMIT ?3"
+    ))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(maintenant.millis_epoque())
+    .bind(limite)
+    .bind(nature.nom())
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(LigneMessage::vers_entite)
+    .collect()
+}
+
 /// Passe en « expiré » les messages en attente dont l'heure est passée ; rend leur nombre.
 pub async fn expirer(
     cnx: &mut Connexion,

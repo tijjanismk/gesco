@@ -2,11 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { ApercuPdf } from "../../composants/ApercuPdf";
 import { Bouton } from "../../composants/Bouton";
 import { Champ } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, dateCivile, dateHeure, francs, t } from "../../i18n";
-import type { Guichet as FamilleGuichet } from "../../types/gesco";
+import type { CodeRemis, Guichet as FamilleGuichet, ResponsableGuichet } from "../../types/gesco";
 import { FormulaireEncaissement } from "../finance/Encaissement";
 import { telephoneLisible } from "./Identite";
 import { FormulaireRemise } from "./Remises";
@@ -67,6 +68,58 @@ export function Guichet() {
   );
 }
 
+/** Le code d'accès d'un responsable (SPEC_PHASE_5 §9) : son état, jamais le code ; remis, le
+ *  code s'affiche une seule fois avec son billet à imprimer et à remettre en main propre. */
+function CodeAcces({ r, peut, surFait }: { r: ResponsableGuichet; peut: boolean; surFait: () => void }) {
+  const [remis, setRemis] = useState<CodeRemis | null>(null);
+  const remise = useMutation({
+    mutationFn: () => appeler("code_acces_remettre", { responsable_id: r.responsable_id }),
+    onSuccess: (d) => {
+      setRemis(d);
+      surFait();
+    },
+  });
+  const revocation = useMutation({
+    mutationFn: () => appeler("code_acces_revoquer", { responsable_id: r.responsable_id }),
+    onSuccess: () => {
+      setRemis(null);
+      surFait();
+    },
+  });
+  const c = r.code_acces;
+  const etat =
+    c.actif !== null
+      ? c.actif.derniere_utilisation === null
+        ? t("guichet.code.actif", { date: dateHeure(c.actif.cree_le) })
+        : t("guichet.code.utilise", { date: dateHeure(c.actif.cree_le), utilise: dateHeure(c.actif.derniere_utilisation) })
+      : c.revoque_le !== null
+        ? t("guichet.code.revoque", { date: dateHeure(c.revoque_le) })
+        : t("guichet.code.aucun");
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-muet">{etat}</span>
+        {peut ? (
+          <Bouton variante="secondaire" onClick={() => remise.mutate()} disabled={remise.isPending}>
+            {c.actif === null ? t("guichet.code.remettre") : t("guichet.code.remplacer")}
+          </Bouton>
+        ) : null}
+        {peut && c.actif !== null ? (
+          <Bouton variante="secondaire" onClick={() => revocation.mutate()} disabled={revocation.isPending}>{t("guichet.code.revoquer")}</Bouton>
+        ) : null}
+      </div>
+      {remis === null ? null : (
+        <div className="flex flex-col gap-2 rounded border border-primaire/40 p-3">
+          <p className="text-sm text-encre">{t("guichet.code.a_lire", { nom: r.nom })}</p>
+          <p className="text-3xl font-bold tracking-widest text-encre" data-testid="code-acces">{remis.code}</p>
+          <ApercuPdf base64={remis.pdf} />
+        </div>
+      )}
+      <MessageErreur erreur={remise.error ?? revocation.error} />
+    </div>
+  );
+}
+
 function Famille({ f }: { f: FamilleGuichet }) {
   const client = useQueryClient();
   const [encaisser, setEncaisser] = useState<string | null>(null);
@@ -84,9 +137,12 @@ function Famille({ f }: { f: FamilleGuichet }) {
       <Section titre={t("guichet.famille")}>
         <ul className="flex flex-col gap-1 text-sm">
           {f.responsables.map((r) => (
-            <li key={`${r.nom}-${r.lien}`}>
-              <span className="font-medium text-encre">{r.nom}</span>
-              <span className="text-muet">{` · ${r.telephones.map(telephoneLisible).join(" · ")}`}</span>
+            <li key={r.responsable_id} className="flex flex-col gap-1">
+              <div>
+                <span className="font-medium text-encre">{r.nom}</span>
+                <span className="text-muet">{` · ${r.telephones.map(telephoneLisible).join(" · ")}`}</span>
+              </div>
+              <CodeAcces r={r} peut={f.droits.codes} surFait={relire} />
             </li>
           ))}
         </ul>

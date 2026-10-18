@@ -92,6 +92,7 @@ pub const FORMATS_PAR_DEFAUT: &[(&str, &str)] = &[
     ("document.format.bulletin_paie", "a4"),
     ("document.format.etat_retenues", "a4"),
     ("document.format.convocation", "a5"),
+    ("document.format.code_acces", "a5"),
 ];
 
 /// Format par défaut d'un document qui a un réglage de format.
@@ -295,6 +296,29 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         p(
             "sms.sanction_preparer",
             ValeurParametre::Booleen(false),
+            true,
+        ),
+        // SPEC_PHASE_5 §9 : la consultation par SMS entrant, fermée tant que l'école ne l'ouvre
+        // pas ; cinq consultations par numéro et par jour ; le rang ne part pas par SMS sans que
+        // l'école le veuille. Le numéro de la puce s'imprime sur le billet du code d'accès.
+        p(
+            "sms.consultation_active",
+            ValeurParametre::Booleen(false),
+            true,
+        ),
+        p(
+            "sms.consultation_quota_jour",
+            ValeurParametre::Entier(crate::notification::consultation::QUOTA_DEFAUT),
+            true,
+        ),
+        p(
+            "sms.consultation_rang",
+            ValeurParametre::Booleen(false),
+            true,
+        ),
+        p(
+            "sms.numero_ecole",
+            ValeurParametre::Texte(String::new()),
             true,
         ),
     ];

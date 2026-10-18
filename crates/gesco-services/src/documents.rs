@@ -291,6 +291,17 @@ impl<'a> ServiceDocuments<'a> {
         })
     }
 
+    /// Compose le billet d'un code d'accès de responsable, en mémoire seulement : il porte le
+    /// code, que la base ne garde pas (SPEC_PHASE_5 §9). L'audit de la remise en garde la trace.
+    pub async fn composer_billet_code_acces(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        donnees: serde_json::Value,
+    ) -> Resultat<DocumentCompose> {
+        self.composer(etablissement_id, "code_acces", donnees, Vec::new())
+            .await
+    }
+
     /// Compose le certificat de clé de secours, en mémoire seulement : il porte la phrase, il
     /// n'est jamais écrit sur le disque du poste (R-25). L'audit de l'opération appelante en
     /// garde la trace (enveloppe, version du modèle).

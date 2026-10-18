@@ -867,6 +867,34 @@ export type CleAbsence = {
 	demi_journee: DemiJournee,
 };
 
+/**  Code d'accès d'un responsable : son empreinte, jamais le code lui-même. */
+export type CodeAcces = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Responsable à qui il a été remis. */
+	responsable_id: string,
+	/**  État. */
+	etat: EtatCodeAcces,
+	/**  Remise du code. */
+	cree_le: number,
+	/**  Révocation, ou remplacement par un nouveau code. */
+	revoque_le: number | null,
+	/**  Dernière consultation servie avec ce code. */
+	derniere_utilisation: number | null,
+};
+
+/**  Code remis au guichet : à lire au parent et à imprimer, une seule fois. */
+export type CodeRemis = {
+	/**  Code en groupes de trois, `K7P X3M`. */
+	code: string,
+	/**  Billet à remettre en main propre, PDF en base64 ; il n'est gardé nulle part. */
+	pdf: string,
+	/**  Le code du responsable après la remise. */
+	etat: EtatCodeResponsable,
+};
+
 /**  Nombre de messages d'un état. */
 export type CompteEtat = {
 	/**  État. */
@@ -1650,6 +1678,14 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	guichet_lire: Signature<DemandeGuichet, Guichet>,
 	/**  Signature de la commande du même nom. */
+	code_acces_remettre: Signature<DemandeCodeAcces, CodeRemis>,
+	/**  Signature de la commande du même nom. */
+	code_acces_revoquer: Signature<DemandeCodeAcces, EtatCodeResponsable>,
+	/**  Signature de la commande du même nom. */
+	sms_recus_lire: Signature<null, SmsRecus>,
+	/**  Signature de la commande du même nom. */
+	sms_reception_simuler: Signature<DemandeSimulationSms, null>,
+	/**  Signature de la commande du même nom. */
 	sanction_noter: Signature<DemandeSanction, DossierDiscipline>,
 	/**  Signature de la commande du même nom. */
 	sanction_annuler: Signature<DemandeAnnulationSanction, DossierDiscipline>,
@@ -2137,6 +2173,12 @@ export type DemandeClotureEngagement = {
 	le: string,
 	/**  Motif ; obligatoire avant la fin prévue, et pour une rupture. */
 	motif: string,
+};
+
+/**  Responsable dont on remet ou révoque le code. */
+export type DemandeCodeAcces = {
+	/**  Responsable. */
+	responsable_id: string,
 };
 
 /**  Compte choisi pour un mode. */
@@ -3614,6 +3656,14 @@ export type DemandeSignatureBulletin = {
 	signataire: string,
 };
 
+/**  SMS reçu à simuler sur le canal ou la clé simulés. */
+export type DemandeSimulationSms = {
+	/**  Numéro de l'expéditeur. */
+	numero: string,
+	/**  Texte. */
+	texte: string,
+};
+
 /**  Transfert d'un élève vers une autre école. */
 export type DemandeTransfert = {
 	/**  Inscription. */
@@ -3927,6 +3977,8 @@ export type DroitsGuichet = {
 	justifier: boolean,
 	/**  Noter la suite d'une convocation. */
 	convocations: boolean,
+	/**  Remettre et révoquer les codes d'accès. */
+	codes: boolean,
 };
 
 /**  Ce que peut faire le compte connecté. */
@@ -4360,6 +4412,23 @@ export type EtatCanal = {
 	cle_absente: boolean,
 	/**  Jour des dernières relances d'impayés. */
 	relances_le: string | null,
+};
+
+/**  État d'un code d'accès. */
+export type EtatCodeAcces = 
+/**  Le code ouvre la consultation. */
+"actif" | 
+/**  Remplacé par un nouveau code, ou révoqué : il n'ouvre plus rien. */
+"revoque";
+
+/**  Code d'accès d'un responsable, tel que le guichet le montre : jamais le code lui-même. */
+export type EtatCodeResponsable = {
+	/**  Responsable. */
+	responsable_id: string,
+	/**  Son code actif, s'il en a un. */
+	actif: CodeAcces | null,
+	/**  Révocation de son dernier code, s'il n'en a plus d'actif. */
+	revoque_le: number | null,
 };
 
 /**  Soldes des comptes et compte de chaque mode. */
@@ -5043,6 +5112,25 @@ export type InscriptionAffichee = {
 	/**  Libellé de l'année. */
 	annee: string,
 };
+
+/**  Ce qu'il est advenu d'un SMS reçu. */
+export type IssueConsultation = 
+/**  Code juste : la réponse est partie. */
+"servie" | 
+/**  L'aide, demandée ou envoyée à un SMS incompris d'un numéro connu. */
+"aide" | 
+/**  Code faux, premier du jour : « code incorrect » est répondu. */
+"code_incorrect" | 
+/**  Code faux, déjà répondu aujourd'hui : rien ne part. */
+"code_incorrect_muet" | 
+/**  Cinq codes faux aujourd'hui : le numéro n'a plus de réponse jusqu'au lendemain. */
+"bloquee" | 
+/**  Quota du jour atteint : plus de réponse jusqu'au lendemain. */
+"quota_depasse" | 
+/**  Numéro d'aucun responsable : aucune réponse. */
+"numero_inconnu" | 
+/**  La consultation par SMS n'est pas ouverte par l'école : aucune réponse. */
+"inactive";
 
 /**  Jeton opaque d'une session, remis au frontend. */
 export type Jeton = string;
@@ -5868,6 +5956,17 @@ export type MonBulletinPaie = {
 /**  Montant en francs CFA. Le franc est l'unité ; il n'existe pas de centime. */
 export type Montant = number;
 
+/**  Mot d'une consultation. */
+export type MotConsultation = 
+/**  Reste à payer et prochaine échéance. */
+"solde" | 
+/**  Absences de la période en cours. */
+"abs" | 
+/**  Moyenne générale de la dernière période publiée. */
+"note" | 
+/**  La liste des mots. */
+"aide";
+
 /**  Ce qui a déclenché une sauvegarde (§11.1). */
 export type MotifSauvegarde = 
 /**  Demandée par un utilisateur. */
@@ -6042,7 +6141,9 @@ export type NatureMessage =
 /**  Avis de sanction, préparé puis décidé. */
 "sanction" | 
 /**  Message d'essai de la clé, vers un numéro saisi. */
-"essai";
+"essai" | 
+/**  Réponse à une consultation par SMS entrant (SPEC_PHASE_5 §9). */
+"consultation";
 
 /**  Nature d'un mouvement de caisse hors encaissement. */
 export type NatureMouvement = 
@@ -7023,12 +7124,16 @@ export type ResponsableDeLEleve = {
 
 /**  Responsable de la famille. */
 export type ResponsableGuichet = {
+	/**  Responsable. */
+	responsable_id: string,
 	/**  Prénoms et nom. */
 	nom: string,
 	/**  Téléphones. */
 	telephones: string[],
 	/**  Lien avec l'élève cherché. */
 	lien: string,
+	/**  Son code d'accès à la consultation par SMS. */
+	code_acces: EtatCodeResponsable,
 };
 
 /**  Responsable d'un élève, tel que la remise le propose. */
@@ -7579,6 +7684,48 @@ export type SituationInscription = {
 	remises: Remise[],
 	/**  Versements de l'inscription, annulés compris, du plus ancien au plus récent. */
 	versements: Versement[],
+};
+
+/**  SMS reçu, tel que le journal le garde : le code qu'il portait est masqué. */
+export type SmsRecu = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Numéro appelant, sous forme canonique s'il en a une. */
+	numero: string,
+	/**  Texte reçu, le code masqué. */
+	texte: string,
+	/**  Mot compris ; aucun si le SMS n'est pas une demande. */
+	mot: MotConsultation | null,
+	/**  Issue. */
+	issue: IssueConsultation,
+	/**  Responsable du numéro, s'il est connu. */
+	responsable_id: string | null,
+	/**  Réponse mise en file. */
+	reponse_id: string | null,
+	/**  Réception. */
+	recu_le: number,
+};
+
+/**  SMS reçu, tel que l'écran des messages le montre. */
+export type SmsRecuAffiche = {
+	/**  Le SMS, son code masqué. */
+	sms: SmsRecu,
+	/**  Responsable du numéro, s'il est connu. */
+	responsable: string,
+	/**  Texte de la réponse partie, s'il y en a une. */
+	reponse: string,
+};
+
+/**  SMS reçus et état de la consultation. */
+export type SmsRecus = {
+	/**  Les derniers SMS reçus, du plus récent au plus ancien. */
+	sms: SmsRecuAffiche[],
+	/**  Vrai si l'école a ouvert la consultation par SMS. */
+	consultation_active: boolean,
+	/**  Vrai si le canal est simulé : un SMS reçu peut se simuler pour l'essai. */
+	simulation: boolean,
 };
 
 /**  Soldes d'un compte. */

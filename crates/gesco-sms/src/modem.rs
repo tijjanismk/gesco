@@ -1,6 +1,7 @@
 //! Canal de la clé modem GSM (SPEC_PHASE_5 §4) : la session s'ouvre au premier besoin, se prépare
 //! (mode PDU, accusés signalés), et se rouvre après une coupure ; une clé débranchée rend
-//! l'envoi impossible sans rien perdre, la file réessaie. Le crédit se lit par USSD.
+//! l'envoi impossible sans rien perdre, la file réessaie. Le crédit se lit par USSD. Les SMS
+//! reçus se lisent sur la puce, puis s'en effacent.
 
 use std::io;
 use std::sync::Mutex;
@@ -10,8 +11,8 @@ use std::time::Duration;
 use gesco_core::notification::ErreurEnvoi;
 
 use crate::at::{ErreurAt, NonSollicite, Port, PortSerie, Session, lire_montant};
-use crate::pdu::{erreur_cms, lire_accuse, trames};
-use crate::{Accuse, Canal};
+use crate::pdu::{erreur_cms, lire_accuse, lire_remise, trames};
+use crate::{Accuse, Canal, SmsEntrant};
 
 /// Attente de chaque réponse de la clé : un envoi prend quelques secondes sur le réseau.
 const DELAI_REPONSE: Duration = Duration::from_secs(30);
@@ -206,5 +207,17 @@ impl Canal for CanalModem {
             .lock()
             .map(|mut a| std::mem::take(&mut *a))
             .unwrap_or_default()
+    }
+
+    fn recus(&self) -> Vec<SmsEntrant> {
+        self.avec_session(Session::lire_sms_recus)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|trame| lire_remise(trame))
+            .map(|r| SmsEntrant {
+                numero: r.numero,
+                texte: r.texte,
+            })
+            .collect()
     }
 }

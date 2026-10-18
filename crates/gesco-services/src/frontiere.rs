@@ -53,6 +53,10 @@ use crate::conges::{
     AbsencesEtConges, DemandeAbsencePersonnel, DemandeConge, DemandeIdConge, DemandeMoisConges,
     DemandeMotifAbsence, DemandeMotifConge, DemandeTypeConge, ServiceConges,
 };
+use crate::consultation::{
+    CanalDeSimulation, CodeRemis, DemandeCodeAcces, DemandeSimulationSms, EtatCodeResponsable,
+    ServiceConsultation, SmsRecus,
+};
 use crate::convocations::{
     ConvocationAffichee, Convocations, DemandeAccuse, DemandeAnnulationConvocation,
     DemandeClotureConvocation, DemandeConvocation, DemandeConvocationId, DemandeConvocations,
@@ -1110,6 +1114,10 @@ contrat! {
     convocation_clore(DemandeClotureConvocation) -> ConvocationAffichee;
     convocation_billet_produire(DemandeConvocationId) -> DocumentAffiche;
     guichet_lire(DemandeGuichet) -> Guichet;
+    code_acces_remettre(DemandeCodeAcces) -> CodeRemis;
+    code_acces_revoquer(DemandeCodeAcces) -> EtatCodeResponsable;
+    sms_recus_lire(()) -> SmsRecus;
+    sms_reception_simuler(DemandeSimulationSms) -> ();
     sanction_noter(DemandeSanction) -> DossierDiscipline;
     sanction_annuler(DemandeAnnulationSanction) -> DossierDiscipline;
     journal_archive_verifier(DemandeVerificationArchive) -> VerificationArchive;
@@ -4733,6 +4741,59 @@ impl Application {
         ServiceGuichet::nouveau(&appel.ouverte()?.noyau)
             .famille(appel.session()?, &entree)
             .await
+    }
+
+    async fn code_acces_remettre(
+        &self,
+        appel: Appel,
+        entree: DemandeCodeAcces,
+    ) -> Resultat<CodeRemis> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let (code, donnees, etat) = ServiceConsultation::nouveau(&ouverte.noyau)
+            .remettre(session, &entree)
+            .await?;
+        // Le billet se compose en mémoire : il porte le code, que rien ne garde.
+        let billet = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+            .composer_billet_code_acces(session.etablissement_id, donnees)
+            .await?;
+        Ok(CodeRemis {
+            code,
+            pdf: base64(&billet.pdf),
+            etat,
+        })
+    }
+
+    async fn code_acces_revoquer(
+        &self,
+        appel: Appel,
+        entree: DemandeCodeAcces,
+    ) -> Resultat<EtatCodeResponsable> {
+        ServiceConsultation::nouveau(&appel.ouverte()?.noyau)
+            .revoquer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn sms_recus_lire(&self, appel: Appel, _entree: ()) -> Resultat<SmsRecus> {
+        ServiceConsultation::nouveau(&appel.ouverte()?.noyau)
+            .recus(appel.session()?)
+            .await
+    }
+
+    async fn sms_reception_simuler(
+        &self,
+        appel: Appel,
+        entree: DemandeSimulationSms,
+    ) -> Resultat<()> {
+        let (canal, numero) = ServiceConsultation::nouveau(&appel.ouverte()?.noyau)
+            .canal_de_simulation(appel.session()?, &entree)
+            .await?;
+        // La file le recevra à son prochain passage, comme un SMS venu du réseau.
+        match canal {
+            CanalDeSimulation::Canal => self.canal_simule.recevoir(&numero, &entree.texte),
+            CanalDeSimulation::Cle => self.modem_simule.recevoir_sms(&numero, &entree.texte),
+        }
+        Ok(())
     }
 
     async fn sms_ports_lister(&self, _appel: Appel, _entree: ()) -> Resultat<Vec<PortDisponible>> {

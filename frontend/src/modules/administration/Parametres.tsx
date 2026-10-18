@@ -43,6 +43,10 @@ const ORDRE = [
   "sms.auto_absence",
   "sms.absence_delai_grace_min",
   "sms.sanction_preparer",
+  "sms.consultation_active",
+  "sms.consultation_quota_jour",
+  "sms.consultation_rang",
+  "sms.numero_ecole",
 ];
 
 function rang(cle: string): number {

@@ -453,6 +453,11 @@ pub const COMMANDES: &[Commande] = &[
     ),
     // Écran guichet (SPEC_PHASE_5 §8).
     Commande::permise("guichet_lire", Permission::STUDENTS_READ),
+    // Code d'accès et consultation par SMS entrant (SPEC_PHASE_5 §9).
+    Commande::permise("code_acces_remettre", Permission::GUARDIANS_ACCESS_CODE),
+    Commande::permise("code_acces_revoquer", Permission::GUARDIANS_ACCESS_CODE),
+    Commande::permise("sms_recus_lire", Permission::NOTIFICATIONS_SEND),
+    Commande::permise("sms_reception_simuler", Permission::NOTIFICATIONS_CONFIGURE),
     // Archive du journal d'audit (blueprint §12.4) : elle s'écrit à la clôture ; on la vérifie.
     Commande::permise("journal_archive_verifier", Permission::CORE_AUDIT_READ),
     // Absences par séance (SPEC_VERSION_1_1 §1, T-71), au choix de l'école.

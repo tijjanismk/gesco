@@ -40,7 +40,7 @@ pub fn variables(nature: NatureMessage) -> &'static [(&'static str, &'static str
             ("sanction", "Avertissement"),
             ("date", "12/03/2027"),
         ],
-        NatureMessage::Essai => &[ECOLE],
+        NatureMessage::Essai | NatureMessage::Consultation => &[ECOLE],
     }
 }
 
@@ -74,6 +74,8 @@ pub const fn modele_par_defaut(nature: NatureMessage) -> &'static str {
         NatureMessage::Essai => {
             "{ecole} : message d'essai de GESCO. Les SMS de l'ecole partent bien."
         }
+        // La réponse à une consultation se formule d'après la demande (consultation.rs).
+        NatureMessage::Consultation => "{ecole}",
     }
 }
 

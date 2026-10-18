@@ -1,7 +1,8 @@
 //! Modem simulé (décision du 17 octobre 2026 : le matériel est différé) : il répond aux commandes
 //! AT comme une clé, reçoit les trames PDU, rend leur référence et l'accusé de remise, débite un
-//! crédit et le dit par USSD. Les essais lui font jouer un numéro refusé, une remise manquée, une
-//! coupure du réseau, une clé débranchée, une puce vide.
+//! crédit et le dit par USSD ; il reçoit aussi les SMS des parents, les annonce, les garde sur sa
+//! puce jusqu'à ce qu'on les efface. Les essais lui font jouer un numéro refusé, une remise
+//! manquée, une coupure du réseau, une clé débranchée, une puce vide.
 
 use std::collections::HashSet;
 use std::io;
@@ -9,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::at::Port;
-use crate::pdu::{depuis_septets, lire_soumission, trame_accuse};
+use crate::pdu::{depuis_septets, lire_soumission, trame_accuse, trame_remise};
 
 /// Prix d'un SMS sur la puce simulée, en francs.
 pub const COUT_SMS: i64 = 25;
@@ -27,6 +28,9 @@ struct Etat {
     sans_reseau: bool,
     debranchee: bool,
     envoyes: Vec<(String, String)>,
+    /// SMS reçus gardés sur la puce : emplacement, expéditeur, texte.
+    puce: Vec<(u32, String, String)>,
+    emplacement: u32,
 }
 
 /// Montant écrit à la française : `1 250`.
@@ -92,6 +96,25 @@ impl Etat {
             c if c.starts_with("AT+CMGS=") => {
                 self.attente_trame = true;
                 self.repondre("\r\n> ");
+            }
+            "AT+CMGL=4" => {
+                let mut reponse = String::new();
+                for (emplacement, numero, texte) in &self.puce {
+                    let (trame, longueur) = trame_remise(numero, texte);
+                    reponse.push_str(&format!(
+                        "\r\n+CMGL: {emplacement},1,,{longueur}\r\n{trame}"
+                    ));
+                }
+                reponse.push_str("\r\n\r\nOK\r\n");
+                self.repondre(&reponse);
+            }
+            c if c.starts_with("AT+CMGD=") => {
+                let emplacement = c
+                    .strip_prefix("AT+CMGD=")
+                    .and_then(|n| n.split(',').next())
+                    .and_then(|n| n.trim().parse::<u32>().ok());
+                self.puce.retain(|(e, _, _)| Some(*e) != emplacement);
+                self.repondre("\r\nOK\r\n");
             }
             c if c.starts_with("AT+CUSD=1,") => {
                 let solde = montant(self.credit);
@@ -249,6 +272,24 @@ impl ModemSimule {
         });
     }
 
+    /// Un parent écrit à la clé : le SMS est gardé sur la puce et annoncé (`+CMTI`).
+    pub fn recevoir_sms(&self, numero: &str, texte: &str) {
+        self.modifier(|e| {
+            e.emplacement += 1;
+            let emplacement = e.emplacement;
+            e.puce
+                .push((emplacement, numero.to_owned(), texte.to_owned()));
+            if !e.debranchee {
+                e.repondre(&format!("\r\n+CMTI: \"SM\",{emplacement}\r\n"));
+            }
+        });
+    }
+
+    /// SMS reçus encore gardés sur la puce.
+    pub fn sur_la_puce(&self) -> usize {
+        self.etat.lock().map(|e| e.puce.len()).unwrap_or(0)
+    }
+
     /// SMS partis, numéro et texte de chaque partie, dans l'ordre.
     pub fn envoyes(&self) -> Vec<(String, String)> {
         self.etat
@@ -329,6 +370,35 @@ mod tests {
         modem.debrancher(false);
         assert!(c.verifier().is_ok());
         assert!(c.envoyer("+22376123456", "x").is_ok());
+    }
+
+    #[test]
+    fn les_sms_recus_se_lisent_puis_s_effacent() {
+        let modem = ModemSimule::nouveau(1_000);
+        // Reçu avant l'ouverture de la session : lu à la première lecture.
+        modem.recevoir_sms("+22376123456", "SOLDE K7PX3M");
+        let c = canal(&modem);
+        assert!(c.verifier().is_ok());
+        let recus = c.recus();
+        assert_eq!(
+            recus,
+            [crate::SmsEntrant {
+                numero: "+22376123456".to_owned(),
+                texte: "SOLDE K7PX3M".to_owned()
+            }]
+        );
+        assert_eq!(modem.sur_la_puce(), 0);
+        // Rien de neuf : la puce n'est pas relue.
+        assert!(c.recus().is_empty());
+        modem.recevoir_sms("+22366000000", "Note élève K7PX3M");
+        let recus = c.recus();
+        assert_eq!(recus.len(), 1);
+        assert!(recus.iter().all(|r| r.texte == "Note élève K7PX3M"));
+        // Un envoi et une réception se croisent sans se gêner.
+        modem.recevoir_sms("+22376123456", "ABS K7PX3M");
+        assert!(c.envoyer("+22376123456", "Bonjour").is_ok());
+        assert_eq!(c.recus().len(), 1);
+        assert_eq!(c.accuses().len(), 1);
     }
 
     #[test]

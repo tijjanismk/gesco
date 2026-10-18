@@ -235,6 +235,8 @@ pub struct BilanFile {
     pub cle_absente: bool,
     /// Vrai si la file est arrêtée faute de crédit.
     pub arretee: bool,
+    /// SMS reçus.
+    pub recus: u32,
 }
 
 /// Port de la clé modem.
@@ -876,6 +878,15 @@ impl<'n> ServiceFile<'n> {
             etat = Self::lire_credit(&mut cnx, m, etat, &contexte).await?.0;
         }
         Self::recevoir_accuses(&mut cnx, canal, &mut bilan, &contexte).await?;
+        // Les SMS des parents : chacun au journal, sa réponse en file (SPEC_PHASE_5 §9).
+        for entrant in canal.recus() {
+            // Sur le tas : la réponse se calcule loin dans les dépôts.
+            Box::pin(crate::consultation::recevoir(
+                self.noyau, &entrant, &contexte,
+            ))
+            .await?;
+            bilan.recus += 1;
+        }
         let fenetre = reglages::lire_fenetre(
             &parametre::texte(
                 &mut cnx,
@@ -897,13 +908,20 @@ impl<'n> ServiceFile<'n> {
         let plafond = parametre::entier(&mut cnx, "sms.plafond_mensuel", 0, &contexte).await?;
         let (_, mut sms_du_mois) =
             file_sms::partis_depuis(&mut cnx, debut_du_mois(maintenant), &contexte).await?;
-        let a_envoyer = if etat.arretee
-            || place <= 0
-            || !reglages::dans_la_fenetre(fenetre, maintenant.civil_utc().heure)
-        {
+        // Hors des heures d'envoi, seules partent les réponses aux demandes des parents.
+        let a_envoyer = if etat.arretee || place <= 0 {
             Vec::new()
-        } else {
+        } else if reglages::dans_la_fenetre(fenetre, maintenant.civil_utc().heure) {
             file_sms::a_envoyer(&mut cnx, maintenant, place, &contexte).await?
+        } else {
+            file_sms::a_envoyer_de_nature(
+                &mut cnx,
+                maintenant,
+                NatureMessage::Consultation,
+                place,
+                &contexte,
+            )
+            .await?
         };
         for mut m in a_envoyer {
             if plafond > 0 && sms_du_mois + i64::from(m.sms) > plafond {

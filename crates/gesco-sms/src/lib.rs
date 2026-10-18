@@ -29,6 +29,15 @@ pub struct Accuse {
     pub remis: bool,
 }
 
+/// SMS reçu par le canal.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SmsEntrant {
+    /// Numéro de l'expéditeur, tel que le réseau le donne.
+    pub numero: String,
+    /// Texte.
+    pub texte: String,
+}
+
 /// Canal d'envoi des SMS.
 pub trait Canal: Send + Sync {
     /// Envoie un texte déjà en GSM-7 à un numéro canonique ; rend la référence de l'envoi.
@@ -39,6 +48,11 @@ pub trait Canal: Send + Sync {
 
     /// Accusés de remise revenus depuis le dernier appel.
     fn accuses(&self) -> Vec<Accuse>;
+
+    /// SMS reçus depuis le dernier appel ; un canal qui ne reçoit pas n'en rend aucun.
+    fn recus(&self) -> Vec<SmsEntrant> {
+        Vec::new()
+    }
 }
 
 /// Canal simulé : rien ne part ; chaque SMS s'écrit dans un journal, et son accusé de remise
@@ -51,6 +65,7 @@ pub struct CanalSimule {
     envoyes: Mutex<Vec<(String, String)>>,
     echecs: Mutex<HashMap<String, ErreurEnvoi>>,
     non_remis: Mutex<HashSet<String>>,
+    entrants: Mutex<Vec<SmsEntrant>>,
 }
 
 impl CanalSimule {
@@ -89,6 +104,16 @@ impl CanalSimule {
     /// SMS partis, numéro et texte, dans l'ordre.
     pub fn envoyes(&self) -> Vec<(String, String)> {
         self.envoyes.lock().map(|e| e.clone()).unwrap_or_default()
+    }
+
+    /// Un SMS arrive de ce numéro ; la file le recevra à son prochain passage.
+    pub fn recevoir(&self, numero: &str, texte: &str) {
+        if let Ok(mut entrants) = self.entrants.lock() {
+            entrants.push(SmsEntrant {
+                numero: numero.to_owned(),
+                texte: texte.to_owned(),
+            });
+        }
     }
 }
 
@@ -133,6 +158,13 @@ impl Canal for CanalSimule {
             .map(|mut a| std::mem::take(&mut *a))
             .unwrap_or_default()
     }
+
+    fn recus(&self) -> Vec<SmsEntrant> {
+        self.entrants
+            .lock()
+            .map(|mut e| std::mem::take(&mut *e))
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(test)]
@@ -153,6 +185,10 @@ mod tests {
         );
         assert!(canal.accuses().is_empty());
         assert_eq!(canal.envoyes().len(), 1);
+        assert!(canal.recus().is_empty());
+        canal.recevoir("+22376000001", "SOLDE K7PX3M");
+        assert_eq!(canal.recus().len(), 1);
+        assert!(canal.recus().is_empty());
     }
 
     #[test]

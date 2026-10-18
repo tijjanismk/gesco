@@ -3,6 +3,7 @@
 //! message va au premier numéro joignable de sa liste.
 
 pub mod canal;
+pub mod consultation;
 pub mod gsm7;
 pub mod message;
 pub mod modele;

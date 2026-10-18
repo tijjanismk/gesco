@@ -13,7 +13,7 @@ import type { FicheRole } from "../../types/gesco";
 export const DOMAINES: readonly { cle: Cle; prefixes: readonly string[] }[] = [
   { cle: "roles.domaine.administration", prefixes: ["core"] },
   { cle: "roles.domaine.annee", prefixes: ["academic_year", "periods"] },
-  { cle: "roles.domaine.eleves", prefixes: ["students", "enrollments"] },
+  { cle: "roles.domaine.eleves", prefixes: ["students", "enrollments", "guardians"] },
   { cle: "roles.domaine.notes", prefixes: ["grades", "reports"] },
   { cle: "roles.domaine.vie_scolaire", prefixes: ["attendance", "sanctions", "convocations", "timetable", "canteen"] },
   { cle: "roles.domaine.finance", prefixes: ["fees", "invoices", "payments", "cashbox", "expenses", "treasury"] },

@@ -7,7 +7,7 @@ import { Champ, Formulaire, Selection, ZoneTexte } from "../../composants/Champ"
 import { MessageErreur, MessageEnregistre, Section } from "../../composants/Messages";
 import { Tableau } from "../../composants/Tableau";
 import { type Cle, dateHeure, francs, t } from "../../i18n";
-import type { ApercuSms, ErreurEnvoi, EssaiCle, EtatMessage, FileMessages, MessageAffiche, ModeleSms, NatureMessage, RaisonArret } from "../../types/gesco";
+import type { ApercuSms, ErreurEnvoi, EssaiCle, EtatMessage, FileMessages, IssueConsultation, MessageAffiche, ModeleSms, NatureMessage, RaisonArret } from "../../types/gesco";
 import { telephoneLisible } from "../scolarite/Identite";
 
 const ETATS: Record<EtatMessage, Cle> = {
@@ -29,6 +29,18 @@ const NATURES: Record<NatureMessage, Cle> = {
   convocation: "messages.nature.convocation",
   sanction: "messages.nature.sanction",
   essai: "messages.nature.essai",
+  consultation: "messages.nature.consultation",
+};
+
+const ISSUES: Record<IssueConsultation, Cle> = {
+  servie: "messages.issue.servie",
+  aide: "messages.issue.aide",
+  code_incorrect: "messages.issue.code_incorrect",
+  code_incorrect_muet: "messages.issue.code_incorrect_muet",
+  bloquee: "messages.issue.bloquee",
+  quota_depasse: "messages.issue.quota_depasse",
+  numero_inconnu: "messages.issue.numero_inconnu",
+  inactive: "messages.issue.inactive",
 };
 
 const RAISONS: Record<RaisonArret, Cle> = {
@@ -104,6 +116,7 @@ export function Messages() {
             />
           </Section>
           {message === undefined ? null : <MessageChoisi key={message.message.id} m={message} f={f} surFait={poser} />}
+          <SmsRecus configurer={f.droits.configurer} />
           {f.droits.configurer && f.canal === "modem" ? <CleModem f={f} surFait={poser} /> : null}
           {f.droits.configurer ? <SmsEssai surFait={poser} /> : null}
           {f.droits.configurer ? <Modeles f={f} surFait={poser} /> : null}
@@ -251,6 +264,61 @@ function MessageChoisi({ m, f, surFait }: { m: MessageAffiche; f: FileMessages; 
         <div><Bouton onClick={() => renvoi.mutate()} disabled={renvoi.isPending}>{t("messages.renvoyer")}</Bouton></div>
       ) : null}
       <MessageErreur erreur={decision.error ?? annulation.error ?? renvoi.error} />
+    </Section>
+  );
+}
+
+/** Les SMS des parents (SPEC_PHASE_5 §9) : chacun avec sa suite et la réponse partie ; le code
+ *  qu'ils portaient est masqué. Avec l'envoi d'essai ou la clé simulée, un SMS reçu se simule. */
+function SmsRecus({ configurer }: { configurer: boolean }) {
+  const client = useQueryClient();
+  const recus = useQuery({ queryKey: ["sms-recus"], queryFn: () => appeler("sms_recus_lire", null), refetchInterval: 5_000 });
+  const [numero, setNumero] = useState("");
+  const [texte, setTexte] = useState("");
+  const [enregistre, setEnregistre] = useState<number | null>(null);
+  const simulation = useMutation({
+    mutationFn: () => appeler("sms_reception_simuler", { numero, texte }),
+    onSuccess: () => {
+      setEnregistre(Date.now());
+      setTexte("");
+      void client.invalidateQueries({ queryKey: ["sms-recus"] });
+    },
+  });
+  const r = recus.data;
+  return (
+    <Section titre={t("messages.recus")}>
+      <MessageErreur erreur={recus.error} />
+      {r !== undefined && !r.consultation_active ? <p className="text-sm text-ocre">{t("messages.consultation_fermee")}</p> : null}
+      {r !== undefined && r.sms.length === 0 ? <p className="text-sm text-muet">{t("messages.recus_vide")}</p> : null}
+      {r === undefined || r.sms.length === 0 ? null : (
+        <Tableau
+          nomExport="sms-recus"
+          titre={t("messages.recus")}
+          lignes={r.sms}
+          cle={(s) => s.sms.id}
+          colonnes={[
+            { titre: t("messages.recu.colonne.date"), valeur: (s) => dateHeure(s.sms.recu_le) },
+            { titre: t("messages.recu.colonne.numero"), valeur: (s) => telephoneLisible(s.sms.numero) },
+            { titre: t("messages.recu.colonne.responsable"), valeur: (s) => s.responsable },
+            { titre: t("messages.recu.colonne.texte"), valeur: (s) => s.sms.texte },
+            { titre: t("messages.recu.colonne.issue"), valeur: (s) => t(ISSUES[s.sms.issue]) },
+            { titre: t("messages.recu.colonne.reponse"), valeur: (s) => s.reponse },
+          ]}
+        />
+      )}
+      {configurer && r?.simulation === true ? (
+        <Formulaire surEnvoi={() => simulation.mutate()}>
+          <p className="text-sm font-medium text-encre">{t("messages.simuler")}</p>
+          <p className="text-sm text-muet">{t("messages.simuler_aide")}</p>
+          <Champ id="sms-simule-numero" libelle={t("messages.simuler_numero")} value={numero} onChange={(e) => setNumero(e.target.value)} />
+          <Champ id="sms-simule-texte" libelle={t("messages.simuler_texte")} value={texte} onChange={(e) => setTexte(e.target.value)} />
+          <MessageErreur erreur={simulation.error} />
+          <div className="flex items-center gap-3">
+            <Bouton type="submit" disabled={simulation.isPending}>{t("messages.simuler_envoyer")}</Bouton>
+            <MessageEnregistre instant={enregistre} />
+          </div>
+        </Formulaire>
+      ) : null}
     </Section>
   );
 }

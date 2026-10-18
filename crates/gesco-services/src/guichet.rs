@@ -10,7 +10,7 @@ use gesco_core::commun::{DateCivile, Id, Montant};
 use gesco_core::core::Permission;
 use gesco_core::finance::recouvrement::impaye;
 use gesco_core::pedagogie::assiduite::{DemiJournee, NatureAbsence};
-use gesco_core::scolarite::{Eleve, Inscription, StatutInscription};
+use gesco_core::scolarite::{Eleve, Inscription, Responsable, StatutInscription};
 use gesco_db::depots::{
     absences, academique, annee_scolaire, factures, file_sms, inscriptions, personnes,
     remises_documents, role,
@@ -56,12 +56,16 @@ pub struct EnfantGuichet {
 /// Responsable de la famille.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 pub struct ResponsableGuichet {
+    /// Responsable.
+    pub responsable_id: Id<Responsable>,
     /// Prénoms et nom.
     pub nom: String,
     /// Téléphones.
     pub telephones: Vec<String>,
     /// Lien avec l'élève cherché.
     pub lien: String,
+    /// Son code d'accès à la consultation par SMS.
+    pub code_acces: crate::consultation::EtatCodeResponsable,
 }
 
 /// Absence récente non justifiée.
@@ -88,6 +92,8 @@ pub struct DroitsGuichet {
     pub justifier: bool,
     /// Noter la suite d'une convocation.
     pub convocations: bool,
+    /// Remettre et révoquer les codes d'accès.
+    pub codes: bool,
 }
 
 /// La famille au guichet.
@@ -202,7 +208,11 @@ impl<'n> ServiceGuichet<'n> {
         let tous_liens = personnes::liens(&mut cnx, &contexte).await?;
         for (_, responsable_id, qualites) in &liens {
             let (_, p) = personnes::responsable(&mut cnx, *responsable_id, &contexte).await?;
+            let code_acces =
+                crate::consultation::etat_code(&mut cnx, *responsable_id, &contexte).await?;
             responsables.push(ResponsableGuichet {
+                responsable_id: *responsable_id,
+                code_acces,
                 nom: p.nom_complet(),
                 telephones: p.telephones.clone(),
                 lien: qualites.lien.nom().to_owned(),
@@ -335,6 +345,7 @@ impl<'n> ServiceGuichet<'n> {
                 remettre: p.contains(&Permission::DOCUMENTS_DELIVER),
                 justifier: p.contains(&Permission::ATTENDANCE_JUSTIFY),
                 convocations: p.contains(&Permission::CONVOCATIONS_CLOSE),
+                codes: p.contains(&Permission::GUARDIANS_ACCESS_CODE),
             },
         })
     }

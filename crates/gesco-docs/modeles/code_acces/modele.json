@@ -1,0 +1,13 @@
+{
+  "id": "code_acces",
+  "version": 1,
+  "libelle": "Billet du code d'accès",
+  "variables": [
+    { "nom": "responsable", "requise": true },
+    { "nom": "enfants", "requise": true },
+    { "nom": "code", "requise": true },
+    { "nom": "numero_ecole", "requise": true },
+    { "nom": "remis_le", "requise": true },
+    { "nom": "remis_par", "requise": true }
+  ]
+}

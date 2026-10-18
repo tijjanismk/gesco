@@ -59,6 +59,10 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> Option<bool> {
         ("sms.port", ValeurParametre::Texte(t)) => t.chars().count() > 40,
         ("sms.ussd_solde", ValeurParametre::Texte(t)) => !code_ussd_valide(t.trim()),
         ("sms.seuil_credit", ValeurParametre::Entier(n)) => entre(n, 0, 1_000_000),
+        ("sms.consultation_quota_jour", ValeurParametre::Entier(n)) => entre(n, 1, 50),
+        ("sms.numero_ecole", ValeurParametre::Texte(t)) => {
+            !t.trim().is_empty() && crate::scolarite::telephone::normaliser(t).is_err()
+        }
         ("sms.numero_alerte", ValeurParametre::Texte(t)) => {
             !t.trim().is_empty() && crate::scolarite::telephone::normaliser(t).is_err()
         }

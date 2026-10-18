@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 5 — moteur de notification, canal SMS par clé modem GSM, relances d'impayés, avis de bulletin, absences du jour, remise des documents et convocations, écran guichet, consultation par SMS entrant
-**Statut** : v1.4 — engagée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 (toutes les recommandations retenues)
+**Statut** : v1.5 — engagée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 (toutes les recommandations retenues)
 **Documents parents** : `PROJECT_BLUEPRINT.md` (§3.10, §8.5bis, §19.5, §22.2, §25.3 à §25.8), `SPEC_PHASE_2.md` (responsables, téléphones), `SPEC_PHASE_3.md` (échéances, impayés), `SPEC_PHASE_4.md` (absences, bulletins publiés), `SPEC_VERSION_1_1.md` (discipline), `docs/questions-terrain.md` (T-74 à T-77)
 **Date** : 17 octobre 2026
 
@@ -181,3 +181,4 @@ Droits déjà déclarés, utilisés pour la première fois : `notifications:conf
 | v1.2 | 2026-10-17 | Décision du porteur du projet : tout en canal simulé, le matériel différé (essai réel de la clé, crédit par USSD, consultation entrante sur un vrai réseau) |
 | v1.3 | 2026-10-18 | Étape 2 : canal choisi par le réglage `sms.canal` (`aucun` par défaut, `simule`) ; modèles dans les réglages `sms.modele_*`, reformulés depuis l'écran « Messages » ; avis de sanction préparé (nature `sanction`, consentement des convocations) ; SMS d'essai dans la file ; le passage de la file n'écrit pas au journal d'audit, chaque message garde son envoi, sa remise et son erreur |
 | v1.4 | 2026-10-18 | Étape 3 : clé modem vérifiée contre un modem simulé qui répond aux commandes AT ; port `simule` dans les compilations de développement ; alerte envoyée directement par la clé, hors de la file ; seuil de crédit par défaut 500 F ; points à confirmer sur une vraie clé dans `ALERTES.md` |
+| v1.5 | 2026-10-18 | Étape 7, faite sur le canal simulé et la clé simulée (la consultation sur un vrai réseau attend la clé) : un SMS incompris d'un numéro connu reçoit l'aide ; l'aide part sans code, mais seulement vers un numéro connu ; le quota compte les demandes servies, l'aide et les codes faux, pas les refus ; les réponses partent même hors des heures d'envoi et expirent au bout de deux heures ; le journal garde chaque SMS reçu, code masqué ; billet du code A5 (réglable), composé en mémoire, jamais archivé ; réglage `sms.numero_ecole` pour le numéro de la puce imprimé sur le billet |

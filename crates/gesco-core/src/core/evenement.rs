@@ -276,6 +276,12 @@ pub enum TypeEvenement {
     ConvocationCloturee,
     /// Une convocation est annulée, avec un motif.
     ConvocationAnnulee,
+    /// Un code d'accès est remis à un responsable, l'ancien révoqué (SPEC_PHASE_5 §9).
+    CodeAccesRemis,
+    /// Le code d'accès d'un responsable est révoqué.
+    CodeAccesRevoque,
+    /// Un SMS est reçu : consultation servie ou refusée.
+    SmsRecu,
 }
 
 impl TypeEvenement {
@@ -412,6 +418,9 @@ impl TypeEvenement {
         Self::ConvocationReportee,
         Self::ConvocationCloturee,
         Self::ConvocationAnnulee,
+        Self::CodeAccesRemis,
+        Self::CodeAccesRevoque,
+        Self::SmsRecu,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -548,6 +557,9 @@ impl TypeEvenement {
             Self::ConvocationReportee => "ConvocationReportee",
             Self::ConvocationCloturee => "ConvocationCloturee",
             Self::ConvocationAnnulee => "ConvocationAnnulee",
+            Self::CodeAccesRemis => "CodeAccesRemis",
+            Self::CodeAccesRevoque => "CodeAccesRevoque",
+            Self::SmsRecu => "SmsRecu",
         }
     }
 
@@ -685,7 +697,10 @@ impl TypeEvenement {
             | Self::ConvocationAccusee
             | Self::ConvocationReportee
             | Self::ConvocationCloturee
-            | Self::ConvocationAnnulee => 1,
+            | Self::ConvocationAnnulee
+            | Self::CodeAccesRemis
+            | Self::CodeAccesRevoque
+            | Self::SmsRecu => 1,
         }
     }
 

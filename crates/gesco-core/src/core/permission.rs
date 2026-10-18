@@ -123,6 +123,7 @@ catalogue! {
     NOTIFICATIONS_CONFIGURE = "notifications:configure",
     NOTIFICATIONS_SEND = "notifications:send",
     NOTIFICATIONS_SEND_MANUAL = "notifications:send_manual",
+    GUARDIANS_ACCESS_CODE = "guardians:access_code",
     IMPORT_STUDENTS = "import:students",
     IMPORT_STAFF = "import:staff",
     IMPORT_GRADES = "import:grades",

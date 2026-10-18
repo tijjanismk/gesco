@@ -19,6 +19,7 @@ pub mod cles;
 pub mod commandes;
 pub mod comptes;
 pub mod conges;
+pub mod consultation;
 pub mod convocations;
 pub mod departs;
 pub mod depenses;

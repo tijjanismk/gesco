@@ -2448,3 +2448,36 @@ test("phase 5 : au guichet, la mère de Fatoumata voit toute sa famille, ce qu'e
   await expect(page.getByText(texte("guichet.bulletin").replace("{eleve}", "Fatoumata Diallo").replace("{periode}", "1er trimestre"))).toBeVisible();
   await capturer("125-guichet");
 });
+
+test("phase 5 : la mère de Fatoumata reçoit son code au guichet ; elle demande son solde par SMS et la réponse part", async () => {
+  await allerA("nav.parametres");
+  await page.locator('[id="param-sms.consultation_active"]').check();
+  await page.locator('[id="param-sms.consultation_active"]').locator("xpath=ancestor::div[contains(@class,'py-2')][1]").getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(page.locator('[id="param-sms.consultation_active"]')).toBeChecked();
+
+  await allerA("nav.guichet");
+  await page.locator("#guichet-recherche").fill("Fatoumata Diallo");
+  await page.getByRole("button", { name: /^Fatoumata Diallo · / }).first().click();
+  const mere = page.locator("li").filter({ hasText: "Kadiatou Diallo" }).first();
+  await expect(mere.getByText(texte("guichet.code.aucun"))).toBeVisible();
+  await mere.getByRole("button", { name: texte("guichet.code.remettre") }).click();
+  const code = page.getByTestId("code-acces");
+  await expect(code).toHaveText(/^[A-HJ-NP-Z2-9]{3} [A-HJ-NP-Z2-9]{3}$/);
+  await expect(page.locator("iframe")).toBeVisible({ timeout: 30_000 });
+  await expect(mere.getByRole("button", { name: texte("guichet.code.remplacer") })).toBeVisible();
+  await capturer("126-code-acces");
+  const saisi = ((await code.textContent()) ?? "").replace(" ", "");
+  const telephone = /\+223 \d\d \d\d \d\d \d\d/.exec((await mere.textContent()) ?? "")?.[0] ?? "";
+  expect(telephone).not.toBe("");
+
+  await allerA("nav.messages");
+  await page.locator("#sms-simule-numero").fill(telephone);
+  await page.locator("#sms-simule-texte").fill(`solde ${saisi.toLowerCase()}`);
+  await page.getByRole("button", { name: texte("messages.simuler_envoyer") }).click();
+  // La file passe toutes les cinq secondes : elle reçoit le SMS, puis la réponse part.
+  const recu = page.getByRole("row").filter({ hasText: "SOLDE ******" });
+  await expect(recu.getByText(texte("messages.issue.servie"))).toBeVisible({ timeout: 20_000 });
+  await expect(recu).toContainText("Kadiatou Diallo");
+  await expect(recu).toContainText("reste a payer Fatoumata");
+  await capturer("127-sms-recus");
+});

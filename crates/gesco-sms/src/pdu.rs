@@ -1,7 +1,8 @@
 //! Trames PDU des SMS (3GPP TS 23.040) : ce que la clé modem reçoit en mode PDU. Le texte, déjà
 //! translittéré en GSM-7 par la file, est codé sur sept bits ; au-delà de 160 caractères, il part
 //! en plusieurs parties qui se recollent sur le téléphone ; l'accusé de remise est demandé sur la
-//! dernière. Les accusés (SMS-STATUS-REPORT) se décodent ici.
+//! dernière. Les accusés (SMS-STATUS-REPORT) et les SMS reçus (SMS-DELIVER, en GSM-7 ou en
+//! UCS-2 quand le téléphone du parent écrit avec des accents) se décodent ici.
 
 use std::fmt::Write as _;
 
@@ -120,11 +121,20 @@ fn adresse(numero: &str) -> Vec<u8> {
     octets
 }
 
-/// Numéro lu d'une adresse, `+` devant s'il est international.
+/// Numéro lu d'une adresse, `+` devant s'il est international ; un expéditeur alphanumérique
+/// (« Orange ») est rendu en clair.
 fn lire_adresse(octets: &[u8]) -> Option<(String, usize)> {
     let chiffres = usize::from(*octets.first()?);
     let type_adresse = *octets.get(1)?;
     let longueur = 2 + chiffres.div_ceil(2);
+    if type_adresse & 0x70 == 0x50 {
+        let valeur = octets.get(2..longueur)?;
+        let septets = detasser(valeur, valeur.len() * 8 / 7, 0);
+        return Some((
+            depuis_septets(&septets).trim_end_matches('@').to_owned(),
+            longueur,
+        ));
+    }
     let mut numero = String::new();
     if type_adresse & 0x70 == 0x10 {
         numero.push('+');
@@ -317,6 +327,89 @@ pub fn trame_accuse(reference: u8, numero: &str, remis: bool) -> (String, usize)
     (format!("00{}", en_hexa(&tpdu)), tpdu.len())
 }
 
+/// SMS reçu, lu d'une trame SMS-DELIVER.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Remise {
+    /// Numéro de l'expéditeur, tel que le réseau le donne.
+    pub numero: String,
+    /// Texte de cette partie.
+    pub texte: String,
+}
+
+/// Lecture d'une trame SMS-DELIVER : l'expéditeur et le texte, en GSM-7, en UCS-2 ou sur huit
+/// bits. Un en-tête (partie d'un SMS long) est sauté : une consultation tient en une partie.
+pub fn lire_remise(hexa: &str) -> Option<Remise> {
+    let octets = depuis_hexa(hexa)?;
+    let centre = usize::from(*octets.first()?);
+    let tpdu = octets.get(1 + centre..)?;
+    let premier = *tpdu.first()?;
+    if premier & 0x03 != 0x00 {
+        return None;
+    }
+    let (numero, longueur) = lire_adresse(tpdu.get(1..)?)?;
+    let position = 1 + longueur;
+    let dcs = *tpdu.get(position + 1)?;
+    // Protocole, codage, horodatage du centre (7 octets), puis la longueur des données.
+    let udl = usize::from(*tpdu.get(position + 9)?);
+    let ud = tpdu.get(position + 10..)?;
+    let entete = if premier & 0x40 != 0 {
+        usize::from(*ud.first()?) + 1
+    } else {
+        0
+    };
+    let codage = if dcs & 0xC0 == 0 { dcs & 0x0C } else { 0 };
+    let texte = match codage {
+        0x08 => {
+            let utiles = ud.get(entete..udl.min(ud.len()))?;
+            let (paires, _) = utiles.as_chunks::<2>();
+            let unites: Vec<u16> = paires.iter().map(|p| u16::from_be_bytes(*p)).collect();
+            String::from_utf16_lossy(&unites)
+        }
+        0x04 => ud
+            .get(entete..udl.min(ud.len()))?
+            .iter()
+            .map(|&o| char::from(o))
+            .collect(),
+        _ => {
+            let septets_entete = (entete * 8).div_ceil(7);
+            let bits_avant = septets_entete * 7 - entete * 8;
+            depuis_septets(&detasser(
+                ud.get(entete..)?,
+                udl.checked_sub(septets_entete)?,
+                bits_avant,
+            ))
+        }
+    };
+    Some(Remise { numero, texte })
+}
+
+/// Trame SMS-DELIVER d'un SMS reçu de ce numéro (le modem simulé en produit) : en GSM-7 si le
+/// texte est en ASCII, sinon en UCS-2, comme un téléphone qui écrit avec des accents.
+pub fn trame_remise(numero: &str, texte: &str) -> (String, usize) {
+    let mut tpdu = vec![0x04];
+    tpdu.extend(adresse(numero));
+    let ascii = texte.is_ascii();
+    tpdu.extend([0x00, if ascii { 0x00 } else { 0x08 }]);
+    tpdu.extend([0x62, 0x01, 0x81, 0x21, 0x00, 0x00, 0x00]);
+    if ascii {
+        let septets: Vec<u8> = en_septets(texte)
+            .into_iter()
+            .take(CARACTERES_SMS_SEUL)
+            .collect();
+        tpdu.push(u8::try_from(septets.len()).unwrap_or(u8::MAX));
+        tpdu.extend(tasser(&septets, 0));
+    } else {
+        let octets: Vec<u8> = texte
+            .encode_utf16()
+            .take(70)
+            .flat_map(u16::to_be_bytes)
+            .collect();
+        tpdu.push(u8::try_from(octets.len()).unwrap_or(u8::MAX));
+        tpdu.extend(octets);
+    }
+    (format!("00{}", en_hexa(&tpdu)), tpdu.len())
+}
+
 /// Erreur d'envoi d'après le code `+CMS ERROR` de la clé. Les codes du crédit épuisé varient d'un
 /// opérateur à l'autre : ceux-ci sont à confirmer sur une vraie clé (essai différé).
 pub const fn erreur_cms(code: u16) -> ErreurEnvoi {
@@ -405,6 +498,30 @@ mod tests {
         let (perdu, _) = trame_accuse(10, "+22376123456", false);
         assert_eq!(lire_accuse(&perdu), Some((10, Some(false))));
         assert_eq!(lire_accuse("zz"), None);
+    }
+
+    #[test]
+    fn sms_recus_en_gsm7_et_en_ucs2() {
+        let (gsm7, _) = trame_remise("+22376123456", "SOLDE K7PX3M");
+        assert_eq!(
+            lire_remise(&gsm7),
+            Some(Remise {
+                numero: "+22376123456".to_owned(),
+                texte: "SOLDE K7PX3M".to_owned(),
+            })
+        );
+        let (ucs2, _) = trame_remise("+22376123456", "Absences élève K7PX3M");
+        assert_eq!(
+            lire_remise(&ucs2).map(|r| r.texte),
+            Some("Absences élève K7PX3M".to_owned())
+        );
+        // Trame avec un centre de messages renseigné, comme celles d'une puce : « hellohello ».
+        assert_eq!(
+            lire_remise("0791448720003023040B914461160089F60000208062917314080AE8329BFD4697D9EC37")
+                .map(|r| (r.numero, r.texte)),
+            Some(("+44166100986".to_owned(), "hellohello".to_owned()))
+        );
+        assert_eq!(lire_remise(&trame_accuse(1, "+22376123456", true).0), None);
     }
 
     #[test]

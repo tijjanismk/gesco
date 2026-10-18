@@ -77,6 +77,16 @@ pub fn pin_correspond(pin: &Pin<'_>, empreinte: &str) -> bool {
     verifier(pin.0.as_bytes(), empreinte)
 }
 
+/// Empreinte PHC d'un code d'accès de responsable (SPEC_PHASE_5 §9) : le code ne se garde pas.
+pub fn empreinte_code_acces(code: &str) -> Resultat<String> {
+    hacher(code.as_bytes())
+}
+
+/// Vérifie un code d'accès contre son empreinte PHC.
+pub fn code_acces_correspond(code: &str, empreinte: &str) -> bool {
+    verifier(code.as_bytes(), empreinte)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
