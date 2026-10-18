@@ -36,6 +36,7 @@ pub mod evaluations;
 pub mod export;
 pub mod facturation;
 pub mod fiche_etablissement;
+pub mod file_sms;
 pub mod fin_annee;
 pub mod fournisseurs;
 pub mod frais;

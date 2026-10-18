@@ -16,6 +16,7 @@ thiserror.workspace = true
 tokio.workspace = true
 argon2.workspace = true
 gesco-docs.workspace = true
+gesco-sms.workspace = true
 getrandom.workspace = true
 flate2.workspace = true
 base64.workspace = true

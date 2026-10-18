@@ -1884,6 +1884,7 @@ dependencies = [
  "gesco-core",
  "gesco-db",
  "gesco-docs",
+ "gesco-sms",
  "getrandom 0.4.3",
  "hex",
  "serde",

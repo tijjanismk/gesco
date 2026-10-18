@@ -2,6 +2,9 @@
 //! s'il est joignable ; un responsable refuse un type de message sans perdre les autres ; un
 //! message va au premier numéro joignable de sa liste.
 
+pub mod gsm7;
+pub mod message;
+pub mod modele;
 pub mod numero;
 pub mod reglages;
 
@@ -10,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::commun::Id;
 use crate::scolarite::Responsable;
 
+pub use message::{ErreurEnvoi, EtatMessage, Message, NatureMessage};
 pub use numero::{EtatJoignabilite, Joignabilite};
 
 /// Type de message aux familles, objet du consentement (§25.6) : un parent qui ne veut plus de

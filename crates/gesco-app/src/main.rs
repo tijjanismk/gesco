@@ -77,6 +77,16 @@ async fn taches_periodiques(application: Arc<Application>) {
     }
 }
 
+/// File des SMS, toutes les cinq secondes (SPEC_PHASE_5 §3) : l'utilisateur n'attend jamais
+/// l'envoi. Un échec se retente au passage suivant.
+async fn file_sms(application: Arc<Application>) {
+    let mut tic = tokio::time::interval(Duration::from_secs(5));
+    loop {
+        tic.tick().await;
+        let _ = application.traiter_file_sms().await;
+    }
+}
+
 fn main() -> tauri::Result<()> {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -104,7 +114,8 @@ fn main() -> tauri::Result<()> {
                 options,
             ))?);
             app.manage(Arc::clone(&application));
-            tauri::async_runtime::spawn(taches_periodiques(application));
+            tauri::async_runtime::spawn(taches_periodiques(Arc::clone(&application)));
+            tauri::async_runtime::spawn(file_sms(application));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![executer])

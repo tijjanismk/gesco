@@ -38,6 +38,7 @@ gesco-core = { path = "crates/gesco-core" }
 gesco-db = { path = "crates/gesco-db" }
 gesco-services = { path = "crates/gesco-services" }
 gesco-docs = { path = "crates/gesco-docs" }
+gesco-sms = { path = "crates/gesco-sms" }
 
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
@@ -92,6 +93,11 @@ debug = "line-tables-only"
 # Sans informations de débogage pour les dépendances : chaque exécutable de test en portait près de
 # 300 Mo, et la quarantaine de tests remplissait le disque.
 [profile.dev.package."*"]
+debug = false
+
+# Exécutables de test sans informations de débogage : la quarantaine de .pdb de 140 Mo chacun
+# remplissait le disque (18 octobre 2026). Un échec garde son fichier et sa ligne.
+[profile.test]
 debug = false
 
 [profile.release]

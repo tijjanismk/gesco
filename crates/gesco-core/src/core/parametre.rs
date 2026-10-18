@@ -245,6 +245,12 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         ),
         // SPEC_PHASE_5 §3 : signature vide, le nom de l'école ; six SMS par minute, de 7 h à
         // 20 h, sans plafond.
+        // Rien ne part tant que l'école n'a pas choisi son canal.
+        p(
+            "sms.canal",
+            ValeurParametre::Texte("aucun".to_owned()),
+            true,
+        ),
         p("sms.signature", ValeurParametre::Texte(String::new()), true),
         p(
             "sms.fenetre_envoi",
@@ -277,6 +283,19 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
             true,
         ),
     ];
+    // SPEC_PHASE_5 §3 : les modèles des messages, que l'école reformule.
+    {
+        use crate::notification::NatureMessage as N;
+        use crate::notification::modele::modele_par_defaut as m;
+        let modele = |n: N| ValeurParametre::Texte(m(n).to_owned());
+        parametres.extend([
+            p("sms.modele_bulletin", modele(N::Bulletin), true),
+            p("sms.modele_impaye", modele(N::Impaye), true),
+            p("sms.modele_absence", modele(N::Absence), true),
+            p("sms.modele_convocation", modele(N::Convocation), true),
+            p("sms.modele_sanction", modele(N::Sanction), true),
+        ]);
+    }
     for (cle, defaut) in FORMATS_PAR_DEFAUT {
         parametres.push(p(cle, ValeurParametre::Texte((*defaut).to_owned()), true));
     }

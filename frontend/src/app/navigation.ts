@@ -1,7 +1,7 @@
 import type { Cle } from "../i18n";
 import { ACCES, type NomCommande } from "../types/acces";
 
-export type IdSection = "accueil" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
+export type IdSection = "accueil" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
 
 interface Section {
   id: IdSection;
@@ -34,6 +34,7 @@ const SECTIONS: readonly Section[] = [
   { id: "journal-tresorerie", libelle: "nav.journal_tresorerie", groupe: "nav.groupe.finance", commande: "journal_tresorerie_lire" },
   { id: "cantine", libelle: "nav.cantine", groupe: "nav.groupe.finance", commande: "cantine_lire" },
   { id: "tresorerie", libelle: "nav.tresorerie", groupe: "nav.groupe.finance", commande: "tresorerie_lire" },
+  { id: "messages", libelle: "nav.messages", groupe: "nav.groupe.communication", commande: "messages_lire" },
   { id: "personnel", libelle: "nav.personnel", groupe: "nav.groupe.personnel", commande: "personnel_lister" },
   { id: "heures", libelle: "nav.heures", groupe: "nav.groupe.personnel", commande: "heures_lire" },
   { id: "conges", libelle: "nav.conges", groupe: "nav.groupe.personnel", commande: "absences_conges_lire" },

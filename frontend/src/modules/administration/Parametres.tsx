@@ -26,6 +26,7 @@ const THEMES: readonly { titre: Cle; prefixes: readonly string[] }[] = [
 /** Ordre de lecture des réglages des SMS : l'envoi, puis chaque message suivi de ses délais.
  *  Les autres réglages gardent l'ordre de leur clé. */
 const ORDRE = [
+  "sms.canal",
   "sms.signature",
   "sms.fenetre_envoi",
   "sms.debit_par_minute",
@@ -61,7 +62,7 @@ export function Parametres() {
       <MessageErreur erreur={parametres.error} />
       {titres.map((titre) => {
         // Les réglages du bulletin, par cycle, ont leur bloc à eux.
-        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
+        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
         return lignes.length === 0 ? null : (
           <Section key={titre} titre={t(titre)}>
             {lignes.map((p) => (
@@ -93,6 +94,10 @@ function choixDe(cle: string): readonly { valeur: string; libelle: Cle }[] | und
 }
 
 const CHOIX: Record<string, readonly { valeur: string; libelle: Cle }[]> = {
+  "sms.canal": [
+    { valeur: "aucun", libelle: "sms.canal.aucun" },
+    { valeur: "simule", libelle: "sms.canal.simule" },
+  ],
   "facturation.arrivee_en_cours": [
     { valeur: "echeances_restantes", libelle: "facturation.arrivee.echeances_restantes" },
     { valeur: "prorata_mensuel", libelle: "facturation.arrivee.prorata_mensuel" },

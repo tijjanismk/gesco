@@ -2332,7 +2332,8 @@ test("phase 5 : la mère d'Awa ne veut plus de relances, elle garde l'avis de bu
   const mere = page.locator("aside li").filter({ hasText: "Mariam Coulibaly" });
   const relances = mere.getByLabel(texte("messages.type.impaye"));
   await expect(relances).toBeChecked();
-  await relances.uncheck();
+  // La case suit le clic dès que l'interface l'a pris en compte : on attend son nouvel état.
+  await relances.click();
   await expect(relances).not.toBeChecked();
   await expect(mere.getByLabel(texte("messages.type.bulletin"))).toBeChecked();
   await capturer("119-messages-du-responsable");
@@ -2343,4 +2344,28 @@ test("phase 5 : la mère d'Awa ne veut plus de relances, elle garde l'avis de bu
   await expect(page.locator('[id="param-sms.fenetre_envoi"]')).toHaveValue("7-20");
   await section.scrollIntoViewIfNeeded();
   await capturer("120-reglages-des-sms");
+});
+
+test("phase 5 : l'école essaie l'envoi sans clé ; le SMS d'essai part à son tour et revient remis", async () => {
+  await allerA("nav.parametres");
+  const enregistrer = async (id: string) => {
+    await page.locator(`[id="${id}"]`).locator("xpath=ancestor::div[1]").getByRole("button", { name: texte("commun.enregistrer") }).click();
+  };
+  await page.locator('[id="param-sms.canal"]').selectOption("simule");
+  await enregistrer("param-sms.canal");
+  // Les heures d'envoi couvrent la journée : le scénario peut tourner à toute heure.
+  await page.locator('[id="param-sms.fenetre_envoi"]').fill("0-24");
+  await enregistrer("param-sms.fenetre_envoi");
+  await expect(page.locator('[id="param-sms.fenetre_envoi"]')).toHaveValue("0-24");
+
+  await allerA("nav.messages");
+  await expect(page.getByText(texte("messages.canal_simule"))).toBeVisible();
+  await page.locator("#message-essai-numero").fill("76 00 00 99");
+  await page.getByRole("button", { name: texte("messages.essai_envoyer") }).click();
+  // La file part toutes les cinq secondes ; l'accusé de remise revient aussitôt.
+  const ligne = page.getByRole("row").filter({ hasText: "+223 76 00 00 99" });
+  await expect(ligne.getByText(texte("messages.etat_message.remis"))).toBeVisible({ timeout: 20_000 });
+  await ligne.click();
+  await expect(page.getByRole("heading", { name: `${texte("messages.nature.essai")} vers +223 76 00 00 99` })).toBeVisible();
+  await capturer("121-file-des-sms");
 });

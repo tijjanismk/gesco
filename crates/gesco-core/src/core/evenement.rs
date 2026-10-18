@@ -246,6 +246,16 @@ pub enum TypeEvenement {
     ConsentementModifie,
     /// Un numéro injoignable ou invalide est remis à l'essai : il reçoit de nouveau.
     JoignabiliteReinitialisee,
+    /// Un message est mis dans la file des SMS (SPEC_PHASE_5 §3).
+    MessageMisEnFile,
+    /// Une personne décide d'envoyer un message préparé, son texte relu.
+    MessageDecide,
+    /// Un message qui n'est pas parti est annulé, avec un motif.
+    MessageAnnule,
+    /// Un message échoué ou expiré est remis dans la file.
+    MessageRenvoye,
+    /// L'école reformule le modèle d'un type de message.
+    ModeleMessageModifie,
 }
 
 impl TypeEvenement {
@@ -367,6 +377,11 @@ impl TypeEvenement {
         Self::PersonnelImporte,
         Self::ConsentementModifie,
         Self::JoignabiliteReinitialisee,
+        Self::MessageMisEnFile,
+        Self::MessageDecide,
+        Self::MessageAnnule,
+        Self::MessageRenvoye,
+        Self::ModeleMessageModifie,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -488,6 +503,11 @@ impl TypeEvenement {
             Self::PersonnelImporte => "PersonnelImporte",
             Self::ConsentementModifie => "ConsentementModifie",
             Self::JoignabiliteReinitialisee => "JoignabiliteReinitialisee",
+            Self::MessageMisEnFile => "MessageMisEnFile",
+            Self::MessageDecide => "MessageDecide",
+            Self::MessageAnnule => "MessageAnnule",
+            Self::MessageRenvoye => "MessageRenvoye",
+            Self::ModeleMessageModifie => "ModeleMessageModifie",
         }
     }
 
@@ -610,7 +630,12 @@ impl TypeEvenement {
             | Self::ReleveImporte
             | Self::PersonnelImporte
             | Self::ConsentementModifie
-            | Self::JoignabiliteReinitialisee => 1,
+            | Self::JoignabiliteReinitialisee
+            | Self::MessageMisEnFile
+            | Self::MessageDecide
+            | Self::MessageAnnule
+            | Self::MessageRenvoye
+            | Self::ModeleMessageModifie => 1,
         }
     }
 

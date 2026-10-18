@@ -9,6 +9,10 @@ pub const PREFIXE: &str = "sms.";
 /// Heures d'envoi par défaut : de 7 h à 20 h, rien la nuit (C-4).
 pub const FENETRE_DEFAUT: &str = "7-20";
 
+/// Canaux d'envoi : aucun (rien ne part), simulé (les SMS s'écrivent dans un journal du poste,
+/// rien ne part réellement).
+pub const CANAUX: [&str; 2] = ["aucun", "simule"];
+
 /// Longueur maximale de la signature, le nom de l'école en tête de chaque SMS.
 pub const SIGNATURE_MAX: usize = 20;
 
@@ -43,6 +47,11 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> Option<bool> {
         ("sms.impaye_nombre_max", ValeurParametre::Entier(n)) => entre(n, 1, 10),
         ("sms.impaye_montant_min", ValeurParametre::Entier(n)) => entre(n, 0, 1_000_000_000),
         ("sms.absence_delai_grace_min", ValeurParametre::Entier(n)) => entre(n, 0, 240),
+        ("sms.canal", ValeurParametre::Texte(t)) => !CANAUX.contains(&t.as_str()),
+        (cle, ValeurParametre::Texte(t)) if super::modele::nature_du_reglage(cle).is_some() => {
+            super::modele::nature_du_reglage(cle)
+                .is_none_or(|n| super::modele::verifier(n, t).is_err())
+        }
         _ if cle.starts_with(PREFIXE) => false,
         _ => return None,
     };
@@ -91,6 +100,21 @@ mod tests {
         assert_eq!(
             hors_bornes("sms.auto_bulletin", &ValeurParametre::Booleen(false)),
             Some(false)
+        );
+        assert_eq!(
+            hors_bornes("sms.canal", &ValeurParametre::Texte("simule".to_owned())),
+            Some(false)
+        );
+        assert_eq!(
+            hors_bornes("sms.canal", &ValeurParametre::Texte("pigeon".to_owned())),
+            Some(true)
+        );
+        assert_eq!(
+            hors_bornes(
+                "sms.modele_bulletin",
+                &ValeurParametre::Texte("{montant}".to_owned())
+            ),
+            Some(true)
         );
         assert_eq!(hors_bornes("depense.seuil_accord", &e(0)), None);
     }

@@ -310,6 +310,16 @@ export type ApercuSauvegarde = {
 	enveloppe_secours_id: string,
 };
 
+/**  Un texte tel qu'il partirait. */
+export type ApercuSms = {
+	/**  Texte translittéré en GSM-7. */
+	texte: string,
+	/**  Caractères comptés comme un téléphone. */
+	caracteres: number,
+	/**  Nombre de SMS. */
+	sms: number,
+};
+
 /**
  *  Arrondi des moyennes au centième, au choix de chaque école (réponse du 11 octobre 2026).
  *  Le blueprint (RC-1) tronquait toujours ; la troncature reste le défaut.
@@ -823,6 +833,14 @@ export type CleAbsence = {
 	date: string,
 	/**  Matin ou après-midi. */
 	demi_journee: DemiJournee,
+};
+
+/**  Nombre de messages d'un état. */
+export type CompteEtat = {
+	/**  État. */
+	etat: EtatMessage,
+	/**  Nombre de messages. */
+	nombre: number,
 };
 
 /**  Compte de trésorerie de l'école. */
@@ -1550,6 +1568,20 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	numero_remettre_a_l_essai: Signature<DemandeRemiseALEssai, MessagesResponsable>,
 	/**  Signature de la commande du même nom. */
+	messages_lire: Signature<DemandeFile, FileMessages>,
+	/**  Signature de la commande du même nom. */
+	message_apercu: Signature<DemandeApercu, ApercuSms>,
+	/**  Signature de la commande du même nom. */
+	message_decider: Signature<DemandeDecisionMessage, FileMessages>,
+	/**  Signature de la commande du même nom. */
+	message_annuler: Signature<DemandeAnnulationMessage, FileMessages>,
+	/**  Signature de la commande du même nom. */
+	message_renvoyer: Signature<DemandeRenvoi, FileMessages>,
+	/**  Signature de la commande du même nom. */
+	message_modele_definir: Signature<DemandeModele, FileMessages>,
+	/**  Signature de la commande du même nom. */
+	message_essai_envoyer: Signature<DemandeEssai, FileMessages>,
+	/**  Signature de la commande du même nom. */
 	sanction_noter: Signature<DemandeSanction, DossierDiscipline>,
 	/**  Signature de la commande du même nom. */
 	sanction_annuler: Signature<DemandeAnnulationSanction, DossierDiscipline>,
@@ -1721,6 +1753,14 @@ export type DemandeAnnulationFacture = {
 	motif: string,
 };
 
+/**  Annulation motivée d'un message qui n'est pas parti. */
+export type DemandeAnnulationMessage = {
+	/**  Message. */
+	id: string,
+	/**  Motif. */
+	motif: string,
+};
+
 /**  Annulation d'un paiement ou d'une avance, toujours motivée. */
 export type DemandeAnnulationPaiement = {
 	/**  Paiement. */
@@ -1751,6 +1791,12 @@ export type DemandeAnnulationVersement = {
 	id: string,
 	/**  Motif ; obligatoire, imprimé sur le reçu. */
 	motif: string,
+};
+
+/**  Texte dont on veut l'aperçu. */
+export type DemandeApercu = {
+	/**  Texte saisi. */
+	texte: string,
 };
 
 /**  Relevé choisi pour un compte. */
@@ -2077,6 +2123,14 @@ export type DemandeDecisionDepense = {
 	motif: string,
 };
 
+/**  Décision d'envoyer un message préparé, son texte relu. */
+export type DemandeDecisionMessage = {
+	/**  Message. */
+	id: string,
+	/**  Texte relu, corrigé au besoin. */
+	texte: string,
+};
+
 /**  Décision motivée sur une remise : refus ou annulation. */
 export type DemandeDecisionRemise = {
 	/**  Remise. */
@@ -2310,6 +2364,12 @@ export type DemandeEnseignant = {
 	actif: boolean,
 };
 
+/**  SMS d'essai vers un numéro saisi. */
+export type DemandeEssai = {
+	/**  Numéro, sous une forme quelconque. */
+	numero: string,
+};
+
 /**  Création d'une évaluation. */
 export type DemandeEvaluation = {
 	/**  Classe. */
@@ -2399,6 +2459,12 @@ export type DemandeFamille = {
 	payeur_nom: string,
 	/**  Parts, une par enfant. */
 	parts: PartEnfant[],
+};
+
+/**  Messages d'un état à lire ; aucun : tous. */
+export type DemandeFile = {
+	/**  État. */
+	etat: EtatMessage | null,
 };
 
 /**  Filière créée par l'école sur des années de l'enseignement technique : une série par année. */
@@ -2715,6 +2781,14 @@ export type DemandeMembreEnseignant = {
 export type DemandeMessagesResponsable = {
 	/**  Responsable. */
 	responsable_id: string,
+};
+
+/**  Modèle reformulé par l'école. */
+export type DemandeModele = {
+	/**  Nature. */
+	nature: NatureMessage,
+	/**  Nouveau modèle ; vide : le modèle livré. */
+	texte: string,
 };
 
 /**  Classeur du modèle à écrire. */
@@ -3156,6 +3230,12 @@ export type DemandeRemiseALEssai = {
 	numero: string,
 };
 
+/**  Message échoué ou expiré à renvoyer. */
+export type DemandeRenvoi = {
+	/**  Message. */
+	id: string,
+};
+
 /**  Réouverture d'une année clôturée, toujours motivée. */
 export type DemandeReouverture = {
 	/**  Année clôturée. */
@@ -3589,6 +3669,16 @@ export type DroitsDiscipline = {
 	annuler: boolean,
 };
 
+/**  Ce que peut faire le compte connecté. */
+export type DroitsMessages = {
+	/**  Régler les modèles, envoyer un SMS d'essai. */
+	configurer: boolean,
+	/**  Renvoyer un message échoué. */
+	renvoyer: boolean,
+	/**  Décider d'un message préparé, annuler un message. */
+	decider: boolean,
+};
+
 /**  Échéance d'une facture. */
 export type Echeance = {
 	/**  Identifiant technique. */
@@ -3913,6 +4003,19 @@ export type ErreurCommande = {
 	detail: string | null,
 };
 
+/**  Raison d'un échec, clé du message affiché. */
+export type ErreurEnvoi = 
+/**  Pas de réseau, ou la clé ne répond pas. */
+"reseau" | 
+/**  Plus de crédit sur la puce. */
+"credit" | 
+/**  Le réseau refuse le numéro. */
+"numero_refuse" | 
+/**  Le numéro ne reçoit plus : injoignable ou invalide. */
+"numero_injoignable" | 
+/**  L'accusé dit que le SMS n'a pas été remis. */
+"non_remis";
+
 /**  Établissement scolaire : l'unité de cloisonnement de toutes les données métier. */
 export type Etablissement = {
 	/**  Identifiant technique. */
@@ -4036,6 +4139,23 @@ export type EtatLigne =
 "avertissement" | 
 /**  Ne s'importe pas. */
 "erreur";
+
+/**  État d'un message. */
+export type EtatMessage = 
+/**  Préparé, il attend qu'une personne le relise et décide de l'envoyer. */
+"a_decider" | 
+/**  Dans la file, il partira à son tour. */
+"en_attente" | 
+/**  Parti ; l'accusé de remise n'est pas revenu. */
+"envoye" | 
+/**  L'accusé de remise est revenu. */
+"remis" | 
+/**  Les essais ont échoué, ou la remise. */
+"echoue" | 
+/**  Annulé avant de partir, avec un motif. */
+"annule" | 
+/**  Resté trop longtemps en attente. */
+"expire";
 
 /**  Évaluation : un devoir ou une composition d'une matière d'une classe. */
 export type Evaluation = {
@@ -4306,6 +4426,26 @@ export type FichierEcrit = {
 	chemin: string,
 	/**  Lignes exportées, en-têtes non comptés. */
 	lignes: number,
+};
+
+/**  La file, telle que l'écran « Messages » la montre. */
+export type FileMessages = {
+	/**  Messages de l'état demandé, les plus récents d'abord. */
+	messages: MessageAffiche[],
+	/**  Nombre de messages de chaque état. */
+	compteurs: CompteEtat[],
+	/**  Canal choisi : `aucun` ou `simule`. */
+	canal: string,
+	/**  Heures d'envoi : « 7-20 ». */
+	fenetre: string,
+	/**  SMS partis depuis le début du mois. */
+	sms_du_mois: number,
+	/**  Plafond du mois ; 0 : sans limite. */
+	plafond: number,
+	/**  Modèles des messages. */
+	modeles: ModeleSms[],
+	/**  Droits de qui consulte. */
+	droits: DroitsMessages,
 };
 
 /**  Fin de l'année courante. */
@@ -5218,6 +5358,58 @@ export type Mention = {
 	libelle: string,
 };
 
+/**  Message de la file. */
+export type Message = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Nature. */
+	nature: NatureMessage,
+	/**  Clé du fait : un même fait ne met en file qu'un message par destinataire. */
+	cle_fait: string,
+	/**  Responsable destinataire ; aucun pour un essai. */
+	responsable_id: string | null,
+	/**  Élève dont il parle. */
+	eleve_id: string | null,
+	/**  Numéro, sous forme canonique. */
+	numero: string,
+	/**  Texte en GSM-7, tel qu'il partira. */
+	texte: string,
+	/**  Nombre de SMS. */
+	sms: number,
+	/**  État. */
+	etat: EtatMessage,
+	/**  Essais d'envoi faits. */
+	essais: number,
+	/**  Pas d'envoi avant cet instant (délai de grâce, attente entre deux essais). */
+	pas_avant: number,
+	/**  Expire à cet instant s'il n'est pas parti. */
+	expire_le: number | null,
+	/**  Référence donnée par le canal à l'envoi, pour retrouver l'accusé. */
+	reference: string | null,
+	/**  Envoi. */
+	envoye_le: number | null,
+	/**  Remise. */
+	remis_le: number | null,
+	/**  Dernière erreur. */
+	erreur: ErreurEnvoi | null,
+	/**  Motif d'une annulation. */
+	motif_annulation: string,
+	/**  Mise en file. */
+	cree_le: number,
+};
+
+/**  Message tel que l'écran le montre. */
+export type MessageAffiche = {
+	/**  Message. */
+	message: Message,
+	/**  Prénoms et nom du responsable destinataire ; vide pour un essai. */
+	destinataire: string,
+	/**  Prénoms et nom de l'élève dont il parle. */
+	eleve: string,
+};
+
 /**  Ce qu'un responsable reçoit, tel que sa fiche le montre. */
 export type MessagesResponsable = {
 	/**  Responsable. */
@@ -5270,6 +5462,20 @@ export type ModePaiement =
 "cheque" | 
 /**  Virement. */
 "virement";
+
+/**  Modèle d'une nature de message, avec son exemple formulé. */
+export type ModeleSms = {
+	/**  Nature. */
+	nature: NatureMessage,
+	/**  Modèle, avec ses variables entre accolades. */
+	texte: string,
+	/**  Variables que le modèle peut employer. */
+	variables: string[],
+	/**  Exemple formulé avec des valeurs longues, tel qu'il partirait. */
+	exemple: string,
+	/**  Nombre de SMS de l'exemple. */
+	sms: number,
+};
 
 /**  Bulletin de paie d'un membre, dans « Mon compte ». */
 export type MonBulletinPaie = {
@@ -5446,6 +5652,21 @@ export type NatureExclusion =
 "temporaire" | 
 /**  L'élève quitte l'école ; la direction peut revenir sur la décision et le réintégrer. */
 "definitive";
+
+/**  Nature d'un message : ce dont il parle. */
+export type NatureMessage = 
+/**  Bulletin à retirer. */
+"bulletin" | 
+/**  Relance d'impayé. */
+"impaye" | 
+/**  Absence du jour. */
+"absence" | 
+/**  Convocation, préparée puis décidée. */
+"convocation" | 
+/**  Avis de sanction, préparé puis décidé. */
+"sanction" | 
+/**  Message d'essai de la clé, vers un numéro saisi. */
+"essai";
 
 /**  Nature d'un mouvement de caisse hors encaissement. */
 export type NatureMouvement = 

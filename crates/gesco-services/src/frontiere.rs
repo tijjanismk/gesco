@@ -104,6 +104,10 @@ use crate::facturation::{
     SituationInscription,
 };
 use crate::fiche_etablissement::{ChampsEtablissement, FicheEtablissement, ServiceEtablissement};
+use crate::file_sms::{
+    ApercuSms, BilanFile, DemandeAnnulationMessage, DemandeApercu, DemandeDecisionMessage,
+    DemandeEssai, DemandeFile, DemandeModele, DemandeRenvoi, FileMessages, ServiceFile,
+};
 use crate::fin_annee::{
     BilanReinscriptions, DecisionsClasse, DemandeClasseFinAnnee, DemandeDecision, DemandePassage,
     DemandeReouverture, FinAnnee, ServiceFinAnnee,
@@ -714,6 +718,8 @@ pub struct Application {
     echecs: EffetsEchoues,
     /// Fichiers d'élèves déposés, le temps de l'assistant d'import (§10).
     imports: Mutex<HashMap<String, FichierImporte>>,
+    /// Canal simulé des SMS : rien ne part, chaque SMS s'écrit dans `sms-simules.txt`.
+    canal_simule: Arc<gesco_sms::CanalSimule>,
 }
 
 macro_rules! contrat {
@@ -1035,6 +1041,13 @@ contrat! {
     responsable_messages_lire(DemandeMessagesResponsable) -> MessagesResponsable;
     responsable_consentement_definir(DemandeConsentement) -> MessagesResponsable;
     numero_remettre_a_l_essai(DemandeRemiseALEssai) -> MessagesResponsable;
+    messages_lire(DemandeFile) -> FileMessages;
+    message_apercu(DemandeApercu) -> ApercuSms;
+    message_decider(DemandeDecisionMessage) -> FileMessages;
+    message_annuler(DemandeAnnulationMessage) -> FileMessages;
+    message_renvoyer(DemandeRenvoi) -> FileMessages;
+    message_modele_definir(DemandeModele) -> FileMessages;
+    message_essai_envoyer(DemandeEssai) -> FileMessages;
     sanction_noter(DemandeSanction) -> DossierDiscipline;
     sanction_annuler(DemandeAnnulationSanction) -> DossierDiscipline;
     journal_archive_verifier(DemandeVerificationArchive) -> VerificationArchive;
@@ -1052,6 +1065,9 @@ impl Application {
         espace.preparer()?;
         let cles = EspaceCles::nouveau(espace.cles(), options.trousseau);
         let atelier = Arc::new(AtelierDocuments::nouveau(&espace)?);
+        let canal_simule = Arc::new(gesco_sms::CanalSimule::nouveau(Some(
+            espace.racine().join("sms-simules.txt"),
+        )));
         let application = Self {
             espace,
             cles,
@@ -1066,6 +1082,7 @@ impl Application {
             tentatives: Tentatives::default(),
             echecs: EffetsEchoues::default(),
             imports: Mutex::new(HashMap::new()),
+            canal_simule,
         };
         if let EtatCles::Ouvertes(cle) = application.cles.preparer()? {
             let ouverte = application.ouvrir(cle).await?;
@@ -1240,6 +1257,25 @@ impl Application {
         }
         self.fermer_base().await;
         Ok(())
+    }
+
+    /// Le canal simulé des SMS, que les essais font échouer à volonté.
+    pub fn canal_simule(&self) -> Arc<gesco_sms::CanalSimule> {
+        Arc::clone(&self.canal_simule)
+    }
+
+    /// Un passage de la file des SMS (SPEC_PHASE_5 §3) : le poste l'appelle toutes les quelques
+    /// secondes ; sans base ouverte ni établissement, il ne fait rien.
+    pub async fn traiter_file_sms(&self) -> Resultat<BilanFile> {
+        let Some(o) = self.etat.read().await.clone() else {
+            return Ok(BilanFile::default());
+        };
+        let Some(fiche) = Self::installe(&o.noyau).await? else {
+            return Ok(BilanFile::default());
+        };
+        ServiceFile::nouveau(&o.noyau)
+            .traiter(fiche.id, self.canal_simule.as_ref())
+            .await
     }
 
     /// Tâches périodiques, appelées par le binaire chaque minute : sauvegarde à l'intervalle
@@ -4425,6 +4461,66 @@ impl Application {
         let ouverte = appel.ouverte()?;
         appel.session()?;
         crate::archive_journal::verifier_fichier(&ouverte.cle, Path::new(&entree.chemin))
+    }
+
+    async fn messages_lire(&self, appel: Appel, entree: DemandeFile) -> Resultat<FileMessages> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn message_decider(
+        &self,
+        appel: Appel,
+        entree: DemandeDecisionMessage,
+    ) -> Resultat<FileMessages> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .decider(appel.session()?, &entree)
+            .await
+    }
+
+    async fn message_annuler(
+        &self,
+        appel: Appel,
+        entree: DemandeAnnulationMessage,
+    ) -> Resultat<FileMessages> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .annuler(appel.session()?, &entree)
+            .await
+    }
+
+    async fn message_renvoyer(
+        &self,
+        appel: Appel,
+        entree: DemandeRenvoi,
+    ) -> Resultat<FileMessages> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .renvoyer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn message_modele_definir(
+        &self,
+        appel: Appel,
+        entree: DemandeModele,
+    ) -> Resultat<FileMessages> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .definir_modele(appel.session()?, &entree)
+            .await
+    }
+
+    async fn message_essai_envoyer(
+        &self,
+        appel: Appel,
+        entree: DemandeEssai,
+    ) -> Resultat<FileMessages> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .essai(appel.session()?, &entree)
+            .await
+    }
+
+    async fn message_apercu(&self, _appel: Appel, entree: DemandeApercu) -> Resultat<ApercuSms> {
+        Ok(crate::file_sms::apercu(&entree))
     }
 
     async fn responsable_messages_lire(

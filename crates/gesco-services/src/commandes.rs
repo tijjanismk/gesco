@@ -418,6 +418,17 @@ pub const COMMANDES: &[Commande] = &[
         Permission::STUDENTS_UPDATE,
     ),
     Commande::permise("numero_remettre_a_l_essai", Permission::STUDENTS_UPDATE),
+    // File des SMS (SPEC_PHASE_5 §3).
+    Commande::permise("messages_lire", Permission::NOTIFICATIONS_SEND),
+    Commande::permise("message_apercu", Permission::NOTIFICATIONS_SEND),
+    Commande::permise("message_decider", Permission::NOTIFICATIONS_SEND_MANUAL),
+    Commande::permise("message_annuler", Permission::NOTIFICATIONS_SEND_MANUAL),
+    Commande::permise("message_renvoyer", Permission::NOTIFICATIONS_SEND),
+    Commande::permise(
+        "message_modele_definir",
+        Permission::NOTIFICATIONS_CONFIGURE,
+    ),
+    Commande::permise("message_essai_envoyer", Permission::NOTIFICATIONS_CONFIGURE),
     // Archive du journal d'audit (blueprint §12.4) : elle s'écrit à la clôture ; on la vérifie.
     Commande::permise("journal_archive_verifier", Permission::CORE_AUDIT_READ),
     // Absences par séance (SPEC_VERSION_1_1 §1, T-71), au choix de l'école.

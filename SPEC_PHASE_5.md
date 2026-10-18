@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 5 — moteur de notification, canal SMS par clé modem GSM, relances d'impayés, avis de bulletin, absences du jour, remise des documents et convocations, écran guichet, consultation par SMS entrant
-**Statut** : v1.1 — engagée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 (toutes les recommandations retenues)
+**Statut** : v1.3 — engagée le 17 octobre 2026 après les réponses du porteur du projet à T-74 à T-77 (toutes les recommandations retenues)
 **Documents parents** : `PROJECT_BLUEPRINT.md` (§3.10, §8.5bis, §19.5, §22.2, §25.3 à §25.8), `SPEC_PHASE_2.md` (responsables, téléphones), `SPEC_PHASE_3.md` (échéances, impayés), `SPEC_PHASE_4.md` (absences, bulletins publiés), `SPEC_VERSION_1_1.md` (discipline), `docs/questions-terrain.md` (T-74 à T-77)
 **Date** : 17 octobre 2026
 
@@ -164,11 +164,11 @@ Droits déjà déclarés, utilisés pour la première fois : `notifications:conf
 7. Code d'accès et consultation par SMS entrant
 8. Droits et rôles en version 10, tableau de bord (file, crédit, bulletins non retirés), navigation, captures, école d'essai, validation
 
-Les étapes 1 à 6 se font avec le canal simulé ; l'étape 3 se valide avec une vraie clé sur le poste de développement, et l'étape 7 attend que l'envoi y soit stable.
+**Décision du porteur du projet (17 octobre 2026)** : toute la phase se fait avec le canal simulé ; ce qui exige le matériel est simulé ou différé. L'étape 3 écrit le pilotage de la clé et le vérifie contre un modem simulé qui répond aux commandes AT ; l'essai sur une vraie clé, le crédit lu par USSD sur un vrai réseau et l'envoi réel de l'étape 7 attendent qu'une clé soit achetée, et sont notés comme différés.
 
 ## 12. Ce qu'il faut du porteur du projet
 
-- Une **clé modem GSM USB** et une **puce prépayée** pour l'essai réel de l'étape 3 ; à défaut, la phase avance avec le canal simulé jusqu'à l'étape 6. Avant d'acheter en quantité, n'en essayer qu'une (C-1).
+- Plus tard, une **clé modem GSM USB** et une **puce prépayée** pour l'essai réel, différé par décision du 17 octobre 2026. Avant d'acheter en quantité, n'en essayer qu'une (C-1).
 - Le **code USSD du solde** de l'opérateur de la puce, s'il le connaît.
 - Le numéro de la phase dans la version : proposé, une préversion 1.2.0 si une école veut les SMS avant la fin de la version 2.
 
@@ -178,3 +178,5 @@ Les étapes 1 à 6 se font avec le canal simulé ; l'étape 3 se valide avec une
 |---|---|---|
 | v1.0 | 2026-10-17 | Création après les réponses du porteur du projet du 17 octobre 2026 (T-74 à T-77) : clé modem GSM, trois messages automatiques (bulletin, impayé, absence du jour), convocations et sanctions toujours décidées par une personne, français sans accents, consultation par SMS entrant en fin de phase |
 | v1.1 | 2026-10-17 | Étape 1 : noms des réglages à un seul point, comme les autres (`sms.auto_bulletin`…) ; heures d'envoi en un réglage `sms.fenetre_envoi` ; un numéro pas encore vérifié n'affiche pas d'état sur la fiche |
+| v1.2 | 2026-10-17 | Décision du porteur du projet : tout en canal simulé, le matériel différé (essai réel de la clé, crédit par USSD, consultation entrante sur un vrai réseau) |
+| v1.3 | 2026-10-18 | Étape 2 : canal choisi par le réglage `sms.canal` (`aucun` par défaut, `simule`) ; modèles dans les réglages `sms.modele_*`, reformulés depuis l'écran « Messages » ; avis de sanction préparé (nature `sanction`, consentement des convocations) ; SMS d'essai dans la file ; le passage de la file n'écrit pas au journal d'audit, chaque message garde son envoi, sa remise et son erreur |

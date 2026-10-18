@@ -21,6 +21,7 @@ pub mod enseignants;
 pub mod etablissement;
 pub mod evaluations;
 pub mod factures;
+pub mod file_sms;
 pub mod fournisseurs;
 pub mod inscriptions;
 pub mod licence;
