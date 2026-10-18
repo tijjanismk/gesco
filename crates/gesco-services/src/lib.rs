@@ -44,6 +44,7 @@ pub mod frais;
 pub mod frontiere;
 pub mod fusion;
 pub mod garde;
+pub mod guichet;
 pub mod heures;
 pub mod horloge;
 pub mod image;

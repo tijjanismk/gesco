@@ -1,7 +1,7 @@
 import type { Cle } from "../i18n";
 import { ACCES, type NomCommande } from "../types/acces";
 
-export type IdSection = "accueil" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
+export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
 
 interface Section {
   id: IdSection;
@@ -15,6 +15,7 @@ interface Section {
  *  la nourrit ; masquer n'est qu'un confort, la garde reste la seule décision (R-01). */
 const SECTIONS: readonly Section[] = [
   { id: "accueil", libelle: "nav.accueil", groupe: "nav.groupe.general", commande: null },
+  { id: "guichet", libelle: "nav.guichet", groupe: "nav.groupe.scolarite", commande: "guichet_lire" },
   { id: "eleves", libelle: "nav.eleves", groupe: "nav.groupe.scolarite", commande: "eleves_rechercher" },
   { id: "inscriptions", libelle: "nav.inscriptions", groupe: "nav.groupe.scolarite", commande: "inscriptions_lister" },
   { id: "notes", libelle: "nav.notes", groupe: "nav.groupe.scolarite", commande: "evaluation_creer" },

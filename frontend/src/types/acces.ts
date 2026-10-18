@@ -295,6 +295,7 @@ export const ACCES = {
   convocation_annuler: { type: "permission", permission: "convocations:update" },
   convocation_clore: { type: "permission", permission: "convocations:close" },
   convocation_billet_produire: { type: "permission", permission: "convocations:create" },
+  guichet_lire: { type: "permission", permission: "students:read" },
   journal_archive_verifier: { type: "permission", permission: "core:audit:read" },
   absences_seances_lire: { type: "permission", permission: "attendance:create" },
   absences_seances_enregistrer: { type: "permission", permission: "attendance:create" },

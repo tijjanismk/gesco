@@ -451,6 +451,8 @@ pub const COMMANDES: &[Commande] = &[
         "convocation_billet_produire",
         Permission::CONVOCATIONS_CREATE,
     ),
+    // Écran guichet (SPEC_PHASE_5 §8).
+    Commande::permise("guichet_lire", Permission::STUDENTS_READ),
     // Archive du journal d'audit (blueprint §12.4) : elle s'écrit à la clôture ; on la vérifie.
     Commande::permise("journal_archive_verifier", Permission::CORE_AUDIT_READ),
     // Absences par séance (SPEC_VERSION_1_1 §1, T-71), au choix de l'école.

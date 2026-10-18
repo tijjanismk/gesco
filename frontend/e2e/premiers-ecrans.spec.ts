@@ -1551,7 +1551,9 @@ test("phase 6 : heures des vacataires du mois, saisies au clavier, visées puis 
   await ligne.getByRole("textbox", { name: /Observation/ }).fill("Cours du 21 manqué, rattrapé le 28 pour moitié");
   await ligne.getByRole("textbox", { name: /Heures faites/ }).fill("22,5");
   await ligne.getByRole("textbox", { name: /Heures faites/ }).press("Enter");
-  await expect(ligne.getByRole("cell", { name: /56.250.F/ })).toBeVisible();
+  // Le montant se recalcule après l'enregistrement de la ligne : sur un poste chargé, plus de cinq
+  // secondes.
+  await expect(ligne.getByRole("cell", { name: /56.250.F/ })).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: texte("heures.viser") }).click();
   await expect(page.getByRole("status").filter({ hasText: texte("heures.mois_vise") })).toBeVisible();
   await expect(ligne.getByText(texte("heures.visee"))).toBeVisible();
@@ -2432,4 +2434,17 @@ test("phase 5 : un responsable est convoqué par le billet confié à l'élève 
   await capturer("124-convocations");
   await page.getByRole("button", { name: texte("convocations.imprimer") }).click();
   await expect(page.locator("iframe")).toBeVisible({ timeout: 30_000 });
+});
+
+test("phase 5 : au guichet, la mère de Fatoumata voit toute sa famille, ce qu'elle doit et ce qui l'attend", async () => {
+  await allerA("nav.guichet");
+  await page.locator("#guichet-recherche").fill("Fatoumata Diallo");
+  await page.getByRole("button", { name: /^Fatoumata Diallo · / }).first().click();
+  await expect(page.getByRole("heading", { name: texte("guichet.famille"), exact: true })).toBeVisible();
+  await expect(page.getByText("Kadiatou Diallo")).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Fatoumata Diallo" })).toBeVisible();
+  await expect(page.getByText(/La famille doit d'échu/)).toBeVisible();
+  // Ses bulletins des 1er et 2e trimestres n'ont jamais été retirés.
+  await expect(page.getByText(texte("guichet.bulletin").replace("{eleve}", "Fatoumata Diallo").replace("{periode}", "1er trimestre"))).toBeVisible();
+  await capturer("125-guichet");
 });

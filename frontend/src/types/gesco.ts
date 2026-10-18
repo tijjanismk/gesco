@@ -61,6 +61,18 @@ export type AbsenceAffichee = {
 	matricule: string,
 };
 
+/**  Absence récente non justifiée. */
+export type AbsenceGuichet = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Prénoms et nom de l'élève. */
+	eleve: string,
+	/**  Jour, `AAAA-MM-JJ`. */
+	date: string,
+	/**  Matin ou après-midi. */
+	demi_journee: DemiJournee,
+};
+
 /**  Absence ou retard d'un membre du personnel, un jour. */
 export type AbsencePersonnel = {
 	/**  Identifiant technique. */
@@ -1636,6 +1648,8 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	convocation_billet_produire: Signature<DemandeConvocationId, DocumentAffiche>,
 	/**  Signature de la commande du même nom. */
+	guichet_lire: Signature<DemandeGuichet, Guichet>,
+	/**  Signature de la commande du même nom. */
 	sanction_noter: Signature<DemandeSanction, DossierDiscipline>,
 	/**  Signature de la commande du même nom. */
 	sanction_annuler: Signature<DemandeAnnulationSanction, DossierDiscipline>,
@@ -2685,6 +2699,12 @@ export type DemandeGrille = {
 export type DemandeGrillesAnnee = {
 	/**  Année scolaire. */
 	annee_id: string,
+};
+
+/**  Élève cherché au guichet. */
+export type DemandeGuichet = {
+	/**  Élève. */
+	eleve_id: string,
 };
 
 /**  Affectation désignée. */
@@ -3898,6 +3918,18 @@ export type DroitsDiscipline = {
 };
 
 /**  Ce que peut faire le compte connecté. */
+export type DroitsGuichet = {
+	/**  Encaisser. */
+	encaisser: boolean,
+	/**  Remettre et faire signer les bulletins. */
+	remettre: boolean,
+	/**  Justifier les absences. */
+	justifier: boolean,
+	/**  Noter la suite d'une convocation. */
+	convocations: boolean,
+};
+
+/**  Ce que peut faire le compte connecté. */
 export type DroitsMessages = {
 	/**  Régler les modèles, envoyer un SMS d'essai. */
 	configurer: boolean,
@@ -4134,6 +4166,26 @@ export type EnCongeDuJour = {
 	type_libelle: string,
 	/**  Dernier jour du congé. */
 	fin: string,
+};
+
+/**  Un enfant de la famille, avec ce qu'il doit. */
+export type EnfantGuichet = {
+	/**  Élève. */
+	eleve_id: string,
+	/**  Inscription de l'année en cours. */
+	inscription_id: string,
+	/**  Prénoms et nom. */
+	nom: string,
+	/**  Matricule de l'école. */
+	matricule: string,
+	/**  Classe. */
+	classe: string,
+	/**  Reste dû sur les échéances passées. */
+	echu: Montant,
+	/**  Reste dû sur toute l'année. */
+	reste: Montant,
+	/**  Plus ancienne échéance passée non soldée, `AAAA-MM-JJ`. */
+	echu_depuis: string | null,
 };
 
 /**  Élève déjà lié à un responsable trouvé. */
@@ -4894,6 +4946,28 @@ export type GroupeMatiere =
 "scientifique" | 
 /**  Le reste : éducation physique, arts, développement de la personne. */
 "autre";
+
+/**  La famille au guichet. */
+export type Guichet = {
+	/**  Élève cherché. */
+	eleve_id: string,
+	/**  Ses responsables. */
+	responsables: ResponsableGuichet[],
+	/**  L'élève cherché d'abord, puis ses frères et sœurs inscrits cette année. */
+	enfants: EnfantGuichet[],
+	/**  Total dû d'échu par la famille. */
+	echu_famille: Montant,
+	/**  Bulletins à remettre, non retirés, ou remis sans signature. */
+	documents: LigneRemise[],
+	/**  Convocations en cours. */
+	convocations: ConvocationAffichee[],
+	/**  Absences des trente derniers jours, non justifiées. */
+	absences: AbsenceGuichet[],
+	/**  Messages envoyés à la famille ces trente derniers jours. */
+	messages: MessageAffiche[],
+	/**  Droits de qui consulte. */
+	droits: DroitsGuichet,
+};
 
 /**  Impayé d'une facture à une date. */
 export type Impaye = {
@@ -6945,6 +7019,16 @@ export type ResponsableDeLEleve = {
 	identite: Personne,
 	/**  Qualités du lien. */
 	qualites: Qualites,
+};
+
+/**  Responsable de la famille. */
+export type ResponsableGuichet = {
+	/**  Prénoms et nom. */
+	nom: string,
+	/**  Téléphones. */
+	telephones: string[],
+	/**  Lien avec l'élève cherché. */
+	lien: string,
 };
 
 /**  Responsable d'un élève, tel que la remise le propose. */

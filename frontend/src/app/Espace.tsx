@@ -43,6 +43,7 @@ import { Personnel } from "../modules/rh/Personnel";
 import { Paie } from "../modules/paie/Paie";
 import { Messages } from "../modules/communication/Messages";
 import { Convocations } from "../modules/scolarite/Convocations";
+import { Guichet } from "../modules/scolarite/Guichet";
 import { Remises } from "../modules/scolarite/Remises";
 import { commandeAutorisee, GROUPES_REPLIES, type IdSection, sectionsAutorisees } from "./navigation";
 import { RechercheGlobale } from "./RechercheGlobale";
@@ -279,6 +280,8 @@ function Contenu({
       return <Messages />;
     case "remises":
       return <Remises />;
+    case "guichet":
+      return <Guichet />;
     case "convocations":
       return <Convocations />;
     case "depenses":

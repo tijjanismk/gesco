@@ -127,6 +127,7 @@ use crate::frais::{
 };
 use crate::fusion::{ApercuFusion, DemandeFusion, ServiceFusion};
 use crate::garde::{Garde, PorteeTotale};
+use crate::guichet::{DemandeGuichet, Guichet, ServiceGuichet};
 use crate::heures::{
     DemandeDeverrouillageHeures, DemandeMois, DemandeSaisieHeures, DemandeVisaHeures, EtatHeures,
     ServiceHeures,
@@ -1108,6 +1109,7 @@ contrat! {
     convocation_annuler(DemandeAnnulationConvocation) -> ConvocationAffichee;
     convocation_clore(DemandeClotureConvocation) -> ConvocationAffichee;
     convocation_billet_produire(DemandeConvocationId) -> DocumentAffiche;
+    guichet_lire(DemandeGuichet) -> Guichet;
     sanction_noter(DemandeSanction) -> DossierDiscipline;
     sanction_annuler(DemandeAnnulationSanction) -> DossierDiscipline;
     journal_archive_verifier(DemandeVerificationArchive) -> VerificationArchive;
@@ -4725,6 +4727,12 @@ impl Application {
             pdf: base64(&produit.pdf),
             document: produit.document,
         })
+    }
+
+    async fn guichet_lire(&self, appel: Appel, entree: DemandeGuichet) -> Resultat<Guichet> {
+        ServiceGuichet::nouveau(&appel.ouverte()?.noyau)
+            .famille(appel.session()?, &entree)
+            .await
     }
 
     async fn sms_ports_lister(&self, _appel: Appel, _entree: ()) -> Resultat<Vec<PortDisponible>> {
