@@ -2369,3 +2369,32 @@ test("phase 5 : l'école essaie l'envoi sans clé ; le SMS d'essai part à son t
   await expect(page.getByRole("heading", { name: `${texte("messages.nature.essai")} vers +223 76 00 00 99` })).toBeVisible();
   await capturer("121-file-des-sms");
 });
+
+test("phase 5 : la clé modem s'essaie, garde son port, envoie et lit le crédit de sa puce", async () => {
+  await allerA("nav.parametres");
+  const enregistrer = async (id: string) => {
+    await page.locator(`[id="${id}"]`).locator("xpath=ancestor::div[1]").getByRole("button", { name: texte("commun.enregistrer") }).click();
+  };
+  await page.locator('[id="param-sms.canal"]').selectOption("modem");
+  await enregistrer("param-sms.canal");
+  await page.locator('[id="param-sms.ussd_solde"]').fill("#111#");
+  await enregistrer("param-sms.ussd_solde");
+  await expect(page.locator('[id="param-sms.ussd_solde"]')).toHaveValue("#111#");
+
+  await allerA("nav.messages");
+  await expect(page.getByText(texte("messages.canal_modem_sans_port"))).toBeVisible();
+  await page.locator("#cle-port").selectOption("simule");
+  await page.getByRole("button", { name: texte("messages.essayer_cle") }).click();
+  await expect(page.getByText("Clé trouvée : SIMULE Cle GSM simulee")).toBeVisible();
+  await expect(page.getByText("Crédit : Votre solde est de 5 000 FCFA.")).toBeVisible();
+  await page.getByRole("button", { name: texte("messages.choisir_port") }).click();
+  await expect(page.getByText(texte("messages.canal_modem_simulee"))).toBeVisible();
+
+  await page.locator("#message-essai-numero").fill("76 00 00 98");
+  await page.getByRole("button", { name: texte("messages.essai_envoyer") }).click();
+  const ligne = page.getByRole("row").filter({ hasText: "+223 76 00 00 98" });
+  await expect(ligne.getByText(texte("messages.etat_message.remis"))).toBeVisible({ timeout: 20_000 });
+  // Le crédit est lu au premier passage par la clé, avant l'envoi de l'essai.
+  await expect(page.getByText(/Crédit de la puce : 5\s000\sF/)).toBeVisible();
+  await capturer("122-cle-modem");
+});

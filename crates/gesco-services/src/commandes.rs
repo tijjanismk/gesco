@@ -429,6 +429,12 @@ pub const COMMANDES: &[Commande] = &[
         Permission::NOTIFICATIONS_CONFIGURE,
     ),
     Commande::permise("message_essai_envoyer", Permission::NOTIFICATIONS_CONFIGURE),
+    // Clé modem (SPEC_PHASE_5 §4).
+    Commande::permise("sms_ports_lister", Permission::NOTIFICATIONS_CONFIGURE),
+    Commande::permise("sms_cle_essayer", Permission::NOTIFICATIONS_CONFIGURE),
+    Commande::permise("sms_port_choisir", Permission::NOTIFICATIONS_CONFIGURE),
+    Commande::permise("sms_credit_lire", Permission::NOTIFICATIONS_CONFIGURE),
+    Commande::permise("sms_reprendre", Permission::NOTIFICATIONS_CONFIGURE),
     // Archive du journal d'audit (blueprint §12.4) : elle s'écrit à la clôture ; on la vérifie.
     Commande::permise("journal_archive_verifier", Permission::CORE_AUDIT_READ),
     // Absences par séance (SPEC_VERSION_1_1 §1, T-71), au choix de l'école.

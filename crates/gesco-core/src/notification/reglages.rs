@@ -10,8 +10,16 @@ pub const PREFIXE: &str = "sms.";
 pub const FENETRE_DEFAUT: &str = "7-20";
 
 /// Canaux d'envoi : aucun (rien ne part), simulé (les SMS s'écrivent dans un journal du poste,
-/// rien ne part réellement).
-pub const CANAUX: [&str; 2] = ["aucun", "simule"];
+/// rien ne part réellement), la clé modem GSM branchée sur le poste.
+pub const CANAUX: [&str; 3] = ["aucun", "simule", "modem"];
+
+/// Vrai pour un code USSD lisible : chiffres, `*` et `#`, vingt caractères au plus.
+fn code_ussd_valide(code: &str) -> bool {
+    code.len() <= 20
+        && code
+            .bytes()
+            .all(|b| b.is_ascii_digit() || b == b'*' || b == b'#')
+}
 
 /// Longueur maximale de la signature, le nom de l'école en tête de chaque SMS.
 pub const SIGNATURE_MAX: usize = 20;
@@ -48,6 +56,12 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> Option<bool> {
         ("sms.impaye_montant_min", ValeurParametre::Entier(n)) => entre(n, 0, 1_000_000_000),
         ("sms.absence_delai_grace_min", ValeurParametre::Entier(n)) => entre(n, 0, 240),
         ("sms.canal", ValeurParametre::Texte(t)) => !CANAUX.contains(&t.as_str()),
+        ("sms.port", ValeurParametre::Texte(t)) => t.chars().count() > 40,
+        ("sms.ussd_solde", ValeurParametre::Texte(t)) => !code_ussd_valide(t.trim()),
+        ("sms.seuil_credit", ValeurParametre::Entier(n)) => entre(n, 0, 1_000_000),
+        ("sms.numero_alerte", ValeurParametre::Texte(t)) => {
+            !t.trim().is_empty() && crate::scolarite::telephone::normaliser(t).is_err()
+        }
         (cle, ValeurParametre::Texte(t)) if super::modele::nature_du_reglage(cle).is_some() => {
             super::modele::nature_du_reglage(cle)
                 .is_none_or(|n| super::modele::verifier(n, t).is_err())
@@ -116,6 +130,16 @@ mod tests {
             ),
             Some(true)
         );
+        let texte = |t: &str| ValeurParametre::Texte(t.to_owned());
+        assert_eq!(hors_bornes("sms.canal", &texte("modem")), Some(false));
+        assert_eq!(hors_bornes("sms.ussd_solde", &texte("#111#")), Some(false));
+        assert_eq!(hors_bornes("sms.ussd_solde", &texte("solde")), Some(true));
+        assert_eq!(hors_bornes("sms.numero_alerte", &texte("")), Some(false));
+        assert_eq!(
+            hors_bornes("sms.numero_alerte", &texte("76 12 34 56")),
+            Some(false)
+        );
+        assert_eq!(hors_bornes("sms.numero_alerte", &texte("12")), Some(true));
         assert_eq!(hors_bornes("depense.seuil_accord", &e(0)), None);
     }
 }

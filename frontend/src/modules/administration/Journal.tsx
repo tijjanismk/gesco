@@ -76,6 +76,7 @@ const ENTITES: Record<string, Cle> = {
   depense: "entite.depense",
   element_paie: "entite.element_paie",
   engagement: "entite.engagement",
+  etat_canal_sms: "entite.etat_canal_sms",
   exclusion: "entite.exclusion",
   facture_fournisseur: "entite.facture_fournisseur",
   fonction_personnel: "entite.fonction_personnel",

@@ -256,6 +256,10 @@ pub enum TypeEvenement {
     MessageRenvoye,
     /// L'école reformule le modèle d'un type de message.
     ModeleMessageModifie,
+    /// L'école choisit le port de sa clé modem (SPEC_PHASE_5 §4).
+    PortSmsChoisi,
+    /// La file des SMS, arrêtée faute de crédit, repart à la main.
+    FileSmsReprise,
 }
 
 impl TypeEvenement {
@@ -382,6 +386,8 @@ impl TypeEvenement {
         Self::MessageAnnule,
         Self::MessageRenvoye,
         Self::ModeleMessageModifie,
+        Self::PortSmsChoisi,
+        Self::FileSmsReprise,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -508,6 +514,8 @@ impl TypeEvenement {
             Self::MessageAnnule => "MessageAnnule",
             Self::MessageRenvoye => "MessageRenvoye",
             Self::ModeleMessageModifie => "ModeleMessageModifie",
+            Self::PortSmsChoisi => "PortSmsChoisi",
+            Self::FileSmsReprise => "FileSmsReprise",
         }
     }
 
@@ -635,7 +643,9 @@ impl TypeEvenement {
             | Self::MessageDecide
             | Self::MessageAnnule
             | Self::MessageRenvoye
-            | Self::ModeleMessageModifie => 1,
+            | Self::ModeleMessageModifie
+            | Self::PortSmsChoisi
+            | Self::FileSmsReprise => 1,
         }
     }
 

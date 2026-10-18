@@ -252,6 +252,20 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
             true,
         ),
         p("sms.signature", ValeurParametre::Texte(String::new()), true),
+        // SPEC_PHASE_5 §4 : la clé modem, son port, le code USSD du solde de son opérateur ; sous
+        // 500 F, la file s'arrête et le numéro d'alerte est prévenu.
+        p("sms.port", ValeurParametre::Texte(String::new()), true),
+        p(
+            "sms.ussd_solde",
+            ValeurParametre::Texte(String::new()),
+            true,
+        ),
+        p("sms.seuil_credit", ValeurParametre::Entier(500), true),
+        p(
+            "sms.numero_alerte",
+            ValeurParametre::Texte(String::new()),
+            true,
+        ),
         p(
             "sms.fenetre_envoi",
             ValeurParametre::Texte(crate::notification::reglages::FENETRE_DEFAUT.to_owned()),

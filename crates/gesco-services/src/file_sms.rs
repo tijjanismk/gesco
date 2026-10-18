@@ -6,15 +6,17 @@
 
 use gesco_core::commun::{DateCivile, Horodatage, Id};
 use gesco_core::core::{Etablissement, Operation, Permission, TypeEvenement};
+use gesco_core::notification::canal::texte_alerte;
 use gesco_core::notification::message::apres_erreur;
 use gesco_core::notification::{
-    ErreurEnvoi, EtatMessage, Joignabilite, Message, NatureMessage, gsm7, modele, reglages,
+    ErreurEnvoi, EtatCanal, EtatMessage, Joignabilite, Message, NatureMessage, gsm7, modele,
+    reglages,
 };
 use gesco_core::scolarite::{Eleve, Responsable, telephone};
 use gesco_db::depots::{etablissement, file_sms, messages, parametre, personnes, role};
 use gesco_db::unite::Durabilite;
 use gesco_db::{Connexion, Contexte, nouvel_id};
-use gesco_sms::Canal;
+use gesco_sms::{Canal, CanalModem};
 use serde::{Deserialize, Serialize};
 
 use crate::erreur::{ErreurService, Resultat};
@@ -29,6 +31,50 @@ fn regle(cle: &'static str) -> ErreurService {
 pub const PARAMETRE_CANAL: &str = "sms.canal";
 /// Réglage de la signature, le nom de l'école en tête des SMS.
 pub const PARAMETRE_SIGNATURE: &str = "sms.signature";
+
+/// Réglage du port de la clé modem.
+pub const PARAMETRE_PORT: &str = "sms.port";
+/// Réglage du code USSD du solde.
+pub const PARAMETRE_USSD: &str = "sms.ussd_solde";
+/// Réglage du seuil de crédit sous lequel la file s'arrête.
+pub const PARAMETRE_SEUIL_CREDIT: &str = "sms.seuil_credit";
+/// Réglage du numéro prévenu quand la file s'arrête.
+pub const PARAMETRE_NUMERO_ALERTE: &str = "sms.numero_alerte";
+
+/// Les canaux que le poste sait ouvrir : le canal simulé, et la clé modem d'un port.
+pub trait SourceCanaux: Sync {
+    /// Le canal simulé.
+    fn simule(&self) -> &dyn Canal;
+    /// La clé modem de ce port ; aucune pour un port vide.
+    fn modem(&self, port: &str) -> Option<std::sync::Arc<CanalModem>>;
+}
+
+/// Port où brancher la clé.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct PortDisponible {
+    /// Nom du port : `COM3`, ou `simule`.
+    pub nom: String,
+    /// Vrai pour la clé simulée des compilations de développement.
+    pub simule: bool,
+}
+
+/// Port de la clé simulée : il répond aux commandes AT comme une clé, sans rien envoyer.
+pub const PORT_SIMULE: &str = "simule";
+
+/// Ports série du poste ; la clé simulée en plus dans une compilation de développement.
+pub fn ports_disponibles() -> Vec<PortDisponible> {
+    let mut ports: Vec<PortDisponible> = gesco_sms::at::ports_du_poste()
+        .into_iter()
+        .map(|nom| PortDisponible { nom, simule: false })
+        .collect();
+    if cfg!(debug_assertions) {
+        ports.push(PortDisponible {
+            nom: PORT_SIMULE.to_owned(),
+            simule: true,
+        });
+    }
+    ports
+}
 
 /// Messages listés au plus.
 const LISTE_MAX: i64 = 200;
@@ -86,8 +132,16 @@ pub struct FileMessages {
     pub messages: Vec<MessageAffiche>,
     /// Nombre de messages de chaque état.
     pub compteurs: Vec<CompteEtat>,
-    /// Canal choisi : `aucun` ou `simule`.
+    /// Canal choisi : `aucun`, `simule` ou `modem`.
     pub canal: String,
+    /// Port de la clé modem.
+    pub port: String,
+    /// État du canal : crédit, arrêt, clé absente.
+    pub etat_canal: EtatCanal,
+    /// Seuil de crédit sous lequel la file s'arrête ; 0 : jamais.
+    pub seuil_credit: i64,
+    /// Vrai si l'école a donné le code USSD du solde.
+    pub credit_lisible: bool,
     /// Heures d'envoi : « 7-20 ».
     pub fenetre: String,
     /// SMS partis depuis le début du mois.
@@ -177,6 +231,34 @@ pub struct BilanFile {
     pub remis: u32,
     /// Messages échoués.
     pub echoues: u32,
+    /// Vrai si la clé ne répondait pas.
+    pub cle_absente: bool,
+    /// Vrai si la file est arrêtée faute de crédit.
+    pub arretee: bool,
+}
+
+/// Port de la clé modem.
+#[derive(Debug, Deserialize, specta::Type)]
+pub struct DemandePort {
+    /// Nom du port : `COM3`.
+    pub port: String,
+}
+
+/// Ce que l'essai de la clé a appris.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct EssaiCle {
+    /// Fabricant.
+    pub fabricant: String,
+    /// Modèle.
+    pub modele: String,
+    /// Réseau sur lequel la clé est inscrite.
+    pub operateur: String,
+    /// Force du signal, de 0 à 100.
+    pub signal: Option<u8>,
+    /// Crédit lu, si l'école a donné le code USSD.
+    pub credit: Option<i64>,
+    /// Réponse de l'opérateur au code USSD.
+    pub credit_texte: String,
 }
 
 /// Message à mettre en file, formulé.
@@ -387,6 +469,14 @@ impl<'n> ServiceFile<'n> {
             messages: affiches,
             compteurs,
             canal: parametre::texte(&mut cnx, PARAMETRE_CANAL, "aucun", &contexte).await?,
+            port: parametre::texte(&mut cnx, PARAMETRE_PORT, "", &contexte).await?,
+            etat_canal: Self::etat_canal(&mut cnx, &contexte).await?,
+            seuil_credit: parametre::entier(&mut cnx, PARAMETRE_SEUIL_CREDIT, 500, &contexte)
+                .await?,
+            credit_lisible: !parametre::texte(&mut cnx, PARAMETRE_USSD, "", &contexte)
+                .await?
+                .trim()
+                .is_empty(),
             fenetre: parametre::texte(
                 &mut cnx,
                 "sms.fenetre_envoi",
@@ -688,13 +778,60 @@ impl<'n> ServiceFile<'n> {
         Ok(())
     }
 
-    /// Un passage de la file pour un établissement : expire ce qui a trop attendu, reçoit les
-    /// accusés, envoie ce dont le tour est venu dans les heures d'envoi, au débit et sous le
-    /// plafond réglés. Sans canal (réglage « aucun »), rien ne part.
+    /// État du canal, l'état neuf s'il n'a jamais été enregistré.
+    async fn etat_canal(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<EtatCanal> {
+        Ok(file_sms::etat_canal(cnx, contexte).await?)
+    }
+
+    /// Prévient le numéro d'alerte que la file s'arrête, directement par la clé, s'il reste de
+    /// quoi envoyer ; sans numéro d'alerte, l'avertissement du tableau de bord suffit.
+    async fn alerter(
+        cnx: &mut Connexion,
+        canal: &dyn Canal,
+        etat: &EtatCanal,
+        contexte: &Contexte,
+    ) -> Resultat<()> {
+        let saisi = parametre::texte(cnx, PARAMETRE_NUMERO_ALERTE, "", contexte).await?;
+        let (Ok(numero), Some(raison)) = (telephone::normaliser(&saisi), etat.raison) else {
+            return Ok(());
+        };
+        let ecole = signature(cnx, contexte).await?;
+        let _ = canal.envoyer(&numero, &texte_alerte(&ecole, raison, etat.credit));
+        Ok(())
+    }
+
+    /// Lit le crédit de la clé par USSD, et en tire l'arrêt ou la reprise de la file ; vrai si la
+    /// lecture a abouti.
+    async fn lire_credit(
+        cnx: &mut Connexion,
+        modem: &CanalModem,
+        etat: EtatCanal,
+        contexte: &Contexte,
+    ) -> Resultat<(EtatCanal, bool)> {
+        let code = parametre::texte(cnx, PARAMETRE_USSD, "", contexte).await?;
+        if code.trim().is_empty() {
+            return Ok((etat, false));
+        }
+        let Ok(lecture) = modem.lire_credit(code.trim()) else {
+            return Ok((etat, false));
+        };
+        let seuil = parametre::entier(cnx, PARAMETRE_SEUIL_CREDIT, 500, contexte).await?;
+        let (etat, alerte) =
+            etat.apres_lecture(lecture.montant, &lecture.texte, seuil, contexte.maintenant);
+        if alerte {
+            Self::alerter(cnx, modem, &etat, contexte).await?;
+        }
+        Ok((etat, true))
+    }
+
+    /// Un passage de la file pour un établissement : expire ce qui a trop attendu ; avec la clé,
+    /// vérifie qu'elle répond et relit le crédit chaque heure ; reçoit les accusés ; envoie ce dont
+    /// le tour est venu, dans les heures d'envoi, au débit et sous le plafond réglés, sauf si la
+    /// file est arrêtée faute de crédit. Sans canal (réglage « aucun »), rien ne part.
     pub async fn traiter(
         &self,
         etablissement_id: Id<Etablissement>,
-        canal_simule: &dyn Canal,
+        source: &dyn SourceCanaux,
     ) -> Resultat<BilanFile> {
         let contexte = self.noyau.contexte(etablissement_id, None);
         let maintenant = contexte.maintenant;
@@ -703,14 +840,35 @@ impl<'n> ServiceFile<'n> {
             expires: file_sms::expirer(&mut cnx, maintenant, &contexte).await?,
             ..BilanFile::default()
         };
-        let canal: &dyn Canal =
-            match parametre::texte(&mut cnx, PARAMETRE_CANAL, "aucun", &contexte)
-                .await?
-                .as_str()
-            {
-                "simule" => canal_simule,
-                _ => return Ok(bilan),
-            };
+        let nom_canal = parametre::texte(&mut cnx, PARAMETRE_CANAL, "aucun", &contexte).await?;
+        let initial = Self::etat_canal(&mut cnx, &contexte).await?;
+        let mut etat = initial.clone();
+        let modem = if nom_canal == "modem" {
+            let port = parametre::texte(&mut cnx, PARAMETRE_PORT, "", &contexte).await?;
+            source.modem(&port).filter(|m| m.verifier().is_ok())
+        } else {
+            None
+        };
+        let canal: &dyn Canal = match (nom_canal.as_str(), &modem) {
+            ("simule", _) => source.simule(),
+            ("modem", Some(m)) => m.as_ref(),
+            ("modem", None) => {
+                // Clé débranchée ou muette : la file attend, sans rien perdre.
+                etat.cle_absente = true;
+                bilan.cle_absente = true;
+                if etat != initial {
+                    file_sms::enregistrer_etat_canal(&mut cnx, &etat, &contexte).await?;
+                }
+                return Ok(bilan);
+            }
+            _ => return Ok(bilan),
+        };
+        etat.cle_absente = false;
+        if let Some(m) = &modem
+            && etat.lecture_due(maintenant)
+        {
+            etat = Self::lire_credit(&mut cnx, m, etat, &contexte).await?.0;
+        }
         Self::recevoir_accuses(&mut cnx, canal, &mut bilan, &contexte).await?;
         let fenetre = reglages::lire_fenetre(
             &parametre::texte(
@@ -722,9 +880,6 @@ impl<'n> ServiceFile<'n> {
             .await?,
         )
         .unwrap_or((7, 20));
-        if !reglages::dans_la_fenetre(fenetre, maintenant.civil_utc().heure) {
-            return Ok(bilan);
-        }
         let debit = parametre::entier(&mut cnx, "sms.debit_par_minute", 6, &contexte).await?;
         let (dans_la_minute, _) = file_sms::partis_depuis(
             &mut cnx,
@@ -733,13 +888,18 @@ impl<'n> ServiceFile<'n> {
         )
         .await?;
         let place = debit - dans_la_minute;
-        if place <= 0 {
-            return Ok(bilan);
-        }
         let plafond = parametre::entier(&mut cnx, "sms.plafond_mensuel", 0, &contexte).await?;
         let (_, mut sms_du_mois) =
             file_sms::partis_depuis(&mut cnx, debut_du_mois(maintenant), &contexte).await?;
-        for mut m in file_sms::a_envoyer(&mut cnx, maintenant, place, &contexte).await? {
+        let a_envoyer = if etat.arretee
+            || place <= 0
+            || !reglages::dans_la_fenetre(fenetre, maintenant.civil_utc().heure)
+        {
+            Vec::new()
+        } else {
+            file_sms::a_envoyer(&mut cnx, maintenant, place, &contexte).await?
+        };
+        for mut m in a_envoyer {
             if plafond > 0 && sms_du_mois + i64::from(m.sms) > plafond {
                 break;
             }
@@ -760,13 +920,14 @@ impl<'n> ServiceFile<'n> {
                     m.erreur = None;
                     sms_du_mois += i64::from(m.sms);
                     bilan.envoyes += 1;
+                    etat = etat.apres_envoi();
                 }
                 Err(erreur) => {
-                    let (etat, pas_avant) = apres_erreur(m.essais, erreur, maintenant);
-                    m.etat = etat;
+                    let (etat_message, pas_avant) = apres_erreur(m.essais, erreur, maintenant);
+                    m.etat = etat_message;
                     m.pas_avant = pas_avant;
                     m.erreur = Some(erreur);
-                    if etat == EtatMessage::Echoue {
+                    if etat_message == EtatMessage::Echoue {
                         bilan.echoues += 1;
                     }
                     if erreur == ErreurEnvoi::NumeroRefuse {
@@ -775,12 +936,183 @@ impl<'n> ServiceFile<'n> {
                             .apres_refus();
                         messages::enregistrer_joignabilite(&mut cnx, &refuse, &contexte).await?;
                     }
+                    if erreur == ErreurEnvoi::Credit {
+                        let (suivant, alerte) = etat.apres_erreur_credit();
+                        etat = suivant;
+                        if alerte {
+                            Self::alerter(&mut cnx, canal, &etat, &contexte).await?;
+                        }
+                    }
                 }
             }
             file_sms::mettre_a_jour(&mut cnx, &m, &contexte).await?;
+            if etat.arretee {
+                break;
+            }
         }
         Self::recevoir_accuses(&mut cnx, canal, &mut bilan, &contexte).await?;
+        bilan.arretee = etat.arretee;
+        if etat != initial {
+            file_sms::enregistrer_etat_canal(&mut cnx, &etat, &contexte).await?;
+        }
         Ok(bilan)
+    }
+
+    /// Essaie la clé d'un port : ce qu'elle dit d'elle-même et, si l'école a donné le code USSD
+    /// de son opérateur, le crédit de la puce.
+    pub async fn essayer_cle(
+        &self,
+        session: &Session,
+        demande: &DemandePort,
+        source: &dyn SourceCanaux,
+    ) -> Resultat<EssaiCle> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut cnx = self.connexion().await?;
+        let modem = source
+            .modem(demande.port.trim())
+            .ok_or(regle("sms.port_absent"))?;
+        let info = modem.identifier().map_err(|_| regle("sms.cle_muette"))?;
+        let code = parametre::texte(&mut cnx, PARAMETRE_USSD, "", &contexte).await?;
+        let credit = if code.trim().is_empty() {
+            None
+        } else {
+            modem.lire_credit(code.trim()).ok()
+        };
+        Ok(EssaiCle {
+            fabricant: info.fabricant,
+            modele: info.modele,
+            operateur: info.operateur,
+            signal: info.signal,
+            credit: credit.as_ref().and_then(|c| c.montant),
+            credit_texte: credit.map(|c| c.texte).unwrap_or_default(),
+        })
+    }
+
+    /// Choisit le port de la clé.
+    pub async fn choisir_port(
+        &self,
+        session: &Session,
+        demande: &DemandePort,
+    ) -> Resultat<FileMessages> {
+        let port = demande.port.trim().to_owned();
+        if port.chars().count() > 40 {
+            return Err(regle("sms.port_absent"));
+        }
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Ordinaire)
+            .await?;
+        let avant = parametre::texte(unite.connexion(), PARAMETRE_PORT, "", &contexte).await?;
+        if avant != port {
+            parametre::definir(
+                unite.connexion(),
+                &gesco_core::core::parametre::Parametre {
+                    etablissement_id: session.etablissement_id,
+                    cle: PARAMETRE_PORT.to_owned(),
+                    valeur: gesco_core::core::parametre::ValeurParametre::Texte(port.clone()),
+                    modifiable_par_utilisateur: true,
+                },
+                &contexte,
+            )
+            .await?;
+            unite.auditer(
+                "parametre",
+                PARAMETRE_PORT,
+                Operation::Modification,
+                Some(serde_json::json!({ "port": avant })),
+                Some(serde_json::json!({ "port": port })),
+                "file_sms.choisir_port",
+            );
+            unite.emettre(
+                TypeEvenement::PortSmsChoisi,
+                "parametre",
+                PARAMETRE_PORT,
+                serde_json::json!({ "port": port }),
+            );
+        }
+        self.noyau.terminer(unite).await?;
+        self.lire(session, &DemandeFile { etat: None }).await
+    }
+
+    /// Relit le crédit de la clé tout de suite : la file s'arrête ou repart selon le seuil.
+    pub async fn relire_credit(
+        &self,
+        session: &Session,
+        source: &dyn SourceCanaux,
+    ) -> Resultat<FileMessages> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        {
+            let mut cnx = self.connexion().await?;
+            let port = parametre::texte(&mut cnx, PARAMETRE_PORT, "", &contexte).await?;
+            let modem = source.modem(&port).ok_or(regle("sms.port_absent"))?;
+            if parametre::texte(&mut cnx, PARAMETRE_USSD, "", &contexte)
+                .await?
+                .trim()
+                .is_empty()
+            {
+                return Err(regle("sms.ussd_absent"));
+            }
+            let avant = Self::etat_canal(&mut cnx, &contexte).await?;
+            let (apres, lu) = Self::lire_credit(&mut cnx, &modem, avant, &contexte).await?;
+            if !lu {
+                return Err(regle("sms.cle_muette"));
+            }
+            file_sms::enregistrer_etat_canal(&mut cnx, &apres, &contexte).await?;
+        }
+        self.lire(session, &DemandeFile { etat: None }).await
+    }
+
+    /// Fait repartir la file arrêtée, après une recharge que le code USSD ne peut pas lire.
+    pub async fn reprendre(&self, session: &Session) -> Resultat<FileMessages> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Ordinaire)
+            .await?;
+        let avant = Self::etat_canal(unite.connexion(), &contexte).await?;
+        if !avant.arretee {
+            return Err(regle("sms.file_non_arretee"));
+        }
+        let apres = avant.reprise();
+        file_sms::enregistrer_etat_canal(unite.connexion(), &apres, &contexte).await?;
+        let id = session.etablissement_id.vers_chaine();
+        unite.auditer(
+            "etat_canal_sms",
+            &id,
+            Operation::Modification,
+            Some(serde_json::json!({ "arretee": true, "raison": avant.raison })),
+            Some(serde_json::json!({ "arretee": false })),
+            "file_sms.reprendre",
+        );
+        unite.emettre(
+            TypeEvenement::FileSmsReprise,
+            "etat_canal_sms",
+            &id,
+            serde_json::json!({ "raison": avant.raison }),
+        );
+        self.noyau.terminer(unite).await?;
+        self.lire(session, &DemandeFile { etat: None }).await
+    }
+
+    /// Avertissements du tableau de bord : la file arrêtée faute de crédit, la clé qui ne répond
+    /// pas. Rien quand l'école n'envoie pas de SMS.
+    pub async fn avertissements(&self, session: &Session) -> Resultat<Vec<&'static str>> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut cnx = self.connexion().await?;
+        let canal = parametre::texte(&mut cnx, PARAMETRE_CANAL, "aucun", &contexte).await?;
+        if canal == "aucun" {
+            return Ok(Vec::new());
+        }
+        let etat = Self::etat_canal(&mut cnx, &contexte).await?;
+        let mut liste = Vec::new();
+        if etat.arretee {
+            liste.push("avertissement.sms_arretes");
+        }
+        if canal == "modem" && etat.cle_absente {
+            liste.push("avertissement.sms_cle_absente");
+        }
+        Ok(liste)
     }
 }
 

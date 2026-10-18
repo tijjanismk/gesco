@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 
 import { appeler } from "../../api";
 import { Bouton } from "../../composants/Bouton";
-import { Champ, Formulaire, ZoneTexte } from "../../composants/Champ";
+import { Champ, Formulaire, Selection, ZoneTexte } from "../../composants/Champ";
 import { MessageErreur, MessageEnregistre, Section } from "../../composants/Messages";
 import { Tableau } from "../../composants/Tableau";
-import { type Cle, dateHeure, t } from "../../i18n";
-import type { ApercuSms, ErreurEnvoi, EtatMessage, FileMessages, MessageAffiche, ModeleSms, NatureMessage } from "../../types/gesco";
+import { type Cle, dateHeure, francs, t } from "../../i18n";
+import type { ApercuSms, ErreurEnvoi, EssaiCle, EtatMessage, FileMessages, MessageAffiche, ModeleSms, NatureMessage, RaisonArret } from "../../types/gesco";
 import { telephoneLisible } from "../scolarite/Identite";
 
 const ETATS: Record<EtatMessage, Cle> = {
@@ -29,6 +29,11 @@ const NATURES: Record<NatureMessage, Cle> = {
   convocation: "messages.nature.convocation",
   sanction: "messages.nature.sanction",
   essai: "messages.nature.essai",
+};
+
+const RAISONS: Record<RaisonArret, Cle> = {
+  credit_bas: "messages.arret.credit_bas",
+  echecs_credit: "messages.arret.echecs_credit",
 };
 
 const ERREURS: Record<ErreurEnvoi, Cle> = {
@@ -69,7 +74,7 @@ export function Messages() {
       <MessageErreur erreur={file.error} />
       {f === undefined ? null : (
         <>
-          <EtatCanal f={f} />
+          <EtatCanal f={f} surFait={poser} />
           <div className="flex flex-wrap gap-2" role="group" aria-label={t("messages.filtrer")}>
             <Bouton variante={filtre === null ? "principal" : "secondaire"} onClick={() => setFiltre(null)}>{t("messages.tous")}</Bouton>
             {ORDRE_ETATS.map((e) => (
@@ -99,6 +104,7 @@ export function Messages() {
             />
           </Section>
           {message === undefined ? null : <MessageChoisi key={message.message.id} m={message} f={f} surFait={poser} />}
+          {f.droits.configurer && f.canal === "modem" ? <CleModem f={f} surFait={poser} /> : null}
           {f.droits.configurer ? <SmsEssai surFait={poser} /> : null}
           {f.droits.configurer ? <Modeles f={f} surFait={poser} /> : null}
         </>
@@ -107,16 +113,89 @@ export function Messages() {
   );
 }
 
-function EtatCanal({ f }: { f: FileMessages }) {
+function libelleCanal(f: FileMessages): string {
+  switch (f.canal) {
+    case "simule":
+      return t("messages.canal_simule");
+    case "modem":
+      if (f.port === "") return t("messages.canal_modem_sans_port");
+      return f.port === "simule" ? t("messages.canal_modem_simulee") : t("messages.canal_modem", { port: f.port });
+    default:
+      return t("messages.canal_aucun");
+  }
+}
+
+function EtatCanal({ f, surFait }: { f: FileMessages; surFait: (f: FileMessages) => void }) {
+  const reprise = useMutation({ mutationFn: () => appeler("sms_reprendre", null), onSuccess: surFait });
+  const lecture = useMutation({ mutationFn: () => appeler("sms_credit_lire", null), onSuccess: surFait });
+  const e = f.etat_canal;
   const consommation =
     f.plafond === 0
       ? t("messages.consommation", { sms: f.sms_du_mois })
       : t("messages.consommation_plafond", { sms: f.sms_du_mois, plafond: f.plafond });
+  const alerte = f.canal === "aucun" || e.arretee || (f.canal === "modem" && e.cle_absente);
   return (
-    <div className={`rounded border p-3 text-sm ${f.canal === "aucun" ? "border-ocre text-ocre" : "border-muet/30 text-encre"}`}>
-      <p>{f.canal === "simule" ? t("messages.canal_simule") : t("messages.canal_aucun")}</p>
+    <div className={`flex flex-col gap-2 rounded border p-3 text-sm ${alerte ? "border-ocre text-ocre" : "border-muet/30 text-encre"}`}>
+      <p>{libelleCanal(f)}</p>
       <p className="text-muet">{`${t("messages.heures", { fenetre: f.fenetre })} · ${consommation}`}</p>
+      {f.canal === "modem" && e.cle_absente ? <p>{t("messages.cle_absente")}</p> : null}
+      {f.canal === "modem" && e.credit !== null ? (
+        <p className="text-muet">
+          {t("messages.credit", { credit: francs(e.credit), lu: e.credit_lu_le === null ? "" : dateHeure(e.credit_lu_le) })}
+        </p>
+      ) : null}
+      {e.arretee && e.raison !== null ? <p className="font-medium">{t(RAISONS[e.raison])}</p> : null}
+      {f.droits.configurer ? (
+        <div className="flex flex-wrap gap-2">
+          {e.arretee ? <Bouton onClick={() => reprise.mutate()} disabled={reprise.isPending}>{t("messages.reprendre")}</Bouton> : null}
+          {f.canal === "modem" && f.credit_lisible ? (
+            <Bouton variante="secondaire" onClick={() => lecture.mutate()} disabled={lecture.isPending}>{t("messages.lire_credit")}</Bouton>
+          ) : null}
+        </div>
+      ) : null}
+      <MessageErreur erreur={reprise.error ?? lecture.error} />
     </div>
+  );
+}
+
+/** La clé modem : son port, et un essai qui dit ce qu'elle est, son réseau, son signal et le
+ *  crédit de sa puce. */
+function CleModem({ f, surFait }: { f: FileMessages; surFait: (f: FileMessages) => void }) {
+  const ports = useQuery({ queryKey: ["sms-ports"], queryFn: () => appeler("sms_ports_lister", null) });
+  const [port, setPort] = useState(f.port);
+  const [essai, setEssai] = useState<EssaiCle | null>(null);
+  const essayer = useMutation({
+    mutationFn: () => appeler("sms_cle_essayer", { port }),
+    onSuccess: setEssai,
+    onMutate: () => setEssai(null),
+  });
+  const choix = useMutation({ mutationFn: () => appeler("sms_port_choisir", { port }), onSuccess: surFait });
+  const options = (ports.data ?? []).map((p) => ({ valeur: p.nom, libelle: p.simule ? t("messages.port_simule") : p.nom }));
+  if (f.port !== "" && !options.some((o) => o.valeur === f.port)) options.push({ valeur: f.port, libelle: f.port });
+  return (
+    <Section titre={t("messages.cle")}>
+      <p className="text-sm text-muet">{t("messages.cle_aide")}</p>
+      {options.length === 0 ? <p className="text-sm text-ocre">{t("messages.aucun_port")}</p> : null}
+      <Selection
+        id="cle-port"
+        libelle={t("messages.port")}
+        valeur={port}
+        surChangement={setPort}
+        options={[{ valeur: "", libelle: t("messages.port_choisir") }, ...options]}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Bouton variante="secondaire" onClick={() => essayer.mutate()} disabled={port === "" || essayer.isPending}>{t("messages.essayer_cle")}</Bouton>
+        <Bouton onClick={() => choix.mutate()} disabled={port === "" || port === f.port || choix.isPending}>{t("messages.choisir_port")}</Bouton>
+      </div>
+      {essai === null ? null : (
+        <div className="rounded bg-fond p-2 text-sm text-encre">
+          <p>{t("messages.cle_trouvee", { fabricant: essai.fabricant, modele: essai.modele })}</p>
+          <p>{t("messages.cle_reseau", { reseau: essai.operateur === "" ? "?" : essai.operateur, signal: essai.signal === null ? "?" : `${String(essai.signal)} %` })}</p>
+          {essai.credit_texte === "" ? <p className="text-muet">{t("messages.cle_sans_ussd")}</p> : <p>{t("messages.cle_credit", { texte: essai.credit_texte })}</p>}
+        </div>
+      )}
+      <MessageErreur erreur={essayer.error ?? choix.error} />
+    </Section>
   );
 }
 

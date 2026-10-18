@@ -1,7 +1,8 @@
 //! Canal SMS (blueprint §25.3, SPEC_PHASE_5 §4) : l'interface `Canal`, que la file appelle sans
 //! savoir ce qu'il y a derrière. Implémentation livrée : le canal simulé, qui écrit chaque SMS
-//! dans un journal du poste sans rien envoyer (décision du 17 octobre 2026 : le matériel est
-//! différé). Le pilotage de la clé modem en commandes AT viendra derrière la même interface.
+//! dans un journal du poste sans rien envoyer ; et la clé modem pilotée en commandes AT (`modem`),
+//! vérifiée contre un modem simulé (`simule`) en attendant l'essai sur une vraie clé (différé
+//! par décision du 17 octobre 2026).
 
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
@@ -10,6 +11,14 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use gesco_core::notification::ErreurEnvoi;
+
+pub mod at;
+pub mod modem;
+pub mod pdu;
+pub mod simule;
+
+pub use modem::{CanalModem, InfoCle, LectureCredit};
+pub use simule::ModemSimule;
 
 /// Accusé de remise d'un SMS parti.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1,7 +1,9 @@
 //! File des SMS (SPEC_PHASE_5 §3) : les messages, leur état, ce qui part et ce qui est revenu.
 
 use gesco_core::commun::{Horodatage, Id};
-use gesco_core::notification::{ErreurEnvoi, EtatMessage, Message, NatureMessage};
+use gesco_core::notification::{
+    ErreurEnvoi, EtatCanal, EtatMessage, Message, NatureMessage, RaisonArret,
+};
 use sqlx::FromRow;
 
 use crate::Connexion;
@@ -268,14 +270,16 @@ pub async fn expirer(
     .rows_affected())
 }
 
-/// Le message parti sous cette référence, s'il y en a un.
+/// Le message parti le plus récemment sous cette référence, s'il attend encore son accusé : la
+/// clé recommence ses références après 255.
 pub async fn par_reference(
     cnx: &mut Connexion,
     reference: &str,
     contexte: &Contexte,
 ) -> Resultat<Option<Message>> {
     sqlx::query_as::<_, LigneMessage>(selectionner_message!(
-        "WHERE etablissement_id = ?1 AND reference = ?2"
+        "WHERE etablissement_id = ?1 AND reference = ?2 AND etat = 'envoye'
+         ORDER BY envoye_le DESC LIMIT 1"
     ))
     .bind(contexte.etablissement_id.vers_chaine())
     .bind(reference)
@@ -299,4 +303,80 @@ pub async fn partis_depuis(
     .bind(depuis.millis_epoque())
     .fetch_one(cnx)
     .await?)
+}
+
+#[derive(FromRow)]
+struct LigneEtatCanal {
+    credit: Option<i64>,
+    credit_texte: String,
+    credit_lu_le: Option<i64>,
+    arretee: i64,
+    raison: Option<String>,
+    echecs_credit: i64,
+    cle_absente: i64,
+}
+
+/// État du canal des SMS ; l'état neuf s'il n'a jamais été enregistré.
+pub async fn etat_canal(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<EtatCanal> {
+    let t = "etat_canal_sms";
+    let Some(l) = sqlx::query_as::<_, LigneEtatCanal>(
+        "SELECT credit, credit_texte, credit_lu_le, arretee, raison, echecs_credit, cle_absente
+         FROM etat_canal_sms WHERE etablissement_id = ?1",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_optional(cnx)
+    .await?
+    else {
+        return Ok(EtatCanal::default());
+    };
+    Ok(EtatCanal {
+        credit: l.credit,
+        credit_texte: l.credit_texte,
+        credit_lu_le: l.credit_lu_le.map(Horodatage::depuis_millis_epoque),
+        arretee: crate::depots::booleen(l.arretee),
+        raison: l
+            .raison
+            .as_deref()
+            .map(|r| {
+                RaisonArret::depuis_nom(r).ok_or_else(|| ErreurBase::illisible(t, "raison", r))
+            })
+            .transpose()?,
+        echecs_credit: u8::try_from(l.echecs_credit)
+            .map_err(|_| ErreurBase::illisible(t, "echecs_credit", l.echecs_credit))?,
+        cle_absente: crate::depots::booleen(l.cle_absente),
+    })
+}
+
+/// Enregistre l'état du canal des SMS.
+pub async fn enregistrer_etat_canal(
+    cnx: &mut Connexion,
+    etat: &EtatCanal,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "INSERT INTO etat_canal_sms (etablissement_id, credit, credit_texte, credit_lu_le,
+            arretee, raison, echecs_credit, cle_absente, mis_a_jour_le, mis_a_jour_par,
+            identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+         ON CONFLICT (etablissement_id) DO UPDATE SET credit = excluded.credit,
+            credit_texte = excluded.credit_texte, credit_lu_le = excluded.credit_lu_le,
+            arretee = excluded.arretee, raison = excluded.raison,
+            echecs_credit = excluded.echecs_credit, cle_absente = excluded.cle_absente,
+            mis_a_jour_le = excluded.mis_a_jour_le, mis_a_jour_par = excluded.mis_a_jour_par,
+            identifiant_poste = excluded.identifiant_poste",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(etat.credit)
+    .bind(&etat.credit_texte)
+    .bind(etat.credit_lu_le.map(|h| h.millis_epoque()))
+    .bind(i64::from(etat.arretee))
+    .bind(etat.raison.map(|r| r.nom()))
+    .bind(i64::from(etat.echecs_credit))
+    .bind(i64::from(etat.cle_absente))
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(())
 }

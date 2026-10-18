@@ -106,7 +106,8 @@ use crate::facturation::{
 use crate::fiche_etablissement::{ChampsEtablissement, FicheEtablissement, ServiceEtablissement};
 use crate::file_sms::{
     ApercuSms, BilanFile, DemandeAnnulationMessage, DemandeApercu, DemandeDecisionMessage,
-    DemandeEssai, DemandeFile, DemandeModele, DemandeRenvoi, FileMessages, ServiceFile,
+    DemandeEssai, DemandeFile, DemandeModele, DemandePort, DemandeRenvoi, EssaiCle, FileMessages,
+    PortDisponible, ServiceFile, SourceCanaux,
 };
 use crate::fin_annee::{
     BilanReinscriptions, DecisionsClasse, DemandeClasseFinAnnee, DemandeDecision, DemandePassage,
@@ -720,6 +721,39 @@ pub struct Application {
     imports: Mutex<HashMap<String, FichierImporte>>,
     /// Canal simulé des SMS : rien ne part, chaque SMS s'écrit dans `sms-simules.txt`.
     canal_simule: Arc<gesco_sms::CanalSimule>,
+    /// Modem simulé, derrière le port `simule` : il répond aux commandes AT comme une clé.
+    modem_simule: gesco_sms::ModemSimule,
+    /// La clé modem ouverte, et son port : elle reste ouverte d'un passage de la file à l'autre.
+    modem: std::sync::Mutex<Option<(String, Arc<gesco_sms::CanalModem>)>>,
+}
+
+impl SourceCanaux for Application {
+    fn simule(&self) -> &dyn gesco_sms::Canal {
+        self.canal_simule.as_ref()
+    }
+
+    fn modem(&self, port: &str) -> Option<Arc<gesco_sms::CanalModem>> {
+        let port = port.trim();
+        if port.is_empty() {
+            return None;
+        }
+        let mut garde = self.modem.lock().ok()?;
+        if let Some((ouvert, modem)) = garde.as_ref()
+            && ouvert == port
+        {
+            return Some(Arc::clone(modem));
+        }
+        let modem = if port == crate::file_sms::PORT_SIMULE {
+            let simule = self.modem_simule.clone();
+            gesco_sms::CanalModem::nouveau(Box::new(move || simule.port()))
+                .avec_delai(std::time::Duration::from_secs(2))
+        } else {
+            gesco_sms::CanalModem::sur_port_serie(port)
+        };
+        let modem = Arc::new(modem);
+        *garde = Some((port.to_owned(), Arc::clone(&modem)));
+        Some(modem)
+    }
 }
 
 macro_rules! contrat {
@@ -1048,6 +1082,11 @@ contrat! {
     message_renvoyer(DemandeRenvoi) -> FileMessages;
     message_modele_definir(DemandeModele) -> FileMessages;
     message_essai_envoyer(DemandeEssai) -> FileMessages;
+    sms_ports_lister(()) -> Vec<PortDisponible>;
+    sms_cle_essayer(DemandePort) -> EssaiCle;
+    sms_port_choisir(DemandePort) -> FileMessages;
+    sms_credit_lire(()) -> FileMessages;
+    sms_reprendre(()) -> FileMessages;
     sanction_noter(DemandeSanction) -> DossierDiscipline;
     sanction_annuler(DemandeAnnulationSanction) -> DossierDiscipline;
     journal_archive_verifier(DemandeVerificationArchive) -> VerificationArchive;
@@ -1083,6 +1122,8 @@ impl Application {
             echecs: EffetsEchoues::default(),
             imports: Mutex::new(HashMap::new()),
             canal_simule,
+            modem_simule: gesco_sms::ModemSimule::nouveau(5_000),
+            modem: std::sync::Mutex::new(None),
         };
         if let EtatCles::Ouvertes(cle) = application.cles.preparer()? {
             let ouverte = application.ouvrir(cle).await?;
@@ -1259,6 +1300,11 @@ impl Application {
         Ok(())
     }
 
+    /// Le modem simulé du port `simule`, que les essais pilotent : crédit, refus, coupures.
+    pub fn modem_simule(&self) -> gesco_sms::ModemSimule {
+        self.modem_simule.clone()
+    }
+
     /// Le canal simulé des SMS, que les essais font échouer à volonté.
     pub fn canal_simule(&self) -> Arc<gesco_sms::CanalSimule> {
         Arc::clone(&self.canal_simule)
@@ -1273,9 +1319,7 @@ impl Application {
         let Some(fiche) = Self::installe(&o.noyau).await? else {
             return Ok(BilanFile::default());
         };
-        ServiceFile::nouveau(&o.noyau)
-            .traiter(fiche.id, self.canal_simule.as_ref())
-            .await
+        ServiceFile::nouveau(&o.noyau).traiter(fiche.id, self).await
     }
 
     /// Tâches périodiques, appelées par le binaire chaque minute : sauvegarde à l'intervalle
@@ -1699,6 +1743,15 @@ impl Application {
             .await?;
         if let Some(cle) = ServiceLicence::nouveau(&ouverte.noyau, self.cle_licence)
             .avertissement(session.etablissement_id)
+            .await?
+        {
+            liste.push(Avertissement {
+                cle: cle.to_owned(),
+            });
+        }
+        // La file des SMS arrêtée faute de crédit, la clé qui ne répond pas (SPEC_PHASE_5 §4).
+        for cle in ServiceFile::nouveau(&ouverte.noyau)
+            .avertissements(session)
             .await?
         {
             liste.push(Avertissement {
@@ -4516,6 +4569,34 @@ impl Application {
     ) -> Resultat<FileMessages> {
         ServiceFile::nouveau(&appel.ouverte()?.noyau)
             .essai(appel.session()?, &entree)
+            .await
+    }
+
+    async fn sms_ports_lister(&self, _appel: Appel, _entree: ()) -> Resultat<Vec<PortDisponible>> {
+        Ok(crate::file_sms::ports_disponibles())
+    }
+
+    async fn sms_cle_essayer(&self, appel: Appel, entree: DemandePort) -> Resultat<EssaiCle> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .essayer_cle(appel.session()?, &entree, self)
+            .await
+    }
+
+    async fn sms_port_choisir(&self, appel: Appel, entree: DemandePort) -> Resultat<FileMessages> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .choisir_port(appel.session()?, &entree)
+            .await
+    }
+
+    async fn sms_credit_lire(&self, appel: Appel, _entree: ()) -> Resultat<FileMessages> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .relire_credit(appel.session()?, self)
+            .await
+    }
+
+    async fn sms_reprendre(&self, appel: Appel, _entree: ()) -> Resultat<FileMessages> {
+        ServiceFile::nouveau(&appel.ouverte()?.noyau)
+            .reprendre(appel.session()?)
             .await
     }
 

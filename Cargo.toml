@@ -41,6 +41,8 @@ gesco-docs = { path = "crates/gesco-docs" }
 gesco-sms = { path = "crates/gesco-sms" }
 
 serde = { version = "1.0.229", features = ["derive"] }
+# Port série de la clé modem GSM (SPEC_PHASE_5 §4) ; sans libudev, la CI Linux n'en a pas besoin.
+serialport = { version = "4.10.1", default-features = false }
 serde_json = "1.0.151"
 thiserror = "2.0.21"
 ulid = { version = "3.0.0", features = ["serde"] }

@@ -1582,6 +1582,16 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	message_essai_envoyer: Signature<DemandeEssai, FileMessages>,
 	/**  Signature de la commande du même nom. */
+	sms_ports_lister: Signature<null, PortDisponible[]>,
+	/**  Signature de la commande du même nom. */
+	sms_cle_essayer: Signature<DemandePort, EssaiCle>,
+	/**  Signature de la commande du même nom. */
+	sms_port_choisir: Signature<DemandePort, FileMessages>,
+	/**  Signature de la commande du même nom. */
+	sms_credit_lire: Signature<null, FileMessages>,
+	/**  Signature de la commande du même nom. */
+	sms_reprendre: Signature<null, FileMessages>,
+	/**  Signature de la commande du même nom. */
 	sanction_noter: Signature<DemandeSanction, DossierDiscipline>,
 	/**  Signature de la commande du même nom. */
 	sanction_annuler: Signature<DemandeAnnulationSanction, DossierDiscipline>,
@@ -3082,6 +3092,12 @@ export type DemandePointage = {
 	pointee: boolean,
 };
 
+/**  Port de la clé modem. */
+export type DemandePort = {
+	/**  Nom du port : `COM3`. */
+	port: string,
+};
+
 /**  Données du premier démarrage. */
 export type DemandePremierDemarrage = {
 	/**  Organisation propriétaire. */
@@ -4016,6 +4032,22 @@ export type ErreurEnvoi =
 /**  L'accusé dit que le SMS n'a pas été remis. */
 "non_remis";
 
+/**  Ce que l'essai de la clé a appris. */
+export type EssaiCle = {
+	/**  Fabricant. */
+	fabricant: string,
+	/**  Modèle. */
+	modele: string,
+	/**  Réseau sur lequel la clé est inscrite. */
+	operateur: string,
+	/**  Force du signal, de 0 à 100. */
+	signal: number | null,
+	/**  Crédit lu, si l'école a donné le code USSD. */
+	credit: number | null,
+	/**  Réponse de l'opérateur au code USSD. */
+	credit_texte: string,
+};
+
 /**  Établissement scolaire : l'unité de cloisonnement de toutes les données métier. */
 export type Etablissement = {
 	/**  Identifiant technique. */
@@ -4038,6 +4070,24 @@ export type Etablissement = {
 	mentions_legales: string,
 	/**  Multiple d'arrondi commercial des montants (§3.7), en francs. */
 	multiple_arrondi: number,
+};
+
+/**  État du canal d'un établissement. */
+export type EtatCanal = {
+	/**  Dernier crédit lu, en francs. */
+	credit: number | null,
+	/**  Réponse de l'opérateur, telle quelle. */
+	credit_texte: string,
+	/**  Dernière lecture du crédit. */
+	credit_lu_le: number | null,
+	/**  Vrai si la file est arrêtée. */
+	arretee: boolean,
+	/**  Raison de l'arrêt. */
+	raison: RaisonArret | null,
+	/**  Échecs de crédit d'affilée. */
+	echecs_credit: number,
+	/**  Vrai si la clé ne répondait pas au dernier passage. */
+	cle_absente: boolean,
 };
 
 /**  Soldes des comptes et compte de chaque mode. */
@@ -4434,8 +4484,16 @@ export type FileMessages = {
 	messages: MessageAffiche[],
 	/**  Nombre de messages de chaque état. */
 	compteurs: CompteEtat[],
-	/**  Canal choisi : `aucun` ou `simule`. */
+	/**  Canal choisi : `aucun`, `simule` ou `modem`. */
 	canal: string,
+	/**  Port de la clé modem. */
+	port: string,
+	/**  État du canal : crédit, arrêt, clé absente. */
+	etat_canal: EtatCanal,
+	/**  Seuil de crédit sous lequel la file s'arrête ; 0 : jamais. */
+	seuil_credit: number,
+	/**  Vrai si l'école a donné le code USSD du solde. */
+	credit_lisible: boolean,
 	/**  Heures d'envoi : « 7-20 ». */
 	fenetre: string,
 	/**  SMS partis depuis le début du mois. */
@@ -6127,6 +6185,14 @@ export type PlanPropose = {
 	libelle: string,
 };
 
+/**  Port où brancher la clé. */
+export type PortDisponible = {
+	/**  Nom du port : `COM3`, ou `simule`. */
+	nom: string,
+	/**  Vrai pour la clé simulée des compilations de développement. */
+	simule: boolean,
+};
+
 /**  Classes où un utilisateur relève les absences. */
 export type PorteeAbsences = 
 /**  Toutes : la direction, le surveillant, le secrétariat, qui justifient aussi. */
@@ -6206,6 +6272,13 @@ export type Qualites = {
 	/**  Rang d'appel : 1 pour le premier contact. */
 	ordre_priorite: number,
 };
+
+/**  Raison d'un arrêt de la file. */
+export type RaisonArret = 
+/**  Le crédit lu est sous le seuil. */
+"credit_bas" | 
+/**  Cinq envois d'affilée ont échoué faute de crédit. */
+"echecs_credit";
 
 /**  Rang d'un élève : « 3e », ou « 3e ex » à égalité ; le suivant saute (T-30). */
 export type Rang = {
