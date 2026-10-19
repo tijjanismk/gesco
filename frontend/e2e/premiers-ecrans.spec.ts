@@ -2488,3 +2488,44 @@ test("phase 5 : la mère de Fatoumata reçoit son code au guichet ; elle demande
   await expect(recu).toContainText("reste a payer Fatoumata");
   await capturer("127-sms-recus");
 });
+
+test("le programme de la 9e s'importe d'un fichier corrigé, rangé dans les paramètres ; le bambara entre au programme", async () => {
+  const fichier = join(dossier, "programme-9e.csv");
+  const lignes = [
+    "Niveau;Série;Matière;Coefficient;Heures par semaine",
+    "9e année;;Français;4;6",
+    "9e année;;Mathématiques;4;5",
+    "9e année;;Physique-chimie;2;2",
+    "9e année;;Sciences de la vie et de la terre;2;2",
+    "9e année;;Histoire-géographie;2;3",
+    "9e année;;Anglais;2;3",
+    "9e année;;Bambara;1;1h30",
+    "9e année;;Éducation physique et sportive;1;2",
+  ];
+  writeFileSync(fichier, `${String.fromCharCode(0xfeff)}${lignes.join("\r\n")}\r\n`, "utf8");
+  await allerA("nav.parametres");
+  await page.getByText(texte("import_programme.titre")).click();
+  await page.evaluate((chemin) => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    const original = window.fetch.bind(window);
+    fenetre.fetchOriginal = original;
+    window.fetch = (entree, options) => {
+      const url = decodeURIComponent(typeof entree === "string" ? entree : entree instanceof URL ? entree.href : entree.url);
+      if (url.includes("ipc.localhost/plugin:dialog|open")) {
+        return Promise.resolve(new Response(JSON.stringify(chemin), { status: 200, headers: { "Tauri-Response": "ok", "content-type": "application/json" } }));
+      }
+      return original(entree, options);
+    };
+  }, fichier);
+  await page.getByRole("button", { name: texte("import_programme.choisir") }).click();
+  await expect(page.getByText("1 niveau(x) prêt(s) ; 0 laissé(s) tel(s) quel(s) à cause d'une ligne à corriger.")).toBeVisible();
+  await page.evaluate(() => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    if (fenetre.fetchOriginal !== undefined) window.fetch = fenetre.fetchOriginal;
+  });
+  await expect(page.getByText(texte("import_programme.nouvelles").replace("{matieres}", "Bambara"))).toBeVisible();
+  await capturer("129-import-du-programme");
+  await page.getByRole("button", { name: "Importer le programme de 1 niveau(x)" }).click();
+  // L'import commence par une sauvegarde.
+  await expect(page.getByText("Programme importé : 1 niveau(x) récrit(s), 1 matière(s) créée(s), 0 niveau(x) laissé(s) tel(s) quel(s).")).toBeVisible({ timeout: 30_000 });
+});

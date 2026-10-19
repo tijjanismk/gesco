@@ -205,6 +205,16 @@ pub const COMMANDES: &[Commande] = &[
     Commande::connectee("pedagogie_lire"),
     Commande::permise("matiere_enregistrer", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::permise("programme_enregistrer", Permission::ACADEMIC_YEAR_MANAGE),
+    // Import du programme depuis Excel, rangé dans les paramètres.
+    Commande::permise("programme_import_modele", Permission::ACADEMIC_YEAR_MANAGE),
+    Commande::permise(
+        "programme_import_analyser",
+        Permission::ACADEMIC_YEAR_MANAGE,
+    ),
+    Commande::permise(
+        "programme_import_appliquer",
+        Permission::ACADEMIC_YEAR_MANAGE,
+    ),
     Commande::permise("programme_reprendre", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::permise("periodes_definir", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::permise("calendrier_modifier", Permission::ACADEMIC_YEAR_MANAGE),

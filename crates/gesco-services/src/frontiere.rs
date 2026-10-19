@@ -144,6 +144,10 @@ use crate::import_personnel::{
     AnalyseImportPersonnel, BilanImportPersonnel, DemandeImportPersonnel, DemandeModelePersonnel,
     ServiceImportPersonnel,
 };
+use crate::import_programme::{
+    AnalyseImportProgramme, BilanImportProgramme, DemandeImportProgramme, DemandeModeleProgramme,
+    ServiceImportProgramme,
+};
 use crate::initialisation::{PremierDemarrage, ServiceInitialisation};
 use crate::inscriptions::{
     DemandeAbandon, DemandeChangementClasse, DemandeIdInscription, DemandeInscription,
@@ -997,6 +1001,9 @@ contrat! {
     personnel_import_modele(DemandeModelePersonnel) -> FichierEcrit;
     personnel_import_analyser(DemandeImportPersonnel) -> AnalyseImportPersonnel;
     personnel_import_appliquer(DemandeImportPersonnel) -> BilanImportPersonnel;
+    programme_import_modele(DemandeModeleProgramme) -> FichierEcrit;
+    programme_import_analyser(DemandeImportProgramme) -> AnalyseImportProgramme;
+    programme_import_appliquer(DemandeImportProgramme) -> BilanImportProgramme;
     membre_lire(DemandeIdMembre) -> FicheMembre;
     ma_fiche_lire(()) -> Option<MaFiche>;
     membre_enregistrer(DemandeMembre) -> FicheMembre;
@@ -3720,6 +3727,46 @@ impl Application {
     async fn personnel_lister(&self, appel: Appel, _entree: ()) -> Resultat<Vec<MembreAffiche>> {
         ServicePersonnel::nouveau(&appel.ouverte()?.noyau)
             .lister(appel.session()?)
+            .await
+    }
+
+    async fn programme_import_modele(
+        &self,
+        appel: Appel,
+        entree: DemandeModeleProgramme,
+    ) -> Resultat<FichierEcrit> {
+        ServiceImportProgramme::nouveau(&appel.ouverte()?.noyau)
+            .ecrire_modele(appel.session()?, entree)
+            .await
+    }
+
+    async fn programme_import_analyser(
+        &self,
+        appel: Appel,
+        entree: DemandeImportProgramme,
+    ) -> Resultat<AnalyseImportProgramme> {
+        ServiceImportProgramme::nouveau(&appel.ouverte()?.noyau)
+            .analyser(appel.session()?, &entree)
+            .await
+    }
+
+    async fn programme_import_appliquer(
+        &self,
+        appel: Appel,
+        entree: DemandeImportProgramme,
+    ) -> Resultat<BilanImportProgramme> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        // R-48 : la sauvegarde précède toute écriture en masse.
+        self.sauvegardes(ouverte)
+            .creer(
+                session.etablissement_id,
+                Some(session),
+                MotifSauvegarde::AvantImport,
+            )
+            .await?;
+        ServiceImportProgramme::nouveau(&ouverte.noyau)
+            .appliquer(session, &entree)
             .await
     }
 

@@ -204,6 +204,18 @@ export type AnalyseImportPersonnel = {
 	pretes: number,
 };
 
+/**  Ce que l'analyse a compris du fichier. */
+export type AnalyseImportProgramme = {
+	/**  Les lignes, dans l'ordre du fichier. */
+	lignes: LigneImportProgramme[],
+	/**  Niveaux (et séries) dont le programme sera récrit. */
+	niveaux_prets: number,
+	/**  Niveaux laissés tels quels à cause d'une ligne fausse. */
+	niveaux_ignores: number,
+	/**  Matières qui seront créées. */
+	nouvelles_matieres: string[],
+};
+
 /**  Année qui peut recevoir un budget. */
 export type AnneeBudget = {
 	/**  Année. */
@@ -473,6 +485,16 @@ export type BilanImportPersonnel = {
 	importes: number,
 	/**  Lignes laissées de côté : en erreur, déjà au registre, ou refusées à l'enregistrement. */
 	ignorees: number,
+};
+
+/**  Bilan de l'import. */
+export type BilanImportProgramme = {
+	/**  Niveaux dont le programme a été récrit. */
+	niveaux: number,
+	/**  Matières créées. */
+	matieres_creees: number,
+	/**  Niveaux laissés tels quels. */
+	niveaux_ignores: number,
 };
 
 /**  Ce qu'a fait la préparation des réinscriptions. */
@@ -1439,6 +1461,12 @@ export type Contrat = {
 	personnel_import_analyser: Signature<DemandeImportPersonnel, AnalyseImportPersonnel>,
 	/**  Signature de la commande du même nom. */
 	personnel_import_appliquer: Signature<DemandeImportPersonnel, BilanImportPersonnel>,
+	/**  Signature de la commande du même nom. */
+	programme_import_modele: Signature<DemandeModeleProgramme, FichierEcrit>,
+	/**  Signature de la commande du même nom. */
+	programme_import_analyser: Signature<DemandeImportProgramme, AnalyseImportProgramme>,
+	/**  Signature de la commande du même nom. */
+	programme_import_appliquer: Signature<DemandeImportProgramme, BilanImportProgramme>,
 	/**  Signature de la commande du même nom. */
 	membre_lire: Signature<DemandeIdMembre, FicheMembre>,
 	/**  Signature de la commande du même nom. */
@@ -2829,6 +2857,12 @@ export type DemandeImportPersonnel = {
 	chemin: string,
 };
 
+/**  Fichier à lire, pour l'année en cours. */
+export type DemandeImportProgramme = {
+	/**  Chemin du classeur ou du CSV. */
+	chemin: string,
+};
+
 /**  Relevé à rapprocher, avec ses colonnes. */
 export type DemandeImportReleve = {
 	/**  Compte. */
@@ -3020,6 +3054,12 @@ export type DemandeModele = {
 /**  Classeur du modèle à écrire. */
 export type DemandeModelePersonnel = {
 	/**  Chemin du classeur, extension `.xlsx` ; rendu par le dialogue du système. */
+	chemin: string,
+};
+
+/**  Modèle à écrire. */
+export type DemandeModeleProgramme = {
+	/**  Chemin du classeur à écrire. */
 	chemin: string,
 };
 
@@ -5510,6 +5550,26 @@ export type LigneImportPersonnel = {
 	erreurs: string[],
 	/**  Une personne du même nom est déjà au registre : elle n'est pas importée. */
 	doublon: boolean,
+};
+
+/**  Une ligne du fichier, telle que GESCO la comprend. */
+export type LigneImportProgramme = {
+	/**  Numéro de la ligne dans le fichier, en-tête compris. */
+	numero: number,
+	/**  Niveau lu. */
+	niveau: string,
+	/**  Série lue. */
+	serie: string,
+	/**  Matière lue. */
+	matiere: string,
+	/**  Coefficient retenu. */
+	coefficient: number | null,
+	/**  Minutes par semaine retenues. */
+	minutes_hebdo: number | null,
+	/**  Vrai si la matière n'existe pas encore : l'import la crée. */
+	nouvelle_matiere: boolean,
+	/**  Clés des erreurs de la ligne ; vide si elle est prête. */
+	erreurs: string[],
 };
 
 /**  Ligne de la liste des inscriptions : le nécessaire pour reconnaître l'élève (R-24). */

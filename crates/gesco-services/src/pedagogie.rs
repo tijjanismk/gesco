@@ -88,7 +88,7 @@ fn rentree(annee: &AnneeScolaire) -> i32 {
         .unwrap_or_else(|| i32::try_from(annee.debut.civil_utc().annee).unwrap_or(2026))
 }
 
-fn series_de(niveau: &Niveau, series: &[Serie]) -> Vec<Option<Serie>> {
+pub(crate) fn series_de(niveau: &Niveau, series: &[Serie]) -> Vec<Option<Serie>> {
     let du_niveau: Vec<Option<Serie>> = series
         .iter()
         .filter(|s| s.niveau_id == niveau.id)

@@ -7,8 +7,10 @@ import { CaseACocher } from "../../composants/Champ";
 import { MessageEnregistre, MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, libelleParametre, t } from "../../i18n";
 import type { ModuleEcole, Parametre, ValeurParametre } from "../../types/gesco";
+import { commandeAutorisee } from "../../app/navigation";
 import { DocumentEssai } from "../accueil/Accueil";
 import { FicheEtablissement } from "./FicheEtablissement";
+import { ImportProgramme } from "./ImportProgramme";
 import { ReglagesBulletin } from "./ReglagesBulletin";
 
 /** Thèmes des réglages, dans l'ordre d'affichage, reconnus au début de la clé. Un paramètre
@@ -62,6 +64,8 @@ function theme(cle: string): Cle {
 export function Parametres() {
   const parametres = useQuery({ queryKey: ["parametres"], queryFn: () => appeler("parametres_lister", null) });
   const titres: Cle[] = [...THEMES.map((th) => th.titre), "parametres.theme.autres"];
+  const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
+  const peutImporterProgramme = commandeAutorisee("programme_import_appliquer", session.data?.permissions ?? []);
   // Les messages aux familles éteints, seule leur case d'activation reste.
   const sms = (parametres.data ?? []).find((p) => p.cle === "sms.actif")?.valeur;
   const smsActif = sms?.type === "booleen" && sms.valeur;
@@ -84,6 +88,7 @@ export function Parametres() {
         );
       })}
       <ReglagesBulletin />
+      {peutImporterProgramme ? <ImportProgramme /> : null}
       <DocumentEssai />
     </div>
   );
