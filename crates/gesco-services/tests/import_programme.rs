@@ -170,3 +170,34 @@ async fn le_programme_s_importe_d_un_classeur() {
         "{refus:?}"
     );
 }
+
+/// Le classeur d'exemple livré dans `docs/exemples` s'importe sans aucune ligne à corriger.
+#[tokio::test]
+async fn l_exemple_livre_s_importe_sans_erreur() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let annee = p
+        .ok(
+            "annee_creer",
+            Some(&admin),
+            json!({ "libelle": "2026-2027", "debut": RENTREE_2026, "fin": FIN_2027 }),
+        )
+        .await;
+    p.ok("annee_activer", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    let exemple = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../docs/exemples/programme-cycles-1-et-2.xlsx");
+    let chemin = json!({ "chemin": exemple.to_string_lossy() });
+    let analyse = p
+        .ok("programme_import_analyser", Some(&admin), chemin.clone())
+        .await;
+    assert_eq!(analyse["niveaux_ignores"], 0, "{analyse}");
+    assert_eq!(analyse["niveaux_prets"], 9);
+    assert_eq!(analyse["nouvelles_matieres"], json!(["Bambara"]));
+    let bilan = p
+        .ok("programme_import_appliquer", Some(&admin), chemin)
+        .await;
+    assert_eq!(bilan["niveaux"], 9);
+}
