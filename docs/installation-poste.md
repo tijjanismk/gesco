@@ -1,11 +1,11 @@
 # Installer GESCO sur le poste d'une école
 
-Pour la version 1.1.0, du 17 octobre 2026.
+Pour la version 1.2.0, du 19 octobre 2026.
 
 ## Ce qu'il faut emporter
 
 Sur une clé USB :
-- l'installeur `GESCO_1.1.0_x64-setup.exe` (environ 225 Mo) ; il contient tout, même le
+- l'installeur `GESCO_1.2.0_x64-setup.exe` (environ 225 Mo) ; il contient tout, même le
   composant d'affichage de Windows (WebView2), et s'installe sans connexion internet ;
 - un fichier de licence, par exemple `GESCO-0001.lic`, pris dans
   `Documents\gesco-licences\lot-2026-10-16`. Notez dans `registre.csv` le numéro remis, l'école
@@ -57,8 +57,8 @@ Une école qui avait la version 0.11.0 installe la 1.0.0 par-dessus : ses donné
 base reçoit la trésorerie, l'emploi du temps et la cantine, et ses rôles livrés les droits qui
 vont avec. Les salaires et les avances déjà payés deviennent des dépenses « Salaires ».
 
-Une école en 1.0.0 installe la 1.1.0 par-dessus de la même façon ; ses rôles ne changent pas.
-Ce qui est nouveau est décrit dans `notes-de-version-1.1.0.md`.
+Une école en 1.0.0 ou en 1.1.0 installe la 1.2.0 par-dessus de la même façon ; ses rôles
+reçoivent les nouveaux droits. Ce qui est nouveau est décrit dans `notes-de-version-1.2.0.md`.
 
 ## Après l'installation : la trésorerie
 
