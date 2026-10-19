@@ -148,6 +148,10 @@ use crate::import_programme::{
     AnalyseImportProgramme, BilanImportProgramme, DemandeImportProgramme, DemandeModeleProgramme,
     ServiceImportProgramme,
 };
+use crate::import_referentiel::{
+    AnalyseImportReferentiel, BilanImportReferentiel, DemandeImportReferentiel,
+    DemandeModeleReferentiel, ServiceImportReferentiel,
+};
 use crate::initialisation::{PremierDemarrage, ServiceInitialisation};
 use crate::inscriptions::{
     DemandeAbandon, DemandeChangementClasse, DemandeIdInscription, DemandeInscription,
@@ -1004,6 +1008,9 @@ contrat! {
     programme_import_modele(DemandeModeleProgramme) -> FichierEcrit;
     programme_import_analyser(DemandeImportProgramme) -> AnalyseImportProgramme;
     programme_import_appliquer(DemandeImportProgramme) -> BilanImportProgramme;
+    referentiel_import_modele(DemandeModeleReferentiel) -> FichierEcrit;
+    referentiel_import_analyser(DemandeImportReferentiel) -> AnalyseImportReferentiel;
+    referentiel_import_appliquer(DemandeImportReferentiel) -> BilanImportReferentiel;
     membre_lire(DemandeIdMembre) -> FicheMembre;
     ma_fiche_lire(()) -> Option<MaFiche>;
     membre_enregistrer(DemandeMembre) -> FicheMembre;
@@ -3727,6 +3734,46 @@ impl Application {
     async fn personnel_lister(&self, appel: Appel, _entree: ()) -> Resultat<Vec<MembreAffiche>> {
         ServicePersonnel::nouveau(&appel.ouverte()?.noyau)
             .lister(appel.session()?)
+            .await
+    }
+
+    async fn referentiel_import_modele(
+        &self,
+        appel: Appel,
+        entree: DemandeModeleReferentiel,
+    ) -> Resultat<FichierEcrit> {
+        ServiceImportReferentiel::nouveau(&appel.ouverte()?.noyau)
+            .ecrire_modele(appel.session()?, entree)
+            .await
+    }
+
+    async fn referentiel_import_analyser(
+        &self,
+        appel: Appel,
+        entree: DemandeImportReferentiel,
+    ) -> Resultat<AnalyseImportReferentiel> {
+        ServiceImportReferentiel::nouveau(&appel.ouverte()?.noyau)
+            .analyser(appel.session()?, &entree)
+            .await
+    }
+
+    async fn referentiel_import_appliquer(
+        &self,
+        appel: Appel,
+        entree: DemandeImportReferentiel,
+    ) -> Resultat<BilanImportReferentiel> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        // R-48 : la sauvegarde précède toute écriture en masse.
+        self.sauvegardes(ouverte)
+            .creer(
+                session.etablissement_id,
+                Some(session),
+                MotifSauvegarde::AvantImport,
+            )
+            .await?;
+        ServiceImportReferentiel::nouveau(&ouverte.noyau)
+            .appliquer(session, &entree)
             .await
     }
 

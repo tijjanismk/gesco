@@ -216,6 +216,16 @@ export type AnalyseImportProgramme = {
 	nouvelles_matieres: string[],
 };
 
+/**  Ce que l'analyse a compris du fichier. */
+export type AnalyseImportReferentiel = {
+	/**  Les lignes, feuille par feuille. */
+	lignes: LigneImportReferentiel[],
+	/**  Classes qui seront créées. */
+	classes_a_creer: number,
+	/**  Matières qui seront créées. */
+	matieres_a_creer: number,
+};
+
 /**  Année qui peut recevoir un budget. */
 export type AnneeBudget = {
 	/**  Année. */
@@ -495,6 +505,16 @@ export type BilanImportProgramme = {
 	matieres_creees: number,
 	/**  Niveaux laissés tels quels. */
 	niveaux_ignores: number,
+};
+
+/**  Bilan de l'import. */
+export type BilanImportReferentiel = {
+	/**  Classes créées. */
+	classes: number,
+	/**  Matières créées. */
+	matieres: number,
+	/**  Lignes laissées de côté : déjà là, ou à corriger. */
+	ignorees: number,
 };
 
 /**  Ce qu'a fait la préparation des réinscriptions. */
@@ -1467,6 +1487,12 @@ export type Contrat = {
 	programme_import_analyser: Signature<DemandeImportProgramme, AnalyseImportProgramme>,
 	/**  Signature de la commande du même nom. */
 	programme_import_appliquer: Signature<DemandeImportProgramme, BilanImportProgramme>,
+	/**  Signature de la commande du même nom. */
+	referentiel_import_modele: Signature<DemandeModeleReferentiel, FichierEcrit>,
+	/**  Signature de la commande du même nom. */
+	referentiel_import_analyser: Signature<DemandeImportReferentiel, AnalyseImportReferentiel>,
+	/**  Signature de la commande du même nom. */
+	referentiel_import_appliquer: Signature<DemandeImportReferentiel, BilanImportReferentiel>,
 	/**  Signature de la commande du même nom. */
 	membre_lire: Signature<DemandeIdMembre, FicheMembre>,
 	/**  Signature de la commande du même nom. */
@@ -2863,6 +2889,12 @@ export type DemandeImportProgramme = {
 	chemin: string,
 };
 
+/**  Fichier à lire. */
+export type DemandeImportReferentiel = {
+	/**  Chemin du classeur ou du CSV. */
+	chemin: string,
+};
+
 /**  Relevé à rapprocher, avec ses colonnes. */
 export type DemandeImportReleve = {
 	/**  Compte. */
@@ -3059,6 +3091,12 @@ export type DemandeModelePersonnel = {
 
 /**  Modèle à écrire. */
 export type DemandeModeleProgramme = {
+	/**  Chemin du classeur à écrire. */
+	chemin: string,
+};
+
+/**  Modèle à écrire. */
+export type DemandeModeleReferentiel = {
 	/**  Chemin du classeur à écrire. */
 	chemin: string,
 };
@@ -5572,6 +5610,24 @@ export type LigneImportProgramme = {
 	erreurs: string[],
 };
 
+/**  Une ligne du fichier, telle que GESCO la comprend. */
+export type LigneImportReferentiel = {
+	/**  Classe ou matière. */
+	nature: NatureLigneReferentiel,
+	/**  Feuille du classeur. */
+	feuille: string,
+	/**  Numéro de la ligne dans sa feuille, en-tête compris. */
+	numero: number,
+	/**  Nom de la classe ou de la matière. */
+	nom: string,
+	/**  Niveau et série d'une classe ; code et groupe d'une matière. */
+	detail: string,
+	/**  Vrai si elle existe déjà : elle est laissée telle quelle. */
+	deja: boolean,
+	/**  Clés des erreurs de la ligne ; vide si elle est prête. */
+	erreurs: string[],
+};
+
 /**  Ligne de la liste des inscriptions : le nécessaire pour reconnaître l'élève (R-24). */
 export type LigneInscription = {
 	/**  Inscription. */
@@ -6207,6 +6263,13 @@ export type NatureExclusion =
 "temporaire" | 
 /**  L'élève quitte l'école ; la direction peut revenir sur la décision et le réintégrer. */
 "definitive";
+
+/**  Ce qu'une ligne crée. */
+export type NatureLigneReferentiel = 
+/**  Une classe de l'année en cours. */
+"classe" | 
+/**  Une matière. */
+"matiere";
 
 /**  Nature d'un message : ce dont il parle. */
 export type NatureMessage = 

@@ -30,9 +30,22 @@ pub struct Liste<'a> {
 /// ajustées. Les cellules qui ne contiennent qu'un nombre sont écrites en nombre, pour que les
 /// sommes d'Excel fonctionnent ; tout le reste reste du texte, matricules et téléphones compris.
 pub fn classeur(liste: &Liste<'_>) -> Result<Vec<u8>, ErreurDocument> {
-    verifier(liste)?;
+    classeur_feuilles(liste.titre, std::slice::from_ref(liste))
+}
+
+/// Compose un classeur d'une feuille par liste, chacune comme [`classeur`] la compose ; le
+/// classeur porte le titre donné.
+pub fn classeur_feuilles(titre: &str, listes: &[Liste<'_>]) -> Result<Vec<u8>, ErreurDocument> {
     let mut classeur = Workbook::new();
-    classeur.set_properties(&DocProperties::new().set_title(liste.titre));
+    classeur.set_properties(&DocProperties::new().set_title(titre));
+    for liste in listes {
+        ecrire_feuille(&mut classeur, liste)?;
+    }
+    Ok(classeur.save_to_buffer()?)
+}
+
+fn ecrire_feuille(classeur: &mut Workbook, liste: &Liste<'_>) -> Result<(), ErreurDocument> {
+    verifier(liste)?;
     let feuille = classeur.add_worksheet();
     feuille.set_name(nom_feuille(liste.titre))?;
     let entete = Format::new()
@@ -56,7 +69,7 @@ pub fn classeur(liste: &Liste<'_>) -> Result<Vec<u8>, ErreurDocument> {
     let derniere_colonne = u16::try_from(liste.entetes.len().saturating_sub(1))?;
     feuille.autofilter(0, 0, derniere_ligne, derniere_colonne)?;
     feuille.autofit();
-    Ok(classeur.save_to_buffer()?)
+    Ok(())
 }
 
 /// Refuse une liste sans colonne, trop grande, ou dont une ligne n'a pas la largeur des

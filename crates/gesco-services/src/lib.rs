@@ -52,6 +52,7 @@ pub mod image;
 pub mod import_eleves;
 pub mod import_personnel;
 pub mod import_programme;
+pub mod import_referentiel;
 pub mod initialisation;
 pub mod inscriptions;
 pub mod journal_tresorerie;

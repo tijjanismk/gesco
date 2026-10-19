@@ -11,6 +11,7 @@ import { commandeAutorisee } from "../../app/navigation";
 import { DocumentEssai } from "../accueil/Accueil";
 import { FicheEtablissement } from "./FicheEtablissement";
 import { ImportProgramme } from "./ImportProgramme";
+import { ImportReferentiel } from "./ImportReferentiel";
 import { ReglagesBulletin } from "./ReglagesBulletin";
 
 /** Thèmes des réglages, dans l'ordre d'affichage, reconnus au début de la clé. Un paramètre
@@ -88,6 +89,7 @@ export function Parametres() {
         );
       })}
       <ReglagesBulletin />
+      {peutImporterProgramme ? <ImportReferentiel /> : null}
       {peutImporterProgramme ? <ImportProgramme /> : null}
       <DocumentEssai />
     </div>

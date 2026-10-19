@@ -215,6 +215,18 @@ pub const COMMANDES: &[Commande] = &[
         "programme_import_appliquer",
         Permission::ACADEMIC_YEAR_MANAGE,
     ),
+    Commande::permise(
+        "referentiel_import_modele",
+        Permission::ACADEMIC_YEAR_MANAGE,
+    ),
+    Commande::permise(
+        "referentiel_import_analyser",
+        Permission::ACADEMIC_YEAR_MANAGE,
+    ),
+    Commande::permise(
+        "referentiel_import_appliquer",
+        Permission::ACADEMIC_YEAR_MANAGE,
+    ),
     Commande::permise("programme_reprendre", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::permise("periodes_definir", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::permise("calendrier_modifier", Permission::ACADEMIC_YEAR_MANAGE),

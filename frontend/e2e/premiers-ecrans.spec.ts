@@ -3,7 +3,7 @@
 // donne un espace de données et un dossier WebView2 jetables : l'établissement du poste n'est
 // pas touché. Les captures sont écrites dans `e2e/captures/`.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -2528,4 +2528,34 @@ test("le programme de la 9e s'importe d'un fichier corrigé, rangé dans les par
   await page.getByRole("button", { name: "Importer le programme de 1 niveau(x)" }).click();
   // L'import commence par une sauvegarde.
   await expect(page.getByText("Programme importé : 1 niveau(x) récrit(s), 1 matière(s) créée(s), 0 niveau(x) laissé(s) tel(s) quel(s).")).toBeVisible({ timeout: 30_000 });
+});
+
+test("les classes et les matières s'importent d'un classeur, sans toucher au programme", async () => {
+  const fichier = join(dossier, "classes-et-matieres.xlsx");
+  copyFileSync(join(import.meta.dirname, "..", "..", "docs", "exemples", "classes-et-matieres.xlsx"), fichier);
+  await allerA("nav.parametres");
+  await page.getByText(texte("import_referentiel.titre")).click();
+  await page.evaluate((chemin) => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    const original = window.fetch.bind(window);
+    fenetre.fetchOriginal = original;
+    window.fetch = (entree, options) => {
+      const url = decodeURIComponent(typeof entree === "string" ? entree : entree instanceof URL ? entree.href : entree.url);
+      if (url.includes("ipc.localhost/plugin:dialog|open")) {
+        return Promise.resolve(new Response(JSON.stringify(chemin), { status: 200, headers: { "Tauri-Response": "ok", "content-type": "application/json" } }));
+      }
+      return original(entree, options);
+    };
+  }, fichier);
+  await page.getByRole("button", { name: texte("import_referentiel.choisir") }).click();
+  await expect(page.getByText(/classe\(s\) et \d+ matière\(s\) à créer\./)).toBeVisible();
+  await page.evaluate(() => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    if (fenetre.fetchOriginal !== undefined) window.fetch = fenetre.fetchOriginal;
+  });
+  // Les classes que l'école a déjà sont laissées telles quelles.
+  await expect(page.getByRole("row").filter({ has: page.getByRole("cell", { name: "7e A", exact: true }) }).getByText(texte("import_referentiel.deja"))).toBeVisible();
+  await capturer("130-import-classes-et-matieres");
+  await page.getByRole("button", { name: /^Créer \d+ classe\(s\) et matière\(s\)$/ }).click();
+  await expect(page.getByText(/^Import terminé : \d+ classe\(s\) et \d+ matière\(s\) créée\(s\)/)).toBeVisible({ timeout: 30_000 });
 });

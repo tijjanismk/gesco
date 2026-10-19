@@ -31,6 +31,54 @@ pub struct FichierEcrit {
     pub lignes: u32,
 }
 
+/// Une feuille d'un classeur à plusieurs feuilles.
+pub struct Feuille {
+    /// Nom de la feuille.
+    pub titre: String,
+    /// En-têtes des colonnes.
+    pub entetes: Vec<String>,
+    /// Lignes, chacune aussi large que les en-têtes.
+    pub lignes: Vec<Vec<String>>,
+}
+
+/// Compose un classeur d'une feuille par liste et l'écrit, sous les mêmes règles que
+/// [`exporter_xlsx`] ; rend le nombre de lignes de toutes les feuilles.
+pub(crate) async fn exporter_xlsx_feuilles(
+    chemin: String,
+    titre: String,
+    feuilles: Vec<Feuille>,
+) -> Resultat<FichierEcrit> {
+    let extension_xlsx = Path::new(&chemin)
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("xlsx"));
+    if !extension_xlsx {
+        return Err(ErreurService::Regle {
+            cle: "export.extension",
+        });
+    }
+    let lignes =
+        u32::try_from(feuilles.iter().map(|f| f.lignes.len()).sum::<usize>()).map_err(|_| {
+            ErreurService::Regle {
+                cle: "export.liste_trop_grande",
+            }
+        })?;
+    let octets = tokio::task::spawn_blocking(move || {
+        let listes: Vec<Liste<'_>> = feuilles
+            .iter()
+            .map(|f| Liste {
+                titre: &f.titre,
+                entetes: &f.entetes,
+                lignes: &f.lignes,
+            })
+            .collect();
+        gesco_docs::tableur::classeur_feuilles(&titre, &listes)
+    })
+    .await
+    .map_err(|e| ErreurService::Fichier(std::io::Error::other(e)))??;
+    tokio::fs::write(&chemin, octets).await?;
+    Ok(FichierEcrit { chemin, lignes })
+}
+
 /// Compose le classeur et l'écrit. Refuse un chemin qui ne porte pas l'extension `.xlsx` : on
 /// n'écrit pas un classeur sous un nom qu'Excel n'ouvrirait pas.
 pub async fn exporter_xlsx(demande: DemandeExport) -> Resultat<FichierEcrit> {

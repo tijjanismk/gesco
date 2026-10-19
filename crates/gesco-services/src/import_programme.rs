@@ -92,7 +92,7 @@ pub struct DemandeModeleProgramme {
 }
 
 /// Texte comparable : minuscules, sans accents ni espaces superflus.
-fn comparable(texte: &str) -> String {
+pub(crate) fn comparable(texte: &str) -> String {
     texte
         .trim()
         .to_lowercase()
@@ -115,7 +115,7 @@ fn comparable(texte: &str) -> String {
 
 /// Le niveau d'un texte : son code (`7`, `CAP1`), son libellé (« 7e année »), ou une forme
 /// courte (« 7e », « 7ème », « 1re », « CAP 1 »).
-fn trouver_niveau<'a>(texte: &str, niveaux: &'a [Niveau]) -> Option<&'a Niveau> {
+pub(crate) fn trouver_niveau<'a>(texte: &str, niveaux: &'a [Niveau]) -> Option<&'a Niveau> {
     let lu = comparable(texte);
     let compact: String = lu.chars().filter(|c| !c.is_whitespace()).collect();
     let chiffres: String = compact.chars().take_while(char::is_ascii_digit).collect();
@@ -133,7 +133,7 @@ fn trouver_niveau<'a>(texte: &str, niveaux: &'a [Niveau]) -> Option<&'a Niveau> 
 }
 
 /// La matière d'un texte : son code, son libellé ou son libellé court.
-fn trouver_matiere<'a>(texte: &str, matieres: &'a [Matiere]) -> Option<&'a Matiere> {
+pub(crate) fn trouver_matiere<'a>(texte: &str, matieres: &'a [Matiere]) -> Option<&'a Matiere> {
     let lu = comparable(texte);
     matieres.iter().find(|m| {
         comparable(&m.code) == lu
@@ -171,7 +171,7 @@ fn lire_minutes(texte: &str) -> Result<Option<i64>, ()> {
 
 /// Code d'une matière nouvelle : les lettres de son libellé, sans accents, cinq au plus, suivies
 /// d'un chiffre s'il est déjà pris.
-fn code_nouveau(libelle: &str, pris: &[String]) -> String {
+pub(crate) fn code_nouveau(libelle: &str, pris: &[String]) -> String {
     let lettres: String = comparable(libelle)
         .chars()
         .filter(char::is_ascii_alphanumeric)
@@ -193,7 +193,7 @@ fn code_nouveau(libelle: &str, pris: &[String]) -> String {
 }
 
 /// Libellé court d'une matière nouvelle : son libellé, coupé à seize caractères.
-fn libelle_court(libelle: &str) -> String {
+pub(crate) fn libelle_court(libelle: &str) -> String {
     libelle.trim().chars().take(16).collect()
 }
 
