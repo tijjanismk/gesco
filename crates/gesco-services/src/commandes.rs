@@ -62,6 +62,7 @@ pub const COMMANDES_PUBLIQUES: &[&str] = &[
     "cles_deverrouiller_phrase",
     "sauvegarde_apercu",
     "sauvegarde_restaurer_initiale",
+    "journal_technique_noter",
 ];
 
 /// Catalogue des commandes, phase 2 comprise.
@@ -75,6 +76,8 @@ pub const COMMANDES: &[Commande] = &[
     Commande::publique("cles_deverrouiller_phrase"),
     Commande::publique("sauvegarde_apercu"),
     Commande::publique("sauvegarde_restaurer_initiale"),
+    // Une panne de l'interface se note au journal technique, même avant toute connexion.
+    Commande::publique("journal_technique_noter"),
     Commande::connectee("deconnexion"),
     Commande::connectee("verrouiller"),
     Commande::connectee("definir_pin"),

@@ -99,6 +99,18 @@ fn main() -> tauri::Result<()> {
                 }
                 None => (app.path().app_data_dir()?, trousseau::du_systeme()?),
             };
+            // Une panique, où qu'elle survienne (tâche de fond comprise), laisse au journal
+            // technique son message et sa ligne : la compilation de publication n'a pas de console.
+            let journal = racine.clone();
+            let defaut = std::panic::take_hook();
+            std::panic::set_hook(Box::new(move |info| {
+                gesco_services::journal_technique::noter(
+                    &journal,
+                    HorlogeSysteme.maintenant(),
+                    &format!("panique {info}"),
+                );
+                defaut(info);
+            }));
             let poste = nom_du_poste();
             let options = OptionsApplication {
                 racine,

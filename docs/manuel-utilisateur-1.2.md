@@ -1,6 +1,6 @@
 # GESCO — manuel d'utilisation
 
-Pour la version 1.2.0, du 18 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
+Pour la version 1.2.1, du 19 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
 qui n'existe qu'à partir de la 1.1 ou de la 1.2 est signalé « (1.1) » ou « (1.2) ».
 
 GESCO gère une école sur un seul poste Windows, sans internet : les élèves et leurs familles,
@@ -17,9 +17,10 @@ Chaque écran est désigné par son nom dans le menu de gauche, sous son groupe 
 
 ## 1. Installer et ouvrir GESCO
 
-L'installation est décrite dans le guide `Installer GESCO.md` remis avec l'installeur. En bref :
+L'installation est décrite pas à pas dans le guide `GESCO-guide-installation.pdf`, remis avec
+l'installeur. En bref :
 
-1. Lancez `GESCO_1.2.0_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
+1. Lancez `GESCO_1.2.1_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
    « Windows a protégé votre ordinateur », cliquez sur « Informations complémentaires », puis sur
    « Exécuter quand même ».
 2. Au premier démarrage, saisissez le nom de l'école, ses coordonnées et le compte
@@ -79,6 +80,12 @@ groupe **Paramètres**, replié par défaut : cliquez sur son titre pour le dép
    semaine). Corrigez-le dans Excel, puis choisissez le fichier : GESCO vérifie chaque ligne,
    récrit le programme des seuls niveaux du fichier et crée les matières qui manquent. Un niveau
    dont une ligne est fausse est laissé tel quel. Une sauvegarde est faite avant l'import.
+   **Import des classes et des matières (1.2.1)** : juste au-dessus, la section repliée
+   « Importer les classes et les matières (Excel) » crée en une fois les classes de l'année et
+   les matières qui manquent, sans toucher au programme. Son modèle a deux feuilles,
+   « Classes » (niveau, série au lycée, nom de la classe) et « Matières » (matière, code, nom
+   court, groupe), déjà remplies de ce que l'école a ; chacune est facultative. Ce qui existe
+   déjà reste tel quel ; un niveau d'un cycle fermé ou une série manquante sont signalés.
 7. **Paramètres → Enseignants** : qui enseigne quoi dans quelle classe ; un enseignant ne saisit
    que les notes de ses classes et de ses matières.
 8. **Paramètres → Utilisateurs** : un compte par personne, avec son ou ses rôles (voir §8).
@@ -410,13 +417,17 @@ Les montants des salaires ne sont visibles que de ceux qui font la paie ; chacun
 - **Le poste est perdu ou en panne** : réinstallez GESCO sur un autre poste et restaurez la
   dernière sauvegarde de la clé USB avec la phrase de secours (§6).
 - **Une question sur un écran** : chaque écran explique ce qu'il attend en tête de ses sections.
+- **Pour l'assistance (1.2.1)** : chaque erreur est notée dans le fichier
+  `journal-technique.txt` du dossier `%APPDATA%\ml.gesco.poste`. Envoyez ce fichier quand vous
+  signalez un souci ; il ne contient ni les données de l'école ni les mots de passe.
 
 ---
 
 ## 10. Ce qui vient ensuite
 
 La 1.2 apporte les SMS aux familles, le guichet, la remise des bulletins, les convocations, les
-codes d'accès et la consultation par SMS, les modules de l'école et l'import du programme. Les
+codes d'accès et la consultation par SMS, les modules de l'école et l'import du programme ;
+la 1.2.1, l'import des classes et des matières. Les
 SMS ont été essayés avec une clé simulée : avant de compter sur eux, faites un essai avec la clé
 et la puce de l'école (SMS d'essai, lecture du crédit, un SOLDE envoyé depuis un téléphone).
 Viendront ensuite les rapports et les états pour le CAP et l'académie, puis l'e-learning.

@@ -27,6 +27,7 @@ export function PhraseSecours({ phrase, surTermine }: { phrase: PhraseAffichee; 
       <div>
         <Bouton disabled={!range} onClick={surTermine}>{t("commun.continuer")}</Bouton>
       </div>
+      {range ? null : <p className="text-sm text-ocre">{t("phrase.cocher_pour_continuer")}</p>}
     </Section>
   );
 }

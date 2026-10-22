@@ -55,6 +55,7 @@ pub mod import_programme;
 pub mod import_referentiel;
 pub mod initialisation;
 pub mod inscriptions;
+pub mod journal_technique;
 pub mod journal_tresorerie;
 pub mod licence;
 pub mod livres;

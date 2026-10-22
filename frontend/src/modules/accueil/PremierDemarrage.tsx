@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { appeler } from "../../api";
 import { Bouton } from "../../composants/Bouton";
@@ -47,6 +47,16 @@ export function PremierDemarrage() {
     },
     onSuccess: (r) => setPhrase(r.phrase),
   });
+  // Une création qui dépasse vingt secondes le dit, au lieu de laisser un bouton grisé muet.
+  const [lente, setLente] = useState(false);
+  useEffect(() => {
+    if (!creation.isPending) return;
+    const minuterie = window.setTimeout(() => setLente(true), 20_000);
+    return () => {
+      window.clearTimeout(minuterie);
+      setLente(false);
+    };
+  }, [creation.isPending]);
   const terminer = () => void client.invalidateQueries({ queryKey: ["etat"] });
 
   if (phrase !== null) {
@@ -100,8 +110,9 @@ export function PremierDemarrage() {
             {champ("administrateur_nom", t("demarrage.administrateur_nom"))}
             {champ("administrateur_mot_de_passe", t("demarrage.administrateur_mot_de_passe"), "password")}
             <MessageErreur erreur={creation.error} />
+            {lente ? <p role="status" className="text-sm text-ocre">{t("demarrage.creation_lente")}</p> : null}
             <div>
-              <Bouton type="submit" disabled={creation.isPending}>{t("demarrage.creer")}</Bouton>
+              <Bouton type="submit" disabled={creation.isPending}>{creation.isPending ? t("demarrage.creation_en_cours") : t("demarrage.creer")}</Bouton>
             </div>
           </Formulaire>
         </Section>

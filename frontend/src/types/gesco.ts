@@ -1156,6 +1156,8 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	sauvegarde_restaurer_initiale: Signature<DemandeRestauration, RapportRestauration>,
 	/**  Signature de la commande du même nom. */
+	journal_technique_noter: Signature<DemandeJournalTechnique, null>,
+	/**  Signature de la commande du même nom. */
 	deconnexion: Signature<null, null>,
 	/**  Signature de la commande du même nom. */
 	verrouiller: Signature<null, Session>,
@@ -2929,6 +2931,12 @@ export type DemandeJournal = {
 	caissier_id: string | null,
 	/**  Un mode ; absent : tous. */
 	mode: ModePaiement | null,
+};
+
+/**  Panne de l'interface à noter au journal technique. */
+export type DemandeJournalTechnique = {
+	/**  Message de l'erreur et sa pile, tels que l'interface les a reçus. */
+	message: string,
 };
 
 /**  Mois du journal. */

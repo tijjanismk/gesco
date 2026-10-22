@@ -727,6 +727,13 @@ impl Appel {
     }
 }
 
+/// Panne de l'interface à noter au journal technique.
+#[derive(Debug, Deserialize, specta::Type)]
+pub struct DemandeJournalTechnique {
+    /// Message de l'erreur et sa pile, tels que l'interface les a reçus.
+    pub message: String,
+}
+
 /// L'application sur un poste : espace de données, clés, base ouverte quand la clé l'est.
 pub struct Application {
     espace: EspaceDonnees,
@@ -842,6 +849,7 @@ contrat! {
     cles_deverrouiller_phrase(DemandePhrase) -> EtatDemarrage;
     sauvegarde_apercu(DemandeArchive) -> ApercuSauvegarde;
     sauvegarde_restaurer_initiale(DemandeRestauration) -> RapportRestauration;
+    journal_technique_noter(DemandeJournalTechnique) -> ();
     deconnexion(()) -> ();
     verrouiller(()) -> Session;
     definir_pin(DemandeDefinirPin) -> ();
@@ -1172,10 +1180,22 @@ impl Application {
             modem_simule: gesco_sms::ModemSimule::nouveau(5_000),
             modem: std::sync::Mutex::new(None),
         };
-        if let EtatCles::Ouvertes(cle) = application.cles.preparer()? {
-            let ouverte = application.ouvrir(cle).await?;
-            *application.etat.write().await = Some(Arc::new(ouverte));
-        }
+        let cles = match application.cles.preparer()? {
+            EtatCles::Ouvertes(cle) => {
+                let ouverte = application.ouvrir(cle).await?;
+                *application.etat.write().await = Some(Arc::new(ouverte));
+                "ouvertes"
+            }
+            EtatCles::PhraseRequise => "phrase_requise",
+        };
+        crate::journal_technique::noter(
+            application.espace.racine(),
+            application.horloge.maintenant(),
+            &format!(
+                "demarrage version={} cles={cles}",
+                application.version_applicative
+            ),
+        );
         Ok(application)
     }
 
@@ -1186,9 +1206,35 @@ impl Application {
         jeton: Option<Jeton>,
         entree: serde_json::Value,
     ) -> Result<serde_json::Value, ErreurCommande> {
-        self.executer_garde(nom, jeton, entree)
-            .await
-            .map_err(ErreurCommande::from)
+        // Une panique devient une erreur interne : l'écran l'affiche au lieu d'attendre sans fin.
+        let resultat = match crate::journal_technique::SansPanique::nouveau(
+            self.executer_garde(nom, jeton, entree),
+        )
+        .await
+        {
+            Ok(rendu) => rendu.map_err(ErreurCommande::from),
+            Err(panique) => Err(ErreurCommande {
+                cle: "erreur.interne".to_owned(),
+                jusqua: None,
+                detail: Some(panique),
+            }),
+        };
+        // Chaque erreur rendue à l'écran se note au journal technique, pour l'assistance.
+        if let Err(e) = &resultat {
+            crate::journal_technique::noter(
+                self.espace.racine(),
+                self.horloge.maintenant(),
+                &format!(
+                    "commande={nom} cle={}{}",
+                    e.cle,
+                    e.detail
+                        .as_deref()
+                        .map(|d| format!(" detail={d}"))
+                        .unwrap_or_default()
+                ),
+            );
+        }
+        resultat
     }
 
     async fn executer_garde(
@@ -1546,6 +1592,20 @@ impl Application {
         appel: Appel,
         entree: DemandePremierDemarrage,
     ) -> Resultat<PremierDemarrageEffectue> {
+        // Chaque étape se note au journal technique avec sa durée : un premier démarrage qui
+        // n'aboutit pas sur un poste neuf dit ainsi où il s'est arrêté.
+        let debut = std::time::Instant::now();
+        let etape = |texte: &str| {
+            crate::journal_technique::noter(
+                self.espace.racine(),
+                self.horloge.maintenant(),
+                &format!(
+                    "premier_demarrage {texte} apres={}ms",
+                    debut.elapsed().as_millis()
+                ),
+            );
+        };
+        etape("debut");
         let ouverte = appel.ouverte()?;
         if Self::installe(&ouverte.noyau).await?.is_some() {
             return Err(ErreurService::Regle {
@@ -1583,6 +1643,7 @@ impl Application {
                 cycles: &entree.cycles,
             })
             .await?;
+        etape("etablissement_cree");
         let (phrase, modele_id, modele_version) = self
             .phrase_et_certificat(
                 ouverte,
@@ -1590,6 +1651,7 @@ impl Application {
                 &entree.administrateur_nom,
             )
             .await?;
+        etape("certificat_compose");
         let contexte = ouverte.noyau.contexte(initialise.etablissement_id, None);
         let mut unite = ouverte
             .noyau
@@ -1606,6 +1668,7 @@ impl Application {
             "premier_demarrage",
         );
         ouverte.noyau.terminer(unite).await?;
+        etape("termine");
         Ok(PremierDemarrageEffectue {
             etablissement: resume,
             phrase,
@@ -1689,6 +1752,19 @@ impl Application {
         entree: DemandeArchive,
     ) -> Resultat<ApercuSauvegarde> {
         restauration::apercu(Path::new(&entree.chemin))
+    }
+
+    async fn journal_technique_noter(
+        &self,
+        _appel: Appel,
+        entree: DemandeJournalTechnique,
+    ) -> Resultat<()> {
+        crate::journal_technique::noter(
+            self.espace.racine(),
+            self.horloge.maintenant(),
+            &format!("interface {}", entree.message),
+        );
+        Ok(())
     }
 
     async fn sauvegarde_restaurer_initiale(

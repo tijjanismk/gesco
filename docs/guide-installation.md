@@ -1,6 +1,6 @@
 # GESCO — installer sur un ordinateur
 
-Pour la version 1.2.0, du 19 octobre 2026. Ce guide va de l'ordinateur vide à GESCO prêt à
+Pour la version 1.2.1, du 19 octobre 2026. Ce guide va de l'ordinateur vide à GESCO prêt à
 servir. Comptez une demi-heure, sans internet une fois l'installeur copié.
 
 ---
@@ -19,16 +19,16 @@ servir. Comptez une demi-heure, sans internet une fois l'installeur copié.
 
 Sur un ordinateur qui a internet, ouvrez la page de la version :
 **https://github.com/tijjanismk/gesco/releases/latest**, puis cliquez sur
-`GESCO_1.2.0_x64-setup.exe` (environ 225 Mo). Prenez aussi le manuel
+`GESCO_1.2.1_x64-setup.exe` (environ 225 Mo). Prenez aussi le manuel
 `GESCO-manuel-utilisation.pdf`. Copiez-les sur une clé USB pour les porter à l'école.
 
 **Vérifier le fichier (conseillé).** Pour être sûr que le fichier n'a pas été abîmé ni
 remplacé, ouvrez PowerShell dans le dossier du fichier et tapez :
 
-`Get-FileHash .\GESCO_1.2.0_x64-setup.exe`
+`Get-FileHash .\GESCO_1.2.1_x64-setup.exe`
 
 Le résultat doit être exactement :
-`679E0585DA3FE53CCBD9F3D96BEA1E7F2D1455C51EAC96F88B27C06CFD84CCD5`.
+`9F459909A7420EE8D7DC41CACC300FF4E785E0BF00909FED108C1F94B06E5BD1`.
 S'il diffère, ne l'installez pas : téléchargez-le de nouveau.
 
 ## 3. Installer
@@ -55,7 +55,9 @@ compte Windows a ses propres données GESCO.
 3. GESCO affiche une **phrase de secours de douze mots**. **Recopiez-la sur papier**, vérifiez-la,
    et rangez-la hors de l'école (chez le promoteur, par exemple). Sans elle, une sauvegarde ne se
    restaure pas sur un autre ordinateur. Personne, pas même l'éditeur, ne peut la retrouver.
-4. Imprimez le certificat de la clé de secours quand GESCO le propose, et confirmez-le.
+4. Imprimez le certificat affiché sous les douze mots, puis **cochez la case « J'ai imprimé le
+   certificat et je l'ai rangé hors du poste »** : le bouton « Continuer » reste grisé tant
+   qu'elle n'est pas cochée.
 5. Créez tout de suite un **second compte administrateur** (Paramètres → Utilisateurs), pour
    le directeur par exemple : seul un administrateur peut réinitialiser le mot de passe d'un
    autre administrateur.
@@ -109,6 +111,16 @@ d'ordinateur, faites une dernière sauvegarde sur la clé USB.
    besoin).
 
 ## 11. En cas de souci
+
+- **Je clique et rien ne se passe** : regardez s'il y a une case à cocher au-dessus du bouton
+  (écran des douze mots), ou un message en rouge sous le formulaire. La création de
+  l'établissement prend quelques secondes ; au-delà de vingt, GESCO l'écrit sous le bouton.
+  Laissez-le ouvert, puis envoyez le journal technique si rien ne change.
+- **Le journal technique** : chaque erreur est notée, avec l'heure, dans le fichier
+  `journal-technique.txt` du dossier `%APPDATA%\ml.gesco.poste` (tapez ce chemin dans la barre
+  d'adresse de l'Explorateur). Le lancement et chaque étape de la création de l'établissement
+  y sont notés aussi. C'est ce fichier qu'on envoie à l'assistance ; il ne contient ni les
+  données de l'école ni les mots de passe.
 
 - **« Windows a protégé votre ordinateur »** : voir §3, étape 2.
 - **GESCO demande la phrase de secours au démarrage** : la clé des données n'est plus lisible
