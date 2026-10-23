@@ -1,6 +1,6 @@
 # GESCO — manuel d'utilisation
 
-Pour la version 1.2.2, du 23 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
+Pour la version 1.2.3, du 23 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
 qui n'existe qu'à partir de la 1.1 ou de la 1.2 est signalé « (1.1) » ou « (1.2) ».
 
 GESCO gère une école sur un seul poste Windows, sans internet : les élèves et leurs familles,
@@ -20,7 +20,7 @@ Chaque écran est désigné par son nom dans le menu de gauche, sous son groupe 
 L'installation est décrite pas à pas dans le guide `GESCO-guide-installation.pdf`, remis avec
 l'installeur. En bref :
 
-1. Lancez `GESCO_1.2.2_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
+1. Lancez `GESCO_1.2.3_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
    « Windows a protégé votre ordinateur », cliquez sur « Informations complémentaires », puis sur
    « Exécuter quand même ».
 2. Au premier démarrage, saisissez le nom de l'école, ses coordonnées et le compte
