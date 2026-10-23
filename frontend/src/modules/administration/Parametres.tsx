@@ -117,7 +117,14 @@ const CHOIX: Record<string, readonly { valeur: string; libelle: Cle }[]> = {
     { valeur: "simule", libelle: "sms.canal.simule" },
     { valeur: "modem", libelle: "sms.canal.modem" },
   ],
+  "matricule.separateur": [
+    { valeur: "/", libelle: "matricule.separateur.barre" },
+    { valeur: "-", libelle: "matricule.separateur.tiret" },
+    { valeur: ".", libelle: "matricule.separateur.point" },
+    { valeur: "", libelle: "matricule.separateur.aucun" },
+  ],
   "facturation.arrivee_en_cours": [
+    { valeur: "echeances_du_mois", libelle: "facturation.arrivee.echeances_du_mois" },
     { valeur: "echeances_restantes", libelle: "facturation.arrivee.echeances_restantes" },
     { valeur: "prorata_mensuel", libelle: "facturation.arrivee.prorata_mensuel" },
     { valeur: "plein_tarif", libelle: "facturation.arrivee.plein_tarif" },

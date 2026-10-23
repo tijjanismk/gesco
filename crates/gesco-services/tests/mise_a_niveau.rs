@@ -211,6 +211,20 @@ async fn une_base_ancienne_recoit_les_parametres_apparus_depuis() {
             .await
             .unwrap();
     assert_eq!(longueur, 12, "une valeur choisie n'est jamais écrasée");
+    // Une base sans élèves reçoit la barre oblique des matricules.
+    executer(
+        &noyau,
+        "DELETE FROM parametre WHERE cle = 'matricule.separateur'",
+    )
+    .await;
+    mise_a_niveau::completer_parametres(&noyau, etablissement_id)
+        .await
+        .unwrap();
+    let separateur =
+        gesco_db::depots::parametre::texte(&mut cnx, "matricule.separateur", "?", &contexte)
+            .await
+            .unwrap();
+    assert_eq!(separateur, "/");
     audit::verifier_chaine(&mut cnx, None, &contexte)
         .await
         .unwrap();

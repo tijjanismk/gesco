@@ -4,11 +4,12 @@
 //! (SPEC_PHASE_2 §2.3). Rien n'est retiré ni écrasé.
 
 use gesco_core::commun::Id;
+use gesco_core::core::ValeurParametre;
 use gesco_core::core::parametre::parametres_par_defaut;
 use gesco_core::core::permission::{COMPOSITION_ROLES_LIVRES, RoleSysteme};
 use gesco_core::core::{Etablissement, Operation, Permission, TypeEvenement};
-use gesco_core::scolarite::Cycle;
-use gesco_db::depots::{academique, annee_scolaire, enseignants, parametre, role};
+use gesco_core::scolarite::{Cycle, matricule};
+use gesco_db::depots::{academique, annee_scolaire, enseignants, parametre, personnes, role};
 use gesco_db::unite::Durabilite;
 
 use crate::erreur::Resultat;
@@ -100,12 +101,19 @@ pub async fn completer_parametres(
         .commencer(contexte.clone(), Durabilite::Critique)
         .await?;
     let mut ajoutes = 0;
-    for p in parametres_par_defaut(etablissement_id) {
+    for mut p in parametres_par_defaut(etablissement_id) {
         if parametre::lire(unite.connexion(), &p.cle, &contexte)
             .await?
             .is_some()
         {
             continue;
+        }
+        // Une école qui a déjà des élèves garde le tiret de ses matricules : ils restent d'une
+        // seule forme ; la barre oblique ne vaut que pour une école neuve.
+        if p.cle == matricule::parametres::SEPARATEUR
+            && personnes::eleves_existent(unite.connexion(), &contexte).await?
+        {
+            p.valeur = ValeurParametre::Texte(matricule::SEPARATEUR_ANCIEN.to_owned());
         }
         parametre::definir(unite.connexion(), &p, &contexte).await?;
         unite.auditer(

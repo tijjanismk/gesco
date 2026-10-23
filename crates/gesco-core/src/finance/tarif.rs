@@ -307,14 +307,28 @@ pub fn un_an_plus_tard(date: DateCivile) -> Option<DateCivile> {
         .or_else(|| DateCivile::nouvelle(annee, date.mois(), 28))
 }
 
+/// Jour du mois des échéances livrées, tant que l'école n'en a pas choisi un autre : le 5, en
+/// début de mois (décision du porteur du projet du 22 octobre 2026).
+pub const JOUR_ECHEANCE_DEFAUT: u8 = 5;
+
+/// Bornes du jour d'échéance : du 1er au 28, qui existe dans tous les mois.
+pub const JOURS_ECHEANCE: std::ops::RangeInclusive<u8> = 1..=28;
+
 /// Plans livrés avec une grille neuve (SPEC_PHASE_3 §3.1) : comptant, trois tranches (par
-/// défaut) et mensuel, datés depuis l'année de la rentrée. L'école les modifie ou les retire.
-/// Le noyau ne tire aucun identifiant lui-même (R-03) : l'appelant les fournit.
+/// défaut) et mensuel, datés depuis l'année de la rentrée, chaque échéance au jour du mois que
+/// l'école a choisi. L'école les modifie ou les retire. Le noyau ne tire aucun identifiant
+/// lui-même (R-03) : l'appelant les fournit.
 pub fn plans_livres(
     annee_rentree: i32,
+    jour: u8,
     mut nouvel_id: impl FnMut() -> Id<PlanPaiement>,
 ) -> Vec<PlanPaiement> {
-    let date = |annee: i32, mois: u8| DateCivile::nouvelle(annee, mois, 15);
+    let jour = if JOURS_ECHEANCE.contains(&jour) {
+        jour
+    } else {
+        JOUR_ECHEANCE_DEFAUT
+    };
+    let date = |annee: i32, mois: u8| DateCivile::nouvelle(annee, mois, jour);
     let tranche = |libelle: &str, echeance: Option<DateCivile>, part: i64| {
         echeance.map(|echeance| Tranche {
             libelle: libelle.to_owned(),
@@ -388,7 +402,7 @@ mod tests {
 
     fn plans_livres(annee: i32) -> Vec<PlanPaiement> {
         let mut n = 100;
-        super::plans_livres(annee, || {
+        super::plans_livres(annee, JOUR_ECHEANCE_DEFAUT, || {
             n += 1;
             id(n)
         })
@@ -427,9 +441,30 @@ mod tests {
         assert_eq!(plans.len(), 3);
         assert_eq!(plans[1].libelle, "Trois tranches");
         assert!(plans[1].par_defaut);
-        assert_eq!(plans[1].tranches[1].echeance, jour(2027, 1, 15));
+        assert_eq!(plans[1].tranches[1].echeance, jour(2027, 1, 5));
         assert_eq!(plans[2].tranches.len(), 9);
-        assert_eq!(plans[2].tranches[8].echeance, jour(2027, 6, 15));
+        assert_eq!(plans[2].tranches[8].echeance, jour(2027, 6, 5));
+    }
+
+    #[test]
+    fn les_echeances_livrees_tombent_au_jour_choisi() {
+        let mut n = 0;
+        let le_28 = super::plans_livres(2026, 28, || {
+            n += 1;
+            id(n)
+        });
+        assert!(
+            le_28
+                .iter()
+                .flat_map(|p| &p.tranches)
+                .all(|t| t.echeance.jour() == 28)
+        );
+        // Hors du 1er au 28, le jour livré.
+        let hors = super::plans_livres(2026, 31, || {
+            n += 1;
+            id(n)
+        });
+        assert_eq!(hors[2].tranches[0].echeance, jour(2026, 10, 5));
     }
 
     #[test]

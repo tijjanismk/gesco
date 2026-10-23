@@ -9,6 +9,7 @@ import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, dateCivile, dateHeure, francs, t } from "../../i18n";
 import { ApercuPdf } from "../../composants/ApercuPdf";
 import type { Remise, SituationInscription, StatutRemise, TypeFrais, TypeRemise, ValeurRemise, Versement } from "../../types/gesco";
+import { lireJour } from "./echeances";
 import { MODES } from "./Encaissement";
 
 export const TYPES_REMISE: Record<TypeRemise, Cle> = {
@@ -76,6 +77,15 @@ function FraisInscription({ situation, eleveId, permissions }: { situation: Situ
     mutationFn: () => appeler("echeancier_changer_plan", { inscription_id: situation.inscription.id, plan_paiement_id: plan }),
     onSuccess: rafraichir,
   });
+  const [jour, setJour] = useState("");
+  const jourLu = lireJour(jour);
+  const decalage = useMutation({
+    mutationFn: () => appeler("echeancier_changer_jour", { inscription_id: situation.inscription.id, jour: jourLu ?? 0 }),
+    onSuccess: () => {
+      setJour("");
+      rafraichir();
+    },
+  });
   return (
     <div className="flex flex-col gap-2 rounded border border-muet/30 p-3 text-sm">
       {facture === null ? (
@@ -123,6 +133,18 @@ function FraisInscription({ situation, eleveId, permissions }: { situation: Situ
             </div>
           ) : null}
           <MessageErreur erreur={changement.error} />
+          {commandeAutorisee("echeancier_changer_jour", permissions) ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="w-48">
+                <Champ id={`jour-${situation.inscription.id}`} libelle={t("facture.jour_echeance")} inputMode="numeric" value={jour} onChange={(e) => setJour(e.target.value)} />
+              </div>
+              <Bouton variante="secondaire" onClick={() => decalage.mutate()} disabled={decalage.isPending || jourLu === null}>
+                {t("facture.appliquer_jour")}
+              </Bouton>
+              <p className="w-full text-muet">{t("facture.jour_aide")}</p>
+            </div>
+          ) : null}
+          <MessageErreur erreur={decalage.error} />
         </>
       )}
       {situation.versements.length === 0 ? null : (

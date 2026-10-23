@@ -10,6 +10,7 @@ import { type Cle, dateCivile, francs, t, texteDeCle } from "../../i18n";
 import { TYPES_REMISE, valeurRemise } from "./FraisEleve";
 import type { Cycle, EtatGrille, Exigibilite, GrilleAffichee, Referentiel, SaisiePlan, TypeFrais } from "../../types/gesco";
 import { CYCLES } from "../scolarite/Cycles";
+import { auJour, lireJour } from "./echeances";
 import { deplier, type GroupeLigne, grouper, resumeNiveaux } from "./groupes";
 
 const TYPES_FRAIS: Record<TypeFrais, Cle> = {
@@ -263,6 +264,10 @@ function EditionGrille({ affichee, referentiel, surVigueur }: { affichee: Grille
   });
   const changerGroupe = (i: number, g: Partial<GroupeLigne>) => setGroupes(groupes.map((x, j) => (j === i ? { ...x, ...g } : x)));
   const changerPlan = (i: number, p: Partial<SaisiePlan>) => setPlans(plans.map((x, j) => (j === i ? { ...x, ...p } : x)));
+  // Le jour des échéances, proposé d'après la première tranche : un clic met toutes les tranches
+  // de tous les plans à ce jour de leur mois.
+  const [jour, setJour] = useState(() => String(Number(plans[0]?.tranches[0]?.echeance.slice(8, 10) ?? "5") || 5));
+  const jourLu = lireJour(jour);
   return (
     <div className="flex flex-col gap-4">
       <Section titre={t("frais.lignes")}>
@@ -329,6 +334,20 @@ function EditionGrille({ affichee, referentiel, surVigueur }: { affichee: Grille
       </Section>
       <Section titre={t("frais.plans")}>
         <p className="text-sm text-muet">{t("frais.plans_aide")}</p>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="w-32">
+            <Champ id="frais-jour-echeance" libelle={t("frais.jour_du_mois")} inputMode="numeric" value={jour} onChange={(e) => setJour(e.target.value)} />
+          </div>
+          <Bouton
+            variante="secondaire"
+            disabled={jourLu === null}
+            onClick={() => {
+              if (jourLu !== null) setPlans(plans.map((p) => ({ ...p, tranches: p.tranches.map((tr) => ({ ...tr, echeance: auJour(tr.echeance, jourLu) })) })));
+            }}
+          >
+            {t("frais.aligner_jour")}
+          </Bouton>
+        </div>
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {plans.map((p, i) => (
             <div key={i} className="flex flex-col gap-2 rounded border border-muet/30 p-3">

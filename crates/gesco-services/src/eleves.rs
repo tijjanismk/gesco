@@ -509,6 +509,13 @@ impl<'n> ServiceEleves<'n> {
                     &contexte,
                 )
                 .await?,
+                separateur: parametre::texte(
+                    &mut cnx,
+                    reglages::SEPARATEUR,
+                    &defaut.separateur,
+                    &contexte,
+                )
+                .await?,
             },
         ))
     }

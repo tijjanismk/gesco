@@ -14,6 +14,8 @@ Le système attribue à chaque élève un matricule interne qui fait autorité (
 
 *Réponse* (porteur du projet, 7 octobre 2026) : recommandation retenue, `2026-00042`. *Révisée le même jour* : l'école choisit entre un matricule qu'elle saisit et un matricule généré selon ses règles (préfixe, année, longueur, remise à zéro) ; le matricule national du DEF, lui, se recopie toujours et devient exigé dès la 9e.
 
+Précision du 23 octobre 2026 (porteur du projet) : la barre oblique par défaut, `2026/00042`, au lieu du tiret ; le séparateur est un réglage de l'école (barre oblique, tiret, point ou rien). Une école qui a déjà des élèves garde le tiret à la mise à jour.
+
 ### T-02 — Champs de la fiche d'inscription
 
 Quels champs une secrétaire remplit-elle réellement pour un nouvel élève, et lesquels sont obligatoires ?
@@ -105,6 +107,8 @@ En combien de fois la scolarité se paie-t-elle, et à quelles dates ?
 *Recommandation* : un calendrier par grille, modifiable par l'école. Livré par défaut : trois tranches, le 15 octobre, le 15 janvier et le 15 avril, à 40, 30 et 30 %. Une école peut passer au mensuel (neuf échéances d'octobre à juin) ou à une seule échéance. Les frais d'inscription se paient à l'inscription.
 
 *Réponse* (porteur du projet, 9 octobre 2026) : **au choix de chaque parent.** L'école définit dans sa grille de deux à quatre plans de paiement (comptant, trois tranches, mensuel…) ; le parent en choisit un à l'inscription ; le plan se change tant que rien n'est payé sur la scolarité.
+
+Précision du 22 octobre 2026 (porteur du projet) : les échéances tombent **le 5 du mois** par défaut, et non plus le 15 ; c'est un réglage de l'école (du 1er au 28), qui vaut pour les grilles neuves ; la grille en brouillon met d'un clic toutes ses échéances à un jour choisi ; et le jour se change **pour un seul élève**, sur ses échéances pas encore payées. La paie ne change pas (T-51). Pour un élève arrivé en cours d'année, chaque école choisit sa règle, et une autre se choisit pour un élève à la validation ; règle livrée : la tranche du mois d'arrivée compte, même si son jour est passé (inscrit le 14 octobre, l'élève paie la tranche du 5 octobre).
 
 ### T-13 — Premier versement à l'inscription
 

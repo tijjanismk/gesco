@@ -71,7 +71,10 @@ groupe **Paramètres**, replié par défaut : cliquez sur son titre pour le dép
    semestres ou mois selon le cycle), puis ouvrez-la.
 4. **Paramètres → Classes** : les classes de l'année, par niveau et, au lycée, par série.
 5. **Paramètres → Frais de l'année** : la grille des frais (inscription, scolarité, cantine,
-   transport, tenue, examen…) et les plans de paiement en tranches.
+   transport, tenue, examen…) et les plans de paiement en tranches. Les échéances d'une grille
+   neuve tombent le 5 du mois, ou le jour choisi dans **Établissement** (« Jour du mois des
+   échéances ») ; sur une grille en brouillon, « Mettre toutes les échéances à ce jour » les
+   déplace toutes d'un clic.
 6. **Paramètres → Matières et notation** : les matières, les programmes de chaque niveau avec
    leurs coefficients, et les règles de notation. GESCO pose déjà les matières et le programme
    de chaque niveau ; l'école corrige. **Import du programme (1.2)** : en bas de **Paramètres →
@@ -111,8 +114,9 @@ code d'accès (§4bis).
 ### Élèves (Scolarité → Élèves)
 
 - **Créer un élève** : « Nouvel élève », son identité, son extrait d'acte de naissance. GESCO
-  donne le matricule de l'école (`2026-00001`), sauf si l'école saisit les siens (réglage dans
-  Établissement). S'il trouve un élève qui ressemble, il le signale avant d'enregistrer.
+  donne le matricule de l'école (`2026/00001`), sauf si l'école saisit les siens (réglages dans
+  Établissement, avec le préfixe, la longueur et le séparateur : barre oblique, tiret, point ou
+  rien). S'il trouve un élève qui ressemble, il le signale avant d'enregistrer.
 - **La fiche de l'élève** porte son identité, sa photo, ses responsables, ses inscriptions et ses
   frais. La photo se choisit dans un fichier ou **se prend à la webcam du poste (1.1)** ; la
   première fois, Windows demande l'autorisation d'utiliser la caméra.
@@ -133,7 +137,12 @@ code d'accès (§4bis).
   versement. Une inscription peut rester en brouillon tant qu'une pièce manque.
 - La **fiche d'inscription** s'imprime, avec un code QR qui permet de la vérifier.
 - À la validation, GESCO établit la facture de l'année et son échéancier ; un élève arrivé en
-  cours d'année paie selon la règle choisie dans Établissement.
+  cours d'année paie selon la règle choisie dans Établissement (par défaut, la tranche du mois
+  d'arrivée compte, même si son jour est passé), ou selon une autre règle choisie pour lui à la
+  validation (« Élève arrivé en cours d'année »).
+- **Un parent payé un autre jour** : dans les frais de la fiche de l'élève, « Jour d'échéance
+  pour cet élève », puis « Décaler ses échéances » ; ses échéances de scolarité pas encore
+  payées passent à ce jour de leur mois.
 - **Réinscriptions** : à la fin de l'année, GESCO prépare l'inscription de chaque élève dans sa
   classe suivante ; elle se valide au guichet quand le parent vient.
 - **Départs** : transfert vers une autre école (certificat de transfert imprimé), abandon,

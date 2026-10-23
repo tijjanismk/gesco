@@ -13,7 +13,19 @@ pub mod parametres {
     pub const CHIFFRES: &str = "matricule.chiffres";
     /// Vrai : la numérotation repart à 1 chaque année ; faux : elle continue.
     pub const REMISE_ANNUELLE: &str = "matricule.remise_annuelle";
+    /// Séparateur entre le préfixe, l'année et le numéro : `/`, `-`, `.` ou rien.
+    pub const SEPARATEUR: &str = "matricule.separateur";
 }
+
+/// Séparateur livré : la barre oblique, `2026/00042` (porteur du projet, 23 octobre 2026).
+pub const SEPARATEUR_DEFAUT: &str = "/";
+
+/// Séparateur d'une école dont des élèves ont déjà leur matricule au tiret : la mise à niveau
+/// le garde, pour que ses matricules restent d'une seule forme.
+pub const SEPARATEUR_ANCIEN: &str = "-";
+
+/// Séparateurs permis.
+pub const SEPARATEURS: [&str; 4] = ["/", "-", ".", ""];
 
 /// Longueur maximale d'un matricule saisi.
 const SAISI_MAX: usize = 30;
@@ -29,16 +41,19 @@ pub struct ReglesMatricule {
     pub chiffres: i64,
     /// Numérotation qui repart à 1 chaque année.
     pub remise_annuelle: bool,
+    /// Séparateur entre les parties.
+    pub separateur: String,
 }
 
 impl Default for ReglesMatricule {
-    /// `2026-00042` : la recommandation T-01.
+    /// `2026/00042` : la forme de T-01, à la barre oblique.
     fn default() -> Self {
         Self {
             prefixe: String::new(),
             chiffres_annee: 4,
             chiffres: 5,
             remise_annuelle: true,
+            separateur: SEPARATEUR_DEFAUT.to_owned(),
         }
     }
 }
@@ -55,7 +70,7 @@ impl ReglesMatricule {
         }
     }
 
-    /// Compose le matricule : préfixe, année, numéro, séparés par des tirets.
+    /// Compose le matricule : préfixe, année, numéro, joints par le séparateur de l'école.
     pub fn formater(&self, millesime: &str, compteur: u64) -> String {
         let mut parties: Vec<String> = Vec::with_capacity(3);
         if !self.prefixe.is_empty() {
@@ -68,7 +83,7 @@ impl ReglesMatricule {
         }
         let largeur = usize::try_from(self.chiffres).unwrap_or(5);
         parties.push(format!("{compteur:0largeur$}"));
-        parties.join("-")
+        parties.join(&self.separateur)
     }
 }
 
@@ -78,6 +93,7 @@ pub fn hors_bornes(cle: &str, valeur: &crate::core::ValeurParametre) -> bool {
     match (cle, valeur) {
         (parametres::CHIFFRES_ANNEE, Entier(n)) => ![0, 2, 4].contains(n),
         (parametres::CHIFFRES, Entier(n)) => !(3..=8).contains(n),
+        (parametres::SEPARATEUR, Texte(t)) => !SEPARATEURS.contains(&t.as_str()),
         (parametres::PREFIXE, Texte(t)) => {
             t.chars().count() > 10 || !t.chars().all(|c| c.is_ascii_alphanumeric())
         }
@@ -106,13 +122,14 @@ mod tests {
     fn formes_du_matricule() {
         assert_eq!(
             ReglesMatricule::default().formater("2026", 42),
-            "2026-00042"
+            "2026/00042"
         );
         let ecole = ReglesMatricule {
             prefixe: "ASK".to_owned(),
             chiffres_annee: 2,
             chiffres: 3,
             remise_annuelle: true,
+            separateur: "-".to_owned(),
         };
         assert_eq!(ecole.formater("2026", 42), "ASK-26-042");
         assert_eq!(ecole.formater("2026", 1234), "ASK-26-1234");
@@ -121,8 +138,17 @@ mod tests {
             chiffres_annee: 0,
             chiffres: 6,
             remise_annuelle: true,
+            separateur: String::new(),
         };
-        assert_eq!(continu.formater("2026", 7), "ASK-000007");
+        assert_eq!(continu.formater("2026", 7), "ASK000007");
+        assert!(hors_bornes(
+            parametres::SEPARATEUR,
+            &ValeurParametre::Texte("_".to_owned())
+        ));
+        assert!(!hors_bornes(
+            parametres::SEPARATEUR,
+            &ValeurParametre::Texte(".".to_owned())
+        ));
     }
 
     #[test]

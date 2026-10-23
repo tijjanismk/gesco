@@ -14,11 +14,16 @@ use crate::finance::tarif::{
 use crate::scolarite::{Inscription, Niveau, Serie};
 
 /// Ce qu'on facture à un élève arrivé en cours d'année (Q-26, paramètre
-/// `facturation.arrivee_en_cours`).
+/// `facturation.arrivee_en_cours`) ; chaque école choisit sa règle, et une autre peut être
+/// choisie pour un élève à la validation (porteur du projet, 22 octobre 2026).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ArriveeEnCours {
-    /// Frais d'inscription entiers ; seules les tranches non échues du plan (défaut).
+    /// Frais d'inscription entiers ; les tranches du mois d'arrivée et des mois suivants, même
+    /// si leur jour est passé (défaut) : inscrit le 14 octobre, l'élève paie la tranche du
+    /// 5 octobre.
+    EcheancesDuMois,
+    /// Frais d'inscription entiers ; seules les tranches dont la date n'est pas passée.
     EcheancesRestantes,
     /// Au prorata des mois restants, réparti sur les tranches non échues.
     ProrataMensuel,
@@ -30,6 +35,7 @@ impl ArriveeEnCours {
     /// Nom persisté dans le paramètre.
     pub const fn nom(&self) -> &'static str {
         match self {
+            Self::EcheancesDuMois => "echeances_du_mois",
             Self::EcheancesRestantes => "echeances_restantes",
             Self::ProrataMensuel => "prorata_mensuel",
             Self::PleinTarif => "plein_tarif",
@@ -39,6 +45,7 @@ impl ArriveeEnCours {
     /// Lecture du paramètre.
     pub fn depuis_nom(nom: &str) -> Option<Self> {
         [
+            Self::EcheancesDuMois,
             Self::EcheancesRestantes,
             Self::ProrataMensuel,
             Self::PleinTarif,
@@ -46,6 +53,9 @@ impl ArriveeEnCours {
         .into_iter()
         .find(|r| r.nom() == nom)
     }
+
+    /// Règle livrée, tant que l'école n'en a pas choisi une autre.
+    pub const DEFAUT: Self = Self::EcheancesDuMois;
 }
 
 /// État d'une facture (§10.2 du blueprint, amendé par Q-51 : pas de brouillon). Réglée et soldée
@@ -258,6 +268,10 @@ fn selon_plan(
     let a_venir = |e: &&EcheanceCalculee| e.date >= date;
     Ok(match bornes.arrivee {
         ArriveeEnCours::PleinTarif => completes,
+        ArriveeEnCours::EcheancesDuMois => completes
+            .into_iter()
+            .filter(|e| mois(e.date) >= mois(date))
+            .collect(),
         ArriveeEnCours::EcheancesRestantes => completes.iter().filter(a_venir).cloned().collect(),
         ArriveeEnCours::ProrataMensuel => {
             let (restants, total) = mois_restants(date, bornes.debut, bornes.fin);
@@ -411,7 +425,7 @@ mod tests {
 
     fn trois_tranches() -> PlanPaiement {
         let mut n = 100;
-        plans_livres(2026, || {
+        plans_livres(2026, crate::finance::tarif::JOUR_ECHEANCE_DEFAUT, || {
             n += 1;
             id(n)
         })
@@ -471,6 +485,32 @@ mod tests {
         );
         assert_eq!(scolarite[1].libelle, "Scolarité · 2e tranche");
         assert_eq!(total(&calcul), 160_000);
+    }
+
+    #[test]
+    fn la_tranche_du_mois_d_arrivee_compte_selon_la_regle_de_l_ecole() {
+        // Inscrit le 14 octobre, la 1re tranche datée du 5 octobre.
+        let scolarite = |regle| {
+            calculer(
+                &grille(),
+                &contexte(jour(2026, 10, 14)),
+                &[],
+                &trois_tranches(),
+                &bornes(regle),
+            )
+            .unwrap_or_default()
+            .get(1)
+            .map(|l| l.echeances.iter().map(|e| e.montant).collect::<Vec<_>>())
+            .unwrap_or_default()
+        };
+        assert_eq!(
+            scolarite(ArriveeEnCours::EcheancesDuMois),
+            vec![f(60_000), f(45_000), f(45_000)]
+        );
+        assert_eq!(
+            scolarite(ArriveeEnCours::EcheancesRestantes),
+            vec![f(45_000), f(45_000)]
+        );
     }
 
     #[test]
@@ -554,7 +594,7 @@ mod tests {
         assert_eq!(total(&plein), 160_000);
         assert_eq!(
             plein[1].echeances[0].date,
-            jour(2026, 10, 15),
+            jour(2026, 10, 5),
             "échue, donc due tout de suite"
         );
     }

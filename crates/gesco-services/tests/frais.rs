@@ -86,7 +86,7 @@ async fn une_grille_se_saisit_se_met_en_vigueur_et_se_remplace() {
     assert_eq!(plans.len(), 3);
     assert_eq!(plans[1]["libelle"], "Trois tranches");
     assert_eq!(plans[1]["par_defaut"], true);
-    assert_eq!(plans[1]["tranches"][0]["echeance"], "2026-10-15");
+    assert_eq!(plans[1]["tranches"][0]["echeance"], "2026-10-05");
 
     // Une grille vide ne se met pas en vigueur.
     let id = json!({ "id": grille["grille"]["id"] });

@@ -182,6 +182,7 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("grille_mettre_en_vigueur", Permission::FEES_MANAGE),
     Commande::permise("situation_financiere", Permission::STUDENTS_READ),
     Commande::permise("echeancier_changer_plan", Permission::ENROLLMENTS_CREATE),
+    Commande::permise("echeancier_changer_jour", Permission::ENROLLMENTS_CREATE),
     Commande::permise("factures_rattraper_apercu", Permission::FEES_MANAGE),
     Commande::permise("factures_rattraper", Permission::FEES_MANAGE),
     Commande::permise("remise_proposer", Permission::ENROLLMENTS_CREATE),

@@ -364,6 +364,25 @@ export type ApercuSms = {
 };
 
 /**
+ *  Ce qu'on facture à un élève arrivé en cours d'année (Q-26, paramètre
+ *  `facturation.arrivee_en_cours`) ; chaque école choisit sa règle, et une autre peut être
+ *  choisie pour un élève à la validation (porteur du projet, 22 octobre 2026).
+ */
+export type ArriveeEnCours = 
+/**
+ *  Frais d'inscription entiers ; les tranches du mois d'arrivée et des mois suivants, même
+ *  si leur jour est passé (défaut) : inscrit le 14 octobre, l'élève paie la tranche du
+ *  5 octobre.
+ */
+"echeances_du_mois" | 
+/**  Frais d'inscription entiers ; seules les tranches dont la date n'est pas passée. */
+"echeances_restantes" | 
+/**  Au prorata des mois restants, réparti sur les tranches non échues. */
+"prorata_mensuel" | 
+/**  Tout est dû. */
+"plein_tarif";
+
+/**
  *  Arrondi des moyennes au centième, au choix de chaque école (réponse du 11 octobre 2026).
  *  Le blueprint (RC-1) tronquait toujours ; la troncature reste le défaut.
  */
@@ -869,6 +888,8 @@ export type ChoixFrais = {
 	plan_paiement_id?: string | null,
 	/**  Frais facultatifs cochés (cantine, transport…). */
 	frais_optionnels?: string[],
+	/**  Règle d'arrivée en cours d'année pour cet élève ; absente, celle de l'école. */
+	arrivee?: ArriveeEnCours | null,
 };
 
 /**  Classe d'une année scolaire (R-16). */
@@ -1331,6 +1352,8 @@ export type Contrat = {
 	situation_financiere: Signature<DemandeEleve, SituationInscription[]>,
 	/**  Signature de la commande du même nom. */
 	echeancier_changer_plan: Signature<DemandeChangementPlan, FactureAffichee>,
+	/**  Signature de la commande du même nom. */
+	echeancier_changer_jour: Signature<DemandeJourEcheance, FactureAffichee>,
 	/**  Signature de la commande du même nom. */
 	factures_rattraper_apercu: Signature<null, LigneRattrapage[]>,
 	/**  Signature de la commande du même nom. */
@@ -2919,6 +2942,14 @@ export type DemandeInscription = {
 	redoublant: boolean,
 	/**  École d'où vient l'élève, pour une arrivée par transfert. */
 	etablissement_origine: string,
+};
+
+/**  Jour d'échéance propre à un élève : un parent payé le 10 paie le 10. */
+export type DemandeJourEcheance = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Jour du mois, du 1er au 28. */
+	jour: number,
 };
 
 /**  Période et filtres du journal. */

@@ -100,6 +100,7 @@ export const ACCES = {
   grille_mettre_en_vigueur: { type: "permission", permission: "fees:manage" },
   situation_financiere: { type: "permission", permission: "students:read" },
   echeancier_changer_plan: { type: "permission", permission: "enrollments:create" },
+  echeancier_changer_jour: { type: "permission", permission: "enrollments:create" },
   factures_rattraper_apercu: { type: "permission", permission: "fees:manage" },
   factures_rattraper: { type: "permission", permission: "fees:manage" },
   remise_proposer: { type: "permission", permission: "enrollments:create" },

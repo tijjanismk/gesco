@@ -3,7 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { appeler } from "../../api";
 import { CaseACocher, Selection } from "../../composants/Champ";
 import { francs, t } from "../../i18n";
-import type { ChoixFrais } from "../../types/gesco";
+import type { ArriveeEnCours, ChoixFrais } from "../../types/gesco";
+
+const ARRIVEES: readonly { valeur: ArriveeEnCours; libelle: "facturation.arrivee.echeances_du_mois" | "facturation.arrivee.echeances_restantes" | "facturation.arrivee.prorata_mensuel" | "facturation.arrivee.plein_tarif" }[] = [
+  { valeur: "echeances_du_mois", libelle: "facturation.arrivee.echeances_du_mois" },
+  { valeur: "echeances_restantes", libelle: "facturation.arrivee.echeances_restantes" },
+  { valeur: "prorata_mensuel", libelle: "facturation.arrivee.prorata_mensuel" },
+  { valeur: "plein_tarif", libelle: "facturation.arrivee.plein_tarif" },
+];
 
 /** Grille en vigueur d'une année : la même requête pour tous les écrans qui la montrent. */
 function useGrilleEnVigueur(anneeId: string | null) {
@@ -48,6 +55,13 @@ export function ChoixFraisChamps({
         valeur={valeur.plan_paiement_id ?? plans.find((p) => p.par_defaut)?.id ?? ""}
         surChangement={(v) => surChangement({ ...valeur, plan_paiement_id: v })}
         options={plans.map((p) => ({ valeur: p.id, libelle: p.libelle }))}
+      />
+      <Selection
+        id={`${prefixe}-arrivee`}
+        libelle={t("facture.arrivee")}
+        valeur={valeur.arrivee ?? ""}
+        surChangement={(v) => surChangement({ ...valeur, arrivee: ARRIVEES.find((a) => a.valeur === v)?.valeur ?? null })}
+        options={[{ valeur: "", libelle: t("facture.arrivee_ecole") }, ...ARRIVEES.map((a) => ({ valeur: a.valeur, libelle: t(a.libelle) }))]}
       />
       {options.map((l) => (
         <CaseACocher

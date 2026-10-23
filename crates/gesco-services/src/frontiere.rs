@@ -109,8 +109,8 @@ use crate::evaluations::{
 };
 use crate::export::{DemandeExport, FichierEcrit};
 use crate::facturation::{
-    DemandeChangementPlan, FactureAffichee, LigneRattrapage, RapportRattrapage, ServiceFacturation,
-    SituationInscription,
+    DemandeChangementPlan, DemandeJourEcheance, FactureAffichee, LigneRattrapage,
+    RapportRattrapage, ServiceFacturation, SituationInscription,
 };
 use crate::fiche_etablissement::{ChampsEtablissement, FicheEtablissement, ServiceEtablissement};
 use crate::file_sms::{
@@ -937,6 +937,7 @@ contrat! {
     grille_mettre_en_vigueur(DemandeGrille) -> MiseEnVigueur;
     situation_financiere(DemandeEleve) -> Vec<SituationInscription>;
     echeancier_changer_plan(DemandeChangementPlan) -> FactureAffichee;
+    echeancier_changer_jour(DemandeJourEcheance) -> FactureAffichee;
     factures_rattraper_apercu(()) -> Vec<LigneRattrapage>;
     factures_rattraper(()) -> RapportRattrapage;
     remise_proposer(DemandeRemise) -> gesco_core::finance::Remise;
@@ -2827,6 +2828,16 @@ impl Application {
     ) -> Resultat<FactureAffichee> {
         ServiceFacturation::nouveau(&appel.ouverte()?.noyau)
             .changer_plan(appel.session()?, &entree)
+            .await
+    }
+
+    async fn echeancier_changer_jour(
+        &self,
+        appel: Appel,
+        entree: DemandeJourEcheance,
+    ) -> Resultat<FactureAffichee> {
+        ServiceFacturation::nouveau(&appel.ouverte()?.noyau)
+            .changer_jour(appel.session()?, &entree)
             .await
     }
 

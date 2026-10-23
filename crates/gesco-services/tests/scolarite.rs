@@ -368,8 +368,8 @@ async fn fiche_eleve_matricule_responsables_et_photo() {
             saisie_eleve(identite("Traoré", "Awa", json!("feminin"), "2014-03-02")),
         )
         .await;
-    assert_eq!(awa["eleve"]["matricule_interne"], "2026-00001");
-    assert_eq!(homonyme["eleve"]["matricule_interne"], "2026-00002");
+    assert_eq!(awa["eleve"]["matricule_interne"], "2026/00001");
+    assert_eq!(homonyme["eleve"]["matricule_interne"], "2026/00002");
     assert_eq!(awa["identite"]["nom"], "Traoré");
     let trouves = p
         .ok(
@@ -383,7 +383,7 @@ async fn fiche_eleve_matricule_responsables_et_photo() {
         .ok(
             "eleves_rechercher",
             Some(&admin),
-            json!({ "texte": "2026-00002" }),
+            json!({ "texte": "2026/00002" }),
         )
         .await;
     assert_eq!(par_matricule[0]["id"], homonyme["eleve"]["id"]);
@@ -399,7 +399,7 @@ async fn fiche_eleve_matricule_responsables_et_photo() {
         )
         .await;
     assert_eq!(rectifiee["eleve"]["matricule_national"], "ML2026001");
-    assert_eq!(rectifiee["eleve"]["matricule_interne"], "2026-00001");
+    assert_eq!(rectifiee["eleve"]["matricule_interne"], "2026/00001");
     assert_eq!(
         p.refus(
             "eleve_modifier",
@@ -638,6 +638,10 @@ async fn matricule_selon_les_regles_de_l_ecole_ou_saisi() {
         (
             "matricule.chiffres",
             json!({ "type": "entier", "valeur": 3 }),
+        ),
+        (
+            "matricule.separateur",
+            json!({ "type": "texte", "valeur": "-" }),
         ),
     ] {
         p.ok("parametre_definir", Some(&admin), regler(cle, valeur))

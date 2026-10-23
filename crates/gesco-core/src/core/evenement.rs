@@ -84,6 +84,8 @@ pub enum TypeEvenement {
     FactureAnnulee,
     /// Le parent a changé de plan de paiement (§3.1 bis).
     PlanPaiementChange,
+    /// Les échéances d'un élève passent à un autre jour du mois.
+    EcheancierDecale,
     /// Une remise est proposée à la direction (§5).
     RemiseProposee,
     /// Une remise est accordée ; elle réduit l'échéancier.
@@ -323,6 +325,7 @@ impl TypeEvenement {
         Self::FactureEmise,
         Self::FactureAnnulee,
         Self::PlanPaiementChange,
+        Self::EcheancierDecale,
         Self::RemiseProposee,
         Self::RemiseAccordee,
         Self::RemiseRefusee,
@@ -462,6 +465,7 @@ impl TypeEvenement {
             Self::FactureEmise => "FactureEmise",
             Self::FactureAnnulee => "FactureAnnulee",
             Self::PlanPaiementChange => "PlanPaiementChange",
+            Self::EcheancierDecale => "EcheancierDecale",
             Self::RemiseProposee => "RemiseProposee",
             Self::RemiseAccordee => "RemiseAccordee",
             Self::RemiseRefusee => "RemiseRefusee",
@@ -603,6 +607,7 @@ impl TypeEvenement {
             | Self::FactureEmise
             | Self::FactureAnnulee
             | Self::PlanPaiementChange
+            | Self::EcheancierDecale
             | Self::RemiseProposee
             | Self::RemiseAccordee
             | Self::RemiseRefusee

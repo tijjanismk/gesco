@@ -228,7 +228,9 @@ pub async fn compter_par_etat(
         .collect()
 }
 
-/// Messages en attente dont le tour est venu, les plus anciens d'abord, au plus `limite`.
+/// Messages en attente dont le tour est venu, au plus `limite` : le SMS d'essai et la réponse
+/// à un parent d'abord, qu'on attend devant son téléphone ; puis les plus anciens. Sans cela, un
+/// essai fait juste après l'allumage des SMS attendrait derrière toutes les relances du jour.
 pub async fn a_envoyer(
     cnx: &mut Connexion,
     maintenant: Horodatage,
@@ -237,7 +239,8 @@ pub async fn a_envoyer(
 ) -> Resultat<Vec<Message>> {
     sqlx::query_as::<_, LigneMessage>(selectionner_message!(
         "WHERE etablissement_id = ?1 AND etat = 'en_attente' AND pas_avant <= ?2
-         ORDER BY pas_avant, cree_le, id LIMIT ?3"
+         ORDER BY CASE WHEN nature IN ('essai', 'consultation') THEN 0 ELSE 1 END,
+                  pas_avant, cree_le, id LIMIT ?3"
     ))
     .bind(contexte.etablissement_id.vers_chaine())
     .bind(maintenant.millis_epoque())

@@ -3,14 +3,16 @@
 
 use gesco_core::commun::{DateCivile, Id, Montant};
 use gesco_core::core::{AnneeScolaire, MachineAEtats, Operation, StatutAnnee, TypeEvenement};
-use gesco_core::finance::tarif::{plans_livres, un_an_plus_tard, verifier_lignes, verifier_plans};
+use gesco_core::finance::tarif::{
+    JOUR_ECHEANCE_DEFAUT, plans_livres, un_an_plus_tard, verifier_lignes, verifier_plans,
+};
 use gesco_core::finance::{
     ContenuGrille, EtatGrille, Exigibilite, Grille, LigneTarifaire, PlanPaiement, Tranche,
     TypeFrais,
 };
 use gesco_core::scolarite::academique::libelle_valide;
 use gesco_core::scolarite::{Niveau, Serie};
-use gesco_db::depots::{academique, annee_scolaire, tarifs};
+use gesco_db::depots::{academique, annee_scolaire, parametre, tarifs};
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
 use serde::{Deserialize, Serialize};
@@ -18,6 +20,9 @@ use serde::{Deserialize, Serialize};
 use crate::erreur::{ErreurService, Resultat};
 use crate::noyau::Noyau;
 use crate::session::Session;
+
+/// Jour du mois des échéances des grilles neuves, au choix de l'école.
+pub const PARAMETRE_JOUR_ECHEANCE: &str = "facturation.jour_echeance";
 
 fn regle(cle: &'static str) -> ErreurService {
     ErreurService::Regle { cle }
@@ -199,10 +204,23 @@ impl<'n> ServiceFrais<'n> {
             let mut cnx = self.connexion().await?;
             let version = tarifs::prochaine_version(&mut cnx, annee.id, &contexte).await?;
             let contenu = match demande.copie_de {
-                None => ContenuGrille {
-                    lignes: Vec::new(),
-                    plans: plans_livres(rentree, nouvel_id),
-                },
+                None => {
+                    let jour = parametre::entier(
+                        &mut cnx,
+                        PARAMETRE_JOUR_ECHEANCE,
+                        i64::from(JOUR_ECHEANCE_DEFAUT),
+                        &contexte,
+                    )
+                    .await?;
+                    ContenuGrille {
+                        lignes: Vec::new(),
+                        plans: plans_livres(
+                            rentree,
+                            u8::try_from(jour).unwrap_or(JOUR_ECHEANCE_DEFAUT),
+                            nouvel_id,
+                        ),
+                    }
+                }
                 Some(source_id) => {
                     let source = tarifs::grille(&mut cnx, source_id, &contexte).await?;
                     let annee_source =

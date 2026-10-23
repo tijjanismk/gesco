@@ -300,6 +300,18 @@ async fn un_eleve_arrive_en_cours_d_annee_selon_le_reglage_de_l_ecole() {
     let scolarite: i64 = montants(&s["facture"])[1..].iter().sum();
     assert!(scolarite < 150_000 && scolarite > 90_000, "{scolarite}");
     assert_eq!(scolarite % 5, 0, "arrondi au multiple de l'école");
+
+    // Pour un élève, la direction choisit une autre règle à la validation : plein tarif.
+    let coumba = eleve(&e, "Coumba").await;
+    let ins = brouillon(&e, &coumba, &e.septieme, "2026-12-01").await;
+    e.p.ok(
+        "inscription_valider",
+        Some(&e.admin),
+        json!({ "id": ins["id"], "choix": { "arrivee": "plein_tarif" } }),
+    )
+    .await;
+    let s = situation(&e, &coumba).await;
+    assert_eq!(s["facture"]["facture"]["total"], 160_000);
     assert_eq!(
         e.p.refus(
             "parametre_definir",
@@ -487,6 +499,36 @@ async fn une_remise_proposee_puis_accordee_reduit_les_dernieres_tranches() {
     let n = nets(&change);
     assert_eq!(n.last(), Some(&0));
     assert_eq!(n.iter().sum::<i64>(), 85_000);
+
+    // Le parent est payé le 10 : ses neuf mensualités passent au 10 de leur mois, la remise se
+    // répartit de même, le reste ne bouge pas ; un jour hors du 1er au 28 est refusé.
+    let decale =
+        e.p.ok(
+            "echeancier_changer_jour",
+            Some(&e.admin),
+            json!({ "inscription_id": ins["id"], "jour": 10 }),
+        )
+        .await;
+    let dates: Vec<String> = decale["echeances"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|x| x["echeance"]["date"].as_str().map(str::to_owned))
+        .collect();
+    assert_eq!(dates.iter().filter(|d| d.ends_with("-10")).count(), 9);
+    assert_eq!(decale["remise"], 75_000);
+    assert_eq!(decale["reste"], 85_000);
+    assert_eq!(nets(&decale), n);
+    assert_eq!(
+        e.p.refus(
+            "echeancier_changer_jour",
+            Some(&e.admin),
+            json!({ "inscription_id": ins["id"], "jour": 30 }),
+        )
+        .await
+        .cle,
+        "echeancier.jour_invalide"
+    );
 
     // Une remise supérieure au reste est refusée ; un refus et une annulation sont motivés.
     let trop =

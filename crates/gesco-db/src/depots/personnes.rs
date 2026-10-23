@@ -424,6 +424,16 @@ pub async fn absorber(
     Ok(())
 }
 
+/// Vrai si l'établissement a déjà au moins un élève, fiches absorbées comprises.
+pub async fn eleves_existent(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<bool> {
+    let trouve: Option<String> =
+        sqlx::query_scalar("SELECT id FROM eleve WHERE etablissement_id = ?1 LIMIT 1")
+            .bind(contexte.etablissement_id.vers_chaine())
+            .fetch_optional(cnx)
+            .await?;
+    Ok(trouve.is_some())
+}
+
 /// Vrai si un autre élève porte ce matricule interne, fiches absorbées comprises : un matricule
 /// n'est jamais réemployé.
 pub async fn matricule_interne_pris(

@@ -336,7 +336,7 @@ async fn un_classeur_de_quinze_eleves_s_importe_apres_sauvegarde() {
         fiche["eleve"]["matricule_interne"]
             .as_str()
             .unwrap()
-            .starts_with("2026-")
+            .starts_with("2026/")
     );
 
     // Le fichier appliqué est oublié : une seconde application est refusée.

@@ -7,6 +7,7 @@ use gesco_core::core::{
     AnneeScolaire, MachineAEtats, Operation, TypeDocumentNumerote, TypeEvenement,
 };
 use gesco_core::finance::facture::{ArriveeEnCours, Bornes, LigneCalculee, calculer};
+use gesco_core::finance::tarif::JOURS_ECHEANCE;
 use gesco_core::finance::{
     ContexteTarifaire, Echeance, Exigibilite, Facture, LigneFacture, LigneTarifaire, PlanPaiement,
     StatutEcheance, StatutFacture,
@@ -41,6 +42,9 @@ pub struct ChoixFrais {
     /// Frais facultatifs cochés (cantine, transport…).
     #[serde(default)]
     pub frais_optionnels: Vec<Id<LigneTarifaire>>,
+    /// Règle d'arrivée en cours d'année pour cet élève ; absente, celle de l'école.
+    #[serde(default)]
+    pub arrivee: Option<ArriveeEnCours>,
 }
 
 /// Échéance due, avec la part des remises accordées et ce qui reste à payer.
@@ -189,6 +193,15 @@ pub struct DemandeChangementPlan {
     pub plan_paiement_id: Id<PlanPaiement>,
 }
 
+/// Jour d'échéance propre à un élève : un parent payé le 10 paie le 10.
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+pub struct DemandeJourEcheance {
+    /// Inscription.
+    pub inscription_id: Id<Inscription>,
+    /// Jour du mois, du 1er au 28.
+    pub jour: u8,
+}
+
 /// Inscription validée sans facture, et ce que le rattrapage lui facturerait.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 pub struct LigneRattrapage {
@@ -238,10 +251,19 @@ async fn calculer_dans(
     }
     .cloned()
     .ok_or(regle("facture.plan_inconnu"))?;
-    let arrivee = ArriveeEnCours::depuis_nom(
-        &parametre::texte(cnx, PARAMETRE_ARRIVEE, "echeances_restantes", contexte).await?,
-    )
-    .unwrap_or(ArriveeEnCours::EcheancesRestantes);
+    let arrivee = match choix.arrivee {
+        Some(regle_eleve) => regle_eleve,
+        None => ArriveeEnCours::depuis_nom(
+            &parametre::texte(
+                cnx,
+                PARAMETRE_ARRIVEE,
+                ArriveeEnCours::DEFAUT.nom(),
+                contexte,
+            )
+            .await?,
+        )
+        .unwrap_or(ArriveeEnCours::DEFAUT),
+    };
     let multiple = parametre::entier(cnx, "montant.multiple_arrondi", 5, contexte).await?;
     let bornes = Bornes {
         debut: jour(annee.debut)?,
@@ -716,12 +738,12 @@ impl<'n> ServiceFacturation<'n> {
             &parametre::texte(
                 unite.connexion(),
                 PARAMETRE_ARRIVEE,
-                "echeances_restantes",
+                ArriveeEnCours::DEFAUT.nom(),
                 &contexte,
             )
             .await?,
         )
-        .unwrap_or(ArriveeEnCours::EcheancesRestantes);
+        .unwrap_or(ArriveeEnCours::DEFAUT);
         let multiple =
             parametre::entier(unite.connexion(), "montant.multiple_arrondi", 5, &contexte).await?;
         let bornes = Bornes {
@@ -808,6 +830,103 @@ impl<'n> ServiceFacturation<'n> {
         );
         self.noyau.terminer(unite).await?;
         self.affichee(session, apres).await
+    }
+
+    /// Met au jour choisi les échéances de l'élève qui suivent le plan et que rien n'a encore
+    /// payé, chacune dans son mois ; une échéance déjà payée, même en partie, garde sa date.
+    /// Chaque échéance décalée est contre-passée et recréée, et les remises se réappliquent.
+    pub async fn changer_jour(
+        &self,
+        session: &Session,
+        demande: &DemandeJourEcheance,
+    ) -> Resultat<FactureAffichee> {
+        if !JOURS_ECHEANCE.contains(&demande.jour) {
+            return Err(regle("echeancier.jour_invalide"));
+        }
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let (facture, lignes, etats, contenu) = {
+            let mut cnx = self.connexion().await?;
+            let facture = factures::facture_vivante(&mut cnx, demande.inscription_id, &contexte)
+                .await?
+                .ok_or(regle("facture.absente"))?;
+            let lignes = factures::lignes(&mut cnx, facture.id, &contexte).await?;
+            let etats = etat_echeances(&mut cnx, facture.id, &contexte).await?;
+            let contenu = tarifs::contenu(&mut cnx, facture.grille_id, &contexte).await?;
+            (facture, lignes, etats, contenu)
+        };
+        let selon_plan: Vec<Id<LigneFacture>> = lignes
+            .iter()
+            .filter(|l| {
+                contenu.lignes.iter().any(|g| {
+                    g.id == l.ligne_tarifaire_id && g.exigibilite == Exigibilite::SelonPlan
+                })
+            })
+            .map(|l| l.id)
+            .collect();
+        let a_decaler: Vec<(Echeance, DateCivile)> = etats
+            .into_iter()
+            .filter(|e| {
+                e.echeance.statut == StatutEcheance::Due
+                    && e.paye.est_nul()
+                    && selon_plan.contains(&e.echeance.ligne_facture_id)
+                    && e.echeance.date.jour() != demande.jour
+            })
+            .map(|e| {
+                let date = DateCivile::nouvelle(
+                    e.echeance.date.annee(),
+                    e.echeance.date.mois(),
+                    demande.jour,
+                )
+                .ok_or(regle("echeancier.jour_invalide"))?;
+                Ok((e.echeance, date))
+            })
+            .collect::<Resultat<_>>()?;
+        if a_decaler.is_empty() {
+            return self.affichee(session, facture).await;
+        }
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Critique)
+            .await?;
+        let mut rang =
+            factures::nombre_d_echeances(unite.connexion(), facture.id, &contexte).await?;
+        let mut decalees = Vec::new();
+        for (ancienne, date) in a_decaler {
+            factures::annuler_echeance(unite.connexion(), ancienne.id, &contexte).await?;
+            rang += 1;
+            let nouvelle = Echeance {
+                id: nouvel_id(),
+                date,
+                ..ancienne.clone()
+            };
+            factures::inserer_echeance(unite.connexion(), facture.id, rang, &nouvelle, &contexte)
+                .await?;
+            decalees.push(serde_json::json!({
+                "libelle": ancienne.libelle, "avant": ancienne.date, "apres": date,
+            }));
+        }
+        crate::remises::reappliquer_dans(&mut unite, &contexte, &facture).await?;
+        let id = facture.id.vers_chaine();
+        unite.auditer(
+            "facture",
+            &id,
+            Operation::Modification,
+            None,
+            Some(serde_json::json!({ "jour": demande.jour, "echeances": decalees })),
+            "facturation.changer_jour",
+        );
+        unite.emettre(
+            TypeEvenement::EcheancierDecale,
+            "facture",
+            &id,
+            serde_json::json!({
+                "inscription_id": facture.inscription_id,
+                "jour": demande.jour,
+                "echeances": decalees.len(),
+            }),
+        );
+        self.noyau.terminer(unite).await?;
+        self.affichee(session, facture).await
     }
 
     /// Inscriptions validées de l'année courante qui n'ont pas de facture (Q-50).

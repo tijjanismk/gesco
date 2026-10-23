@@ -249,7 +249,8 @@ async fn la_relance_d_impaye_suit_ses_regles() {
     traiter(p).await;
     assert!(vers(p, &admin, "+22376000001").await.is_empty());
 
-    // Sept jours plus tard : une relance pour Awa et Coumba, pas pour Binta.
+    // Sept jours plus tard : une relance pour Awa et Coumba, pas pour Binta ; les frais
+    // d'inscription et la 1re tranche, échue le 5 octobre.
     p.horloge.avancer(7 * JOUR);
     admin = p.connecter("admin", MOT_DE_PASSE).await;
     assert_eq!(traiter(p).await.envoyes, 2);
@@ -259,14 +260,13 @@ async fn la_relance_d_impaye_suit_ses_regles() {
     let texte = relance[0]["texte"].as_str().unwrap();
     assert!(
         texte.contains(
-            "il reste 10 000 F a payer pour Awa Traore (7e A), echu depuis le 04/10/2026"
+            "il reste 50 000 F a payer pour Awa Traore (7e A), echu depuis le 04/10/2026"
         ),
         "{texte}"
     );
     assert!(vers(p, &admin, "+22376000002").await.is_empty());
 
-    // Le même jour et le lendemain, rien de plus ; quinze jours après, la deuxième, avec la
-    // 1re tranche échue le 15 octobre.
+    // Le même jour et le lendemain, rien de plus ; quinze jours après, la deuxième.
     traiter(p).await;
     p.horloge.avancer(JOUR);
     admin = p.connecter("admin", MOT_DE_PASSE).await;
@@ -356,4 +356,26 @@ async fn l_avis_de_sanction_se_prepare_et_attend_une_decision() {
             .contains("a recu le 04/10/2026 : Avertissement")
     );
     assert_eq!(traiter(p).await.envoyes, 0);
+}
+
+#[tokio::test]
+async fn le_sms_d_essai_passe_devant_les_relances() {
+    let dossier = tempfile::tempdir().unwrap();
+    let e = ecole(dossier.path()).await;
+    let (p, mut admin) = (&e.p, e.admin.clone());
+    // Un SMS par minute ; sept jours après l'échéance, trois relances attendent leur tour.
+    regler(p, &admin, "sms.debit_par_minute", json!(1)).await;
+    p.horloge.avancer(7 * JOUR);
+    assert_eq!(traiter(p).await.envoyes, 1);
+    p.horloge.avancer(61_000);
+    admin = p.connecter("admin", MOT_DE_PASSE).await;
+    // L'école essaie sa clé : l'essai part à la minute suivante, avant les relances restantes.
+    p.ok(
+        "message_essai_envoyer",
+        Some(&admin),
+        json!({ "numero": "76 00 00 99" }),
+    )
+    .await;
+    assert_eq!(traiter(p).await.envoyes, 1);
+    assert_eq!(vers(p, &admin, "+22376000099").await[0]["etat"], "remis");
 }

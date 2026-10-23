@@ -70,6 +70,9 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
         }
         // SPEC_PHASE_8 §3 : le seuil d'accord des dépenses, en francs ; 0 : jamais d'accord.
         ("depense.seuil_accord", ValeurParametre::Entier(n)) => !(0..=1_000_000_000).contains(n),
+        ("facturation.jour_echeance", ValeurParametre::Entier(n)) => {
+            !u8::try_from(*n).is_ok_and(|j| crate::finance::tarif::JOURS_ECHEANCE.contains(&j))
+        }
         ("montant.multiple_arrondi", ValeurParametre::Entier(n)) => {
             ![1, 5, 10, 25, 50, 100].contains(n)
         }
@@ -163,6 +166,12 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
             true,
         ),
         p("montant.multiple_arrondi", ValeurParametre::Entier(5), true),
+        // Jour du mois des échéances des grilles neuves (porteur du projet, 22 octobre 2026).
+        p(
+            "facturation.jour_echeance",
+            ValeurParametre::Entier(i64::from(crate::finance::tarif::JOUR_ECHEANCE_DEFAUT)),
+            true,
+        ),
         // Q-31 : une inscription tardive avertit sans bloquer ; 0, jamais.
         p(
             "inscription.alerte_apres_jours",
@@ -184,10 +193,10 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         // Q-26 : frais d'inscription entiers et tranches non échues, par défaut.
         p(
             "facturation.arrivee_en_cours",
-            ValeurParametre::Texte("echeances_restantes".to_owned()),
+            ValeurParametre::Texte(crate::finance::ArriveeEnCours::DEFAUT.nom().to_owned()),
             true,
         ),
-        // Matricule interne (T-01 révisé) : `2026-00042` par défaut.
+        // Matricule interne (T-01 révisé) : `2026/00042` par défaut, séparateur au choix.
         p(
             "matricule.saisie_manuelle",
             ValeurParametre::Booleen(false),
@@ -200,6 +209,11 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         ),
         p("matricule.chiffres_annee", ValeurParametre::Entier(4), true),
         p("matricule.chiffres", ValeurParametre::Entier(5), true),
+        p(
+            crate::scolarite::matricule::parametres::SEPARATEUR,
+            ValeurParametre::Texte(crate::scolarite::matricule::SEPARATEUR_DEFAUT.to_owned()),
+            true,
+        ),
         // Q-68 : un congé se compte du lundi au vendredi ; T-44 : décompte désactivé.
         p("conge.samedi_compte", ValeurParametre::Booleen(false), true),
         p(

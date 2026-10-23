@@ -362,6 +362,14 @@ test("phase 3 : la direction saisit les frais de l'année et les met en vigueur"
   // Grille neuve : les trois plans livrés, « Trois tranches » par défaut.
   await expect(page.locator("#frais-plan-1-libelle")).toHaveValue("Trois tranches");
   await expect(page.locator("#frais-plan-1-defaut")).toBeChecked();
+  // Les échéances livrées tombent le 5 ; un clic les met toutes à un autre jour de leur mois.
+  await expect(page.locator("#frais-plan-1-tranche-0-echeance")).toHaveValue("2026-10-05");
+  await page.locator("#frais-jour-echeance").fill("10");
+  await page.getByRole("button", { name: texte("frais.aligner_jour") }).click();
+  await expect(page.locator("#frais-plan-2-tranche-8-echeance")).toHaveValue("2027-06-10");
+  await page.locator("#frais-jour-echeance").fill("5");
+  await page.getByRole("button", { name: texte("frais.aligner_jour") }).click();
+  await expect(page.locator("#frais-plan-1-tranche-0-echeance")).toHaveValue("2026-10-05");
 
   await page.getByRole("button", { name: texte("frais.ajouter_ligne") }).click();
   await page.locator("#frais-ligne-0-niveau-7").check();
@@ -408,7 +416,7 @@ test("phase 2 : fiche élève, responsable retrouvé par son téléphone, photo"
   await page.locator("#nouvel-eleve-lieu_naissance").fill("Bamako");
   await page.getByRole("button", { name: texte("eleves.creer") }).click();
   await expect(page.getByRole("heading", { name: "Awa Traoré" })).toBeVisible();
-  await expect(page.locator("aside").getByText("2026-00001")).toBeVisible();
+  await expect(page.locator("aside").getByText("2026/00001")).toBeVisible();
 
   // La mère, saisie sous une forme quelconque, est enregistrée sous la forme canonique.
   await page.locator("#ajout-lien").selectOption("mere");
@@ -431,7 +439,7 @@ test("phase 2 : fiche élève, responsable retrouvé par son téléphone, photo"
   await expect(page.locator("aside").getByText("+223 76 12 34 56")).toBeVisible();
 
   await page.locator("#eleves-recherche").fill("traore");
-  await expect(page.getByRole("cell", { name: "2026-00002" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "2026/00002" })).toBeVisible();
   await capturer("32-liste-des-eleves");
 });
 
@@ -596,8 +604,8 @@ test("phase 3 : UC-02 chronométré, un versement encaissé et son reçu en moin
   await page.getByRole("button", { name: /Oumar Sangaré/ }).click();
   await expect(page.getByText(/Reste à payer/)).toBeVisible();
   await page.locator("#encaissement-montant").fill("50000");
-  // La plus ancienne d'abord : l'inscription (10 000 F), puis 40 000 F de la 1re tranche.
-  await expect(page.getByRole("cell", { name: "40 000 F", exact: true })).toBeVisible();
+  // La plus ancienne d'abord : la 1re tranche, échue le 5 octobre, reçoit les 50 000 F.
+  await expect(page.getByRole("row").filter({ hasText: "1re tranche" }).getByRole("cell", { name: "50 000 F", exact: true })).toBeVisible();
   await capturer("56-encaissement");
   await page.locator("#encaissement-montant").press("Enter");
   await expect(page.getByRole("status").filter({ hasText: "REC-2026-000001" })).toBeVisible();
@@ -661,7 +669,7 @@ test("phase 2 : fusion de deux fiches en doublon", async () => {
   await expect(page.getByRole("heading", { name: "Hawa TRAORE" })).toBeVisible();
 
   await page.getByRole("button", { name: texte("fusion.ouvrir") }).click();
-  await page.getByRole("button", { name: /Awa Traoré · 2026-00001/ }).click();
+  await page.getByRole("button", { name: /Awa Traoré · 2026\/00001/ }).click();
   // On garde la fiche la plus ancienne, celle d'Awa : la nouvelle sera absorbée.
   await page.locator("#fusion-garder").uncheck();
   await expect(page.getByRole("columnheader", { name: texte("fusion.resultat") })).toBeVisible();
@@ -673,7 +681,7 @@ test("phase 2 : fusion de deux fiches en doublon", async () => {
 
   // L'ancien matricule mène désormais à la fiche gardée.
   await page.locator("#eleves-recherche").fill("L/2014/001");
-  await expect(page.getByRole("cell", { name: "2026-00001" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "2026/00001" })).toBeVisible();
   await expect(page.getByRole("cell", { name: "L/2014/001" })).toHaveCount(0);
   await capturer("43-fiche-apres-fusion");
 });
@@ -833,13 +841,13 @@ test("phase 3 : UC-05, les impayés par tranche d'ancienneté, puis le journal d
   for (const tranche of ["0 à 30 jours", "31 à 60 jours", "61 à 90 jours", "Plus de 90 jours"]) {
     await expect(page.getByRole("button", { name: new RegExp(tranche) })).toBeVisible();
   }
-  // Oumar a réglé l'inscription : rien d'échu pour lui. L'élève du jardin doit son inscription,
-  // échue aujourd'hui : 0 jour de retard.
-  await expect(page.getByRole("cell", { name: "Oumar Sangaré" })).toHaveCount(0);
+  // Oumar doit le reste de sa 1re tranche, échue le 5 octobre, et son inscription. L'élève du
+  // jardin doit son inscription, échue aujourd'hui : 0 jour de retard.
+  await expect(page.getByRole("row").filter({ hasText: "Oumar Sangaré" }).getByRole("cell", { name: "0 à 30 jours" })).toBeVisible();
   const bakary = page.getByRole("row").filter({ hasText: "Bakary Keïta" });
   await expect(bakary.getByRole("cell", { name: "0 à 30 jours" })).toBeVisible();
   await expect(bakary.getByRole("cell", { name: /Assitan Keïta \(\+223 79 00 00 01\)/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /0 à 30 jours.*1 élève/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /0 à 30 jours.*2 élève/ })).toBeVisible();
   await capturer("59-impayes");
 
   // Le journal du mois : un reçu valide de 50 000 F, et l'annulé à part.
@@ -2402,7 +2410,9 @@ test("phase 5 : la clé modem s'essaie, garde son port, envoie et lit le crédit
   await page.locator("#message-essai-numero").fill("76 00 00 98");
   await page.getByRole("button", { name: texte("messages.essai_envoyer") }).click();
   const ligne = page.getByRole("row").filter({ hasText: "+223 76 00 00 98" });
-  await expect(ligne.getByText(texte("messages.etat_message.remis"))).toBeVisible({ timeout: 20_000 });
+  // L'essai passe devant les relances du jour, mais attend la minute suivante si le débit de la
+  // minute est déjà pris.
+  await expect(ligne.getByText(texte("messages.etat_message.remis"))).toBeVisible({ timeout: 75_000 });
   // Le crédit est lu au premier passage par la clé, avant l'envoi de l'essai.
   await expect(page.getByText(/Crédit de la puce : 5\s000\sF/)).toBeVisible();
   await capturer("122-cle-modem");
@@ -2558,4 +2568,16 @@ test("les classes et les matières s'importent d'un classeur, sans toucher au pr
   await capturer("130-import-classes-et-matieres");
   await page.getByRole("button", { name: /^Créer \d+ classe\(s\) et matière\(s\)$/ }).click();
   await expect(page.getByText(/^Import terminé : \d+ classe\(s\) et \d+ matière\(s\) créée\(s\)/)).toBeVisible({ timeout: 30_000 });
+});
+
+test("version 1.2.2 : un parent payé le 10 voit les échéances de son enfant passer au 10", async () => {
+  await allerA("nav.eleves");
+  await page.locator("#eleves-recherche").fill("Tenin TANGARA");
+  await page.getByRole("cell", { name: "Tenin" }).first().click();
+  await expect(page.getByRole("heading", { name: "Tenin TANGARA" })).toBeVisible();
+  await page.locator('[id^="jour-"]').first().fill("10");
+  await page.getByRole("button", { name: texte("facture.appliquer_jour") }).first().click();
+  await expect(page.getByRole("row").filter({ hasText: "Scolarité · 2e tranche" }).getByText("10 janvier 2027")).toBeVisible();
+  await page.getByRole("row").filter({ hasText: "Scolarité · 2e tranche" }).scrollIntoViewIfNeeded();
+  await capturer("131-jour-echeance-eleve");
 });
