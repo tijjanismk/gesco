@@ -57,7 +57,9 @@ compte Windows a ses propres données GESCO.
    restaure pas sur un autre ordinateur. Personne, pas même l'éditeur, ne peut la retrouver.
 4. Imprimez le certificat affiché sous les douze mots, puis **cochez la case « J'ai imprimé le
    certificat et je l'ai rangé hors du poste »** : le bouton « Continuer » reste grisé tant
-   qu'elle n'est pas cochée.
+   qu'elle n'est pas cochée. Le message « certificat non confirmé » du bandeau disparaît alors.
+   Celui de la licence disparaît quand la licence est installée (§5), celui de la sauvegarde
+   quand une clé USB est ajoutée comme destination (§6).
 5. Créez tout de suite un **second compte administrateur** (Paramètres → Utilisateurs), pour
    le directeur par exemple : seul un administrateur peut réinitialiser le mot de passe d'un
    autre administrateur.
@@ -127,7 +129,9 @@ d'ordinateur, faites une dernière sauvegarde sur la clé USB.
   sur ce compte Windows (Windows réinstallé, autre compte). Saisissez la phrase recopiée au
   premier démarrage.
 - **Un mot de passe oublié** : l'administrateur le réinitialise dans Paramètres → Utilisateurs.
-- **L'administrateur a oublié le sien** : seul un autre administrateur peut le réinitialiser.
-  D'où le second compte administrateur conseillé au §4.
+- **L'administrateur a oublié le sien** : un autre administrateur le réinitialise (d'où le second
+  compte conseillé au §4). Sinon, sur l'écran de connexion, cliquez sur « Mot de passe
+  administrateur oublié ? » et saisissez les douze mots du certificat : un nouveau mot de passe
+  se choisit aussitôt. Gardez donc le certificat en lieu sûr.
 - **L'écran reste blanc au démarrage** : redémarrez l'ordinateur, puis relancez GESCO. Si cela
   continue, réinstallez la même version par-dessus : les données sont gardées.

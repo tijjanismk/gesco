@@ -163,6 +163,21 @@ pub struct FiltreAudit {
     pub jusqua: Option<i64>,
 }
 
+/// Instant de la dernière ligne du journal portant cette origine (`comptes.…`), s'il y en a.
+pub async fn derniere_de_l_origine(
+    cnx: &mut Connexion,
+    origine: &str,
+    contexte: &Contexte,
+) -> Resultat<Option<i64>> {
+    Ok(sqlx::query_scalar::<_, Option<i64>>(
+        "SELECT MAX(horodatage) FROM journal_audit WHERE etablissement_id = ?1 AND contexte = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(origine)
+    .fetch_one(cnx)
+    .await?)
+}
+
 /// Les lignes du journal entre deux instants (le second exclu), dans l'ordre de la chaîne.
 pub async fn entre(
     cnx: &mut Connexion,

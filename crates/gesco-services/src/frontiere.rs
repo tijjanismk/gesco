@@ -727,6 +727,17 @@ impl Appel {
     }
 }
 
+/// Mot de passe d'administrateur perdu, remplacé avec les douze mots.
+#[derive(Debug, Deserialize, specta::Type)]
+pub struct DemandeReinitialisationPhrase {
+    /// Les douze mots.
+    pub phrase: String,
+    /// Identifiant de connexion de l'administrateur.
+    pub identifiant: String,
+    /// Son nouveau mot de passe.
+    pub nouveau_mot_de_passe: String,
+}
+
 /// Panne de l'interface à noter au journal technique.
 #[derive(Debug, Deserialize, specta::Type)]
 pub struct DemandeJournalTechnique {
@@ -756,6 +767,8 @@ pub struct Application {
     modem_simule: gesco_sms::ModemSimule,
     /// La clé modem ouverte, et son port : elle reste ouverte d'un passage de la file à l'autre.
     modem: std::sync::Mutex<Option<(String, Arc<gesco_sms::CanalModem>)>>,
+    /// Établissement créé à l'instant, dont la case du certificat attend d'être notée.
+    certificat_initial: std::sync::Mutex<Option<Id<Etablissement>>>,
 }
 
 impl SourceCanaux for Application {
@@ -850,6 +863,8 @@ contrat! {
     sauvegarde_apercu(DemandeArchive) -> ApercuSauvegarde;
     sauvegarde_restaurer_initiale(DemandeRestauration) -> RapportRestauration;
     journal_technique_noter(DemandeJournalTechnique) -> ();
+    administrateur_reinitialiser_par_phrase(DemandeReinitialisationPhrase) -> ();
+    certificat_confirmer_initial(()) -> ();
     deconnexion(()) -> ();
     verrouiller(()) -> Session;
     definir_pin(DemandeDefinirPin) -> ();
@@ -1180,6 +1195,7 @@ impl Application {
             canal_simule,
             modem_simule: gesco_sms::ModemSimule::nouveau(5_000),
             modem: std::sync::Mutex::new(None),
+            certificat_initial: std::sync::Mutex::new(None),
         };
         let cles = match application.cles.preparer()? {
             EtatCles::Ouvertes(cle) => {
@@ -1674,6 +1690,9 @@ impl Application {
             .noyau
             .charger_politique_session(initialise.etablissement_id)
             .await?;
+        if let Ok(mut attente) = self.certificat_initial.lock() {
+            *attente = Some(initialise.etablissement_id);
+        }
         etape("termine");
         Ok(PremierDemarrageEffectue {
             etablissement: resume,
@@ -1758,6 +1777,48 @@ impl Application {
         entree: DemandeArchive,
     ) -> Resultat<ApercuSauvegarde> {
         restauration::apercu(Path::new(&entree.chemin))
+    }
+
+    async fn administrateur_reinitialiser_par_phrase(
+        &self,
+        appel: Appel,
+        entree: DemandeReinitialisationPhrase,
+    ) -> Resultat<()> {
+        let ouverte = appel.ouverte()?;
+        let maintenant = self.horloge.maintenant();
+        // Les essais de phrase sont comptés comme au déverrouillage : pas de devinette en rafale.
+        self.tentatives_verifier(maintenant)?;
+        let issue = PhraseSecours::analyser(&entree.phrase)
+            .map_err(ErreurService::from)
+            .and_then(|p| self.cles.verifier_phrase(&p));
+        self.tentatives_conclure(issue, maintenant)?;
+        let fiche = Self::installe(&ouverte.noyau)
+            .await?
+            .ok_or(ErreurService::Regle {
+                cle: "premier_demarrage.requis",
+            })?;
+        crate::comptes::ServiceComptes::nouveau(&ouverte.noyau)
+            .reinitialiser_par_phrase(
+                fiche.id,
+                &entree.identifiant,
+                MotDePasse(&entree.nouveau_mot_de_passe),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn certificat_confirmer_initial(&self, appel: Appel, _entree: ()) -> Resultat<()> {
+        let ouverte = appel.ouverte()?;
+        let attente = self
+            .certificat_initial
+            .lock()
+            .map_or(None, |mut a| a.take())
+            .ok_or(ErreurService::Regle {
+                cle: "sauvegarde.certificat_rien_a_confirmer",
+            })?;
+        self.sauvegardes(ouverte)
+            .confirmer_certificat_de(attente, None)
+            .await
     }
 
     async fn journal_technique_noter(

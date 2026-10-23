@@ -1552,3 +1552,67 @@ async fn le_journal_se_filtre_et_nomme_ses_auteurs() {
         .await;
     assert!(futur["lignes"].as_array().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn l_administrateur_qui_a_perdu_son_mot_de_passe_le_remplace_avec_les_douze_mots() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    let phrase = p.installer().await;
+    // La case des douze mots, cochée au premier démarrage, est notée une fois, sans connexion.
+    p.ok("certificat_confirmer_initial", None, Value::Null)
+        .await;
+    assert_eq!(
+        p.refus("certificat_confirmer_initial", None, Value::Null)
+            .await
+            .cle,
+        "sauvegarde.certificat_rien_a_confirmer"
+    );
+    let demande = |phrase: &str, identifiant: &str| json!({ "phrase": phrase, "identifiant": identifiant, "nouveau_mot_de_passe": "000000" });
+    // Une phrase fausse ne change rien ; un compte qui n'est pas administrateur non plus.
+    let fausse = phrase.split(' ').rev().collect::<Vec<_>>().join(" ");
+    assert_ne!(
+        p.refus(
+            "administrateur_reinitialiser_par_phrase",
+            None,
+            demande(&fausse, "admin")
+        )
+        .await
+        .cle,
+        ""
+    );
+    assert_eq!(
+        p.refus(
+            "administrateur_reinitialiser_par_phrase",
+            None,
+            demande(&phrase, "inconnu")
+        )
+        .await
+        .cle,
+        "secours.administrateur_inconnu"
+    );
+    // Avec les douze mots, le nouveau mot de passe ouvre la session ; l'ancien, non.
+    p.ok(
+        "administrateur_reinitialiser_par_phrase",
+        None,
+        demande(&phrase, "admin"),
+    )
+    .await;
+    assert_eq!(
+        p.refus(
+            "connexion",
+            None,
+            json!({ "identifiant": "admin", "mot_de_passe": MOT_DE_PASSE }),
+        )
+        .await
+        .cle,
+        "connexion.identifiants_invalides"
+    );
+    let admin = p.connecter("admin", "000000").await;
+    // Le tableau de bord le signale, et le certificat n'est plus réclamé.
+    let alertes = p
+        .ok("avertissements", Some(&admin), Value::Null)
+        .await
+        .to_string();
+    assert!(alertes.contains("avertissement.mot_de_passe_reinitialise_par_phrase"));
+    assert!(!alertes.contains("avertissement.certificat_non_confirme"));
+}

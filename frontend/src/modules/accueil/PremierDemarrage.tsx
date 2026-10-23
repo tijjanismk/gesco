@@ -57,7 +57,13 @@ export function PremierDemarrage() {
       setLente(false);
     };
   }, [creation.isPending]);
-  const terminer = () => void client.invalidateQueries({ queryKey: ["etat"] });
+  // La case des douze mots est cochée : le certificat est noté imprimé et rangé, et le bandeau
+  // ne le réclame plus.
+  const terminer = () => {
+    void appeler("certificat_confirmer_initial", null)
+      .catch(() => undefined)
+      .finally(() => void client.invalidateQueries({ queryKey: ["etat"] }));
+  };
 
   if (phrase !== null) {
     return (

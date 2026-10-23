@@ -1179,6 +1179,10 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	journal_technique_noter: Signature<DemandeJournalTechnique, null>,
 	/**  Signature de la commande du même nom. */
+	administrateur_reinitialiser_par_phrase: Signature<DemandeReinitialisationPhrase, null>,
+	/**  Signature de la commande du même nom. */
+	certificat_confirmer_initial: Signature<null, null>,
+	/**  Signature de la commande du même nom. */
 	deconnexion: Signature<null, null>,
 	/**  Signature de la commande du même nom. */
 	verrouiller: Signature<null, Session>,
@@ -3537,6 +3541,16 @@ export type DemandeReinitialisation = {
 	id: string,
 	/**  Mot de passe initial, à changer à la connexion suivante. */
 	mot_de_passe_initial: string,
+};
+
+/**  Mot de passe d'administrateur perdu, remplacé avec les douze mots. */
+export type DemandeReinitialisationPhrase = {
+	/**  Les douze mots. */
+	phrase: string,
+	/**  Identifiant de connexion de l'administrateur. */
+	identifiant: string,
+	/**  Son nouveau mot de passe. */
+	nouveau_mot_de_passe: string,
 };
 
 /**  Relevé d'une classe pour un jour. */

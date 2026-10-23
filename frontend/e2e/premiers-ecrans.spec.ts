@@ -143,10 +143,17 @@ test("premier démarrage et phrase de secours", async () => {
 test("connexion", async () => {
   await expect(page.getByRole("heading", { name: texte("connexion.titre") })).toBeVisible();
   await capturer("04-connexion");
+  // L'administrateur qui a perdu son mot de passe le remplace avec les douze mots.
+  await page.getByRole("button", { name: texte("secours.lien") }).click();
+  await expect(page.getByRole("heading", { name: texte("secours.titre") })).toBeVisible();
+  await capturer("132-mot-de-passe-oublie");
+  await page.getByRole("button", { name: texte("commun.annuler") }).click();
   await page.getByLabel(texte("connexion.identifiant")).fill(IDENTIFIANT);
   await page.getByLabel(texte("connexion.mot_de_passe")).fill(MOT_DE_PASSE);
   await page.getByRole("button", { name: texte("connexion.valider") }).click();
   await expect(page.getByText(texte("bandeau.utilisateur").replace("{nom}", NOM))).toBeVisible();
+  // La case cochée aux douze mots suffit : le bandeau ne réclame plus le certificat.
+  await expect(page.getByText(texte("avertissement.certificat_non_confirme"))).toHaveCount(0);
 });
 
 test("changement de mot de passe exigé, puis code PIN", async () => {

@@ -38,7 +38,51 @@ export function Connexion({
         <MessageErreur erreur={connexion.error} />
         <Bouton type="submit" disabled={connexion.isPending}>{t("connexion.valider")}</Bouton>
       </Formulaire>
+      <SecoursAdministrateur />
       <p className="text-xs text-muet">{t("app.version", { version })}</p>
     </div>
+  );
+}
+
+/** L'administrateur qui a perdu son mot de passe le remplace avec les douze mots du certificat :
+ *  qui les détient peut déjà tout restaurer. Le remplacement est tracé et signalé. */
+function SecoursAdministrateur() {
+  const [ouvert, setOuvert] = useState(false);
+  const [phrase, setPhrase] = useState("");
+  const [identifiant, setIdentifiant] = useState("");
+  const [nouveau, setNouveau] = useState("");
+  const [fait, setFait] = useState(false);
+  const remplacement = useMutation({
+    mutationFn: () => appeler("administrateur_reinitialiser_par_phrase", { phrase, identifiant, nouveau_mot_de_passe: nouveau }),
+    onSuccess: () => {
+      setPhrase("");
+      setNouveau("");
+      setOuvert(false);
+      setFait(true);
+    },
+  });
+  if (!ouvert) {
+    return (
+      <div className="flex flex-col gap-1">
+        {fait ? <p role="status" className="text-sm text-vert">{t("secours.fait")}</p> : null}
+        <button type="button" className="self-start text-sm text-primaire underline" onClick={() => { setOuvert(true); setFait(false); }}>
+          {t("secours.lien")}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <Formulaire surEnvoi={() => remplacement.mutate()}>
+      <h2 className="text-base font-semibold text-encre">{t("secours.titre")}</h2>
+      <p className="text-sm text-muet">{t("secours.explication")}</p>
+      <Champ id="secours-phrase" libelle={t("phrase.saisie")} value={phrase} autoComplete="off" onChange={(e) => setPhrase(e.target.value)} />
+      <Champ id="secours-identifiant" libelle={t("secours.identifiant")} value={identifiant} autoComplete="username" onChange={(e) => setIdentifiant(e.target.value)} />
+      <Champ id="secours-nouveau" libelle={t("secours.nouveau")} type="password" value={nouveau} autoComplete="new-password" onChange={(e) => setNouveau(e.target.value)} />
+      <MessageErreur erreur={remplacement.error} />
+      <div className="flex flex-wrap gap-2">
+        <Bouton type="submit" disabled={remplacement.isPending || phrase.trim() === "" || identifiant.trim() === "" || nouveau === ""}>{t("secours.valider")}</Bouton>
+        <Bouton variante="secondaire" onClick={() => setOuvert(false)}>{t("commun.annuler")}</Bouton>
+      </div>
+    </Formulaire>
   );
 }

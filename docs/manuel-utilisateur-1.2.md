@@ -423,6 +423,10 @@ Les montants des salaires ne sont visibles que de ceux qui font la paie ; chacun
   l'installation.
 - **Un mot de passe oublié** : l'administrateur le réinitialise dans Utilisateurs. Un compte
   bloqué après trois essais se débloque au même endroit, ou de lui-même après un moment.
+- **L'administrateur a oublié le sien** : un autre administrateur le réinitialise ; sinon, sur
+  l'écran de connexion, « Mot de passe administrateur oublié ? » : les douze mots du certificat,
+  l'identifiant de l'administrateur et son nouveau mot de passe. Le remplacement est noté au
+  journal d'audit et le tableau de bord le signale pendant sept jours.
 - **Une erreur de saisie** : rien ne s'efface dans GESCO. Un versement, une dépense, une recette,
   une sanction s'annulent avec un motif ; le journal garde la trace.
 - **Le poste est perdu ou en panne** : réinstallez GESCO sur un autre poste et restaurez la

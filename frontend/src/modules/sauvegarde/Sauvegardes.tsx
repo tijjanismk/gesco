@@ -146,7 +146,17 @@ function Certificat() {
       void client.invalidateQueries({ queryKey: ["avertissements"] });
     },
   });
-  if (phrase !== null) return <PhraseSecours phrase={phrase} surTermine={() => setPhrase(null)} />;
+  if (phrase !== null) {
+    return (
+      <PhraseSecours
+        phrase={phrase}
+        surTermine={() => {
+          setPhrase(null);
+          confirmation.mutate();
+        }}
+      />
+    );
+  }
   return (
     <Section titre={t("sauvegarde.certificat")}>
       <div>

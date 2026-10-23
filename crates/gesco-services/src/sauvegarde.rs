@@ -644,6 +644,23 @@ impl<'a> ServiceSauvegarde<'a> {
             if !parametre::booleen_param(&mut cnx, PARAMETRE_DERNIER_TEST, true, &contexte).await? {
                 cles.push("avertissement.test_restauration_echoue");
             }
+            let recente = gesco_db::depots::audit::derniere_de_l_origine(
+                &mut cnx,
+                crate::comptes::ORIGINE_REINITIALISATION_PAR_PHRASE,
+                &contexte,
+            )
+            .await?
+            .is_some_and(|le| {
+                self.noyau
+                    .horloge()
+                    .maintenant()
+                    .millis_epoque()
+                    .saturating_sub(le)
+                    < crate::comptes::JOURS_SIGNALEMENT_REINITIALISATION * 86_400_000
+            });
+            if recente {
+                cles.push("avertissement.mot_de_passe_reinitialise_par_phrase");
+            }
         }
         if !self
             .destinations(etablissement_id)
@@ -663,7 +680,18 @@ impl<'a> ServiceSauvegarde<'a> {
 
     /// Enregistre la confirmation « j'ai imprimé et rangé le certificat hors du poste ».
     pub async fn confirmer_certificat(&self, session: &Session) -> Resultat<()> {
-        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        self.confirmer_certificat_de(session.etablissement_id, Some(session))
+            .await
+    }
+
+    /// Note le certificat imprimé et rangé ; sans session au premier démarrage, où la case des
+    /// douze mots vient d'être cochée.
+    pub async fn confirmer_certificat_de(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        session: Option<&Session>,
+    ) -> Resultat<()> {
+        let contexte = self.noyau.contexte(etablissement_id, session);
         let mut unite = self
             .noyau
             .commencer(contexte.clone(), Durabilite::Ordinaire)
@@ -671,7 +699,7 @@ impl<'a> ServiceSauvegarde<'a> {
         parametre::definir(
             unite.connexion(),
             &Parametre {
-                etablissement_id: session.etablissement_id,
+                etablissement_id,
                 cle: PARAMETRE_CERTIFICAT.to_owned(),
                 valeur: ValeurParametre::Booleen(true),
                 modifiable_par_utilisateur: false,

@@ -228,6 +228,22 @@ impl EspaceCles {
         Ok(cle)
     }
 
+    /// Vérifie que la phrase ouvre l'enveloppe de secours du poste, sans rien récrire : elle
+    /// prouve qu'on détient le secret de l'école.
+    pub fn verifier_phrase(&self, phrase: &PhraseSecours) -> Resultat<()> {
+        let fichier = self.lire()?.ok_or(ErreurService::Regle {
+            cle: "cles.absentes",
+        })?;
+        let secours = fichier
+            .enveloppe(NatureEnveloppe::Secours)
+            .ok_or(ErreurService::Regle {
+                cle: "cles.secours_absente",
+            })?;
+        let derivation = secours.derivation.ok_or(ErreurCle::EnveloppeFermee)?;
+        secours.ouvrir(&phrase.deriver(&derivation)?)?;
+        Ok(())
+    }
+
     /// Tire une nouvelle phrase et remplace l'enveloppe de secours. L'ancienne enveloppe est
     /// détruite : l'ancienne phrase n'ouvre plus la clé du poste ni les sauvegardes suivantes.
     pub fn regenerer_secours(&self, cle: &CleDonnees) -> Resultat<(PhraseSecours, Enveloppe)> {

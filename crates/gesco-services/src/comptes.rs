@@ -4,7 +4,7 @@
 
 use gesco_core::commun::Id;
 use gesco_core::core::permission::RoleSysteme;
-use gesco_core::core::{Operation, PolitiqueMotDePasse, TypeEvenement, Utilisateur};
+use gesco_core::core::{Etablissement, Operation, PolitiqueMotDePasse, TypeEvenement, Utilisateur};
 use gesco_db::depots::utilisateur::Secrets;
 use gesco_db::depots::{parametre, role, utilisateur};
 use gesco_db::unite::Durabilite;
@@ -100,6 +100,13 @@ pub(crate) async fn proteger_dernier_administrateur(
     Ok(())
 }
 
+/// Origine au journal d'audit d'un mot de passe d'administrateur remplacé par la phrase de
+/// secours.
+pub const ORIGINE_REINITIALISATION_PAR_PHRASE: &str = "comptes.reinitialiser_par_phrase";
+
+/// Jours pendant lesquels le tableau de bord signale cette réinitialisation.
+pub const JOURS_SIGNALEMENT_REINITIALISATION: i64 = 7;
+
 /// Service des comptes.
 pub struct ServiceComptes<'n> {
     noyau: &'n Noyau,
@@ -174,6 +181,74 @@ impl<'n> ServiceComptes<'n> {
                 "identifiant": apres.identifiant,
                 "nom_affiche": apres.nom_affiche,
                 "sessions_fermees": fermees,
+            }),
+        );
+        self.noyau.terminer(unite).await?;
+        Ok(apres)
+    }
+
+    /// Remplace le mot de passe d'un administrateur actif, sans session : l'appelant a déjà
+    /// vérifié la phrase de secours, qui prouve qu'on détient le secret de l'école. Le compte est
+    /// déverrouillé, son PIN effacé, ses sessions fermées ; le tableau de bord le signale sept
+    /// jours (porteur du projet, 23 octobre 2026).
+    pub async fn reinitialiser_par_phrase(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        identifiant: &str,
+        nouveau: MotDePasse<'_>,
+    ) -> Resultat<Utilisateur> {
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Critique)
+            .await?;
+        let avant = utilisateur::par_identifiant(unite.connexion(), identifiant.trim(), &contexte)
+            .await?
+            .filter(|u| u.actif)
+            .ok_or(regle("secours.administrateur_inconnu"))?;
+        if !est_administrateur(unite.connexion(), avant.id, &contexte).await? {
+            return Err(regle("secours.administrateur_inconnu"));
+        }
+        let politique = politique_mot_de_passe(unite.connexion(), &contexte).await?;
+        let empreinte = empreinte_conforme(&politique, &nouveau, &avant.identifiant)?;
+        utilisateur::ecrire_secrets(
+            unite.connexion(),
+            avant.id,
+            &Secrets {
+                empreinte_mot_de_passe: empreinte,
+                empreinte_pin: None,
+            },
+            &contexte,
+        )
+        .await?;
+        let mut apres = avant.clone();
+        apres.doit_changer_mot_de_passe = false;
+        apres.echecs_consecutifs = 0;
+        apres.verrouille_jusqua = None;
+        utilisateur::ecrire_etat_connexion(unite.connexion(), &apres, &contexte).await?;
+        let fermees = self.noyau.sessions().fermer_de(avant.id).len();
+        let id_texte = avant.id.vers_chaine();
+        unite.auditer(
+            "utilisateur",
+            &id_texte,
+            Operation::Modification,
+            Some(serde_json::to_value(&avant)?),
+            Some(serde_json::json!({
+                "compte": apres,
+                "pin_efface": true,
+                "sessions_fermees": fermees,
+            })),
+            ORIGINE_REINITIALISATION_PAR_PHRASE,
+        );
+        unite.emettre(
+            TypeEvenement::MotDePasseReinitialise,
+            "utilisateur",
+            &id_texte,
+            serde_json::json!({
+                "identifiant": apres.identifiant,
+                "nom_affiche": apres.nom_affiche,
+                "sessions_fermees": fermees,
+                "par_phrase_de_secours": true,
             }),
         );
         self.noyau.terminer(unite).await?;

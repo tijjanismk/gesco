@@ -63,6 +63,8 @@ pub const COMMANDES_PUBLIQUES: &[&str] = &[
     "sauvegarde_apercu",
     "sauvegarde_restaurer_initiale",
     "journal_technique_noter",
+    "administrateur_reinitialiser_par_phrase",
+    "certificat_confirmer_initial",
 ];
 
 /// Catalogue des commandes, phase 2 comprise.
@@ -78,6 +80,10 @@ pub const COMMANDES: &[Commande] = &[
     Commande::publique("sauvegarde_restaurer_initiale"),
     // Une panne de l'interface se note au journal technique, même avant toute connexion.
     Commande::publique("journal_technique_noter"),
+    // L'administrateur qui a perdu son mot de passe le remplace avec les douze mots.
+    Commande::publique("administrateur_reinitialiser_par_phrase"),
+    // La case des douze mots, cochée au premier démarrage, avant toute connexion.
+    Commande::publique("certificat_confirmer_initial"),
     Commande::connectee("deconnexion"),
     Commande::connectee("verrouiller"),
     Commande::connectee("definir_pin"),

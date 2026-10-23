@@ -13,6 +13,8 @@ export const ACCES = {
   sauvegarde_apercu: { type: "public" },
   sauvegarde_restaurer_initiale: { type: "public" },
   journal_technique_noter: { type: "public" },
+  administrateur_reinitialiser_par_phrase: { type: "public" },
+  certificat_confirmer_initial: { type: "public" },
   deconnexion: { type: "connecte" },
   verrouiller: { type: "connecte" },
   definir_pin: { type: "connecte" },
