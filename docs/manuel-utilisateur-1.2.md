@@ -35,8 +35,10 @@ et GESCO fait une sauvegarde avant de mettre sa base à niveau.
 
 - Chacun se connecte avec son identifiant et son mot de passe. Après trois mots de passe faux,
   le compte se bloque un moment.
-- Sans activité pendant deux minutes, la session se verrouille ; on la rouvre avec son mot de
-  passe ou son code PIN. Le code PIN se choisit dans **Outils → Mon compte**.
+- Sans activité pendant quinze minutes, la session se verrouille ; on la rouvre avec son mot de
+  passe ou son code PIN. Après vingt-quatre heures sans activité, elle se ferme. Ces deux durées
+  se règlent dans Établissement, section « Sécurité ». Un mot de passe compte au moins six
+  caractères ; `000000` est accepté, sauf si l'école refuse les mots de passe les plus courants. Le code PIN se choisit dans **Outils → Mon compte**.
 - Le bouton « Verrouiller » en haut de l'écran ferme la session sans la perdre : un collègue peut
   se connecter sur le même poste, puis chacun retrouve la sienne.
 - **Rechercher (Ctrl+K)** ouvre la recherche : tapez quelques lettres du nom d'un élève, même mal
@@ -362,7 +364,7 @@ Chaque salaire et chaque avance payés deviennent une dépense « Salaires » da
 
 ### Sauvegarde (Outils → Sauvegarde)
 
-- GESCO sauvegarde seul à intervalles réguliers et à la fermeture, et garde 7 sauvegardes
+- GESCO sauvegarde seul chaque jour (l'intervalle se règle dans Établissement) et à la fermeture, et garde 7 sauvegardes
   quotidiennes, 4 hebdomadaires et 12 mensuelles.
 - **Ajoutez une clé USB comme destination**, puis « Sauvegarder maintenant ». Une sauvegarde qui
   ne quitte jamais le poste ne protège pas d'un vol ou d'une panne.

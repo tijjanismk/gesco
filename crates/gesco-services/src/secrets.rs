@@ -9,7 +9,7 @@ use argon2::{Argon2, PasswordHash};
 use crate::erreur::{ErreurService, Resultat};
 
 /// Longueur minimale d'un mot de passe. La politique complète est un paramètre d'établissement.
-pub const LONGUEUR_MINIMALE_MOT_DE_PASSE: usize = 8;
+pub const LONGUEUR_MINIMALE_MOT_DE_PASSE: usize = gesco_core::core::mot_de_passe::LONGUEUR_PLANCHER;
 
 /// Mot de passe saisi, jamais affiché.
 pub struct MotDePasse<'a>(pub &'a str);

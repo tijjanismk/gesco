@@ -43,6 +43,11 @@ impl OptionsNoyau {
     }
 }
 
+/// Paramètre de l'inactivité avant verrouillage, en secondes.
+pub const PARAMETRE_VERROUILLAGE: &str = "session.verrouillage_inactivite_s";
+/// Paramètre de l'inactivité avant fermeture de la session, en secondes.
+pub const PARAMETRE_EXPIRATION: &str = "session.expiration_s";
+
 /// Noyau applicatif partagé.
 pub struct Noyau {
     base: Base,
@@ -51,7 +56,7 @@ pub struct Noyau {
     horloge: Arc<dyn Horloge>,
     effets: Arc<dyn ExecuteurEffets>,
     sessions: Sessions,
-    politique_session: PolitiqueSession,
+    politique_session: std::sync::RwLock<PolitiqueSession>,
 }
 
 impl Noyau {
@@ -64,7 +69,7 @@ impl Noyau {
             horloge: options.horloge,
             effets: options.effets,
             sessions: Sessions::default(),
-            politique_session: options.politique_session,
+            politique_session: std::sync::RwLock::new(options.politique_session),
         }
     }
 
@@ -91,13 +96,59 @@ impl Noyau {
     /// Sessions du poste, après application de la politique d'inactivité à l'instant courant.
     pub fn sessions(&self) -> &Sessions {
         self.sessions
-            .appliquer(self.politique_session, self.horloge.maintenant());
+            .appliquer(self.politique_session(), self.horloge.maintenant());
         &self.sessions
     }
 
     /// Politique de session en vigueur.
     pub fn politique_session(&self) -> PolitiqueSession {
         self.politique_session
+            .read()
+            .map_or_else(|e| *e.into_inner(), |p| *p)
+    }
+
+    /// Remplace la politique de session, d'après les paramètres de l'établissement.
+    pub fn regler_politique_session(&self, politique: PolitiqueSession) {
+        match self.politique_session.write() {
+            Ok(mut p) => *p = politique,
+            Err(e) => *e.into_inner() = politique,
+        }
+    }
+
+    /// Lit la politique de session dans les paramètres de l'établissement (en secondes) et
+    /// l'applique : sans elle, les durées réglées par l'école resteraient lettre morte.
+    pub async fn charger_politique_session(
+        &self,
+        etablissement_id: Id<Etablissement>,
+    ) -> Resultat<()> {
+        let defaut = PolitiqueSession::default();
+        let contexte = self.contexte(etablissement_id, None);
+        let mut cnx = self
+            .base
+            .pool()
+            .acquire()
+            .await
+            .map_err(gesco_db::ErreurBase::from)?;
+        let secondes = |millis: i64| millis / 1000;
+        let verrouillage = gesco_db::depots::parametre::entier(
+            &mut cnx,
+            PARAMETRE_VERROUILLAGE,
+            secondes(defaut.verrouillage_apres_millis),
+            &contexte,
+        )
+        .await?;
+        let expiration = gesco_db::depots::parametre::entier(
+            &mut cnx,
+            PARAMETRE_EXPIRATION,
+            secondes(defaut.expiration_apres_millis),
+            &contexte,
+        )
+        .await?;
+        self.regler_politique_session(PolitiqueSession {
+            verrouillage_apres_millis: verrouillage.saturating_mul(1000),
+            expiration_apres_millis: expiration.saturating_mul(1000),
+        });
+        Ok(())
     }
 
     /// Contexte d'exécution pour un utilisateur (ou pour le système quand `session` est `None`).

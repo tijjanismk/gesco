@@ -1,12 +1,14 @@
 //! Politique de mot de passe d'un établissement (SPEC_PHASE_1 §6, blueprint §17.1). Les règles
 //! sont des paramètres ; la longueur ne descend jamais sous le plancher du produit.
 
-/// Plancher absolu de longueur, que le paramètre d'établissement ne peut pas abaisser.
-pub const LONGUEUR_PLANCHER: usize = 8;
+/// Plancher absolu de longueur, que le paramètre d'établissement ne peut pas abaisser : six
+/// caractères (porteur du projet, 23 octobre 2026).
+pub const LONGUEUR_PLANCHER: usize = 6;
 
-/// Mots de passe parmi les plus essayés, en minuscules, de huit caractères au moins (les plus
-/// courts tombent déjà sous le plancher) : suites de chiffres et de touches, mots de passe
-/// génériques, et mots du contexte d'une école malienne.
+/// Mots de passe parmi les plus essayés, en minuscules : suites de chiffres et de touches, mots
+/// de passe génériques, et mots du contexte d'une école malienne. Refusés seulement si l'école
+/// le demande : par défaut, un mot de passe simple comme `000000` est accepté (porteur du
+/// projet, 23 octobre 2026).
 const COURANTS: &[&str] = &[
     "12345678",
     "123456789",
@@ -151,7 +153,7 @@ impl Default for PolitiqueMotDePasse {
         Self {
             longueur_min: LONGUEUR_PLANCHER,
             refuser_identifiant: true,
-            refuser_courants: true,
+            refuser_courants: false,
         }
     }
 }
@@ -189,8 +191,16 @@ mod tests {
 
     #[test]
     fn chaque_regle_refuse_ce_qu_elle_vise() {
-        let p = PolitiqueMotDePasse::default();
+        let p = PolitiqueMotDePasse {
+            refuser_courants: true,
+            ..PolitiqueMotDePasse::default()
+        };
         assert_eq!(p.verifier("court", "awa"), Err("mot_de_passe.trop_court"));
+        // Par défaut, six chiffres simples suffisent.
+        assert_eq!(
+            PolitiqueMotDePasse::default().verifier("000000", "awa"),
+            Ok(())
+        );
         assert_eq!(
             p.verifier("awa-traore-2026", "AWA"),
             Err("mot_de_passe.contient_identifiant")

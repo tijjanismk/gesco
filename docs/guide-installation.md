@@ -48,7 +48,7 @@ compte Windows a ses propres données GESCO.
 ## 4. Premier démarrage
 
 1. Saisissez le **nom de l'école**, ses coordonnées, puis le **compte administrateur**
-   (identifiant et mot de passe d'au moins 8 caractères). Notez-les.
+   (identifiant et mot de passe d'au moins 6 caractères). Notez-les.
 2. Cochez les **cycles** que l'école enseigne : jardin d'enfants, 1er cycle, 2e cycle, lycée,
    enseignement technique. Un cycle oublié s'ouvre plus tard dans Paramètres → Niveaux et
    séries.

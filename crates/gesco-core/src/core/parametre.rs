@@ -39,7 +39,14 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
         return hors;
     }
     match (cle, valeur) {
-        ("mot_de_passe.longueur_min", ValeurParametre::Entier(n)) => !(8..=64).contains(n),
+        ("mot_de_passe.longueur_min", ValeurParametre::Entier(n)) => !(6..=64).contains(n),
+        // Une minute à un jour avant le verrouillage ; dix minutes à une semaine de session.
+        ("session.verrouillage_inactivite_s", ValeurParametre::Entier(n)) => {
+            !(60..=86_400).contains(n)
+        }
+        ("session.expiration_s", ValeurParametre::Entier(n)) => !(600..=604_800).contains(n),
+        // Une sauvegarde automatique au plus toutes les cinq minutes, au moins chaque semaine.
+        ("sauvegarde.intervalle_min", ValeurParametre::Entier(n)) => !(5..=10_080).contains(n),
         ("connexion.echecs_avant_verrouillage", ValeurParametre::Entier(n)) => {
             !(3..=10).contains(n)
         }
@@ -117,19 +124,22 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         modifiable_par_utilisateur: modifiable,
     };
     let mut parametres = vec![
+        // Porteur du projet, 23 octobre 2026 : verrouillage après quinze minutes, session de
+        // vingt-quatre heures, mots de passe de six caractères sans exigence de difficulté,
+        // sauvegarde automatique chaque jour.
         p(
             "session.verrouillage_inactivite_s",
-            ValeurParametre::Entier(120),
+            ValeurParametre::Entier(15 * 60),
             true,
         ),
         p(
             "session.expiration_s",
-            ValeurParametre::Entier(8 * 3_600),
+            ValeurParametre::Entier(24 * 3_600),
             true,
         ),
         p(
             "mot_de_passe.longueur_min",
-            ValeurParametre::Entier(8),
+            ValeurParametre::Entier(6),
             true,
         ),
         p(
@@ -139,7 +149,7 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         ),
         p(
             "mot_de_passe.refuser_courants",
-            ValeurParametre::Booleen(true),
+            ValeurParametre::Booleen(false),
             true,
         ),
         p(
@@ -149,7 +159,7 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         ),
         p(
             "sauvegarde.intervalle_min",
-            ValeurParametre::Entier(60),
+            ValeurParametre::Entier(24 * 60),
             true,
         ),
         p("sauvegarde.quotidiennes", ValeurParametre::Entier(7), true),

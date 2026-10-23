@@ -568,7 +568,7 @@ async fn roles_permissions_et_parametres() {
         parametre::entier(&mut cnx, "session.verrouillage_inactivite_s", 0, &ctx)
             .await
             .unwrap_or(0),
-        120
+        900
     );
     assert_eq!(
         parametre::entier(

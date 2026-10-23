@@ -1037,7 +1037,6 @@ async fn la_politique_de_mot_de_passe_s_applique_partout() {
     for (mot_de_passe, cle) in [
         ("court", "mot_de_passe.trop_court"),
         ("fanta-2026-ecole", "mot_de_passe.contient_identifiant"),
-        ("Bamako2026", "mot_de_passe.trop_courant"),
     ] {
         assert_eq!(
             p.refus("utilisateur_creer", Some(&admin), creer(mot_de_passe))
@@ -1047,7 +1046,7 @@ async fn la_politique_de_mot_de_passe_s_applique_partout() {
         );
     }
     for (cle_parametre, valeur, cle) in [
-        ("mot_de_passe.longueur_min", 6, "parametre.hors_bornes"),
+        ("mot_de_passe.longueur_min", 5, "parametre.hors_bornes"),
         (
             "connexion.echecs_avant_verrouillage",
             1,
@@ -1104,6 +1103,71 @@ async fn la_politique_de_mot_de_passe_s_applique_partout() {
         .await
         .cle,
         "mot_de_passe.contient_identifiant"
+    );
+
+    // Par défaut, six chiffres simples suffisent ; l'école peut refuser les plus courants.
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        json!({ "cle": "mot_de_passe.longueur_min", "valeur": { "type": "entier", "valeur": 6 } }),
+    )
+    .await;
+    let simple = |identifiant: &str, mot_de_passe: &str| {
+        json!({ "identifiant": identifiant, "nom_affiche": identifiant,
+            "mot_de_passe_initial": mot_de_passe, "roles": [] })
+    };
+    p.ok("utilisateur_creer", Some(&admin), simple("kadi", "000000"))
+        .await;
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        json!({ "cle": "mot_de_passe.refuser_courants", "valeur": { "type": "booleen", "valeur": true } }),
+    )
+    .await;
+    assert_eq!(
+        p.refus(
+            "utilisateur_creer",
+            Some(&admin),
+            simple("mariam", "Bamako2026")
+        )
+        .await
+        .cle,
+        "mot_de_passe.trop_courant"
+    );
+}
+
+#[tokio::test]
+async fn les_durees_de_session_de_l_ecole_s_appliquent() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    // Quinze minutes par défaut : à dix, la session est encore ouverte.
+    p.horloge.avancer(10 * 60_000);
+    p.ok("session_courante", Some(&admin), Value::Null).await;
+    // L'école règle une minute : au-delà, la session se verrouille.
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        json!({ "cle": "session.verrouillage_inactivite_s", "valeur": { "type": "entier", "valeur": 60 } }),
+    )
+    .await;
+    assert_eq!(
+        p.refus(
+            "parametre_definir",
+            Some(&admin),
+            json!({ "cle": "session.verrouillage_inactivite_s", "valeur": { "type": "entier", "valeur": 5 } }),
+        )
+        .await
+        .cle,
+        "parametre.hors_bornes"
+    );
+    p.horloge.avancer(61_000);
+    assert_eq!(
+        p.refus("session_courante", Some(&admin), Value::Null)
+            .await
+            .cle,
+        "session.verrouillee"
     );
 }
 

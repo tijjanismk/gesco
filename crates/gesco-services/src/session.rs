@@ -43,7 +43,7 @@ pub const ESSAIS_PIN: u32 = 3;
 /// Durées de la politique de session, en millisecondes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PolitiqueSession {
-    /// Inactivité avant verrouillage automatique (deux minutes par défaut, §6.2).
+    /// Inactivité avant verrouillage automatique (quinze minutes par défaut).
     pub verrouillage_apres_millis: i64,
     /// Inactivité avant fermeture définitive de la session.
     pub expiration_apres_millis: i64,
@@ -52,8 +52,8 @@ pub struct PolitiqueSession {
 impl Default for PolitiqueSession {
     fn default() -> Self {
         Self {
-            verrouillage_apres_millis: 2 * 60 * 1000,
-            expiration_apres_millis: 8 * 60 * 60 * 1000,
+            verrouillage_apres_millis: 15 * 60 * 1000,
+            expiration_apres_millis: 24 * 60 * 60 * 1000,
         }
     }
 }

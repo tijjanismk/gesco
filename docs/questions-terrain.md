@@ -667,3 +667,9 @@ Les parents pourront-ils interroger GESCO par SMS avec un code confidentiel (« 
 *Recommandation* : oui, en fin de phase 5, une fois l'envoi essayé avec une vraie clé ; code propre à chaque responsable, croisé avec son numéro, quota par jour, chaque consultation au journal.
 
 *Réponse* (porteur du projet, 17 octobre 2026) : recommandation retenue.
+
+### T-78 — Réglages livrés par défaut
+
+Plusieurs réglages livrés avaient été fixés sans question : sécurité, sauvegardes, arrondi, plans de paiement, congés, messages aux familles, remise des bulletins, élève arrivé en cours d'année.
+
+*Réponse* (porteur du projet, 23 octobre 2026) : la session se verrouille après **quinze minutes** sans activité et se ferme après **vingt-quatre heures** ; un mot de passe compte au moins **six caractères, sans exigence de difficulté** (`000000` est accepté ; l'école peut refuser les plus courants) ; la sauvegarde automatique a lieu **chaque jour**, avec la même conservation (7 quotidiennes, 4 hebdomadaires, 12 mensuelles). Le reste est retenu tel quel : arrondi au multiple de 5 F ; plans livrés (trois tranches à 40, 30 et 30 %, mensuel de 11 %, comptant) ; 2,5 jours de congé par mois ; relances 7 jours après l'échéance puis tous les 15 jours, trois au plus, avis d'absence après 30 minutes, 6 SMS par minute de 7 h à 20 h, arrêt sous 500 F de crédit, 5 consultations par numéro et par jour ; bulletin non retiré signalé à 7 jours ; tranche du mois d'arrivée comptée.

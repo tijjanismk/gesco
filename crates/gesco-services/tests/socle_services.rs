@@ -179,11 +179,11 @@ async fn connexion_verrouillage_progressif_et_session_rapide() {
         ))
     ));
 
-    t.horloge.avancer(2 * 60 * 1000);
+    t.horloge.avancer(15 * 60 * 1000);
     let verrouillee = t.noyau.sessions().lire(&session.jeton).unwrap();
     assert!(
         verrouillee.verrouillee,
-        "deux minutes d'inactivité verrouillent"
+        "quinze minutes d'inactivité verrouillent"
     );
 
     let e = auth

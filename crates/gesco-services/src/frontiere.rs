@@ -1311,6 +1311,7 @@ impl Application {
         for fiche in Self::installes(&noyau).await? {
             crate::mise_a_niveau::completer_roles(&noyau, fiche.id).await?;
             crate::mise_a_niveau::completer_parametres(&noyau, fiche.id).await?;
+            noyau.charger_politique_session(fiche.id).await?;
             crate::mise_a_niveau::completer_referentiel(&noyau, fiche.id).await?;
             crate::mise_a_niveau::completer_pedagogie(&noyau, fiche.id).await?;
             crate::mise_a_niveau::completer_personnel(&noyau, fiche.id).await?;
@@ -1450,7 +1451,7 @@ impl Application {
                 .acquire()
                 .await
                 .map_err(gesco_db::ErreurBase::from)?;
-            parametre::entier(&mut cnx, "sauvegarde.intervalle_min", 60, &contexte).await?
+            parametre::entier(&mut cnx, "sauvegarde.intervalle_min", 24 * 60, &contexte).await?
         };
         let maintenant = o.noyau.horloge().maintenant();
         let derniere = service.lister(fiche.id, 1).await?.into_iter().next();
@@ -1669,6 +1670,10 @@ impl Application {
             "premier_demarrage",
         );
         ouverte.noyau.terminer(unite).await?;
+        ouverte
+            .noyau
+            .charger_politique_session(initialise.etablissement_id)
+            .await?;
         etape("termine");
         Ok(PremierDemarrageEffectue {
             etablissement: resume,
@@ -2600,9 +2605,19 @@ impl Application {
         appel: Appel,
         entree: DemandeParametre,
     ) -> Resultat<Parametre> {
-        ServiceAdministration::nouveau(&appel.ouverte()?.noyau)
-            .definir_parametre(appel.session()?, &entree.cle, entree.valeur)
-            .await
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let parametre = ServiceAdministration::nouveau(&ouverte.noyau)
+            .definir_parametre(session, &entree.cle, entree.valeur)
+            .await?;
+        // Les durées de session valent dès qu'on les change.
+        if entree.cle.starts_with("session.") {
+            ouverte
+                .noyau
+                .charger_politique_session(session.etablissement_id)
+                .await?;
+        }
+        Ok(parametre)
     }
 
     async fn audit_lister(&self, appel: Appel, entree: RechercheJournal) -> Resultat<PageJournal> {
