@@ -12,6 +12,7 @@ import { DocumentEssai } from "../accueil/Accueil";
 import { FicheEtablissement } from "./FicheEtablissement";
 import { ImportProgramme } from "./ImportProgramme";
 import { ImportReferentiel } from "./ImportReferentiel";
+import { LargeursColonnes } from "./LargeursColonnes";
 import { ReglagesBulletin } from "./ReglagesBulletin";
 
 /** Thèmes des réglages, dans l'ordre d'affichage, reconnus au début de la clé. Un paramètre
@@ -88,8 +89,9 @@ export function Parametres() {
       <MessageErreur erreur={parametres.error} />
       <ModulesEcole parametres={parametres.data ?? []} />
       {titres.map((titre) => {
-        // Les réglages du bulletin, par cycle, ont leur bloc à eux.
-        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && !p.cle.startsWith("module.") && p.cle !== "sms.actif" && (smsActif || !p.cle.startsWith("sms.")) && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
+        // Les réglages du bulletin, par cycle, et la largeur des colonnes imprimées ont leur
+        // bloc à eux.
+        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("colonnes.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && !p.cle.startsWith("module.") && p.cle !== "sms.actif" && (smsActif || !p.cle.startsWith("sms.")) && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
         return lignes.length === 0 ? null : (
           <Section key={titre} titre={t(titre)}>
             {lignes.map((p) => (
@@ -100,6 +102,7 @@ export function Parametres() {
         );
       })}
       <ReglagesBulletin />
+      <LargeursColonnes />
       {peutImporterProgramme ? <ImportReferentiel /> : null}
       {peutImporterProgramme ? <ImportProgramme /> : null}
       <DocumentEssai />

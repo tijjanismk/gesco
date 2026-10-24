@@ -1,6 +1,6 @@
 # GESCO — manuel d'utilisation
 
-Pour la version 1.2.4, du 24 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
+Pour la version 1.2.5, du 24 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
 qui n'existe qu'à partir de la 1.1 ou de la 1.2 est signalé « (1.1) » ou « (1.2) ».
 
 GESCO gère une école sur un seul poste Windows, sans internet : les élèves et leurs familles,
@@ -20,7 +20,7 @@ Chaque écran est désigné par son nom dans le menu de gauche, sous son groupe 
 L'installation est décrite pas à pas dans le guide `GESCO-guide-installation.pdf`, remis avec
 l'installeur. En bref :
 
-1. Lancez `GESCO_1.2.4_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
+1. Lancez `GESCO_1.2.5_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
    « Windows a protégé votre ordinateur », cliquez sur « Informations complémentaires », puis sur
    « Exécuter quand même ».
 2. Au premier démarrage, saisissez le nom de l'école, ses coordonnées et le compte
@@ -61,6 +61,13 @@ groupe **Paramètres**, replié par défaut : cliquez sur son titre pour le dép
    CAP, adresse, téléphones, mentions légales imprimées au pied des documents), le logo, et les
    réglages de l'école, rangés par thème : élèves et inscriptions, sécurité, sauvegardes, frais
    et caisse, personnel, documents (format A4 ou A5 de chaque document), bulletin imprimé.
+   **Largeur des colonnes imprimées (1.2.5)** : pour le bulletin, le reçu, le relevé de compte
+   et le bulletin de paie, la largeur de chaque colonne en millimètres ; une case vide garde la
+   largeur livrée, « Revenir aux largeurs livrées » remet tout comme à l'installation.
+   Vérifiez le résultat avec l'aperçu du document.
+   **Logo** : téléversé sur la fiche de l'école, il s'imprime en tête du bulletin, du reçu, du
+   relevé de compte, du bulletin de paie et des autres documents ; sans logo, l'en-tête montre
+   le nom de l'école.
    **Modules de l'école (1.2)** : en tête des réglages, une case par module — messages aux
    familles par SMS, cantine, personnel et paie, dépenses et trésorerie, emploi du temps,
    discipline, note de conduite. Un module éteint disparaît du menu et du tableau de bord pour
@@ -473,7 +480,8 @@ Les montants des salaires ne sont visibles que de ceux qui font la paie ; chacun
 La 1.2 apporte les SMS aux familles, le guichet, la remise des bulletins, les convocations, les
 codes d'accès et la consultation par SMS, les modules de l'école et l'import du programme ;
 la 1.2.1, l'import des classes et des matières ; la 1.2.2, les échéances au 5 et le jour
-propre à un élève ; la 1.2.4, la note de conduite. Les
+propre à un élève ; la 1.2.4, la note de conduite ; la 1.2.5, la largeur des colonnes
+imprimées. Les
 SMS ont été essayés avec une clé simulée : avant de compter sur eux, faites un essai avec la clé
 et la puce de l'école (SMS d'essai, lecture du crédit, un SOLDE envoyé depuis un téléphone).
 Viendront ensuite les rapports et les états pour le CAP et l'académie, puis l'e-learning.

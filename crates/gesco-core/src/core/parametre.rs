@@ -91,11 +91,61 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
         (cle, ValeurParametre::Texte(t)) if cle.starts_with("conduite.retrait_") => {
             crate::pedagogie::conduite::lire_points(t).is_none()
         }
+        // Largeur d'une colonne imprimée : de 0 (celle du modèle) à la largeur d'une page A4.
+        (cle, ValeurParametre::Entier(n)) if cle.starts_with(PREFIXE_COLONNES) => {
+            !(0..=LARGEUR_COLONNE_MAX).contains(n)
+        }
         ("montant.multiple_arrondi", ValeurParametre::Entier(n)) => {
             ![1, 5, 10, 25, 50, 100].contains(n)
         }
         _ => crate::scolarite::matricule::hors_bornes(cle, valeur),
     }
+}
+
+/// Colonnes des tableaux imprimés dont l'école règle la largeur, document par document : un
+/// réglage `colonnes.<document>.<colonne>` chacune, en millimètres ; 0 garde la largeur livrée.
+pub const COLONNES_DOCUMENTS: &[(&str, &[&str])] = &[
+    (
+        "bulletin",
+        &[
+            "matiere",
+            "note_de_classe",
+            "composition",
+            "moyenne",
+            "coefficient",
+            "points",
+            "moyenne_classe",
+            "appreciation",
+        ],
+    ),
+    ("recu", &["imputation", "montant"]),
+    (
+        "releve_compte",
+        &[
+            "echeance",
+            "date",
+            "du",
+            "remise",
+            "paye",
+            "reste",
+            "recu",
+            "date_versement",
+            "mode",
+            "montant",
+        ],
+    ),
+    ("bulletin_paie", &["libelle", "detail", "montant"]),
+];
+
+/// Préfixe des réglages de largeur des colonnes.
+pub const PREFIXE_COLONNES: &str = "colonnes.";
+
+/// Largeur la plus grande d'une colonne, en millimètres : la largeur d'une page A4.
+pub const LARGEUR_COLONNE_MAX: i64 = 210;
+
+/// Réglage de la largeur d'une colonne d'un document.
+pub fn cle_colonne(document: &str, colonne: &str) -> String {
+    format!("{PREFIXE_COLONNES}{document}.{colonne}")
 }
 
 /// Format du papier de chaque document, par son réglage (réponse du 14 octobre 2026) : la
@@ -417,6 +467,16 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
             crate::scolarite::fin_annee::passage_par_defaut(cycle),
         ) {
             parametres.push(p(&cle, ValeurParametre::Entier(i64::from(defaut)), true));
+        }
+    }
+    // Largeur des colonnes imprimées : celle du modèle tant que l'école n'en règle pas une.
+    for (document, colonnes) in COLONNES_DOCUMENTS {
+        for colonne in *colonnes {
+            parametres.push(p(
+                &cle_colonne(document, colonne),
+                ValeurParametre::Entier(0),
+                true,
+            ));
         }
     }
     // Bulletin imprimé : chaque colonne s'affiche ou non, cycle par cycle.

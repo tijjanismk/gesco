@@ -1,6 +1,6 @@
 {
   "id": "bulletin_paie",
-  "version": 1,
+  "version": 2,
   "libelle": "Bulletins de paie",
   "variables": [
     { "nom": "bulletins", "requise": true }

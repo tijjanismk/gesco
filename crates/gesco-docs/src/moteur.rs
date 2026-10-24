@@ -1,6 +1,6 @@
 //! Composition d'un document : modèle + données + variante d'établissement → PDF.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -50,6 +50,9 @@ pub struct Variante {
     pub logo: Option<Logo>,
     /// Format du papier de ce document, au choix de l'école.
     pub papier: Papier,
+    /// Largeur des colonnes de ce document que l'école a réglées, en millimètres, par nom de
+    /// colonne ; une colonne absente garde la largeur du modèle.
+    pub largeurs: BTreeMap<String, u32>,
 }
 
 /// Format du papier d'un document.
@@ -85,6 +88,7 @@ struct EtablissementInjecte<'a> {
     mentions: &'a str,
     logo: Option<&'static str>,
     papier: &'static str,
+    largeurs: &'a BTreeMap<String, u32>,
 }
 
 impl Variante {
@@ -250,6 +254,7 @@ impl Moteur {
                     mentions: &variante.mentions,
                     logo: variante.chemin_logo(),
                     papier: variante.papier.nom(),
+                    largeurs: &variante.largeurs,
                 })
                 .map_err(|e| erreur_interne(&e.to_string()))?,
             );

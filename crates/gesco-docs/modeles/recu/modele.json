@@ -1,6 +1,6 @@
 {
   "id": "recu",
-  "version": 1,
+  "version": 2,
   "libelle": "Reçu de versement, deux exemplaires A5 sur une feuille A4",
   "variables": [
     {

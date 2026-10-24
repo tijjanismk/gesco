@@ -38,6 +38,7 @@ fn variante(nom: &str) -> Variante {
         mentions: "Établissement privé agréé".to_owned(),
         logo: None,
         papier: gesco_docs::Papier::A4,
+        largeurs: Default::default(),
     }
 }
 

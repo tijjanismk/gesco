@@ -927,4 +927,28 @@ async fn la_note_de_conduite_se_saisit_se_calcule_et_compte_dans_la_moyenne() {
         p.refus("parametre_definir", Some(&admin), definir(cle, valeur))
             .await;
     }
+
+    // Largeur des colonnes imprimées : réglée en millimètres, jusqu'à la largeur d'une page A4.
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        definir(
+            "colonnes.bulletin.matiere",
+            json!({ "type": "entier", "valeur": 60 }),
+        ),
+    )
+    .await;
+    p.refus(
+        "parametre_definir",
+        Some(&admin),
+        definir(
+            "colonnes.bulletin.matiere",
+            json!({ "type": "entier", "valeur": 300 }),
+        ),
+    )
+    .await;
+    let pdf = p
+        .ok("bulletins_produire", Some(&admin), demande.clone())
+        .await;
+    assert!(pdf["pdf"].as_str().unwrap().len() > 1000);
 }

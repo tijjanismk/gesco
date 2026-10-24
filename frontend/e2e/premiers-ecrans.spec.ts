@@ -2637,3 +2637,29 @@ test("version 1.2.4 : l'école active la note de conduite calculée ; le blâme 
   await page.locator("iframe").scrollIntoViewIfNeeded();
   await capturer("136-bulletin-imprime-conduite");
 });
+
+test("version 1.2.5 : Ctrl + R garde la session ; l'école élargit la colonne des matières, le directeur et le parent signent en gras", async () => {
+  await page.reload();
+  await expect(page.getByRole("navigation").getByRole("button", { name: texte("nav.accueil"), exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: texte("connexion.valider") })).toHaveCount(0);
+
+  await allerA("nav.parametres");
+  const bloc = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("colonnes.titre") }) });
+  await bloc.locator("#colonnes-document").selectOption("bulletin");
+  await bloc.locator('[id="colonne-colonnes.bulletin.matiere"]').fill("70");
+  await bloc.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(bloc.getByText(/Enregistré/)).toBeVisible();
+  await bloc.scrollIntoViewIfNeeded();
+  await capturer("137-largeur-des-colonnes");
+
+  await allerA("nav.bulletins");
+  await page.locator("#bulletins-classe").selectOption({ label: "7e B · 7ème année" });
+  await page.locator("#bulletins-periode").selectOption({ label: "1er trimestre" });
+  await page.getByRole("button", { name: texte("bulletins.ouvrir") }).first().click();
+  await page.getByRole("button", { name: texte("bulletins.imprimer_un") }).click();
+  await expect(page.locator("iframe")).toBeVisible({ timeout: 30_000 });
+  // Le visionneur PDF de WebView2 rend la page hors du DOM : aucun signal à attendre.
+  await page.waitForTimeout(4000);
+  await page.locator("iframe").scrollIntoViewIfNeeded();
+  await capturer("138-bulletin-colonnes-et-signatures");
+});

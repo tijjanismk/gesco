@@ -54,6 +54,12 @@
 // Les colonnes de chiffres ont une largeur fixe : elles s'alignent d'un bulletin à l'autre.
 #let chiffres = if a5 { 12mm } else { 17mm }
 
+// Largeur d'une colonne réglée par l'école, en millimètres ; sinon celle du modèle.
+#let largeur(nom, defaut) = {
+  let mm = e.at("largeurs", default: (:)).at(nom, default: 0)
+  if mm > 0 { mm * 1mm } else { defaut }
+}
+
 #let colonne(titre, cellule-de, largeur: chiffres, aligne: right, total: b => [], conduite: b => []) = (
   titre: titre, largeur: largeur, aligne: aligne, cellule: cellule-de, total: total, conduite: conduite,
 )
@@ -63,22 +69,22 @@
   let cols = (
     // La matière prend la place de son nom quand l'appréciation, imprimée, prend le reste de la
     // ligne ; sinon toute la largeur restante.
-    colonne([*Matière*], l => [#l.matiere], largeur: if a.colonne_appreciation { auto } else { 1fr },
+    colonne([*Matière*], l => [#l.matiere], largeur: largeur("matiere", if a.colonne_appreciation { auto } else { 1fr }),
       aligne: left, total: b => if premier [*Total*] else [*Totaux*], conduite: b => [Conduite]),
   )
-  if not premier and a.colonne_note_de_classe { cols.push(colonne([*Note de classe*], l => cellule(l.note_de_classe))) }
-  if not premier and a.colonne_composition { cols.push(colonne([*Compo.*], l => cellule(l.composition))) }
-  cols.push(colonne(if premier [*Note*] else [*Moyenne*], l => cellule(l.moyenne),
+  if not premier and a.colonne_note_de_classe { cols.push(colonne([*Note de classe*], l => cellule(l.note_de_classe), largeur: largeur("note_de_classe", chiffres))) }
+  if not premier and a.colonne_composition { cols.push(colonne([*Compo.*], l => cellule(l.composition), largeur: largeur("composition", chiffres))) }
+  cols.push(colonne(if premier [*Note*] else [*Moyenne*], l => cellule(l.moyenne), largeur: largeur("moyenne", chiffres),
     total: b => if premier [*#b.total_points*] else [], conduite: b => cellule(b.conduite.note)))
   if not premier and a.colonne_coefficient {
-    cols.push(colonne([*Coef.*], l => [#l.coefficient], largeur: if a5 { 8mm } else { 11mm }, aligne: center, total: b => [*#b.total_coefficients*], conduite: b => [#b.conduite.coefficient]))
+    cols.push(colonne([*Coef.*], l => [#l.coefficient], largeur: largeur("coefficient", if a5 { 8mm } else { 11mm }), aligne: center, total: b => [*#b.total_coefficients*], conduite: b => [#b.conduite.coefficient]))
   }
   if not premier and a.colonne_points {
-    cols.push(colonne([*Moy. × coef.*], l => cellule(l.points), total: b => [*#b.total_points*],
+    cols.push(colonne([*Moy. × coef.*], l => cellule(l.points), largeur: largeur("points", chiffres), total: b => [*#b.total_points*],
       conduite: b => cellule(b.conduite.points)))
   }
-  if a.colonne_moyenne_classe { cols.push(colonne([*Moy. classe*], l => cellule(l.moyenne_classe))) }
-  if a.colonne_appreciation { cols.push(colonne([*Appréciation*], l => [#l.appreciation], largeur: 1fr, aligne: left)) }
+  if a.colonne_moyenne_classe { cols.push(colonne([*Moy. classe*], l => cellule(l.moyenne_classe), largeur: largeur("moyenne_classe", chiffres))) }
+  if a.colonne_appreciation { cols.push(colonne([*Appréciation*], l => [#l.appreciation], largeur: largeur("appreciation", 1fr), aligne: left)) }
   cols
 }
 
@@ -158,8 +164,8 @@
   grid(
     columns: (1fr, 1fr, auto),
     column-gutter: 6mm,
-    [Le directeur #v(if a5 { 9mm } else { 14mm })],
-    [Le parent #v(if a5 { 9mm } else { 14mm })],
+    [#strong(underline[Le directeur]) #v(if a5 { 9mm } else { 14mm })],
+    [#strong(underline[Le parent]) #v(if a5 { 9mm } else { 14mm })],
     align(center)[
       #image(b.qr, width: if a5 { 14mm } else { 18mm }) \
       #text(size: 5.5pt, b.reference)

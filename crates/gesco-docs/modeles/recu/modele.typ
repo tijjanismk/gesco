@@ -8,6 +8,11 @@
 // En A5 (réglage de l'école) : une feuille A5 à l'italienne par exemplaire. En A4 : les deux
 // exemplaires sur la même feuille, à couper.
 #let a5 = e.papier == "a5"
+// Largeur d'une colonne réglée par l'école, en millimètres ; sinon celle du modèle.
+#let largeur(nom, defaut) = {
+  let mm = e.at("largeurs", default: (:)).at(nom, default: 0)
+  if mm > 0 { mm * 1mm } else { defaut }
+}
 #set page(paper: if a5 { "a5" } else { "a4" }, flipped: a5, margin: (x: if a5 { 10mm } else { 14mm }, y: if a5 { 8mm } else { 10mm }))
 #set text(font: "Charis SIL", size: 9.5pt, lang: "fr")
 
@@ -54,7 +59,7 @@
   )
   v(1mm)
   table(
-    columns: (1fr, 32mm),
+    columns: (largeur("imputation", 1fr), largeur("montant", 32mm)),
     stroke: 0.4pt,
     inset: 3.5pt,
     align: (left, right),

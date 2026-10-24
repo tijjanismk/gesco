@@ -21,6 +21,7 @@ fn variante() -> Variante {
         mentions: "Autorisation d'ouverture n° 2026-0042".to_owned(),
         logo: None,
         papier: gesco_docs::Papier::A4,
+        largeurs: Default::default(),
     }
 }
 
@@ -76,6 +77,9 @@ fn bulletin(premier_cycle: bool, qr: &Piece) -> Value {
         "moyenne_annuelle": if premier_cycle { Value::Null } else { json!("12,42") },
         "rang_annuel": "3e", "arrive_le": if premier_cycle { Value::Null } else { json!("15 janvier 2027") }, "etat": if premier_cycle { "Projet — bulletin non publié" } else { "" },
         "qr": qr.chemin(), "reference": "01J9ZQ3W5N6K8T0V2X4Y6Z8A0B",
+        "conduite": if premier_cycle { Value::Null } else {
+            json!({ "note": "16,00", "coefficient": "1", "points": "16,00", "comptee": true })
+        },
     })
 }
 
@@ -110,7 +114,7 @@ fn les_deux_mises_en_page_se_composent_avec_les_colonnes_choisies() {
             .composer_avec("bulletin", &variante, &donnees, std::slice::from_ref(&qr))
             .unwrap();
         assert!(document.pdf.starts_with(b"%PDF"));
-        assert_eq!(document.modele_version, 3);
+        assert_eq!(document.modele_version, 4);
         #[cfg(feature = "apercu-svg")]
         if let Some(dossier) = std::env::var_os("GESCO_BULLETIN_SVG") {
             let pages = moteur
@@ -160,4 +164,37 @@ fn quatre_cents_bulletins_en_moins_de_deux_minutes() {
     let duree = debut.elapsed();
     println!("400 bulletins composés en {} ms", duree.as_millis());
     assert!(duree.as_secs() < 120, "{duree:?}");
+}
+
+/// Les largeurs réglées par l'école s'appliquent ; une colonne non réglée garde la sienne.
+#[test]
+fn les_largeurs_reglees_par_l_ecole_s_appliquent() {
+    let moteur = Moteur::nouveau(Catalogue::integre().unwrap());
+    let qr = qr::piece(&qr::reference("01J9ZQ3W5N6K8T0V2X4Y6Z8A0B")).unwrap();
+    let variante = Variante {
+        largeurs: [("matiere", 60), ("moyenne", 25), ("appreciation", 40)]
+            .into_iter()
+            .map(|(c, mm)| (c.to_owned(), mm))
+            .collect(),
+        ..variante()
+    };
+    let donnees = json!({
+        "bulletins": [bulletin(true, &qr)],
+        "afficher": afficher(true),
+    });
+    let document = moteur
+        .composer_avec("bulletin", &variante, &donnees, std::slice::from_ref(&qr))
+        .unwrap();
+    assert!(document.pdf.starts_with(b"%PDF"));
+    #[cfg(feature = "apercu-svg")]
+    if let Some(dossier) = std::env::var_os("GESCO_BULLETIN_SVG") {
+        let pages = moteur
+            .composer_svg("bulletin", &variante, &donnees, std::slice::from_ref(&qr))
+            .unwrap();
+        std::fs::write(
+            std::path::Path::new(&dossier).join("bulletin-largeurs.svg"),
+            &pages[0],
+        )
+        .unwrap();
+    }
 }

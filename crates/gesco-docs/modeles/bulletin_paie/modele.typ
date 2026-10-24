@@ -6,13 +6,18 @@
 
 #set document(title: "Bulletins de paie", author: e.nom)
 #let a5 = e.papier == "a5"
+// Largeur d'une colonne réglée par l'école, en millimètres ; sinon celle du modèle.
+#let largeur(nom, defaut) = {
+  let mm = e.at("largeurs", default: (:)).at(nom, default: 0)
+  if mm > 0 { mm * 1mm } else { defaut }
+}
 #set page(paper: if a5 { "a5" } else { "a4" }, margin: if a5 { (x: 9mm, top: 9mm, bottom: 10mm) } else { (x: 18mm, top: 15mm, bottom: 16mm) })
 #set text(font: "Charis SIL", size: if a5 { 7.5pt } else { 9.5pt }, lang: "fr")
 
 #let rubrique(titre, lignes) = if lignes.len() > 0 {
   v(2mm)
   table(
-    columns: (1fr, auto, auto),
+    columns: (largeur("libelle", 1fr), largeur("detail", auto), largeur("montant", auto)),
     stroke: 0.4pt,
     inset: 4pt,
     align: (left, left, right),
@@ -63,7 +68,7 @@
 
   rubrique("Gains", b.gains)
   table(
-    columns: (1fr, auto),
+    columns: (largeur("libelle", 1fr), largeur("montant", auto)),
     stroke: 0.4pt,
     inset: 4pt,
     align: (left, right),
@@ -74,7 +79,7 @@
 
   v(2mm)
   table(
-    columns: (1fr, auto),
+    columns: (largeur("libelle", 1fr), largeur("montant", auto)),
     stroke: 0.6pt,
     inset: 5pt,
     align: (left, right),

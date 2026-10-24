@@ -1,6 +1,6 @@
 {
   "id": "releve_compte",
-  "version": 1,
+  "version": 2,
   "libelle": "Relevé de compte d'un élève",
   "variables": [
     { "nom": "eleve", "requise": true },

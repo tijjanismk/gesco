@@ -3,6 +3,7 @@
 //! une même transaction (R-17). La composition et l'écriture du fichier précèdent la
 //! transaction, qui reste courte (R-19).
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -139,6 +140,40 @@ impl<'a> ServiceDocuments<'a> {
         ))
     }
 
+    /// Largeur des colonnes d'un document que l'école a réglées (`colonnes.<modèle>.<colonne>`),
+    /// en millimètres ; une colonne à 0 garde la largeur du modèle.
+    async fn largeurs(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        modele_id: &str,
+    ) -> Resultat<BTreeMap<String, u32>> {
+        let mut largeurs = BTreeMap::new();
+        let Some((_, colonnes)) = gesco_core::core::parametre::COLONNES_DOCUMENTS
+            .iter()
+            .find(|(document, _)| *document == modele_id)
+        else {
+            return Ok(largeurs);
+        };
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let mut cnx = self
+            .noyau
+            .base()
+            .pool()
+            .acquire()
+            .await
+            .map_err(gesco_db::ErreurBase::from)?;
+        for colonne in *colonnes {
+            let cle = gesco_core::core::parametre::cle_colonne(modele_id, colonne);
+            let mm = gesco_db::depots::parametre::entier(&mut cnx, &cle, 0, &contexte).await?;
+            if let Ok(mm) = u32::try_from(mm)
+                && mm > 0
+            {
+                largeurs.insert((*colonne).to_owned(), mm);
+            }
+        }
+        Ok(largeurs)
+    }
+
     /// Variante d'établissement : en-tête et mentions tirés de la fiche de l'établissement.
     pub async fn variante(&self, etablissement_id: Id<Etablissement>) -> Resultat<Variante> {
         let mut cnx = self
@@ -167,6 +202,7 @@ impl<'a> ServiceDocuments<'a> {
             mentions: fiche.mentions_legales,
             logo,
             papier: Papier::A4,
+            largeurs: BTreeMap::new(),
         })
     }
 
@@ -179,6 +215,7 @@ impl<'a> ServiceDocuments<'a> {
     ) -> Resultat<DocumentCompose> {
         let mut variante = self.variante(etablissement_id).await?;
         variante.papier = self.papier(etablissement_id, modele_id).await?;
+        variante.largeurs = self.largeurs(etablissement_id, modele_id).await?;
         let moteur = Arc::clone(&self.atelier.moteur);
         let modele = modele_id.to_owned();
         tokio::task::spawn_blocking(move || {

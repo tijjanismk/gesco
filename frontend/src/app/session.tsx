@@ -16,14 +16,43 @@ interface Session extends EtatSession {
 
 const ContexteSession = createContext<Session | null>(null);
 
+// Le jeton survit à une actualisation de la page (Ctrl + R), pas à la fermeture de GESCO : le
+// stockage de session s'efface avec la fenêtre. Le noyau reste seul juge : un jeton expiré ou
+// verrouillé est refusé à la première commande, et l'écran suit.
+const CLE_JETON = "gesco.jeton";
+
+function jetonGarde(): string | null {
+  try {
+    return window.sessionStorage.getItem(CLE_JETON);
+  } catch {
+    return null;
+  }
+}
+
+function garderJeton(jeton: string | null): void {
+  try {
+    if (jeton === null) window.sessionStorage.removeItem(CLE_JETON);
+    else window.sessionStorage.setItem(CLE_JETON, jeton);
+  } catch {
+    return;
+  }
+}
+
+function etatInitial(): EtatSession {
+  const jeton = jetonGarde();
+  definirJeton(jeton);
+  return { jeton, verrouillee: false };
+}
+
 /** Session de l'utilisateur au clavier. Le noyau décide ; le frontend ne fait que suivre
  *  (verrouillage, bascule, fermeture) pour afficher le bon écran (RA-13). */
 export function FournisseurSession({ children }: { children: ReactNode }) {
   const client = useQueryClient();
-  const [etat, setEtat] = useState<EtatSession>({ jeton: null, verrouillee: false });
+  const [etat, setEtat] = useState<EtatSession>(etatInitial);
   const ouvrir = useCallback(
     (jeton: string) => {
       definirJeton(jeton);
+      garderJeton(jeton);
       client.removeQueries({ predicate: (q) => q.queryKey[0] !== "etat" });
       setEtat({ jeton, verrouillee: false });
     },
@@ -32,6 +61,7 @@ export function FournisseurSession({ children }: { children: ReactNode }) {
   const verrouiller = useCallback(() => setEtat((e) => ({ ...e, verrouillee: true })), []);
   const fermer = useCallback(() => {
     definirJeton(null);
+    garderJeton(null);
     client.removeQueries({ predicate: (q) => q.queryKey[0] !== "etat" });
     setEtat({ jeton: null, verrouillee: false });
   }, [client]);
