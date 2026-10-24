@@ -1,0 +1,25 @@
+{
+  "voix": "ff_siwis",
+  "langue": "fr-fr",
+  "lignes": {
+    "16x9-s1": { "vitesse": 0.92, "texte": "GESCO, la gestion de votre école, sur un seul ordinateur, sans internet." },
+    "16x9-s2": { "vitesse": 0.92, "texte": "Inscrivez vos élèves, du jardin d'enfants au lycée. Un parent déjà connu se retrouve par son téléphone." },
+    "16x9-s3": {
+      "vitesse": 0.92,
+      "texte": "À la caisse, encaissez en moins d'une minute : le reçu numéroté s'imprime, et le reste à payer est aussitôt à jour."
+    },
+    "16x9-s4": {
+      "vitesse": 0.92,
+      "texte": "Saisissez les notes : GESCO calcule les moyennes et les rangs, avec les coefficients, puis imprime les bulletins."
+    },
+    "16x9-s5": { "vitesse": 0.92, "texte": "Le registre suit les sanctions et les absences, et la note de conduite se calcule." },
+    "16x9-s6": { "vitesse": 0.92, "texte": "Chaque mois, la paie : salaires, primes, retenues, et les bulletins de paie." },
+    "16x9-s7": { "vitesse": 0.92, "texte": "Toute l'école d'un coup d'œil. Vos données sont chiffrées, et sauvegardées chaque jour." },
+    "16x9-s8": { "vitesse": 1, "texte": "Pour la gestion de votre école : soixante-douze, zéro huit, vingt-deux, vingt-huit." },
+    "9x16-v1": { "vitesse": 0.95, "texte": "GESCO : votre école sur un seul ordinateur, sans internet." },
+    "9x16-v2": { "vitesse": 0.95, "texte": "Encaissez en moins d'une minute, avec un reçu numéroté, et le reste à payer à jour." },
+    "9x16-v3": { "vitesse": 0.95, "texte": "Des notes au bulletin : moyennes et rangs calculés, bulletins imprimés." },
+    "9x16-v4": { "vitesse": 0.95, "texte": "Toute l'école d'un coup d'œil, sans internet." },
+    "9x16-v5": { "vitesse": 0.95, "texte": "Soixante-douze, zéro huit, vingt-deux, vingt-huit." }
+  }
+}

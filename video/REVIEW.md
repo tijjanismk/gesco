@@ -16,6 +16,13 @@
   Finance › Impayés, n'y figure pas.
 - La 9:16 reprend les scènes 1, 3, 4, 7 et 8 ; son bulletin a cinq matières (218 points sur
   15 coefficients, soit 14,53 aussi).
+- Voix off ajoutée après coup (la commande disait « pas de voix ») : une phrase par scène, qui
+  dit ce que montre l'écran, sans rien ajouter au manuel. Sans compte HeyGen dans ce conteneur,
+  c'est la seule voix française locale de Kokoro (« Siwis », féminine, accent de France), à
+  vitesse 0,92 en 16:9 et 0,95 en 9:16 ; la phrase de fin, à 1,0, laisse tomber « GESCO » pour
+  tenir dans ses 5 secondes. [HYPOTHÈSE] « GESCO » se dit « jèsko », comme le « ges » de
+  « gestion ».
+- Le numéro est écrit en toutes lettres dans le texte de la voix, pour être lu par paires.
 
 ## Mesuré
 
@@ -23,14 +30,19 @@
   WCAG AA (aucun écart), assertions de mouvement (logo et nom visibles dès la première image,
   logo de fin avant le numéro, cartes dans le cadre, rien de figé plus de 3 s).
 - Images contrôlées à chaque scène, autour de chaque fondu et à la largeur d'un téléphone.
+- Voix off : phonèmes envoyés à Kokoro relus pour chaque phrase (liaisons, « d'œil », numéro) ;
+  chaque phrase entre -16,3 et -17,9 LUFS, crête sous -1,8 dBFS ; chacune finit avant le fondu
+  de sortie de sa scène. Elle a été mesurée, pas écoutée : la transcription automatique n'a pas
+  pu tourner (modèles Whisper inaccessibles depuis ce conteneur).
 - Rendus (`--quality high`, 30 images/s, H.264) : 16:9 de 60,0 s (1 800 images, 4,5 Mo) et
   9:16 de 30,0 s (900 images, 2,7 Mo), mesurés avec `ffprobe` ; images décodées des deux MP4
   regardées (polices, logo et QR code présents).
 
 ## Avertissements gardés
 
-- `film_silent` : la vidéo est muette à la demande (la compétence ne fournit pas de musique
-  libre de droits sans compte HeyGen).
+- `nested_media_start_basis_ambiguous` (9:16) : le linter prend `compositions/vertical.html`
+  pour une sous-composition ; ses temps de voix sont locaux à la composition, ce qui est juste
+  quand on la rend seule.
 - `nested_structure_needs_subcomposition`, `composition_file_too_large`,
   `timeline_track_too_dense` : le linter préfère une sous-composition par scène ; la commande
   demande un seul fichier racine et une seule timeline par composition.
@@ -43,3 +55,6 @@
   applications ; sur un statut WhatsApp, l'image paraît haute.
 - Le portrait de l'élève est un dessin simple ; une vraie photo (avec accord) serait plus
   chaleureuse.
+- La voix de synthèse s'entend comme telle, avec un accent de France ; une voix enregistrée
+  au Mali, découpée phrase par phrase dans `assets/voix/`, serait plus proche du public.
+- Pas de musique : la compétence n'en fournit pas de libre de droits sans compte HeyGen.
