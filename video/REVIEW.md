@@ -34,9 +34,11 @@
   chaque phrase entre -16,3 et -17,9 LUFS, crête sous -1,8 dBFS ; chacune finit avant le fondu
   de sortie de sa scène. Elle a été mesurée, pas écoutée : la transcription automatique n'a pas
   pu tourner (modèles Whisper inaccessibles depuis ce conteneur).
-- Rendus (`--quality high`, 30 images/s, H.264) : 16:9 de 60,0 s (1 800 images, 4,5 Mo) et
-  9:16 de 30,0 s (900 images, 2,7 Mo), mesurés avec `ffprobe` ; images décodées des deux MP4
-  regardées (polices, logo et QR code présents).
+- Rendus (`--quality high`, 30 images/s, H.264 et AAC) : 16:9 de 60,0 s (1 800 images, 5,5 Mo)
+  et 9:16 de 30,0 s (900 images, 3,1 Mo), mesurés avec `ffprobe` ; images décodées des deux MP4
+  regardées (polices, logo et QR code présents). Son des MP4 : -14,0 et -14,1 LUFS, crête
+  -1,8 et -1,9 dBFS ; les plages de voix détectées commencent aux instants prévus et finissent
+  avant chaque fondu.
 
 ## Avertissements gardés
 
