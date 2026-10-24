@@ -1,0 +1,1555 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>GESCO — présentation 16:9</title>
+    <script src="assets/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Fira Sans";
+        src: url("assets/fonts/fira-sans-latin-400-normal.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Fira Sans";
+        src: url("assets/fonts/fira-sans-latin-600-normal.woff2") format("woff2");
+        font-weight: 600;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Fira Sans";
+        src: url("assets/fonts/fira-sans-latin-700-normal.woff2") format("woff2");
+        font-weight: 700;
+        font-style: normal;
+      }
+
+      /* Couleurs de l'application (frontend/src/styles.css) ; le fond est son bleu « marine ». */
+      :root {
+        --marine: #16233f;
+        --fond: #f1f3f7;
+        --surface: #ffffff;
+        --encre: #1e2533;
+        --muet: #56607a;
+        --primaire: #1f4bb8;
+        --clair: #8fb0ff;
+        --sur-nuit: #c9d4ea;
+        --vert: #2d6a3e;
+        --rouge: #b4232b;
+        --ocre: #8a5300;
+        --trait: #dfe3ec;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--marine);
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        font-family: "Fira Sans", sans-serif;
+        color: var(--encre);
+        font-variant-numeric: tabular-nums;
+      }
+
+      #decor {
+        position: absolute;
+        inset: 0;
+        background: var(--marine);
+      }
+
+      /* Scènes : une section par scène ; « entree » et « sortie » portent les fondus. */
+      .scene,
+      .entree,
+      .sortie {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* Colonne de texte à gauche : sur-titre, titre, filet, phrase. */
+      .texte {
+        position: absolute;
+        left: 140px;
+        top: 0;
+        bottom: 0;
+        width: 700px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .surtitre {
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--clair);
+      }
+      .titre {
+        margin-top: 18px;
+        font-size: 76px;
+        line-height: 1.06;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: -0.01em;
+      }
+      .filet {
+        width: 120px;
+        height: 8px;
+        margin: 34px 0 30px;
+        border-radius: 4px;
+        background: var(--primaire);
+        transform-origin: left center;
+      }
+      .phrase {
+        font-size: 38px;
+        line-height: 1.32;
+        color: var(--sur-nuit);
+        max-width: 660px;
+      }
+      .mot {
+        display: inline-block;
+      }
+
+      /* Zone de l'écran redessiné, à droite. */
+      .ecran {
+        position: absolute;
+        left: 920px;
+        width: 860px;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+      .carte {
+        width: 860px;
+        background: var(--surface);
+        border-radius: 24px;
+        box-shadow: 0 34px 90px rgba(4, 9, 22, 0.5);
+        overflow: hidden;
+      }
+      .tete {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        height: 72px;
+        padding: 0 32px;
+        background: var(--fond);
+        border-bottom: 2px solid var(--trait);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--muet);
+        white-space: nowrap;
+      }
+      .tete .accent {
+        color: var(--primaire);
+      }
+      .corps {
+        padding: 28px 32px 30px;
+      }
+      .etiquette {
+        font-size: 28px;
+        color: var(--muet);
+      }
+      .valeur {
+        font-size: 34px;
+        font-weight: 600;
+        color: var(--encre);
+      }
+      .puce {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 18px;
+        border-radius: 999px;
+        font-size: 28px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .puce.verte {
+        background: #e3efe6;
+        color: var(--vert);
+      }
+      .puce.bleue {
+        background: #e6edfb;
+        color: var(--primaire);
+      }
+      .puce.ocre {
+        background: #f6ead8;
+        color: var(--ocre);
+      }
+      .puce.neutre {
+        background: var(--fond);
+        color: var(--muet);
+        border: 2px solid var(--trait);
+      }
+      .bouton {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 64px;
+        padding: 0 30px;
+        border-radius: 14px;
+        background: var(--primaire);
+        color: #ffffff;
+        font-size: 30px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .ico {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        flex: none;
+      }
+      .ico svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .ligne {
+        display: grid;
+        align-items: center;
+      }
+      .droite {
+        text-align: right;
+      }
+      .rouge {
+        color: var(--rouge);
+      }
+      .vert {
+        color: var(--vert);
+      }
+      .muet {
+        color: var(--muet);
+      }
+
+      /* Scène 1 et scène 8 : marque centrée. */
+      .centre {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .marque {
+        display: flex;
+        align-items: center;
+        gap: 48px;
+      }
+      .marque .logo {
+        display: block;
+        width: 200px;
+        height: 200px;
+        background: url("assets/logo.png") center / contain no-repeat;
+      }
+      .marque .nom {
+        font-size: 190px;
+        line-height: 1;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: 0.02em;
+      }
+      .centre .filet {
+        transform-origin: center center;
+        margin: 44px 0 36px;
+      }
+      #s1-phrase {
+        font-size: 46px;
+        line-height: 1.3;
+        max-width: 1100px;
+      }
+      #s1-version {
+        margin-top: 40px;
+        padding: 8px 24px;
+        border: 2px solid rgba(143, 176, 255, 0.45);
+        border-radius: 999px;
+        color: var(--clair);
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+      }
+      #s1-surtitre {
+        margin-bottom: 40px;
+      }
+
+      /* Scène 2 : fiche de l'élève. */
+      .identite {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 32px;
+        align-items: start;
+      }
+      .photo {
+        position: relative;
+        width: 160px;
+        height: 196px;
+        border-radius: 16px;
+        overflow: hidden;
+        background: #e8edf6;
+        color: #9aa6bf;
+      }
+      .photo .ico {
+        position: absolute;
+        left: 35px;
+        top: 50px;
+        width: 90px;
+        height: 90px;
+      }
+      .photo svg.portrait {
+        position: absolute;
+        inset: 0;
+        width: 160px;
+        height: 196px;
+      }
+      .champ {
+        height: 52px;
+        border-bottom: 2px solid var(--trait);
+        margin: 4px 0 14px;
+      }
+      .deux {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      .separation {
+        height: 2px;
+        background: var(--trait);
+        margin: 24px 0 20px;
+      }
+      .sous-titre {
+        font-size: 30px;
+        font-weight: 600;
+        color: var(--encre);
+      }
+      .recherche {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 66px;
+        margin-top: 8px;
+        padding: 0 22px;
+        border-radius: 14px;
+        background: var(--fond);
+        border: 2px solid var(--trait);
+        color: var(--muet);
+        font-size: 30px;
+      }
+      .recherche .focus {
+        position: absolute;
+        inset: -2px;
+        border-radius: 14px;
+        border: 3px solid var(--primaire);
+      }
+      .recherche .saisie {
+        font-size: 34px;
+        font-weight: 600;
+        color: var(--encre);
+      }
+      .resultat {
+        display: grid;
+        grid-template-columns: 64px 1fr auto;
+        gap: 18px;
+        align-items: center;
+        margin-top: 16px;
+        padding: 12px 16px;
+        border-radius: 14px;
+        border: 2px solid #cfdcf6;
+        background: #f6f9ff;
+      }
+      .avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #e6edfb;
+        color: var(--primaire);
+        font-size: 28px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .liens {
+        display: flex;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .pied {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 22px;
+      }
+      .bouton .etat {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .bouton .etat.apres {
+        position: absolute;
+        inset: 0;
+        justify-content: center;
+        border-radius: 14px;
+        background: var(--vert);
+      }
+
+      /* Scène 3 : caisse, reçu et chronomètre. */
+      .chrono {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--encre);
+        font-size: 30px;
+        font-weight: 700;
+      }
+      .chrono .ico {
+        color: var(--primaire);
+      }
+      .tete .groupe {
+        display: inline-flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .montant {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 64px;
+        margin-top: 8px;
+        padding: 0 20px;
+        border-radius: 14px;
+        border: 3px solid var(--primaire);
+        background: #ffffff;
+      }
+      .modes {
+        display: flex;
+        gap: 12px;
+        margin-top: 8px;
+        height: 64px;
+        align-items: center;
+      }
+      .mode {
+        position: relative;
+      }
+      .mode .choisi {
+        position: absolute;
+        inset: -2px;
+        border-radius: 999px;
+        background: var(--primaire);
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .reste {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 24px;
+        padding-top: 22px;
+        border-top: 2px solid var(--trait);
+      }
+      .reste .chiffre {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 46px;
+        font-weight: 700;
+      }
+      .fente {
+        width: 760px;
+        height: 26px;
+        margin-top: 30px;
+        border-radius: 13px;
+        background: #0b1222;
+        box-shadow: inset 0 -3px 0 rgba(143, 176, 255, 0.25);
+      }
+      .papier {
+        width: 700px;
+        height: 300px;
+        margin-top: -10px;
+        overflow: hidden;
+      }
+      .recu {
+        position: relative;
+        width: 700px;
+        height: 300px;
+        padding: 28px 34px 0;
+        background: #ffffff;
+        border-bottom: 3px dashed #c3cad8;
+        display: grid;
+        grid-template-columns: 1fr 150px;
+        gap: 24px;
+        font-size: 28px;
+        line-height: 1.5;
+      }
+      .recu .numero {
+        font-size: 30px;
+        font-weight: 700;
+      }
+      .recu .exemplaire {
+        font-style: italic;
+        color: var(--muet);
+      }
+      .recu .qr svg {
+        display: block;
+        width: 150px;
+        height: 150px;
+        margin-top: 10px;
+      }
+      .recu .surligne {
+        position: relative;
+        display: inline-block;
+        font-weight: 700;
+      }
+      .recu .surligne .fond-surligne {
+        position: absolute;
+        left: -8px;
+        right: -8px;
+        top: 2px;
+        bottom: 2px;
+        border-radius: 8px;
+        background: #e6edfb;
+        transform-origin: left center;
+      }
+      .recu .surligne span {
+        position: relative;
+      }
+
+      /* Scène 4 : grille de notes, puis bulletin. */
+      .pile {
+        position: relative;
+        width: 860px;
+        height: 760px;
+      }
+      .pile > .couche {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 860px;
+      }
+      .grille .ligne {
+        grid-template-columns: 1fr 200px;
+        height: 64px;
+        padding: 0 20px;
+        font-size: 30px;
+      }
+      .grille .entete {
+        height: 50px;
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--muet);
+        border-bottom: 2px solid var(--trait);
+      }
+      .grille .lignes {
+        position: relative;
+      }
+      .grille .curseur {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 64px;
+        border-radius: 12px;
+        background: #e6edfb;
+      }
+      .grille .note {
+        font-weight: 700;
+        color: var(--primaire);
+      }
+      .bulletin .ligne {
+        grid-template-columns: 1fr 120px 100px 190px;
+        height: 46px;
+        padding: 0 8px;
+        font-size: 28px;
+        border-bottom: 1px solid #edf0f5;
+      }
+      .bulletin .entete {
+        font-weight: 600;
+        color: var(--muet);
+        border-bottom: 2px solid var(--trait);
+      }
+      .bulletin .totaux {
+        font-weight: 700;
+        background: var(--fond);
+        border-bottom: none;
+      }
+      .bandeau {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr 1fr;
+        gap: 20px;
+        margin-top: 18px;
+        align-items: end;
+      }
+      .bandeau .grand {
+        font-size: 52px;
+        font-weight: 700;
+        color: var(--primaire);
+        line-height: 1.05;
+      }
+      .bandeau .moyen {
+        font-size: 38px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+      .tampon {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 18px;
+        border: 3px solid var(--vert);
+        border-radius: 12px;
+        color: var(--vert);
+        font-size: 38px;
+        font-weight: 700;
+      }
+
+      /* Scène 5 : registre et note de conduite. */
+      .conduite {
+        display: grid;
+        grid-template-columns: 1fr 270px;
+        gap: 26px;
+        margin-top: 18px;
+      }
+      .registre .ligne {
+        grid-template-columns: 1fr 96px;
+        min-height: 74px;
+        padding: 8px 0;
+        border-bottom: 2px solid #edf0f5;
+        font-size: 28px;
+        line-height: 1.3;
+      }
+      .registre .nature {
+        font-weight: 600;
+        font-size: 30px;
+      }
+      .registre .retrait {
+        text-align: right;
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--rouge);
+      }
+      .note-conduite {
+        border-radius: 20px;
+        background: var(--fond);
+        padding: 24px 22px;
+        text-align: center;
+        align-self: start;
+      }
+      .note-conduite .valeur-note {
+        margin-top: 10px;
+        font-size: 84px;
+        font-weight: 700;
+        color: var(--primaire);
+        line-height: 1;
+      }
+      .note-conduite .sur {
+        font-size: 34px;
+        font-weight: 600;
+        color: var(--muet);
+      }
+
+      /* Scène 6 : paie du mois. */
+      .paie .ligne {
+        grid-template-columns: 1fr 170px 150px 180px;
+        padding: 0 4px;
+        font-size: 28px;
+      }
+      .paie .entete {
+        height: 50px;
+        font-weight: 600;
+        color: var(--muet);
+        border-bottom: 2px solid var(--trait);
+      }
+      .paie .personne {
+        height: 84px;
+        border-bottom: 1px solid #edf0f5;
+      }
+      .paie .personne .qui {
+        font-size: 30px;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+      .paie .prime {
+        height: 48px;
+        border-bottom: 1px solid #edf0f5;
+      }
+      .total-paie {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 20px;
+        padding: 14px 22px;
+        border-radius: 16px;
+        background: #e6edfb;
+        color: var(--primaire);
+        font-size: 32px;
+        font-weight: 600;
+      }
+      .total-paie .grand {
+        font-size: 46px;
+        font-weight: 700;
+      }
+      .puces-pied {
+        display: flex;
+        gap: 14px;
+        margin-top: 20px;
+      }
+
+      /* Scène 7 : tableau de bord et pastilles. */
+      .tuiles {
+        display: grid;
+        grid-template-columns: 330px 1fr;
+        gap: 20px;
+      }
+      .tuile {
+        border-radius: 18px;
+        background: var(--fond);
+        padding: 22px 26px;
+      }
+      .tuile .etiquette {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .tuile .etiquette .ico {
+        color: var(--primaire);
+      }
+      .tuile .chiffre {
+        margin-top: 8px;
+        font-size: 56px;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+      .tuile.large {
+        grid-column: 1 / 3;
+      }
+      .action {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-top: 22px;
+      }
+      .pastilles {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        margin-top: 4px;
+      }
+      .pastille {
+        display: inline-flex;
+        align-items: center;
+        gap: 18px;
+        align-self: flex-start;
+        padding: 10px 26px 10px 10px;
+        border-radius: 999px;
+        background: rgba(143, 176, 255, 0.12);
+        border: 2px solid rgba(143, 176, 255, 0.35);
+        color: #e3e8f2;
+        font-size: 34px;
+        font-weight: 600;
+      }
+      .pastille .rond {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--primaire);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+      }
+
+      /* Scène 8 : fin. */
+      #s8-phrase {
+        font-size: 52px;
+        color: #e3e8f2;
+        max-width: none;
+      }
+      #s8-numero {
+        margin-top: 30px;
+        display: flex;
+        gap: 34px;
+        font-size: 150px;
+        font-weight: 700;
+        color: #ffffff;
+        line-height: 1;
+      }
+      #s8-numero span {
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="gesco" data-start="0" data-duration="60" data-width="1920" data-height="1080">
+      <!-- Fond permanent : bleu nuit uni. -->
+      <div id="decor" class="clip" data-start="0" data-duration="60" data-track-index="0" data-layout-ignore></div>
+
+      <!-- 1. Logo et nom (0–6 s) -->
+      <section id="s1" class="clip scene" data-start="0" data-duration="6" data-track-index="1">
+        <div class="entree" id="s1-entree">
+          <div class="sortie" id="s1-sortie">
+            <div class="centre">
+              <div class="surtitre" id="s1-surtitre">Logiciel de gestion scolaire</div>
+              <div class="marque">
+                <div class="logo" id="s1-logo" role="img" aria-label="Logo de GESCO"></div>
+                <span class="nom" id="s1-nom">GESCO</span>
+              </div>
+              <div class="filet" id="s1-filet"></div>
+              <p class="phrase" id="s1-phrase">
+                <span class="mot">La</span> <span class="mot">gestion</span> <span class="mot">de</span> <span class="mot">votre</span>
+                <span class="mot">école,</span><br /><span class="mot">sur</span> <span class="mot">un</span> <span class="mot">seul</span>
+                <span class="mot">ordinateur,</span> <span class="mot">sans</span> <span class="mot">internet.</span>
+              </p>
+              <div id="s1-version">Version 1.2.5</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Inscrire un élève (6–14 s) -->
+      <section id="s2" class="clip scene" data-start="6" data-duration="8" data-track-index="2">
+        <div class="entree" id="s2-entree">
+          <div class="sortie" id="s2-sortie">
+            <div class="texte">
+              <div class="surtitre" id="s2-surtitre">Inscriptions</div>
+              <h1 class="titre" id="s2-titre">Inscrire un élève</h1>
+              <div class="filet" id="s2-filet"></div>
+              <p class="phrase" id="s2-phrase">Du jardin d’enfants au lycée,<br />avec ses responsables.</p>
+            </div>
+            <div class="ecran">
+              <div class="carte" id="s2-carte">
+                <div class="tete"><span>Scolarité › Élèves</span><span class="accent">Nouvel élève</span></div>
+                <div class="corps">
+                  <div class="identite">
+                    <div class="photo">
+                      <span class="ico" id="s2-sans-photo"
+                        ><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></svg
+                      ></span>
+                      <svg class="portrait" id="s2-portrait" viewBox="0 0 160 196">
+                        <rect width="160" height="196" fill="#d9e3f6" />
+                        <path d="M10 196c4-46 32-66 70-66s66 20 70 66z" fill="#1f4bb8" />
+                        <path d="M62 132l18 22 18-22z" fill="#ffffff" />
+                        <rect x="68" y="108" width="24" height="28" fill="#7b4a2c" />
+                        <ellipse cx="80" cy="84" rx="34" ry="40" fill="#8a5434" />
+                        <path d="M44 80c0-30 16-48 36-48s36 18 36 48c-6-15-19-25-36-25s-30 10-36 25z" fill="#2a1a12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="etiquette">Nom et prénom</div>
+                      <div class="champ"><span class="valeur" id="s2-nom">Awa Traoré</span></div>
+                      <div class="deux">
+                        <div>
+                          <div class="etiquette">Matricule</div>
+                          <div class="valeur" id="s2-matricule">2026/00042</div>
+                        </div>
+                        <div>
+                          <div class="etiquette">Classe</div>
+                          <div class="valeur" id="s2-classe">7e A · 2e cycle</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="separation"></div>
+                  <div class="sous-titre">Responsables</div>
+                  <div class="recherche">
+                    <div class="focus" id="s2-focus"></div>
+                    <span class="ico"
+                      ><svg viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" /></svg
+                    ></span>
+                    <span class="saisie" id="s2-telephone">76 12 34 56</span>
+                  </div>
+                  <div class="resultat" id="s2-resultat">
+                    <div class="avatar">ST</div>
+                    <div>
+                      <div class="valeur">Seydou Traoré</div>
+                      <div class="etiquette">Père · retrouvé par son téléphone</div>
+                    </div>
+                    <span class="puce verte" id="s2-connu">Déjà connu</span>
+                  </div>
+                  <div class="liens">
+                    <span class="puce bleue" id="s2-legal"
+                      ><span class="ico"
+                        ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                      >Responsable légal</span
+                    >
+                    <span class="puce bleue" id="s2-payeur"
+                      ><span class="ico"
+                        ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                      >Payeur</span
+                    >
+                  </div>
+                  <div class="pied">
+                    <div class="bouton" id="s2-bouton">
+                      <span class="etat" data-layout-allow-overlap>Enregistrer la fiche</span>
+                      <span class="etat apres" id="s2-enregistre" data-layout-allow-overlap data-layout-allow-occlusion
+                        ><span class="ico"
+                          ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                        >Fiche enregistrée</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Encaisser en moins d’une minute (14–23 s) -->
+      <section id="s3" class="clip scene" data-start="14" data-duration="9" data-track-index="1">
+        <div class="entree" id="s3-entree">
+          <div class="sortie" id="s3-sortie">
+            <div class="texte">
+              <div class="surtitre" id="s3-surtitre">Caisse</div>
+              <h1 class="titre" id="s3-titre">Encaisser en moins d’une minute</h1>
+              <div class="filet" id="s3-filet"></div>
+              <p class="phrase" id="s3-phrase">Reçu numéroté, reste à payer à jour.</p>
+            </div>
+            <div class="ecran">
+              <div class="carte" id="s3-carte">
+                <div class="tete">
+                  <span>Finance › Caisse</span>
+                  <span class="groupe">
+                    <span class="puce verte" id="s3-moins"
+                      ><span class="ico"
+                        ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                      >Moins d’une minute</span
+                    >
+                    <span class="chrono"
+                      ><span class="ico"
+                        ><svg viewBox="0 0 24 24">
+                          <line x1="10" x2="14" y1="2" y2="2" />
+                          <line x1="12" x2="15" y1="14" y2="11" />
+                          <circle cx="12" cy="14" r="8" /></svg></span
+                      ><span id="s3-chrono">0:00</span></span
+                    >
+                  </span>
+                </div>
+                <div class="corps">
+                  <div><span class="valeur">Oumar Sangaré</span> <span class="etiquette">· 10e S · 2026/00118</span></div>
+                  <div class="ligne" style="grid-template-columns: 300px 1fr; gap: 24px; margin-top: 18px; align-items: start">
+                    <div>
+                      <div class="etiquette">Montant versé</div>
+                      <div class="montant"><span class="valeur" id="s3-montant">50 000</span><span class="valeur muet">F</span></div>
+                    </div>
+                    <div>
+                      <div class="etiquette">Mode</div>
+                      <div class="modes">
+                        <span class="mode puce neutre"
+                          ><span class="ico" style="opacity: 0"
+                            ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                          >Espèces<span class="choisi" id="s3-especes" data-layout-allow-overlap data-layout-allow-occlusion
+                            ><span class="ico"
+                              ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                            >Espèces</span
+                          ></span
+                        >
+                        <span class="puce neutre">Orange Money</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="reste">
+                    <div>
+                      <div class="etiquette">Reste à payer</div>
+                      <div class="chiffre">
+                        <span id="s3-reste">150 000 F</span
+                        ><span class="ico vert" id="s3-reste-ok"
+                          ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg
+                        ></span>
+                      </div>
+                    </div>
+                    <div class="bouton" id="s3-bouton">Encaisser</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fente" id="s3-fente"></div>
+              <div class="papier" data-layout-allow-overflow>
+                <div class="recu" id="s3-recu">
+                  <div>
+                    <div class="numero">REÇU N° REC-2026-000147</div>
+                    <div class="exemplaire">Exemplaire du parent</div>
+                    <div>Oumar Sangaré · 10e S</div>
+                    <div>Versé : 50 000 F · Espèces</div>
+                    <div class="surligne">
+                      <span class="fond-surligne" id="s3-surligne"></span><span>Reste dû : 100 000 F</span>
+                    </div>
+                  </div>
+                  <div class="qr">
+                    <svg viewBox="0 0 25 25" shape-rendering="crispEdges">
+                      <path fill="#ffffff" d="M0 0h25v25H0z" />
+                      <path
+                        stroke="#1e2533"
+                        d="M0 0.5h7m3 0h3m1 0h1m1 0h1m1 0h7M0 1.5h1m5 0h1m1 0h2m1 0h1m1 0h1m1 0h1m2 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m3 0h3m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m3 0h4m2 0h1m1 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h2m2 0h1m1 0h3m1 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m2 0h2m2 0h1m2 0h1m1 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 7.5h1m1 0h1m1 0h1m1 0h1M0 8.5h1m1 0h1m1 0h1m1 0h1m2 0h2m2 0h4m3 0h1m2 0h1M1 9.5h3m1 0h1m1 0h3m1 0h1m1 0h1m1 0h1m4 0h2m2 0h1M0 10.5h1m1 0h1m1 0h5m2 0h6m2 0h1m1 0h3M0 11.5h2m3 0h1m2 0h2m1 0h2m2 0h1m2 0h1m1 0h2M0 12.5h1m5 0h3m2 0h3m2 0h1m4 0h2M2 13.5h1m1 0h2m2 0h1m2 0h2m2 0h1m1 0h2m1 0h5M0 14.5h1m2 0h2m1 0h2m1 0h1m1 0h2m3 0h1m4 0h3M1 15.5h1m2 0h2m3 0h2m1 0h2m2 0h2m1 0h3M0 16.5h1m2 0h1m2 0h6m2 0h10M8 17.5h1m2 0h1m3 0h2m3 0h2m1 0h2M0 18.5h7m3 0h1m2 0h1m1 0h2m1 0h1m1 0h2m2 0h1M0 19.5h1m5 0h1m4 0h1m4 0h1m3 0h2m2 0h1M0 20.5h1m1 0h3m1 0h1m1 0h3m1 0h1m3 0h5m1 0h2M0 21.5h1m1 0h3m1 0h1m2 0h1m1 0h3m1 0h3m1 0h1m1 0h3M0 22.5h1m1 0h3m1 0h1m1 0h2m1 0h2m1 0h2m3 0h2m3 0h1M0 23.5h1m5 0h1m5 0h8m3 0h2M0 24.5h7m1 0h4m2 0h1m1 0h1m1 0h1m3 0h1m1 0h1"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Des notes au bulletin (23–33 s) -->
+      <section id="s4" class="clip scene" data-start="23" data-duration="10" data-track-index="2">
+        <div class="entree" id="s4-entree">
+          <div class="sortie" id="s4-sortie">
+            <div class="texte">
+              <div class="surtitre" id="s4-surtitre">Notes et bulletins</div>
+              <h1 class="titre" id="s4-titre">
+                <span class="mot">Des</span> <span class="mot">notes</span> <span class="mot">au</span> <span class="mot">bulletin</span>
+              </h1>
+              <div class="filet" id="s4-filet"></div>
+              <p class="phrase" id="s4-phrase">Moyennes et rangs calculés,<br />bulletins imprimés.</p>
+            </div>
+            <div class="ecran">
+              <div class="pile">
+                <div class="couche" id="s4-grille-sortie">
+                  <div class="carte grille" id="s4-grille">
+                    <div class="tete"><span>Scolarité › Notes</span><span>1er trimestre 2026-2027</span></div>
+                    <div class="corps">
+                      <div class="sous-titre" style="margin-bottom: 14px">Composition de Mathématiques · 10e S</div>
+                      <div class="ligne entete"><span>Élève</span><span class="droite">Note sur 20</span></div>
+                      <div class="lignes">
+                        <div class="curseur" id="s4-curseur"></div>
+                        <div class="ligne" style="position: relative">
+                          <span>Kadiatou Cissé</span><span class="droite note" id="s4-n1">15</span>
+                        </div>
+                        <div class="ligne" style="position: relative">
+                          <span>Bakary Coulibaly</span><span class="droite note" id="s4-n2">14</span>
+                        </div>
+                        <div class="ligne" style="position: relative">
+                          <span>Fatoumata Diallo</span><span class="droite note" id="s4-n3">16,5</span>
+                        </div>
+                        <div class="ligne" style="position: relative">
+                          <span>Oumar Sangaré</span><span class="droite note" id="s4-n4">12</span>
+                        </div>
+                      </div>
+                      <div class="pied" style="justify-content: space-between; align-items: center">
+                        <span class="puce verte" id="s4-valide"
+                          ><span class="ico"
+                            ><svg viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span
+                          >Notes validées</span
+                        >
+                        <div class="bouton" id="s4-bouton">Valider les notes</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="couche" id="s4-bulletin-entree">
+                  <div class="carte bulletin">
+                    <div class="tete"><span>Scolarité › Bulletins</span><span>1er trimestre 2026-2027</span></div>
+                    <div class="corps" style="padding-top: 22px">
+                      <div class="sous-titre" style="margin-bottom: 10px">Fatoumata Diallo · 10e S</div>
+                      <div class="ligne entete">
+                        <span>Matière</span><span class="droite">Moy.</span><span class="droite">Coef.</span><span class="droite">Moy. × coef.</span>
+                      </div>
+                      <div class="ligne b-ligne">
+                        <span>Mathématiques</span><span class="droite">16,50</span><span class="droite">4</span><span class="droite">66,00</span>
+                      </div>
+                      <div class="ligne b-ligne">
+                        <span>Physique-chimie</span><span class="droite">15,00</span><span class="droite">4</span><span class="droite">60,00</span>
+                      </div>
+                      <div class="ligne b-ligne">
+                        <span>SVT</span><span class="droite">14,00</span><span class="droite">3</span><span class="droite">42,00</span>
+                      </div>
+                      <div class="ligne b-ligne">
+                        <span>Français</span><span class="droite">13,00</span><span class="droite">3</span><span class="droite">39,00</span>
+                      </div>
+                      <div class="ligne b-ligne">
+                        <span>Anglais</span><span class="droite">14,50</span><span class="droite">2</span><span class="droite">29,00</span>
+                      </div>
+                      <div class="ligne b-ligne">
+                        <span>Histoire-géographie</span><span class="droite">12,00</span><span class="droite">2</span><span class="droite">24,00</span>
+                      </div>
+                      <div class="ligne b-ligne">
+                        <span>EPS</span><span class="droite">16,00</span><span class="droite">1</span><span class="droite">16,00</span>
+                      </div>
+                      <div class="ligne totaux" id="s4-totaux">
+                        <span>Totaux</span><span></span><span class="droite" id="s4-coef">19</span><span class="droite" id="s4-points">276,00</span>
+                      </div>
+                      <div class="bandeau">
+                        <div id="s4-bloc-moyenne">
+                          <div class="etiquette">Moyenne générale</div>
+                          <div class="grand"><span id="s4-moyenne">14,53</span><span class="etiquette"> / 20</span></div>
+                        </div>
+                        <div id="s4-bloc-rang">
+                          <div class="etiquette">Rang</div>
+                          <div class="moyen">3e sur 42</div>
+                        </div>
+                        <div>
+                          <div class="etiquette">Mention</div>
+                          <div class="tampon" id="s4-mention">Bien</div>
+                        </div>
+                      </div>
+                      <div class="pied" style="justify-content: flex-start; margin-top: 16px">
+                        <span class="puce bleue" id="s4-imprime"
+                          ><span class="ico"
+                            ><svg viewBox="0 0 24 24">
+                              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                              <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
+                              <rect x="6" y="14" width="12" height="8" rx="1" /></svg></span
+                          >Bulletin imprimé</span
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. La conduite suivie (33–40 s) -->
+      <section id="s5" class="clip scene" data-start="33" data-duration="7" data-track-index="1">
+        <div class="entree" id="s5-entree">
+          <div class="sortie" id="s5-sortie">
+            <div class="texte">
+              <div class="surtitre" id="s5-surtitre">Discipline</div>
+              <h1 class="titre" id="s5-titre">La conduite suivie</h1>
+              <div class="filet" id="s5-filet"></div>
+              <p class="phrase" id="s5-phrase">Sanctions, absences<br />et note de conduite.</p>
+            </div>
+            <div class="ecran">
+              <div class="carte" id="s5-carte">
+                <div class="tete"><span>Scolarité › Note de conduite</span><span>1er trimestre</span></div>
+                <div class="corps">
+                  <div class="sous-titre">Bakary Coulibaly · 10e S</div>
+                  <div class="conduite">
+                    <div class="registre">
+                      <div class="ligne r-ligne">
+                        <div><div class="nature">Avertissement</div><div class="muet">9 octobre</div></div>
+                        <div class="retrait">−2</div>
+                      </div>
+                      <div class="ligne r-ligne">
+                        <div><div class="nature">Retenue</div><div class="muet">16 octobre</div></div>
+                        <div class="retrait">−1</div>
+                      </div>
+                      <div class="ligne r-ligne">
+                        <div><div class="nature">Absences non justifiées</div><div class="muet">2 demi-journées</div></div>
+                        <div class="retrait">−1</div>
+                      </div>
+                      <div class="ligne r-ligne">
+                        <div><div class="nature">Retard</div><div class="muet">22 octobre</div></div>
+                        <div class="retrait">−0,25</div>
+                      </div>
+                    </div>
+                    <div class="note-conduite">
+                      <div class="etiquette">Note de conduite</div>
+                      <div class="valeur-note" id="s5-note">20</div>
+                      <div class="sur">sur 20</div>
+                    </div>
+                  </div>
+                  <div class="etiquette" id="s5-calcul" style="margin-top: 18px">Départ à 20, moins les retraits du registre.</div>
+                  <div class="puces-pied">
+                    <span class="puce bleue" id="s5-bulletin"
+                      ><span class="ico"
+                        ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                      >Sur le bulletin, ligne « Conduite »</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. La paie du mois (40–48 s) -->
+      <section id="s6" class="clip scene" data-start="40" data-duration="8" data-track-index="2">
+        <div class="entree" id="s6-entree">
+          <div class="sortie" id="s6-sortie">
+            <div class="texte">
+              <div class="surtitre" id="s6-surtitre">Personnel et paie</div>
+              <h1 class="titre" id="s6-titre">La paie du mois</h1>
+              <div class="filet" id="s6-filet"></div>
+              <p class="phrase" id="s6-phrase">Salaires, primes, retenues<br />et bulletins de paie.</p>
+            </div>
+            <div class="ecran">
+              <div class="carte paie" id="s6-carte">
+                <div class="tete"><span>Personnel › Paie</span><span class="accent">Octobre 2026</span></div>
+                <div class="corps">
+                  <div class="ligne entete">
+                    <span>Personnel</span><span class="droite">Brut</span><span class="droite">INPS 3,6 %</span><span class="droite">Net</span>
+                  </div>
+                  <div class="ligne personne p-ligne">
+                    <div><div class="qui">Moussa Keïta</div><div class="muet">Professeur</div></div>
+                    <span class="droite" id="s6-brut1">250 000 F</span><span class="droite rouge p-inps">−9 900 F</span
+                    ><span class="droite p-net" style="font-weight: 600">265 100 F</span>
+                  </div>
+                  <div class="ligne prime" id="s6-prime">
+                    <div><span class="puce verte">+ Prime</span></div>
+                    <span class="droite vert" style="font-weight: 600">25 000 F</span><span></span><span></span>
+                  </div>
+                  <div class="ligne personne p-ligne">
+                    <div><div class="qui">Aminata Konaté</div><div class="muet">Secrétaire</div></div>
+                    <span class="droite">150 000 F</span><span class="droite rouge p-inps">−5 400 F</span
+                    ><span class="droite p-net" style="font-weight: 600">144 600 F</span>
+                  </div>
+                  <div class="ligne personne p-ligne">
+                    <div><div class="qui">Ibrahim Touré</div><div class="muet">Surveillant général</div></div>
+                    <span class="droite">120 000 F</span><span class="droite rouge p-inps">−4 320 F</span
+                    ><span class="droite p-net" style="font-weight: 600">115 680 F</span>
+                  </div>
+                  <div class="total-paie" id="s6-total">
+                    <span>Net à payer</span><span class="grand" id="s6-net">525 380 F</span>
+                  </div>
+                  <div class="puces-pied">
+                    <span class="puce verte" id="s6-validee"
+                      ><span class="ico"
+                        ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                      >Paie validée</span
+                    >
+                    <span class="puce bleue" id="s6-bulletins"
+                      ><span class="ico"
+                        ><svg viewBox="0 0 24 24">
+                          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                          <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
+                          <rect x="6" y="14" width="12" height="8" rx="1" /></svg></span
+                      >Bulletins de paie prêts</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Toute l’école d’un coup d’œil (48–55 s) -->
+      <section id="s7" class="clip scene" data-start="48" data-duration="7" data-track-index="1">
+        <div class="entree" id="s7-entree">
+          <div class="sortie" id="s7-sortie">
+            <div class="texte">
+              <div class="surtitre" id="s7-surtitre">Tableau de bord</div>
+              <h1 class="titre" id="s7-titre">
+                <span class="mot">Toute</span> <span class="mot">l’école</span> <span class="mot">d’un</span> <span class="mot">coup</span>
+                <span class="mot">d’œil</span>
+              </h1>
+              <div class="filet" id="s7-filet"></div>
+              <div class="pastilles">
+                <div class="pastille" id="s7-p1">
+                  <span class="rond"
+                    ><span class="ico"
+                      ><svg viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span></span
+                  >Données chiffrées
+                </div>
+                <div class="pastille" id="s7-p2">
+                  <span class="rond"
+                    ><span class="ico"
+                      ><svg viewBox="0 0 24 24">
+                        <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+                        <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+                        <path d="M7 3v4a1 1 0 0 0 1 1h7" /></svg></span></span
+                  >Sauvegarde chaque jour
+                </div>
+                <div class="pastille" id="s7-p3">
+                  <span class="rond"
+                    ><span class="ico"
+                      ><svg viewBox="0 0 24 24">
+                        <path d="M12 20h.01" />
+                        <path d="M8.5 16.429a5 5 0 0 1 7 0" />
+                        <path d="M5 12.859a10 10 0 0 1 5.17-2.69" />
+                        <path d="M19 12.859a10 10 0 0 0-2.007-1.523" />
+                        <path d="M2 8.82a15 15 0 0 1 4.177-2.643" />
+                        <path d="M22 8.82a15 15 0 0 0-11.288-3.764" />
+                        <path d="m2 2 20 20" /></svg></span></span
+                  >Sans internet
+                </div>
+              </div>
+            </div>
+            <div class="ecran">
+              <div class="carte" id="s7-carte">
+                <div class="tete"><span>Général › Tableau de bord</span><span>Année 2026-2027</span></div>
+                <div class="corps">
+                  <div class="tuiles">
+                    <div class="tuile" id="s7-t1">
+                      <div class="etiquette">
+                        <span class="ico"
+                          ><svg viewBox="0 0 24 24">
+                            <path
+                              d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"
+                            />
+                            <path d="M22 10v6" />
+                            <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" /></svg></span
+                        >Élèves inscrits
+                      </div>
+                      <div class="chiffre" id="s7-eleves">412</div>
+                    </div>
+                    <div class="tuile" id="s7-t2">
+                      <div class="etiquette">
+                        <span class="ico"
+                          ><svg viewBox="0 0 24 24">
+                            <path
+                              d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"
+                            />
+                            <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" /></svg></span
+                        >Encaissé aujourd’hui
+                      </div>
+                      <div class="chiffre" id="s7-encaisse">385 000 F</div>
+                    </div>
+                    <div class="tuile large" id="s7-t3">
+                      <div class="etiquette">
+                        <span class="ico"
+                          ><svg viewBox="0 0 24 24">
+                            <path d="M8 2v3" />
+                            <path d="M16 2v3" />
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <path d="M3 9h18" />
+                            <path d="m9 15 2 2 4-4" /></svg></span
+                        >Reste à recouvrer sur l’année
+                      </div>
+                      <div class="chiffre" id="s7-reste">4 250 000 F</div>
+                    </div>
+                  </div>
+                  <div class="action" id="s7-action">
+                    <span class="etiquette">À faire</span>
+                    <span class="puce ocre">Paie d’octobre à valider</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. Fin (55–60 s) -->
+      <section id="s8" class="clip scene" data-start="55" data-duration="5" data-track-index="2">
+        <div class="entree" id="s8-entree">
+          <div class="centre">
+            <div class="marque">
+              <div class="logo" id="s8-logo" role="img" aria-label="Logo de GESCO"></div>
+              <span class="nom" id="s8-nom">GESCO</span>
+            </div>
+            <div class="filet" id="s8-filet"></div>
+            <p class="phrase" id="s8-phrase">Pour la gestion de votre école</p>
+            <div id="s8-numero"><span>72</span><span>08</span><span>22</span><span>28</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      (function () {
+        const tl = gsap.timeline({ paused: true });
+
+        // Début de chaque scène (secondes) : la scène qui part s'efface en 0,5 s avant la borne,
+        // la suivante apparaît en 0,5 s après, sur le même fond.
+        const B = [0, 6, 14, 23, 33, 40, 48, 55, 60];
+        const a = (n, t) => B[n - 1] + t;
+
+        // Montants : entiers, espace insécable entre les milliers, « F » à la fin.
+        const milliers = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        const F = (n) => milliers(n) + " F";
+        const virgule = (x, d) => x.toFixed(d).replace(".", ",");
+
+        // Texte piloté par le temps de la timeline (compteurs, saisie) : une valeur t de 0 à
+        // « duree », posée par GSAP à chaque image, même quand le rendu saute dans le temps.
+        function piloter(debut, duree, rendu) {
+          const p = {
+            _t: 0,
+            get t() {
+              return this._t;
+            },
+            set t(v) {
+              this._t = v;
+              rendu(v, Math.min(1, Math.max(0, v / duree)));
+            },
+          };
+          tl.fromTo(p, { t: 0 }, { t: duree, duration: duree, ease: "none" }, debut);
+        }
+        const compteur = (el, de, vers, debut, duree, fmt, ease) => {
+          const e = gsap.parseEase(ease || "power2.out");
+          piloter(debut, duree, (v, x) => (el.textContent = fmt(de + (vers - de) * e(x))));
+        };
+        const saisie = (el, texte, debut, duree) => {
+          piloter(debut, duree, (v, x) => (el.textContent = texte.slice(0, Math.round(x * texte.length))));
+        };
+        const $ = (s) => document.querySelector(s);
+        const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+        // Apparitions communes.
+        const monte = (cible, pos, dy, d) =>
+          tl.fromTo(cible, { opacity: 0, y: dy === undefined ? 24 : dy }, { opacity: 1, y: 0, duration: d || 0.6, ease: "expo.out" }, pos);
+        const glisse = (cible, pos, dx, d) =>
+          tl.fromTo(cible, { opacity: 0, x: dx === undefined ? -30 : dx }, { opacity: 1, x: 0, duration: d || 0.6, ease: "expo.out" }, pos);
+        const pose = (cible, pos) => tl.fromTo(cible, { opacity: 0, scale: 1.35 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, pos);
+        const filet = (cible, pos) => tl.fromTo(cible, { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, pos);
+        const appuie = (cible, pos) =>
+          tl.to(cible, { keyframes: [{ scale: 0.95, duration: 0.1, ease: "power2.in" }, { scale: 1, duration: 0.2, ease: "power2.out" }] }, pos);
+
+        // Fondus entre les scènes.
+        for (let n = 1; n <= 8; n++) {
+          if (n > 1) tl.fromTo(`#s${n}-entree`, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "none" }, B[n - 1]);
+          if (n < 8) tl.fromTo(`#s${n}-sortie`, { opacity: 1 }, { opacity: 0, duration: 0.5, ease: "none" }, B[n] - 0.5);
+        }
+
+
+        // 1. Logo et nom : visibles dès la première image.
+        tl.fromTo("#s1-logo", { scale: 0.94 }, { scale: 1, duration: 1.4, ease: "expo.out" }, 0);
+        tl.fromTo("#s1-nom", { x: -16 }, { x: 0, duration: 1.4, ease: "expo.out" }, 0);
+        monte("#s1-surtitre", 0.3, 14);
+        tl.fromTo("#s1-phrase .mot", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out", stagger: 0.12 }, 0.8);
+        filet("#s1-filet", 2.3);
+        tl.fromTo("#s1-version", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, 3.0);
+
+        // Texte des scènes 2 à 7 : sur-titre, titre, filet, phrase.
+        function texte(n, entreeTitre) {
+          monte(`#s${n}-surtitre`, a(n, -0.1), 14, 0.5);
+          entreeTitre(`#s${n}-titre`, a(n, 0.05));
+          filet(`#s${n}-filet`, a(n, 0.4));
+          if ($(`#s${n}-phrase`)) monte(`#s${n}-phrase`, a(n, 0.55), 18, 0.6);
+        }
+        const parMot = (sel, pos) =>
+          tl.fromTo(`${sel} .mot`, { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out", stagger: 0.09 }, pos);
+
+        // 2. Inscrire un élève.
+        texte(2, (s, p) => glisse(s, p, -40, 0.7));
+        glisse("#s2-carte", a(2, 0.05), 90, 0.9);
+        tl.fromTo("#s2-portrait", { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 0.6, ease: "power3.out" }, a(2, 1.0));
+        tl.fromTo("#s2-sans-photo", { opacity: 1 }, { opacity: 0, duration: 0.3, ease: "none" }, a(2, 1.0));
+        saisie($("#s2-nom"), "Awa Traoré", a(2, 1.3), 0.8);
+        monte("#s2-matricule", a(2, 2.2), 12, 0.5);
+        monte("#s2-classe", a(2, 2.55), 12, 0.5);
+        tl.fromTo("#s2-focus", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, a(2, 3.0));
+        saisie($("#s2-telephone"), "76 12 34 56", a(2, 3.15), 0.85);
+        monte("#s2-resultat", a(2, 4.15), -12, 0.55);
+        pose("#s2-connu", a(2, 4.5));
+        pose("#s2-legal", a(2, 5.0));
+        pose("#s2-payeur", a(2, 5.25));
+        appuie("#s2-bouton", a(2, 5.95));
+        tl.fromTo("#s2-enregistre", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, a(2, 6.1));
+
+        // 3. Encaisser en moins d'une minute.
+        texte(3, (s, p) => monte(s, p, 30, 0.7));
+        monte("#s3-carte", a(3, 0.05), 60, 0.9);
+        monte("#s3-fente", a(3, 0.3), 20, 0.6);
+        const chrono = $("#s3-chrono");
+        piloter(a(3, 0.6), 3.9, (v, x) => {
+          const s = Math.round(48 * x);
+          chrono.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+        });
+        const montant = $("#s3-montant");
+        piloter(a(3, 1.0), 0.75, (v, x) => {
+          const chiffres = "50000".slice(0, Math.round(x * 5));
+          montant.textContent = chiffres ? milliers(Number(chiffres)) : "";
+        });
+        tl.fromTo("#s3-especes", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, a(3, 1.95));
+        appuie("#s3-bouton", a(3, 2.45));
+        compteur($("#s3-reste"), 150000, 100000, a(3, 2.6), 0.8, F);
+        pose("#s3-reste-ok", a(3, 3.4));
+        tl.fromTo("#s3-recu", { yPercent: -102 }, { yPercent: 0, duration: 1.6, ease: "power1.inOut" }, a(3, 2.7));
+        glisse("#s3-moins", a(3, 4.6), 24, 0.5);
+        tl.fromTo("#s3-surligne", { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, a(3, 5.4));
+        tl.fromTo("#s3-recu", { y: 0, scale: 1 }, { y: -8, scale: 1.03, duration: 0.8, ease: "power2.inOut", immediateRender: false }, a(3, 6.4));
+
+        // 4. Des notes au bulletin.
+        texte(4, (s, p) => parMot(s, p));
+        glisse("#s4-grille", a(4, 0.05), 90, 0.9);
+        const notes = [
+          ["#s4-n1", "15"],
+          ["#s4-n2", "14"],
+          ["#s4-n3", "16,5"],
+          ["#s4-n4", "12"],
+        ];
+        notes.forEach(([sel, val], i) => {
+          const t = 1.0 + i * 0.55;
+          saisie($(sel), val, a(4, t), 0.3);
+          if (i > 0) tl.fromTo("#s4-curseur", { y: (i - 1) * 64 }, { y: i * 64, duration: 0.2, ease: "power2.inOut", immediateRender: false }, a(4, t - 0.15));
+        });
+        tl.fromTo("#s4-curseur", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "none" }, a(4, 0.85));
+        appuie("#s4-bouton", a(4, 3.2));
+        pose("#s4-valide", a(4, 3.4));
+        tl.fromTo("#s4-grille-sortie", { opacity: 1, x: 0 }, { opacity: 0, x: -70, duration: 0.45, ease: "power3.in" }, a(4, 4.0));
+        tl.fromTo("#s4-bulletin-entree", { opacity: 0, x: 90 }, { opacity: 1, x: 0, duration: 0.7, ease: "expo.out" }, a(4, 4.35));
+        tl.fromTo(".b-ligne", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", stagger: 0.18 }, a(4, 4.9));
+        monte("#s4-totaux", a(4, 6.2), 10, 0.4);
+        compteur($("#s4-coef"), 0, 19, a(4, 6.3), 0.6, (x) => String(Math.round(x)));
+        compteur($("#s4-points"), 0, 276, a(4, 6.3), 0.6, (x) => virgule(x, 2));
+        monte("#s4-bloc-moyenne", a(4, 6.75), 14, 0.4);
+        compteur($("#s4-moyenne"), 0, 14.53, a(4, 6.8), 0.7, (x) => virgule(x, 2));
+        monte("#s4-bloc-rang", a(4, 7.55), 14, 0.5);
+        pose("#s4-mention", a(4, 7.9));
+        glisse("#s4-imprime", a(4, 8.3), -24, 0.5);
+
+        // 5. La conduite suivie : départ à 20, moins chaque retrait du registre.
+        texte(5, (s, p) => glisse(s, p, -40, 0.7));
+        tl.fromTo("#s5-carte", { opacity: 0, scale: 0.95 }, { opacity: 1, scale: 1, duration: 0.8, ease: "expo.out" }, a(5, 0.05));
+        const retraits = [2, 1, 1, 0.25];
+        $$(".r-ligne").forEach((el, i) => glisse(el, a(5, 1.0 + i * 0.7), -18, 0.5));
+        const note = $("#s5-note");
+        const doux = gsap.parseEase("power2.out");
+        piloter(a(5, 1.0), 3.0, (v) => {
+          let n = 20;
+          retraits.forEach((r, i) => {
+            const x = Math.min(1, Math.max(0, (v - (0.25 + i * 0.7)) / 0.4));
+            n -= r * doux(x);
+          });
+          const q = Math.round(n * 4) / 4;
+          note.textContent = Number.isInteger(q) ? String(q) : virgule(q, Number.isInteger(q * 2) ? 1 : 2);
+        });
+        monte("#s5-calcul", a(5, 4.2), 12, 0.5);
+        pose("#s5-bulletin", a(5, 4.7));
+
+        // 6. La paie du mois.
+        texte(6, (s, p) => monte(s, p, 30, 0.7));
+        monte("#s6-carte", a(6, 0.05), 60, 0.9);
+        $$(".p-ligne").forEach((el, i) => monte(el, a(6, 0.8 + i * 0.25), 12, 0.5));
+        glisse("#s6-prime", a(6, 2.0), 24, 0.5);
+        compteur($("#s6-brut1"), 250000, 275000, a(6, 2.3), 0.6, F);
+        tl.fromTo(".p-inps", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", stagger: 0.2 }, a(6, 3.1));
+        tl.fromTo(".p-net", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", stagger: 0.2 }, a(6, 4.0));
+        monte("#s6-total", a(6, 4.6), 12, 0.4);
+        compteur($("#s6-net"), 0, 525380, a(6, 4.7), 0.9, F);
+        pose("#s6-validee", a(6, 6.0));
+        pose("#s6-bulletins", a(6, 6.4));
+
+        // 7. Toute l'école d'un coup d'œil.
+        texte(7, (s, p) => parMot(s, p));
+        tl.fromTo("#s7-carte", { opacity: 0, x: 90 }, { opacity: 1, x: 0, duration: 0.9, ease: "expo.out" }, a(7, 0.05));
+        ["#s7-t1", "#s7-t2", "#s7-t3"].forEach((s, i) =>
+          tl.fromTo(s, { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.6, ease: "expo.out" }, a(7, 0.3 + i * 0.15)),
+        );
+        compteur($("#s7-eleves"), 0, 412, a(7, 0.6), 1.3, (x) => String(Math.round(x)));
+        compteur($("#s7-encaisse"), 0, 385000, a(7, 0.8), 1.3, F);
+        compteur($("#s7-reste"), 0, 4250000, a(7, 1.0), 1.3, F);
+        ["#s7-p1", "#s7-p2", "#s7-p3"].forEach((s, i) => glisse(s, a(7, 2.6 + i * 0.4), -30, 0.6));
+        monte("#s7-action", a(7, 4.3), 12, 0.5);
+
+        // 8. Fin.
+        tl.fromTo("#s8-logo", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.9, ease: "expo.out" }, a(8, 0.05));
+        glisse("#s8-nom", a(8, 0.3), -30, 0.8);
+        filet("#s8-filet", a(8, 0.8));
+        monte("#s8-phrase", a(8, 1.0), 18, 0.6);
+        tl.fromTo("#s8-numero span", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: "expo.out", stagger: 0.12 }, a(8, 1.5));
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines["gesco"] = tl;
+      })();
+    </script>
+  </body>
+</html>

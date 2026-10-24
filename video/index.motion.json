@@ -1,0 +1,52 @@
+{
+  "duration": 60,
+  "assertions": [
+    {
+      "kind": "appearsBy",
+      "selector": "#s1-logo",
+      "bySec": 0.05
+    },
+    {
+      "kind": "appearsBy",
+      "selector": "#s1-nom",
+      "bySec": 0.05
+    },
+    {
+      "kind": "before",
+      "a": "#s8-logo",
+      "b": "#s8-numero span:nth-of-type(1)"
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "#s2-carte"
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "#s3-carte"
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "#s3-recu"
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "#s4-grille"
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "#s5-carte"
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "#s6-carte"
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "#s7-carte"
+    },
+    {
+      "kind": "keepsMoving",
+      "maxStaticSec": 3
+    }
+  ]
+}

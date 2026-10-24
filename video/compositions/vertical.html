@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>GESCO — présentation 9:16</title>
+    <script src="../assets/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Fira Sans";
+        src: url("../assets/fonts/fira-sans-latin-400-normal.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Fira Sans";
+        src: url("../assets/fonts/fira-sans-latin-600-normal.woff2") format("woff2");
+        font-weight: 600;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Fira Sans";
+        src: url("../assets/fonts/fira-sans-latin-700-normal.woff2") format("woff2");
+        font-weight: 700;
+        font-style: normal;
+      }
+
+      /* Mêmes couleurs que la version 16:9 ; le fond est le bleu « marine » de l’application. */
+      :root {
+        --marine: #16233f;
+        --fond: #f1f3f7;
+        --surface: #ffffff;
+        --encre: #1e2533;
+        --muet: #56607a;
+        --primaire: #1f4bb8;
+        --clair: #8fb0ff;
+        --sur-nuit: #c9d4ea;
+        --vert: #2d6a3e;
+        --rouge: #b4232b;
+        --trait: #dfe3ec;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: var(--marine);
+      }
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        font-family: "Fira Sans", sans-serif;
+        color: var(--encre);
+        font-variant-numeric: tabular-nums;
+      }
+      #decor {
+        position: absolute;
+        inset: 0;
+        background: var(--marine);
+      }
+      .scene,
+      .entree,
+      .sortie {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* Texte en haut (sous la barre de la plateforme), écran redessiné dessous. */
+      .texte {
+        position: absolute;
+        left: 80px;
+        right: 80px;
+        top: 200px;
+      }
+      .surtitre {
+        font-size: 36px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--clair);
+      }
+      .titre {
+        margin-top: 16px;
+        font-size: 88px;
+        line-height: 1.05;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: -0.01em;
+      }
+      .filet {
+        width: 140px;
+        height: 10px;
+        margin: 30px 0 26px;
+        border-radius: 5px;
+        background: var(--primaire);
+        transform-origin: left center;
+      }
+      .phrase {
+        font-size: 46px;
+        line-height: 1.3;
+        color: var(--sur-nuit);
+      }
+      .mot {
+        display: inline-block;
+      }
+      .ecran {
+        position: absolute;
+        left: 80px;
+        right: 80px;
+        top: 640px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .carte {
+        width: 920px;
+        background: var(--surface);
+        border-radius: 26px;
+        box-shadow: 0 34px 90px rgba(4, 9, 22, 0.5);
+        overflow: hidden;
+      }
+      .tete {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        height: 76px;
+        padding: 0 30px;
+        background: var(--fond);
+        border-bottom: 2px solid var(--trait);
+        font-size: 32px;
+        font-weight: 600;
+        color: var(--muet);
+        white-space: nowrap;
+      }
+      .corps {
+        padding: 20px 30px 24px;
+      }
+      .etiquette {
+        font-size: 32px;
+        color: var(--muet);
+      }
+      .valeur {
+        font-size: 38px;
+        font-weight: 600;
+        color: var(--encre);
+      }
+      .sous-titre {
+        font-size: 36px;
+        font-weight: 600;
+        color: var(--encre);
+      }
+      .puce {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 18px;
+        border-radius: 999px;
+        font-size: 32px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .puce.verte {
+        background: #e3efe6;
+        color: var(--vert);
+      }
+      .puce.neutre {
+        background: var(--fond);
+        color: var(--muet);
+        border: 2px solid var(--trait);
+      }
+      .bouton {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 72px;
+        padding: 0 30px;
+        border-radius: 16px;
+        background: var(--primaire);
+        color: #ffffff;
+        font-size: 34px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .ico {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        flex: none;
+      }
+      .ico svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .ligne {
+        display: grid;
+        align-items: center;
+      }
+      .droite {
+        text-align: right;
+      }
+      .vert {
+        color: var(--vert);
+      }
+      .muet {
+        color: var(--muet);
+      }
+
+      /* Ouverture et fin : marque centrée. */
+      .centre {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 168px;
+        height: 1230px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .marque {
+        display: flex;
+        align-items: center;
+        gap: 36px;
+      }
+      .marque .logo {
+        display: block;
+        width: 180px;
+        height: 180px;
+        background: url("../assets/logo.png") center / contain no-repeat;
+      }
+      .marque .nom {
+        font-size: 160px;
+        line-height: 1;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: 0.02em;
+      }
+      .centre .filet {
+        transform-origin: center center;
+        margin: 48px 0 40px;
+      }
+      #v1-surtitre {
+        margin-bottom: 44px;
+      }
+      #v1-phrase {
+        font-size: 54px;
+        line-height: 1.3;
+      }
+      #v1-version {
+        margin-top: 44px;
+        padding: 8px 26px;
+        border: 2px solid rgba(143, 176, 255, 0.45);
+        border-radius: 999px;
+        color: var(--clair);
+        font-size: 34px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+      }
+
+      /* Caisse et reçu. */
+      .chrono {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--encre);
+        font-size: 34px;
+        font-weight: 700;
+      }
+      .chrono .ico {
+        color: var(--primaire);
+      }
+      .tete .groupe {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .montant {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 66px;
+        margin-top: 6px;
+        padding: 0 20px;
+        border-radius: 14px;
+        border: 3px solid var(--primaire);
+      }
+      .modes {
+        display: flex;
+        gap: 12px;
+        margin-top: 6px;
+        height: 66px;
+        align-items: center;
+      }
+      .mode {
+        position: relative;
+      }
+      .mode .choisi {
+        position: absolute;
+        inset: -2px;
+        border-radius: 999px;
+        background: var(--primaire);
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .reste {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 2px solid var(--trait);
+      }
+      .reste .chiffre {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 52px;
+        font-weight: 700;
+      }
+      .fente {
+        width: 860px;
+        height: 28px;
+        margin-top: 26px;
+        border-radius: 14px;
+        background: #0b1222;
+        box-shadow: inset 0 -3px 0 rgba(143, 176, 255, 0.25);
+      }
+      .papier {
+        width: 800px;
+        height: 240px;
+        margin-top: -10px;
+        overflow: hidden;
+      }
+      .recu {
+        width: 800px;
+        height: 240px;
+        padding: 22px 32px 0;
+        background: #ffffff;
+        border-bottom: 3px dashed #c3cad8;
+        display: grid;
+        grid-template-columns: 1fr 160px;
+        gap: 20px;
+        font-size: 32px;
+        line-height: 1.45;
+      }
+      .recu .numero {
+        font-size: 32px;
+        font-weight: 700;
+      }
+      .recu .qr svg {
+        display: block;
+        width: 160px;
+        height: 160px;
+        margin-top: 6px;
+      }
+      .recu .surligne {
+        position: relative;
+        display: inline-block;
+        font-weight: 700;
+      }
+      .recu .surligne .fond-surligne {
+        position: absolute;
+        left: -8px;
+        right: -8px;
+        top: 2px;
+        bottom: 2px;
+        border-radius: 8px;
+        background: #e6edfb;
+        transform-origin: left center;
+      }
+      .recu .surligne span {
+        position: relative;
+      }
+
+      /* Notes puis bulletin. */
+      .pile {
+        position: relative;
+        width: 920px;
+        height: 660px;
+      }
+      .pile > .couche {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 920px;
+      }
+      .grille .ligne {
+        grid-template-columns: 1fr 200px;
+        height: 68px;
+        padding: 0 18px;
+        font-size: 36px;
+      }
+      .grille .entete {
+        height: 54px;
+        font-size: 32px;
+        font-weight: 600;
+        color: var(--muet);
+        border-bottom: 2px solid var(--trait);
+      }
+      .grille .lignes {
+        position: relative;
+      }
+      .grille .curseur {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 68px;
+        border-radius: 12px;
+        background: #e6edfb;
+      }
+      .grille .note {
+        font-weight: 700;
+        color: var(--primaire);
+      }
+      .pied {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 22px;
+      }
+      .bulletin .ligne {
+        grid-template-columns: 1fr 130px 100px 210px;
+        height: 54px;
+        padding: 0 6px;
+        font-size: 34px;
+        border-bottom: 1px solid #edf0f5;
+      }
+      .bulletin .entete {
+        font-weight: 600;
+        font-size: 32px;
+        color: var(--muet);
+        border-bottom: 2px solid var(--trait);
+      }
+      .bulletin .totaux {
+        font-weight: 700;
+        background: var(--fond);
+        border-bottom: none;
+      }
+      .bandeau {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr 0.8fr;
+        gap: 16px;
+        margin-top: 18px;
+        align-items: end;
+      }
+      .bandeau .grand {
+        font-size: 60px;
+        font-weight: 700;
+        color: var(--primaire);
+        line-height: 1.05;
+      }
+      .bandeau .moyen {
+        font-size: 42px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+      .tampon {
+        display: inline-flex;
+        padding: 2px 18px;
+        border: 3px solid var(--vert);
+        border-radius: 12px;
+        color: var(--vert);
+        font-size: 42px;
+        font-weight: 700;
+      }
+
+      /* Tableau de bord et pastilles. */
+      .tuiles {
+        display: grid;
+        grid-template-columns: 330px 1fr;
+        gap: 18px;
+      }
+      .tuile {
+        border-radius: 18px;
+        background: var(--fond);
+        padding: 22px 24px;
+      }
+      .tuile .etiquette {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .tuile .etiquette .ico {
+        color: var(--primaire);
+      }
+      .tuile .chiffre {
+        margin-top: 8px;
+        font-size: 62px;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+      .tuile.large {
+        grid-column: 1 / 3;
+      }
+      .pastilles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+      }
+      .pastille {
+        display: inline-flex;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 26px 10px 10px;
+        border-radius: 999px;
+        background: rgba(143, 176, 255, 0.12);
+        border: 2px solid rgba(143, 176, 255, 0.35);
+        color: #e3e8f2;
+        font-size: 36px;
+        font-weight: 600;
+      }
+      .pastille .rond {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: var(--primaire);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+      }
+
+      /* Fin. */
+      #v5-phrase {
+        font-size: 52px;
+        color: #e3e8f2;
+      }
+      #v5-numero {
+        margin-top: 40px;
+        display: flex;
+        gap: 30px;
+        font-size: 150px;
+        font-weight: 700;
+        color: #ffffff;
+        line-height: 1;
+      }
+      #v5-numero span {
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="vertical" data-start="0" data-duration="30" data-width="1080" data-height="1920">
+      <div id="decor" class="clip" data-start="0" data-duration="30" data-track-index="0" data-layout-ignore></div>
+
+      <!-- 1. Logo et nom (0–5 s) -->
+      <section id="v1" class="clip scene" data-start="0" data-duration="5" data-track-index="1">
+        <div class="entree" id="v1-entree">
+          <div class="sortie" id="v1-sortie">
+            <div class="centre">
+              <div class="surtitre" id="v1-surtitre">Logiciel de gestion scolaire</div>
+              <div class="marque">
+                <div class="logo" id="v1-logo" role="img" aria-label="Logo de GESCO"></div>
+                <span class="nom" id="v1-nom">GESCO</span>
+              </div>
+              <div class="filet" id="v1-filet"></div>
+              <p class="phrase" id="v1-phrase">
+                <span class="mot">La</span> <span class="mot">gestion</span> <span class="mot">de</span> <span class="mot">votre</span>
+                <span class="mot">école,</span><br /><span class="mot">sur</span> <span class="mot">un</span> <span class="mot">seul</span>
+                <span class="mot">ordinateur,</span><br /><span class="mot">sans</span> <span class="mot">internet.</span>
+              </p>
+              <div id="v1-version">Version 1.2.5</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Encaisser en moins d’une minute (5–12,5 s) -->
+      <section id="v2" class="clip scene" data-start="5" data-duration="7.5" data-track-index="2">
+        <div class="entree" id="v2-entree">
+          <div class="sortie" id="v2-sortie">
+            <div class="texte">
+              <div class="surtitre" id="v2-surtitre">Caisse</div>
+              <h1 class="titre" id="v2-titre">Encaisser en moins d’une minute</h1>
+              <div class="filet" id="v2-filet"></div>
+              <p class="phrase" id="v2-phrase">Reçu numéroté, reste à payer à jour.</p>
+            </div>
+            <div class="ecran">
+              <div class="carte" id="v2-carte">
+                <div class="tete">
+                  <span>Finance › Caisse</span>
+                  <span class="groupe">
+                    <span class="puce verte" id="v2-moins"
+                      ><span class="ico"
+                        ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                      >Moins d’une minute</span
+                    >
+                    <span class="chrono"
+                      ><span class="ico"
+                        ><svg viewBox="0 0 24 24">
+                          <line x1="10" x2="14" y1="2" y2="2" />
+                          <line x1="12" x2="15" y1="14" y2="11" />
+                          <circle cx="12" cy="14" r="8" /></svg></span
+                      ><span id="v2-chrono">0:00</span></span
+                    >
+                  </span>
+                </div>
+                <div class="corps">
+                  <div><span class="valeur">Oumar Sangaré</span> <span class="etiquette">· 10e S</span></div>
+                  <div class="ligne" style="grid-template-columns: 330px 1fr; gap: 22px; margin-top: 16px; align-items: start">
+                    <div>
+                      <div class="etiquette">Montant versé</div>
+                      <div class="montant"><span class="valeur" id="v2-montant">50 000</span><span class="valeur muet">F</span></div>
+                    </div>
+                    <div>
+                      <div class="etiquette">Mode</div>
+                      <div class="modes">
+                        <span class="mode puce neutre"
+                          ><span class="ico" style="opacity: 0"
+                            ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                          >Espèces<span class="choisi" id="v2-especes" data-layout-allow-overlap data-layout-allow-occlusion
+                            ><span class="ico"
+                              ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span
+                            >Espèces</span
+                          ></span
+                        >
+                        <span class="puce neutre">Orange Money</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="reste">
+                    <div>
+                      <div class="etiquette">Reste à payer</div>
+                      <div class="chiffre">
+                        <span id="v2-reste">150 000 F</span
+                        ><span class="ico vert" id="v2-reste-ok"
+                          ><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg
+                        ></span>
+                      </div>
+                    </div>
+                    <div class="bouton" id="v2-bouton">Encaisser</div>
+                  </div>
+                </div>
+              </div>
+              <div class="fente" id="v2-fente"></div>
+              <div class="papier" data-layout-allow-overflow>
+                <div class="recu" id="v2-recu">
+                  <div>
+                    <div class="numero">REÇU N° REC-2026-000147</div>
+                    <div>Oumar Sangaré · 10e S</div>
+                    <div>Versé : 50 000 F · Espèces</div>
+                    <div class="surligne">
+                      <span class="fond-surligne" id="v2-surligne"></span><span>Reste dû : 100 000 F</span>
+                    </div>
+                  </div>
+                  <div class="qr">
+                    <svg viewBox="0 0 25 25" shape-rendering="crispEdges">
+                      <path fill="#ffffff" d="M0 0h25v25H0z" />
+                      <path
+                        stroke="#1e2533"
+                        d="M0 0.5h7m3 0h3m1 0h1m1 0h1m1 0h7M0 1.5h1m5 0h1m1 0h2m1 0h1m1 0h1m1 0h1m2 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m3 0h3m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m3 0h4m2 0h1m1 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h2m2 0h1m1 0h3m1 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m2 0h2m2 0h1m2 0h1m1 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 7.5h1m1 0h1m1 0h1m1 0h1M0 8.5h1m1 0h1m1 0h1m1 0h1m2 0h2m2 0h4m3 0h1m2 0h1M1 9.5h3m1 0h1m1 0h3m1 0h1m1 0h1m1 0h1m4 0h2m2 0h1M0 10.5h1m1 0h1m1 0h5m2 0h6m2 0h1m1 0h3M0 11.5h2m3 0h1m2 0h2m1 0h2m2 0h1m2 0h1m1 0h2M0 12.5h1m5 0h3m2 0h3m2 0h1m4 0h2M2 13.5h1m1 0h2m2 0h1m2 0h2m2 0h1m1 0h2m1 0h5M0 14.5h1m2 0h2m1 0h2m1 0h1m1 0h2m3 0h1m4 0h3M1 15.5h1m2 0h2m3 0h2m1 0h2m2 0h2m1 0h3M0 16.5h1m2 0h1m2 0h6m2 0h10M8 17.5h1m2 0h1m3 0h2m3 0h2m1 0h2M0 18.5h7m3 0h1m2 0h1m1 0h2m1 0h1m1 0h2m2 0h1M0 19.5h1m5 0h1m4 0h1m4 0h1m3 0h2m2 0h1M0 20.5h1m1 0h3m1 0h1m1 0h3m1 0h1m3 0h5m1 0h2M0 21.5h1m1 0h3m1 0h1m2 0h1m1 0h3m1 0h3m1 0h1m1 0h3M0 22.5h1m1 0h3m1 0h1m1 0h2m1 0h2m1 0h2m3 0h2m3 0h1M0 23.5h1m5 0h1m5 0h8m3 0h2M0 24.5h7m1 0h4m2 0h1m1 0h1m1 0h1m3 0h1m1 0h1"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Des notes au bulletin (12,5–21 s) -->
+      <section id="v3" class="clip scene" data-start="12.5" data-duration="8.5" data-track-index="1">
+        <div class="entree" id="v3-entree">
+          <div class="sortie" id="v3-sortie">
+            <div class="texte">
+              <div class="surtitre" id="v3-surtitre">Notes et bulletins</div>
+              <h1 class="titre" id="v3-titre">
+                <span class="mot">Des</span> <span class="mot">notes</span> <span class="mot">au</span> <span class="mot">bulletin</span>
+              </h1>
+              <div class="filet" id="v3-filet"></div>
+              <p class="phrase" id="v3-phrase">Moyennes et rangs calculés,<br />bulletins imprimés.</p>
+            </div>
+            <div class="ecran">
+              <div class="pile">
+                <div class="couche" id="v3-grille-sortie">
+                  <div class="carte grille" id="v3-grille">
+                    <div class="tete"><span>Scolarité › Notes</span><span>1er trimestre</span></div>
+                    <div class="corps">
+                      <div class="sous-titre" style="margin-bottom: 12px">Mathématiques · 10e S</div>
+                      <div class="ligne entete"><span>Élève</span><span class="droite">Note sur 20</span></div>
+                      <div class="lignes">
+                        <div class="curseur" id="v3-curseur"></div>
+                        <div class="ligne" style="position: relative">
+                          <span>Kadiatou Cissé</span><span class="droite note" id="v3-n1">15</span>
+                        </div>
+                        <div class="ligne" style="position: relative">
+                          <span>Bakary Coulibaly</span><span class="droite note" id="v3-n2">14</span>
+                        </div>
+                        <div class="ligne" style="position: relative">
+                          <span>Fatoumata Diallo</span><span class="droite note" id="v3-n3">16,5</span>
+                        </div>
+                        <div class="ligne" style="position: relative">
+                          <span>Oumar Sangaré</span><span class="droite note" id="v3-n4">12</span>
+                        </div>
+                      </div>
+                      <div class="pied">
+                        <span class="puce verte" id="v3-valide"
+                          ><span class="ico"
+                            ><svg viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span
+                          >Notes validées</span
+                        >
+                        <div class="bouton" id="v3-bouton">Valider</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="couche" id="v3-bulletin-entree">
+                  <div class="carte bulletin">
+                    <div class="tete"><span>Scolarité › Bulletins</span><span>1er trimestre</span></div>
+                    <div class="corps" style="padding-top: 20px">
+                      <div class="sous-titre" style="margin-bottom: 8px">Fatoumata Diallo · 10e S</div>
+                      <div class="ligne entete">
+                        <span>Matière</span><span class="droite">Moy.</span><span class="droite">Coef.</span><span class="droite">Moy. × coef.</span>
+                      </div>
+                      <div class="ligne vb-ligne">
+                        <span>Mathématiques</span><span class="droite">16,50</span><span class="droite">4</span><span class="droite">66,00</span>
+                      </div>
+                      <div class="ligne vb-ligne">
+                        <span>Physique-chimie</span><span class="droite">15,00</span><span class="droite">4</span><span class="droite">60,00</span>
+                      </div>
+                      <div class="ligne vb-ligne">
+                        <span>Français</span><span class="droite">13,00</span><span class="droite">3</span><span class="droite">39,00</span>
+                      </div>
+                      <div class="ligne vb-ligne">
+                        <span>Anglais</span><span class="droite">14,50</span><span class="droite">2</span><span class="droite">29,00</span>
+                      </div>
+                      <div class="ligne vb-ligne">
+                        <span>Histoire-géographie</span><span class="droite">12,00</span><span class="droite">2</span><span class="droite">24,00</span>
+                      </div>
+                      <div class="ligne totaux" id="v3-totaux">
+                        <span>Totaux</span><span></span><span class="droite" id="v3-coef">15</span><span class="droite" id="v3-points">218,00</span>
+                      </div>
+                      <div class="bandeau">
+                        <div id="v3-bloc-moyenne">
+                          <div class="etiquette">Moyenne</div>
+                          <div class="grand"><span id="v3-moyenne">14,53</span></div>
+                        </div>
+                        <div id="v3-bloc-rang">
+                          <div class="etiquette">Rang</div>
+                          <div class="moyen">3e sur 42</div>
+                        </div>
+                        <div>
+                          <div class="etiquette">Mention</div>
+                          <div class="tampon" id="v3-mention">Bien</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Toute l’école d’un coup d’œil (21–26 s) -->
+      <section id="v4" class="clip scene" data-start="21" data-duration="5" data-track-index="2">
+        <div class="entree" id="v4-entree">
+          <div class="sortie" id="v4-sortie">
+            <div class="texte">
+              <div class="surtitre" id="v4-surtitre">Tableau de bord</div>
+              <h1 class="titre" id="v4-titre">
+                <span class="mot">Toute</span> <span class="mot">l’école</span> <span class="mot">d’un</span> <span class="mot">coup</span>
+                <span class="mot">d’œil</span>
+              </h1>
+              <div class="filet" id="v4-filet"></div>
+              <div class="pastilles">
+                <div class="pastille" id="v4-p1">
+                  <span class="rond"
+                    ><span class="ico"
+                      ><svg viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span></span
+                  >Données chiffrées
+                </div>
+                <div class="pastille" id="v4-p2">
+                  <span class="rond"
+                    ><span class="ico"
+                      ><svg viewBox="0 0 24 24">
+                        <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+                        <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" />
+                        <path d="M7 3v4a1 1 0 0 0 1 1h7" /></svg></span></span
+                  >Sauvegarde chaque jour
+                </div>
+                <div class="pastille" id="v4-p3">
+                  <span class="rond"
+                    ><span class="ico"
+                      ><svg viewBox="0 0 24 24">
+                        <path d="M12 20h.01" />
+                        <path d="M8.5 16.429a5 5 0 0 1 7 0" />
+                        <path d="M5 12.859a10 10 0 0 1 5.17-2.69" />
+                        <path d="M19 12.859a10 10 0 0 0-2.007-1.523" />
+                        <path d="M2 8.82a15 15 0 0 1 4.177-2.643" />
+                        <path d="M22 8.82a15 15 0 0 0-11.288-3.764" />
+                        <path d="m2 2 20 20" /></svg></span></span
+                  >Sans internet
+                </div>
+              </div>
+            </div>
+            <div class="ecran" style="top: 760px">
+              <div class="carte" id="v4-carte">
+                <div class="tete"><span>Général › Tableau de bord</span><span>2026-2027</span></div>
+                <div class="corps">
+                  <div class="tuiles">
+                    <div class="tuile" id="v4-t1">
+                      <div class="etiquette">Élèves inscrits</div>
+                      <div class="chiffre" id="v4-eleves">412</div>
+                    </div>
+                    <div class="tuile" id="v4-t2">
+                      <div class="etiquette">Encaissé aujourd’hui</div>
+                      <div class="chiffre" id="v4-encaisse">385 000 F</div>
+                    </div>
+                    <div class="tuile large" id="v4-t3">
+                      <div class="etiquette">Reste à recouvrer sur l’année</div>
+                      <div class="chiffre" id="v4-reste">4 250 000 F</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Fin (26–30 s) -->
+      <section id="v5" class="clip scene" data-start="26" data-duration="4" data-track-index="1">
+        <div class="entree" id="v5-entree">
+          <div class="centre">
+            <div class="marque">
+              <div class="logo" id="v5-logo" role="img" aria-label="Logo de GESCO"></div>
+              <span class="nom" id="v5-nom">GESCO</span>
+            </div>
+            <div class="filet" id="v5-filet"></div>
+            <p class="phrase" id="v5-phrase">Pour la gestion de votre école</p>
+            <div id="v5-numero"><span>72</span><span>08</span><span>22</span><span>28</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      (function () {
+        const tl = gsap.timeline({ paused: true });
+
+        // Début de chaque scène (secondes) : la scène qui part s'efface en 0,5 s avant la borne,
+        // la suivante apparaît en 0,5 s après, sur le même fond.
+        const B = [0, 5, 12.5, 21, 26, 30];
+        const a = (n, t) => B[n - 1] + t;
+
+        const milliers = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        const F = (n) => milliers(n) + " F";
+        const virgule = (x, d) => x.toFixed(d).replace(".", ",");
+
+        // Texte piloté par le temps de la timeline (compteurs, saisie).
+        function piloter(debut, duree, rendu) {
+          const p = {
+            _t: 0,
+            get t() {
+              return this._t;
+            },
+            set t(v) {
+              this._t = v;
+              rendu(v, Math.min(1, Math.max(0, v / duree)));
+            },
+          };
+          tl.fromTo(p, { t: 0 }, { t: duree, duration: duree, ease: "none" }, debut);
+        }
+        const compteur = (el, de, vers, debut, duree, fmt, ease) => {
+          const e = gsap.parseEase(ease || "power2.out");
+          piloter(debut, duree, (v, x) => (el.textContent = fmt(de + (vers - de) * e(x))));
+        };
+        const saisie = (el, texte, debut, duree) => {
+          piloter(debut, duree, (v, x) => (el.textContent = texte.slice(0, Math.round(x * texte.length))));
+        };
+        const $ = (s) => document.querySelector(s);
+
+        const monte = (cible, pos, dy, d) =>
+          tl.fromTo(cible, { opacity: 0, y: dy === undefined ? 24 : dy }, { opacity: 1, y: 0, duration: d || 0.6, ease: "expo.out" }, pos);
+        const glisse = (cible, pos, dx, d) =>
+          tl.fromTo(cible, { opacity: 0, x: dx === undefined ? -30 : dx }, { opacity: 1, x: 0, duration: d || 0.6, ease: "expo.out" }, pos);
+        const pose = (cible, pos) => tl.fromTo(cible, { opacity: 0, scale: 1.35 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, pos);
+        const filet = (cible, pos) => tl.fromTo(cible, { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, pos);
+        const appuie = (cible, pos) =>
+          tl.to(cible, { keyframes: [{ scale: 0.95, duration: 0.1, ease: "power2.in" }, { scale: 1, duration: 0.2, ease: "power2.out" }] }, pos);
+        const parMot = (sel, pos) =>
+          tl.fromTo(`${sel} .mot`, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out", stagger: 0.08 }, pos);
+
+        for (let n = 1; n <= 5; n++) {
+          if (n > 1) tl.fromTo(`#v${n}-entree`, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "none" }, B[n - 1]);
+          if (n < 5) tl.fromTo(`#v${n}-sortie`, { opacity: 1 }, { opacity: 0, duration: 0.5, ease: "none" }, B[n] - 0.5);
+        }
+
+
+        // 1. Logo et nom, visibles dès la première image.
+        tl.fromTo("#v1-logo", { scale: 0.94 }, { scale: 1, duration: 1.4, ease: "expo.out" }, 0);
+        tl.fromTo("#v1-nom", { x: -14 }, { x: 0, duration: 1.4, ease: "expo.out" }, 0);
+        monte("#v1-surtitre", 0.25, 14);
+        tl.fromTo("#v1-phrase .mot", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "expo.out", stagger: 0.1 }, 0.6);
+        filet("#v1-filet", 1.9);
+        tl.fromTo("#v1-version", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, 2.5);
+
+        function texte(n, entreeTitre) {
+          monte(`#v${n}-surtitre`, a(n, -0.1), 14, 0.5);
+          entreeTitre(`#v${n}-titre`, a(n, 0.05));
+          filet(`#v${n}-filet`, a(n, 0.4));
+          if ($(`#v${n}-phrase`)) monte(`#v${n}-phrase`, a(n, 0.55), 18, 0.6);
+        }
+
+        // 2. Encaisser.
+        texte(2, (s, p) => monte(s, p, 30, 0.7));
+        monte("#v2-carte", a(2, 0.05), 60, 0.9);
+        monte("#v2-fente", a(2, 0.3), 20, 0.6);
+        const chrono = $("#v2-chrono");
+        piloter(a(2, 0.5), 3.4, (v, x) => {
+          const s = Math.round(48 * x);
+          chrono.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+        });
+        const montant = $("#v2-montant");
+        piloter(a(2, 0.8), 0.6, (v, x) => {
+          const chiffres = "50000".slice(0, Math.round(x * 5));
+          montant.textContent = chiffres ? milliers(Number(chiffres)) : "";
+        });
+        tl.fromTo("#v2-especes", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "none" }, a(2, 1.6));
+        appuie("#v2-bouton", a(2, 2.0));
+        compteur($("#v2-reste"), 150000, 100000, a(2, 2.15), 0.7, F);
+        pose("#v2-reste-ok", a(2, 2.9));
+        tl.fromTo("#v2-recu", { yPercent: -102 }, { yPercent: 0, duration: 1.4, ease: "power1.inOut" }, a(2, 2.2));
+        glisse("#v2-moins", a(2, 4.0), 24, 0.5);
+        tl.fromTo("#v2-surligne", { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, a(2, 4.6));
+        tl.fromTo("#v2-recu", { y: 0, scale: 1 }, { y: -8, scale: 1.03, duration: 0.8, ease: "power2.inOut", immediateRender: false }, a(2, 5.4));
+
+        // 3. Des notes au bulletin.
+        texte(3, (s, p) => parMot(s, p));
+        glisse("#v3-grille", a(3, 0.05), 90, 0.9);
+        [
+          ["#v3-n1", "15"],
+          ["#v3-n2", "14"],
+          ["#v3-n3", "16,5"],
+          ["#v3-n4", "12"],
+        ].forEach(([sel, val], i) => {
+          const t = 0.8 + i * 0.4;
+          saisie($(sel), val, a(3, t), 0.25);
+          if (i > 0) tl.fromTo("#v3-curseur", { y: (i - 1) * 68 }, { y: i * 68, duration: 0.18, ease: "power2.inOut", immediateRender: false }, a(3, t - 0.12));
+        });
+        tl.fromTo("#v3-curseur", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "none" }, a(3, 0.65));
+        appuie("#v3-bouton", a(3, 2.4));
+        pose("#v3-valide", a(3, 2.55));
+        tl.fromTo("#v3-grille-sortie", { opacity: 1, x: 0 }, { opacity: 0, x: -70, duration: 0.45, ease: "power3.in" }, a(3, 3.0));
+        tl.fromTo("#v3-bulletin-entree", { opacity: 0, x: 90 }, { opacity: 1, x: 0, duration: 0.7, ease: "expo.out" }, a(3, 3.35));
+        tl.fromTo(".vb-ligne", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out", stagger: 0.2 }, a(3, 3.75));
+        monte("#v3-totaux", a(3, 4.95), 10, 0.4);
+        compteur($("#v3-coef"), 0, 15, a(3, 5.05), 0.55, (x) => String(Math.round(x)));
+        compteur($("#v3-points"), 0, 218, a(3, 5.05), 0.55, (x) => virgule(x, 2));
+        monte("#v3-bloc-moyenne", a(3, 5.6), 14, 0.4);
+        compteur($("#v3-moyenne"), 0, 14.53, a(3, 5.65), 0.7, (x) => virgule(x, 2));
+        monte("#v3-bloc-rang", a(3, 6.45), 14, 0.5);
+        pose("#v3-mention", a(3, 6.85));
+
+        // 4. Tableau de bord.
+        texte(4, (s, p) => parMot(s, p));
+        tl.fromTo("#v4-carte", { opacity: 0, y: 70 }, { opacity: 1, y: 0, duration: 0.9, ease: "expo.out" }, a(4, 0.05));
+        ["#v4-t1", "#v4-t2", "#v4-t3"].forEach((s, i) =>
+          tl.fromTo(s, { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.6, ease: "expo.out" }, a(4, 0.25 + i * 0.12)),
+        );
+        compteur($("#v4-eleves"), 0, 412, a(4, 0.5), 1.1, (x) => String(Math.round(x)));
+        compteur($("#v4-encaisse"), 0, 385000, a(4, 0.6), 1.1, F);
+        compteur($("#v4-reste"), 0, 4250000, a(4, 0.7), 1.1, F);
+        ["#v4-p1", "#v4-p2", "#v4-p3"].forEach((s, i) => glisse(s, a(4, 2.0 + i * 0.3), -30, 0.6));
+
+        // 5. Fin.
+        tl.fromTo("#v5-logo", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.9, ease: "expo.out" }, a(5, 0.05));
+        glisse("#v5-nom", a(5, 0.3), -30, 0.8);
+        filet("#v5-filet", a(5, 0.7));
+        monte("#v5-phrase", a(5, 0.9), 18, 0.6);
+        tl.fromTo("#v5-numero span", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: "expo.out", stagger: 0.12 }, a(5, 1.3));
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines["vertical"] = tl;
+      })();
+    </script>
+  </body>
+</html>
