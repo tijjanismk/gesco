@@ -22,13 +22,24 @@ const THEMES: readonly { titre: Cle; prefixes: readonly string[] }[] = [
   { titre: "parametres.theme.sauvegarde", prefixes: ["sauvegarde."] },
   { titre: "parametres.theme.finance", prefixes: ["montant.", "facturation."] },
   { titre: "parametres.theme.personnel", prefixes: ["conge."] },
+  { titre: "parametres.theme.conduite", prefixes: ["conduite."] },
   { titre: "parametres.theme.messages", prefixes: ["sms."] },
   { titre: "parametres.theme.documents", prefixes: ["numerotation.", "document.format."] },
 ];
 
-/** Ordre de lecture des réglages des SMS : l'envoi, puis chaque message suivi de ses délais.
- *  Les autres réglages gardent l'ordre de leur clé. */
+/** Ordre de lecture des réglages de la note de conduite et des SMS (l'envoi, puis chaque
+ *  message suivi de ses délais). Les autres réglages gardent l'ordre de leur clé. */
 const ORDRE = [
+  "conduite.mode",
+  "conduite.comptee",
+  "conduite.coefficient",
+  "conduite.retrait_avertissement",
+  "conduite.retrait_blame",
+  "conduite.retrait_retenue",
+  "conduite.retrait_convocation",
+  "conduite.retrait_exclusion",
+  "conduite.retrait_absence",
+  "conduite.retrait_retard",
   "sms.canal",
   "sms.ussd_solde",
   "sms.seuil_credit",
@@ -123,6 +134,10 @@ const CHOIX: Record<string, readonly { valeur: string; libelle: Cle }[]> = {
     { valeur: ".", libelle: "matricule.separateur.point" },
     { valeur: "", libelle: "matricule.separateur.aucun" },
   ],
+  "conduite.mode": [
+    { valeur: "manuelle", libelle: "conduite.mode.manuelle" },
+    { valeur: "automatique", libelle: "conduite.mode.automatique" },
+  ],
   "facturation.arrivee_en_cours": [
     { valeur: "echeances_du_mois", libelle: "facturation.arrivee.echeances_du_mois" },
     { valeur: "echeances_restantes", libelle: "facturation.arrivee.echeances_restantes" },
@@ -139,6 +154,7 @@ const MODULES: readonly { module: ModuleEcole; cle: string; aide: Cle }[] = [
   { module: "tresorerie", cle: "module.tresorerie", aide: "modules.aide.tresorerie" },
   { module: "emploi_du_temps", cle: "module.emploi_du_temps", aide: "modules.aide.emploi_du_temps" },
   { module: "discipline", cle: "module.discipline", aide: "modules.aide.discipline" },
+  { module: "conduite", cle: "module.conduite", aide: "modules.aide.conduite" },
 ];
 
 /** Modules de l'école : la direction allume ou éteint chacun, pour tout le monde. Un module éteint

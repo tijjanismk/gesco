@@ -3,8 +3,8 @@
 use gesco_core::commun::{DateCivile, Id};
 use gesco_core::core::AnneeScolaire;
 use gesco_core::pedagogie::Periode;
-use gesco_core::scolarite::Inscription;
 use gesco_core::scolarite::discipline::{NatureSanction, Sanction};
+use gesco_core::scolarite::{Classe, Inscription};
 use sqlx::FromRow;
 
 use crate::Connexion;
@@ -194,4 +194,24 @@ pub async fn annuler(
     .execute(cnx)
     .await?;
     Ok(())
+}
+
+/// Sanctions non annulées des élèves d'une classe, par date.
+pub async fn de_la_classe(
+    cnx: &mut Connexion,
+    classe_id: Id<Classe>,
+    contexte: &Contexte,
+) -> Resultat<Vec<Sanction>> {
+    sqlx::query_as::<_, LigneSanction>(selectionner_sanction!(
+        "JOIN inscription i ON i.id = s.inscription_id
+         WHERE s.etablissement_id = ?1 AND i.classe_id = ?2 AND s.annulee = 0
+         ORDER BY s.date, s.cree_le"
+    ))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(classe_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(LigneSanction::vers_entite)
+    .collect()
 }

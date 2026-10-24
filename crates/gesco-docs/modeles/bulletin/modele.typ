@@ -49,13 +49,13 @@
 
 #let cellule(t) = if t == "" { [—] } else { [#t] }
 
-// Une colonne : son titre, sa largeur, son alignement, sa cellule pour une matière et sa case
-// de la ligne des totaux.
+// Une colonne : son titre, sa largeur, son alignement, sa cellule pour une matière, sa case de
+// la ligne de la note de conduite et sa case de la ligne des totaux.
 // Les colonnes de chiffres ont une largeur fixe : elles s'alignent d'un bulletin à l'autre.
 #let chiffres = if a5 { 12mm } else { 17mm }
 
-#let colonne(titre, cellule-de, largeur: chiffres, aligne: right, total: b => []) = (
-  titre: titre, largeur: largeur, aligne: aligne, cellule: cellule-de, total: total,
+#let colonne(titre, cellule-de, largeur: chiffres, aligne: right, total: b => [], conduite: b => []) = (
+  titre: titre, largeur: largeur, aligne: aligne, cellule: cellule-de, total: total, conduite: conduite,
 )
 
 #let colonnes(b) = {
@@ -64,21 +64,27 @@
     // La matière prend la place de son nom quand l'appréciation, imprimée, prend le reste de la
     // ligne ; sinon toute la largeur restante.
     colonne([*Matière*], l => [#l.matiere], largeur: if a.colonne_appreciation { auto } else { 1fr },
-      aligne: left, total: b => if premier [*Total*] else [*Totaux*]),
+      aligne: left, total: b => if premier [*Total*] else [*Totaux*], conduite: b => [Conduite]),
   )
   if not premier and a.colonne_note_de_classe { cols.push(colonne([*Note de classe*], l => cellule(l.note_de_classe))) }
   if not premier and a.colonne_composition { cols.push(colonne([*Compo.*], l => cellule(l.composition))) }
   cols.push(colonne(if premier [*Note*] else [*Moyenne*], l => cellule(l.moyenne),
-    total: b => if premier [*#b.total_points*] else []))
+    total: b => if premier [*#b.total_points*] else [], conduite: b => cellule(b.conduite.note)))
   if not premier and a.colonne_coefficient {
-    cols.push(colonne([*Coef.*], l => [#l.coefficient], largeur: if a5 { 8mm } else { 11mm }, aligne: center, total: b => [*#b.total_coefficients*]))
+    cols.push(colonne([*Coef.*], l => [#l.coefficient], largeur: if a5 { 8mm } else { 11mm }, aligne: center, total: b => [*#b.total_coefficients*], conduite: b => [#b.conduite.coefficient]))
   }
   if not premier and a.colonne_points {
-    cols.push(colonne([*Moy. × coef.*], l => cellule(l.points), total: b => [*#b.total_points*]))
+    cols.push(colonne([*Moy. × coef.*], l => cellule(l.points), total: b => [*#b.total_points*],
+      conduite: b => cellule(b.conduite.points)))
   }
   if a.colonne_moyenne_classe { cols.push(colonne([*Moy. classe*], l => cellule(l.moyenne_classe))) }
   if a.colonne_appreciation { cols.push(colonne([*Appréciation*], l => [#l.appreciation], largeur: 1fr, aligne: left)) }
   cols
+}
+
+#let conduite-comptee(b) = {
+  let k = b.at("conduite", default: none)
+  k != none and k.comptee
 }
 
 #let tableau(b) = {
@@ -90,6 +96,8 @@
     align: cols.map(c => c.aligne),
     table.header(..cols.map(c => c.titre)),
     ..b.lignes.map(l => cols.map(c => (c.cellule)(l))).flatten(),
+    // La note de conduite qui compte dans la moyenne générale : une ligne comme une matière.
+    ..if conduite-comptee(b) { cols.map(c => (c.conduite)(b)) } else { () },
     // La ligne des totaux n'a de sens qu'avec un total à montrer.
     ..if b.premier_cycle or a.colonne_coefficient or a.colonne_points { cols.map(c => (c.total)(b)) } else { () },
   )
@@ -100,6 +108,11 @@
   if a.moyenne_generale { gauche += ([*Moyenne générale*], [*#cellule(b.moyenne) / #b.bareme*]) }
   if a.rang { gauche += ([Rang], [#cellule(b.rang) sur #b.ont_compose]) }
   if a.mention { gauche += ([Mention], [#cellule(b.mention)]) }
+  // La note de conduite imprimée à part, sans compter dans la moyenne.
+  let conduite = b.at("conduite", default: none)
+  if conduite != none and not conduite.comptee {
+    gauche += ([Conduite], [#conduite.note / #b.bareme])
+  }
   // L'avertissement et le blâme du conseil de classe de la période.
   let sanctions = b.at("sanctions", default: ())
   if sanctions.len() > 0 { gauche += ([Conseil de classe], [#sanctions.join(linebreak())]) }

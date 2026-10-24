@@ -24,6 +24,8 @@ pub struct NotesEleve {
     /// Faux pour un élève arrivé pendant la période quand l'école ne le classe pas encore
     /// (Q-29) : il a sa moyenne, sans rang, et ne déplace pas le rang des autres.
     pub classable: bool,
+    /// Note de conduite de la période, en centièmes du barème ; rien sans note de conduite.
+    pub conduite: Option<i32>,
 }
 
 /// Ligne d'une matière sur le bulletin d'un élève. Toutes les valeurs sont en centièmes du
@@ -55,6 +57,10 @@ pub struct ResultatEleve {
     pub total_points: i64,
     /// Somme des coefficients des matières notées.
     pub total_coefficients: i64,
+    /// Note de conduite.
+    pub conduite: Option<i32>,
+    /// Note de conduite × son coefficient, quand elle compte dans la moyenne générale.
+    pub points_conduite: Option<i64>,
     /// Moyenne générale.
     pub moyenne: Option<i32>,
     /// Rang dans la classe ; rien pour un élève sans moyenne.
@@ -97,12 +103,15 @@ fn moyenne_des(valeurs: &[i32], regle: &ContenuRegle) -> Result<Option<i32>, Dep
 }
 
 /// Calcule les résultats d'une classe : `matieres` est le programme (matière, coefficient), dans
-/// l'ordre du bulletin ; `bareme` celui du niveau.
+/// l'ordre du bulletin ; `bareme` celui du niveau. `coefficient_conduite` est celui de la note de
+/// conduite quand elle compte dans la moyenne générale : elle s'y ajoute comme une matière, pour
+/// un élève noté dans au moins une matière.
 pub fn calculer_classe(
     regle: &ContenuRegle,
     bareme: i32,
     matieres: &[(Id<Matiere>, i64)],
     eleves: &[NotesEleve],
+    coefficient_conduite: Option<i64>,
 ) -> Result<ResultatsClasse, Depassement> {
     let arrondi = regle.arrondi;
     let absent = regle.absent_non_justifie;
@@ -143,14 +152,26 @@ pub fn calculer_classe(
             });
         }
         let notees = lignes.iter().filter(|l| l.moyenne.is_some());
-        let total_points = notees.clone().filter_map(|l| l.points).sum();
-        let total_coefficients = notees.map(|l| l.coefficient).sum();
+        let mut total_points: i64 = notees.clone().filter_map(|l| l.points).sum();
+        let mut total_coefficients: i64 = notees.clone().map(|l| l.coefficient).sum();
+        let points_conduite = match (eleve.conduite, coefficient_conduite) {
+            (Some(note), Some(coefficient)) if coefficient > 0 && notees.count() > 0 => {
+                pour_generale.push((Some(Fraction::entiere(note)), coefficient));
+                let points = i64::from(note) * coefficient;
+                total_points += points;
+                total_coefficients += coefficient;
+                Some(points)
+            }
+            _ => None,
+        };
         let moyenne = moyenne_generale(&pour_generale, report)?.map(|f| f.arrondie(arrondi));
         resultats.push(ResultatEleve {
             inscription_id: eleve.inscription_id,
             matieres: lignes,
             total_points,
             total_coefficients,
+            conduite: eleve.conduite,
+            points_conduite,
             mention: moyenne.and_then(|m| regle.mention(m)).map(str::to_owned),
             moyenne,
             rang: None,
@@ -249,6 +270,7 @@ mod tests {
                 .map(|(m, t, v)| (id(*m), note(*t, *v, 2000)))
                 .collect(),
             classable: true,
+            conduite: None,
         }
     }
 
@@ -288,8 +310,8 @@ mod tests {
             // Absent partout : ni moyenne, ni rang.
             notes(4, &[(MATH, K, None)]),
         ];
-        let r =
-            calculer_classe(&regle, 2000, &programme, &eleves).unwrap_or_else(|_| unreachable!());
+        let r = calculer_classe(&regle, 2000, &programme, &eleves, None)
+            .unwrap_or_else(|_| unreachable!());
         let a = &r.eleves[0];
         assert_eq!(a.matieres[0].note_de_classe, Some(1350));
         assert_eq!(a.matieres[0].composition, Some(1100));
@@ -331,6 +353,28 @@ mod tests {
         assert_eq!(r.moyenne_classe, Some(1257));
         // Moyenne de la classe en anglais : (12 + 8) ÷ 2 = 10.
         assert_eq!(r.moyennes_matieres[2].moyenne, Some(1000));
+
+        // Note de conduite comptée au coefficient 1 : A a 16 de conduite, (103,32 + 16) ÷ 9 =
+        // 13,25 ; D, sans aucune matière notée, n'a toujours pas de moyenne.
+        let mut avec_conduite = eleves.clone();
+        avec_conduite[0].conduite = Some(1600);
+        avec_conduite[3].conduite = Some(2000);
+        let c = calculer_classe(&regle, 2000, &programme, &avec_conduite, Some(1))
+            .unwrap_or_else(|_| unreachable!());
+        assert_eq!(
+            (c.eleves[0].total_points, c.eleves[0].total_coefficients),
+            (11_932, 9)
+        );
+        assert_eq!(c.eleves[0].points_conduite, Some(1600));
+        assert_eq!(c.eleves[0].moyenne, Some(1325));
+        assert_eq!(c.eleves[3].moyenne, None);
+        assert_eq!(c.eleves[3].points_conduite, None);
+        // Imprimée à part, elle ne touche ni aux totaux ni à la moyenne.
+        let a_part = calculer_classe(&regle, 2000, &programme, &avec_conduite, None)
+            .unwrap_or_else(|_| unreachable!());
+        assert_eq!(a_part.eleves[0].conduite, Some(1600));
+        assert_eq!(a_part.eleves[0].points_conduite, None);
+        assert_eq!(a_part.eleves[0].moyenne, Some(1291));
     }
 
     #[test]
@@ -346,9 +390,10 @@ mod tests {
                 .map(|(v, m)| (id(m), note(TypeEvaluation::Composition, Some(*v), 1000)))
                 .collect(),
             classable: true,
+            conduite: None,
         };
-        let r =
-            calculer_classe(&regle, 1000, &programme, &[eleve]).unwrap_or_else(|_| unreachable!());
+        let r = calculer_classe(&regle, 1000, &programme, &[eleve], None)
+            .unwrap_or_else(|_| unreachable!());
         assert_eq!(r.eleves[0].total_points, 3750);
         assert_eq!(r.eleves[0].total_coefficients, 5);
         assert_eq!(r.eleves[0].moyenne, Some(750));
@@ -367,8 +412,8 @@ mod tests {
             notes(2, &[(MATH, TypeEvaluation::Composition, Some(1000))]),
             arrive,
         ];
-        let r =
-            calculer_classe(&regle, 2000, &programme, &eleves).unwrap_or_else(|_| unreachable!());
+        let r = calculer_classe(&regle, 2000, &programme, &eleves, None)
+            .unwrap_or_else(|_| unreachable!());
         // L'arrivé a sa moyenne, sans rang ; le premier reste premier.
         assert_eq!(r.eleves[2].moyenne, Some(1900));
         assert_eq!(r.eleves[2].rang, None);
@@ -435,6 +480,7 @@ mod tests {
                     })
                     .collect(),
                 classable: true,
+                conduite: None,
             })
             .collect()
     }
@@ -447,12 +493,12 @@ mod tests {
             let regle = ContenuRegle::par_defaut(Cycle::SecondCycle).unwrap_or_else(|| unreachable!());
             let programme = [(id(MATH), 4), (id(FR), 3), (id(ANG), 2)];
             let eleves = entrees(&c);
-            let une = calculer_classe(&regle, 2000, &programme, &eleves).unwrap_or_else(|_| unreachable!());
-            let deux = calculer_classe(&regle, 2000, &programme, &eleves).unwrap_or_else(|_| unreachable!());
+            let une = calculer_classe(&regle, 2000, &programme, &eleves, None).unwrap_or_else(|_| unreachable!());
+            let deux = calculer_classe(&regle, 2000, &programme, &eleves, None).unwrap_or_else(|_| unreachable!());
             prop_assert_eq!(&une, &deux);
             let mut inverses = eleves.clone();
             inverses.reverse();
-            let retournee = calculer_classe(&regle, 2000, &programme, &inverses).unwrap_or_else(|_| unreachable!());
+            let retournee = calculer_classe(&regle, 2000, &programme, &inverses, None).unwrap_or_else(|_| unreachable!());
             for r in &une.eleves {
                 let meme = retournee.eleves.iter().find(|x| x.inscription_id == r.inscription_id);
                 prop_assert_eq!(Some(r), meme);

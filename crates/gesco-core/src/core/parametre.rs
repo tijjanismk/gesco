@@ -80,6 +80,17 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
         ("facturation.jour_echeance", ValeurParametre::Entier(n)) => {
             !u8::try_from(*n).is_ok_and(|j| crate::finance::tarif::JOURS_ECHEANCE.contains(&j))
         }
+        // Note de conduite : un mode parmi deux, un coefficient de 1 à 10, des retraits en
+        // points de 0 à 20.
+        (crate::pedagogie::conduite::parametres::MODE, ValeurParametre::Texte(t)) => {
+            crate::pedagogie::conduite::ModeConduite::depuis_nom(t).is_none()
+        }
+        (crate::pedagogie::conduite::parametres::COEFFICIENT, ValeurParametre::Entier(n)) => {
+            !crate::pedagogie::conduite::COEFFICIENTS.contains(n)
+        }
+        (cle, ValeurParametre::Texte(t)) if cle.starts_with("conduite.retrait_") => {
+            crate::pedagogie::conduite::lire_points(t).is_none()
+        }
         ("montant.multiple_arrondi", ValeurParametre::Entier(n)) => {
             ![1, 5, 10, 25, 50, 100].contains(n)
         }
@@ -280,6 +291,28 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
             true,
         ),
         p("module.discipline", ValeurParametre::Booleen(true), true),
+        // Note de conduite (porteur du projet, 24 octobre 2026) : un module que l'école active,
+        // saisie par défaut, comptée avec le coefficient 1.
+        p("module.conduite", ValeurParametre::Booleen(false), true),
+        p(
+            crate::pedagogie::conduite::parametres::MODE,
+            ValeurParametre::Texte(
+                crate::pedagogie::conduite::ModeConduite::DEFAUT
+                    .nom()
+                    .to_owned(),
+            ),
+            true,
+        ),
+        p(
+            crate::pedagogie::conduite::parametres::COMPTEE,
+            ValeurParametre::Booleen(true),
+            true,
+        ),
+        p(
+            crate::pedagogie::conduite::parametres::COEFFICIENT,
+            ValeurParametre::Entier(crate::pedagogie::conduite::COEFFICIENT_DEFAUT),
+            true,
+        ),
         // Les messages aux familles sont un module que l'école active, comme la cantine :
         // éteint, rien ne part ni n'arrive, et ses écrans disparaissent.
         p("sms.actif", ValeurParametre::Booleen(false), true),
@@ -370,6 +403,9 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
             p("sms.modele_convocation", modele(N::Convocation), true),
             p("sms.modele_sanction", modele(N::Sanction), true),
         ]);
+    }
+    for (cle, defaut) in crate::pedagogie::conduite::RETRAITS_PAR_DEFAUT {
+        parametres.push(p(cle, ValeurParametre::Texte(defaut.to_owned()), true));
     }
     for (cle, defaut) in FORMATS_PAR_DEFAUT {
         parametres.push(p(cle, ValeurParametre::Texte((*defaut).to_owned()), true));

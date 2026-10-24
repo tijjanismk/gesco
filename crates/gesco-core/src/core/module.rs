@@ -20,17 +20,21 @@ pub enum ModuleEcole {
     EmploiDuTemps,
     /// Discipline (SPEC_VERSION_1_1).
     Discipline,
+    /// Note de conduite du 2e cycle, du lycée et du technique (porteur du projet, 24 octobre
+    /// 2026).
+    Conduite,
 }
 
 impl ModuleEcole {
     /// Tous les modules, dans l'ordre de l'écran des paramètres.
-    pub const TOUS: [Self; 6] = [
+    pub const TOUS: [Self; 7] = [
         Self::Sms,
         Self::Cantine,
         Self::Personnel,
         Self::Tresorerie,
         Self::EmploiDuTemps,
         Self::Discipline,
+        Self::Conduite,
     ];
 
     /// Réglage qui l'active. La cantine et les SMS gardent le leur, antérieur à cet écran.
@@ -42,13 +46,14 @@ impl ModuleEcole {
             Self::Tresorerie => "module.tresorerie",
             Self::EmploiDuTemps => "module.emploi_du_temps",
             Self::Discipline => "module.discipline",
+            Self::Conduite => "module.conduite",
         }
     }
 
-    /// État à la livraison : les SMS et la cantine attendent que l'école les veuille ; ce qui
-    /// existait avant cet écran reste allumé.
+    /// État à la livraison : les SMS, la cantine et la note de conduite attendent que l'école
+    /// les veuille ; ce qui existait avant cet écran reste allumé.
     pub const fn actif_par_defaut(&self) -> bool {
-        !matches!(self, Self::Sms | Self::Cantine)
+        !matches!(self, Self::Sms | Self::Cantine | Self::Conduite)
     }
 
     /// Module dont un réglage est l'interrupteur.

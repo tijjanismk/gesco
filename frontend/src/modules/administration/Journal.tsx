@@ -89,6 +89,7 @@ const ENTITES: Record<string, Cle> = {
   membre_personnel: "entite.membre_personnel",
   message_sms: "entite.message_sms",
   moyenne_reprise: "entite.moyenne_reprise",
+  note_conduite: "entite.note_conduite",
   paie_mois: "entite.paie_mois",
   paiement_personnel: "entite.paiement_personnel",
   personne: "entite.personne",

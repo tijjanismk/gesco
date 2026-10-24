@@ -673,3 +673,11 @@ Les parents pourront-ils interroger GESCO par SMS avec un code confidentiel (« 
 Plusieurs réglages livrés avaient été fixés sans question : sécurité, sauvegardes, arrondi, plans de paiement, congés, messages aux familles, remise des bulletins, élève arrivé en cours d'année.
 
 *Réponse* (porteur du projet, 23 octobre 2026) : la session se verrouille après **quinze minutes** sans activité et se ferme après **vingt-quatre heures** ; un mot de passe compte au moins **six caractères, sans exigence de difficulté** (`000000` est accepté ; l'école peut refuser les plus courants) ; la sauvegarde automatique a lieu **chaque jour**, avec la même conservation (7 quotidiennes, 4 hebdomadaires, 12 mensuelles). Le reste est retenu tel quel : arrondi au multiple de 5 F ; plans livrés (trois tranches à 40, 30 et 30 %, mensuel de 11 %, comptant) ; 2,5 jours de congé par mois ; relances 7 jours après l'échéance puis tous les 15 jours, trois au plus, avis d'absence après 30 minutes, 6 SMS par minute de 7 h à 20 h, arrêt sous 500 F de crédit, 5 consultations par numéro et par jour ; bulletin non retiré signalé à 7 jours ; tranche du mois d'arrivée comptée.
+
+### T-79 — Note de conduite
+
+La discipline donne-t-elle une note, comme la conduite, au 2e cycle et au-delà ?
+
+*Recommandation* : une note de conduite par élève et par période, sur le barème du niveau, au 2e cycle, au lycée et dans le technique ; un module que l'école active, éteint à l'installation. Saisie par la direction ou le surveillant, ou calculée d'après le registre de discipline et les absences, au choix de l'école. Barème du calcul : départ à 20 ; 2 points par avertissement, 4 par blâme, 1 par retenue, 1 par convocation des parents, 5 par exclusion temporaire, 0,5 par demi-journée d'absence non justifiée, 0,25 par retard ; chaque retrait se règle. Une note calculée se corrige avec un motif. Elle compte dans la moyenne générale avec un coefficient (1 par défaut), ou s'imprime à part, au choix de l'école.
+
+*Réponse* (porteur du projet, 24 octobre 2026) : la direction ou le surveillant, manuelle ou automatique selon les écoles, d'après la discipline de l'application ; le reste de la recommandation est retenu.

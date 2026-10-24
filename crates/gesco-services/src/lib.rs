@@ -18,6 +18,7 @@ pub mod cantine;
 pub mod cles;
 pub mod commandes;
 pub mod comptes;
+pub mod conduite;
 pub mod conges;
 pub mod consultation;
 pub mod convocations;

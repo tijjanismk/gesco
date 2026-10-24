@@ -49,6 +49,10 @@ use crate::cantine::{Cantine, DemandeCantine, DemandeRepas, ServiceCantine};
 use crate::cles::{EspaceCles, EtatCles, Trousseau};
 use crate::commandes::{Acces, Commande};
 use crate::comptes::ServiceComptes;
+use crate::conduite::{
+    ClassesConduite, ConduiteClasse, DemandeConduite, DemandeNoteConduite, DemandeRetraitConduite,
+    ServiceConduite,
+};
 use crate::conges::{
     AbsencesEtConges, DemandeAbsencePersonnel, DemandeConge, DemandeIdConge, DemandeMoisConges,
     DemandeMotifAbsence, DemandeMotifConge, DemandeTypeConge, ServiceConges,
@@ -1160,6 +1164,10 @@ contrat! {
     sms_reception_simuler(DemandeSimulationSms) -> ();
     sanction_noter(DemandeSanction) -> DossierDiscipline;
     sanction_annuler(DemandeAnnulationSanction) -> DossierDiscipline;
+    conduite_classes_lire(()) -> ClassesConduite;
+    conduite_lire(DemandeConduite) -> ConduiteClasse;
+    conduite_noter(DemandeNoteConduite) -> ConduiteClasse;
+    conduite_retirer(DemandeRetraitConduite) -> ConduiteClasse;
     journal_archive_verifier(DemandeVerificationArchive) -> VerificationArchive;
     absences_seances_lire(DemandeReleve) -> ReleveParSeance;
     absences_seances_enregistrer(DemandeReleveParSeance) -> ReleveParSeance;
@@ -5156,6 +5164,42 @@ impl Application {
     ) -> Resultat<DossierDiscipline> {
         ServiceDiscipline::nouveau(&appel.ouverte()?.noyau)
             .annuler(appel.session()?, &entree)
+            .await
+    }
+
+    async fn conduite_classes_lire(&self, appel: Appel, _entree: ()) -> Resultat<ClassesConduite> {
+        ServiceConduite::nouveau(&appel.ouverte()?.noyau)
+            .classes(appel.session()?)
+            .await
+    }
+
+    async fn conduite_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeConduite,
+    ) -> Resultat<ConduiteClasse> {
+        ServiceConduite::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn conduite_noter(
+        &self,
+        appel: Appel,
+        entree: DemandeNoteConduite,
+    ) -> Resultat<ConduiteClasse> {
+        ServiceConduite::nouveau(&appel.ouverte()?.noyau)
+            .noter(appel.session()?, &entree)
+            .await
+    }
+
+    async fn conduite_retirer(
+        &self,
+        appel: Appel,
+        entree: DemandeRetraitConduite,
+    ) -> Resultat<ConduiteClasse> {
+        ServiceConduite::nouveau(&appel.ouverte()?.noyau)
+            .retirer(appel.session()?, &entree)
             .await
     }
 

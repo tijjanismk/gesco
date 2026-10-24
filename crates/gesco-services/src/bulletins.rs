@@ -16,8 +16,8 @@ use gesco_core::pedagogie::evaluation::{SaisieNote, lire_saisie};
 use gesco_core::pedagogie::regle::bareme_du_cycle;
 use gesco_core::pedagogie::resultats::{NotesEleve, calculer_classe, moyennes_annuelles};
 use gesco_core::pedagogie::{
-    Bulletin, ContenuBulletin, ImpressionMoyenneAnnuelle, LigneBulletin, Matiere, MoyenneReprise,
-    Periode, RegleEvaluation, StatutBulletin, StatutEvaluation,
+    Bulletin, ConduiteBulletin, ContenuBulletin, ImpressionMoyenneAnnuelle, LigneBulletin, Matiere,
+    MoyenneReprise, Periode, RegleEvaluation, StatutBulletin, StatutEvaluation,
 };
 use gesco_core::scolarite::{Classe, Cycle, DiplomeTerminal, Inscription, StatutInscription};
 use gesco_db::depots::bulletins::APPRECIATION_GENERALE;
@@ -278,6 +278,26 @@ impl<'n> ServiceBulletins<'n> {
                 })
                 .collect();
 
+        // Note de conduite, si l'école l'a activée pour ce cycle.
+        let conduite = {
+            let ids: Vec<Id<Inscription>> = eleves.iter().map(|(i, _, _, _)| *i).collect();
+            let mut cnx = self.connexion().await?;
+            crate::conduite::pour_bulletins(
+                &mut cnx,
+                &classe,
+                &periode,
+                niveau.cycle,
+                &ids,
+                &contexte,
+            )
+            .await?
+        };
+        let note_conduite = |i: Id<Inscription>| {
+            conduite
+                .as_ref()
+                .and_then(|(_, _, notes)| notes.iter().find(|(x, _)| *x == i))
+                .map(|(_, n)| *n)
+        };
         let coefficients: Vec<(Id<Matiere>, i64)> = programme
             .iter()
             .map(|l| (l.matiere_id, l.coefficient.unwrap_or(1)))
@@ -288,6 +308,7 @@ impl<'n> ServiceBulletins<'n> {
                 inscription_id: *inscription_id,
                 classable: regle_cycle.contenu.classer_arrivee_en_cours
                     || !arrive_pendant(*inscrit_le, &periode),
+                conduite: note_conduite(*inscription_id),
                 notes: liste
                     .iter()
                     .zip(&notes_evaluations)
@@ -313,8 +334,17 @@ impl<'n> ServiceBulletins<'n> {
                     .collect(),
             })
             .collect();
-        let resultats = calculer_classe(&regle_cycle.contenu, bareme, &coefficients, &entrees)
-            .map_err(|_| regle("bulletin.calcul_impossible"))?;
+        let coefficient_conduite = conduite
+            .as_ref()
+            .and_then(|(coefficient, comptee, _)| comptee.then_some(*coefficient));
+        let resultats = calculer_classe(
+            &regle_cycle.contenu,
+            bareme,
+            &coefficients,
+            &entrees,
+            coefficient_conduite,
+        )
+        .map_err(|_| regle("bulletin.calcul_impossible"))?;
         // Moyenne annuelle à la dernière période de l'année, pour toutes les classes (T-33) :
         // les moyennes des périodes déjà calculées, la moyenne reprise d'une période suivie
         // ailleurs (Q-28), rien pour une période non suivie (Q-27).
@@ -468,6 +498,11 @@ impl<'n> ServiceBulletins<'n> {
                             .filter(|(i, _)| i == inscription_id)
                             .map(|(_, texte)| texte.clone())
                             .collect(),
+                        conduite: r.conduite.map(|note| ConduiteBulletin {
+                            note,
+                            coefficient: conduite.as_ref().map_or(1, |(c, _, _)| *c),
+                            points: r.points_conduite,
+                        }),
                     },
                 )
             })
@@ -1241,6 +1276,13 @@ pub fn donnees_impression(
             "rang_annuel": rang(c.rang_annuel),
             "arrive_le": c.arrive_le.map(crate::documents::date_civile_longue),
             "sanctions": c.sanctions_conseil,
+            // Note de conduite : une ligne du tableau quand elle compte, du bilan sinon.
+            "conduite": c.conduite.map(|k| serde_json::json!({
+                "note": ecrire(k.note),
+                "coefficient": k.coefficient.to_string(),
+                "points": points(k.points),
+                "comptee": k.points.is_some(),
+            })),
             "etat": etat,
             "qr": piece.chemin(),
             "reference": reference,

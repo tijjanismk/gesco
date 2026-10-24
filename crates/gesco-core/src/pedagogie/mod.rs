@@ -4,6 +4,7 @@
 pub mod assiduite;
 pub mod bulletin;
 pub mod calcul;
+pub mod conduite;
 pub mod emploi_du_temps;
 pub mod enseignant;
 pub mod evaluation;
@@ -14,7 +15,9 @@ pub mod regle;
 pub mod resultats;
 
 pub use assiduite::{Absence, DemiJournee, NatureAbsence, PorteeAbsences, TotauxAbsences};
-pub use bulletin::{Bulletin, ContenuBulletin, LigneBulletin, MoyenneReprise, StatutBulletin};
+pub use bulletin::{
+    Bulletin, ConduiteBulletin, ContenuBulletin, LigneBulletin, MoyenneReprise, StatutBulletin,
+};
 pub use enseignant::{AffectationEnseignement, Enseignant, PorteeNotes, StatutEnseignant};
 pub use evaluation::{Evaluation, NoteEleve, SaisieNote, StatutEvaluation};
 pub use matiere::{GroupeMatiere, Matiere};

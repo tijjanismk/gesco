@@ -84,6 +84,18 @@ pub struct LigneBulletin {
     pub appreciation: String,
 }
 
+/// Note de conduite imprimée : une ligne du tableau quand elle compte dans la moyenne générale,
+/// une ligne du bilan sinon.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct ConduiteBulletin {
+    /// Note, en centièmes du barème du niveau.
+    pub note: i32,
+    /// Coefficient.
+    pub coefficient: i64,
+    /// Note × coefficient, quand elle compte dans la moyenne générale ; rien sinon.
+    pub points: Option<i64>,
+}
+
 /// Contenu figé d'un bulletin : tout ce qui s'imprime.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 pub struct ContenuBulletin {
@@ -146,6 +158,9 @@ pub struct ContenuBulletin {
     /// « Blâme : bavardages répétés ».
     #[serde(default)]
     pub sanctions_conseil: Vec<String>,
+    /// Note de conduite de la période (2e cycle, lycée, technique), quand l'école l'a activée.
+    #[serde(default)]
+    pub conduite: Option<ConduiteBulletin>,
 }
 
 /// Bulletin d'un élève, dans une version.

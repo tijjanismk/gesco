@@ -236,6 +236,10 @@ pub enum TypeEvenement {
     SanctionNotee,
     /// Une sanction est annulée, avec un motif.
     SanctionAnnulee,
+    /// La note de conduite d'un élève pour une période est saisie ou corrigée.
+    NoteConduiteEnregistree,
+    /// La note de conduite saisie d'un élève est retirée, avec un motif.
+    NoteConduiteRetiree,
     /// Le journal d'audit d'une année est archivé dans un fichier signé (blueprint §12.4).
     JournalArchive,
     /// Le relevé par séance d'une classe est enregistré pour un jour (SPEC_VERSION_1_1 §1, T-71).
@@ -400,6 +404,8 @@ impl TypeEvenement {
         Self::RecetteAnnulee,
         Self::SanctionNotee,
         Self::SanctionAnnulee,
+        Self::NoteConduiteEnregistree,
+        Self::NoteConduiteRetiree,
         Self::JournalArchive,
         Self::ReleveParSeanceEnregistre,
         Self::ReleveImporte,
@@ -540,6 +546,8 @@ impl TypeEvenement {
             Self::RecetteAnnulee => "RecetteAnnulee",
             Self::SanctionNotee => "SanctionNotee",
             Self::SanctionAnnulee => "SanctionAnnulee",
+            Self::NoteConduiteEnregistree => "NoteConduiteEnregistree",
+            Self::NoteConduiteRetiree => "NoteConduiteRetiree",
             Self::JournalArchive => "JournalArchive",
             Self::ReleveParSeanceEnregistre => "ReleveParSeanceEnregistre",
             Self::ReleveImporte => "ReleveImporte",
@@ -682,6 +690,8 @@ impl TypeEvenement {
             | Self::RecetteAnnulee
             | Self::SanctionNotee
             | Self::SanctionAnnulee
+            | Self::NoteConduiteEnregistree
+            | Self::NoteConduiteRetiree
             | Self::JournalArchive
             | Self::ReleveParSeanceEnregistre
             | Self::ReleveImporte

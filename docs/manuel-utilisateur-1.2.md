@@ -1,6 +1,6 @@
 # GESCO — manuel d'utilisation
 
-Pour la version 1.2.3, du 23 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
+Pour la version 1.2.4, du 24 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
 qui n'existe qu'à partir de la 1.1 ou de la 1.2 est signalé « (1.1) » ou « (1.2) ».
 
 GESCO gère une école sur un seul poste Windows, sans internet : les élèves et leurs familles,
@@ -20,7 +20,7 @@ Chaque écran est désigné par son nom dans le menu de gauche, sous son groupe 
 L'installation est décrite pas à pas dans le guide `GESCO-guide-installation.pdf`, remis avec
 l'installeur. En bref :
 
-1. Lancez `GESCO_1.2.3_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
+1. Lancez `GESCO_1.2.4_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
    « Windows a protégé votre ordinateur », cliquez sur « Informations complémentaires », puis sur
    « Exécuter quand même ».
 2. Au premier démarrage, saisissez le nom de l'école, ses coordonnées et le compte
@@ -63,9 +63,9 @@ groupe **Paramètres**, replié par défaut : cliquez sur son titre pour le dép
    et caisse, personnel, documents (format A4 ou A5 de chaque document), bulletin imprimé.
    **Modules de l'école (1.2)** : en tête des réglages, une case par module — messages aux
    familles par SMS, cantine, personnel et paie, dépenses et trésorerie, emploi du temps,
-   discipline. Un module éteint disparaît du menu et du tableau de bord pour tout le monde ;
-   ses données restent et reviennent quand on le rallume. Les SMS et la cantine sont éteints à
-   l'installation ; les autres sont allumés. Élèves, inscriptions, notes, bulletins et caisse
+   discipline, note de conduite. Un module éteint disparaît du menu et du tableau de bord pour
+   tout le monde ; ses données restent et reviennent quand on le rallume. Les SMS, la cantine
+   et la note de conduite sont éteints à l'installation ; les autres sont allumés. Élèves, inscriptions, notes, bulletins et caisse
    restent toujours.
 2. **Paramètres → Niveaux et séries** : les cycles enseignés (jardin, 1er et 2e cycles, lycée,
    enseignement technique et professionnel) ; un cycle oublié au premier démarrage s'ouvre ici.
@@ -171,6 +171,14 @@ code d'accès (§4bis).
   choisies (Établissement → Bulletin imprimé).
 - **Avertissement et blâme du conseil de classe (1.1)** : notés dans Discipline et rattachés à la
   période, ils s'impriment sur le bulletin.
+- **Totaux (2e cycle, lycée, technique)** : la ligne « Totaux » donne le total des coefficients
+  (colonne Coef.) et le total des points (colonne Moy. × coef.) ; la moyenne générale est le
+  total des points divisé par le total des coefficients. Au 1er cycle, un seul total, celui des
+  notes.
+- **Note de conduite (1.2.4)** : quand l'école l'a activée, elle s'imprime comme une matière,
+  sur la ligne « Conduite », et entre dans les totaux et la moyenne avec son coefficient ; ou à
+  part, sous la moyenne, si l'école ne la compte pas. Recalculez les bulletins après avoir
+  changé une note de conduite.
 
 ### Remise des bulletins (Scolarité → Remise des bulletins) (1.2)
 
@@ -194,6 +202,28 @@ personne le relise et l'envoie (Communication → Messages).
 Le registre de l'année et le dossier de chaque élève : avertissement, blâme, retenue,
 convocation des parents, chacun daté, motivé, avec qui l'a décidé. Une sanction saisie par erreur
 s'annule avec un motif ; elle reste visible, barrée.
+
+### Note de conduite (Scolarité → Note de conduite) (1.2.4)
+
+Au 2e cycle, au lycée et dans l'enseignement technique, une note de conduite par élève et par
+période, sur 20. Elle s'allume dans **Paramètres → Établissement**, section « Modules de
+l'école » ; la section « Note de conduite » des réglages dit ensuite comment elle se donne :
+
+- **Saisie par la direction ou le surveillant** (réglage livré) : choisissez la classe et la
+  période, tapez la note de chaque élève (15, 14,5), avec un motif si vous le voulez.
+- **Calculée d'après la discipline et les absences** : chaque élève part de 20 ; GESCO retire
+  2 points par avertissement, 4 par blâme, 1 par retenue, 1 par convocation des parents, 5 par
+  exclusion temporaire, 0,5 par demi-journée d'absence non justifiée et 0,25 par retard, sans
+  descendre sous zéro. Chaque retrait se règle dans les paramètres. L'écran montre, pour chaque
+  élève, ce qui a pesé sur sa note. Un avertissement ou un blâme du conseil compte pour la
+  période de son bulletin ; les autres sanctions, pour la période de leur date. La direction
+  corrige une note calculée en donnant un motif ; « Revenir au calcul » retire la correction.
+- **Moyenne** : la note compte dans la moyenne générale avec son coefficient (1 par défaut, de 1
+  à 10), ou s'imprime à part si l'école décoche « La note de conduite compte dans la moyenne
+  générale ».
+
+La direction, le directeur des études et le surveillant général (ceux qui notent les
+sanctions) donnent la note de conduite. Une note remplacée ou retirée reste au journal d'audit.
 
 ### Emploi du temps (Scolarité → Emploi du temps)
 
@@ -443,7 +473,7 @@ Les montants des salaires ne sont visibles que de ceux qui font la paie ; chacun
 La 1.2 apporte les SMS aux familles, le guichet, la remise des bulletins, les convocations, les
 codes d'accès et la consultation par SMS, les modules de l'école et l'import du programme ;
 la 1.2.1, l'import des classes et des matières ; la 1.2.2, les échéances au 5 et le jour
-propre à un élève. Les
+propre à un élève ; la 1.2.4, la note de conduite. Les
 SMS ont été essayés avec une clé simulée : avant de compter sur eux, faites un essai avec la clé
 et la puce de l'école (SMS d'essai, lecture du crédit, un SOLDE envoyé depuis un téléphone).
 Viendront ensuite les rapports et les états pour le CAP et l'académie, puis l'e-learning.

@@ -2588,3 +2588,52 @@ test("version 1.2.2 : un parent payé le 10 voit les échéances de son enfant p
   await page.getByRole("row").filter({ hasText: "Scolarité · 2e tranche" }).scrollIntoViewIfNeeded();
   await capturer("131-jour-echeance-eleve");
 });
+
+test("version 1.2.4 : l'école active la note de conduite calculée ; le blâme du conseil la fait baisser, la direction en corrige une, le bulletin la compte", async () => {
+  await allerA("nav.parametres");
+  await page.locator("#module-conduite").check();
+  await expect(page.getByRole("navigation").getByRole("button", { name: texte("nav.conduite"), exact: true })).toBeVisible();
+  const mode = page.locator('[id="param-conduite.mode"]');
+  await mode.selectOption("automatique");
+  await mode.locator("xpath=ancestor::div[contains(@class,'py-2')][1]").getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(mode.locator("xpath=ancestor::div[contains(@class,'py-2')][1]").getByText(/Enregistré/)).toBeVisible();
+  await page.getByRole("heading", { name: texte("parametres.theme.conduite") }).scrollIntoViewIfNeeded();
+  await capturer("133-reglages-conduite");
+
+  // En 7e A, Fatoumata a le blâme du conseil (4 points) et trois jours d'exclusion temporaire
+  // (5 points) au 1er trimestre : 11 sur 20.
+  await allerA("nav.conduite");
+  await page.locator("#conduite-classe").selectOption({ label: "7e A" });
+  await page.locator("#conduite-periode").selectOption({ label: "1er trimestre" });
+  const fatoumata = page.getByRole("row").filter({ hasText: "Fatoumata Diallo" });
+  await expect(fatoumata.getByText("1 blâme(s) · 1 exclusion(s)")).toBeVisible();
+  await expect(fatoumata.getByRole("cell").nth(2)).toHaveText("11,00");
+  // Corriger la note calculée demande un motif ; la direction le donne.
+  await fatoumata.locator("#conduite-note-1").fill("13");
+  await fatoumata.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(fatoumata.getByText(texte("conduite.motif_obligatoire"))).toBeVisible();
+  await fatoumata.locator("#conduite-motif-1").fill("Excuses présentées au conseil de discipline");
+  await fatoumata.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(fatoumata.getByText("corrigée : Excuses présentées au conseil de discipline")).toBeVisible();
+  await expect(fatoumata.getByRole("cell").nth(3)).toContainText("13,00");
+  await capturer("134-note-de-conduite");
+
+  // En 7e B, les bulletins du 1er trimestre la portent comme une matière, au coefficient 1.
+  await allerA("nav.bulletins");
+  await page.locator("#bulletins-classe").selectOption({ label: "7e B · 7ème année" });
+  await page.locator("#bulletins-periode").selectOption({ label: "1er trimestre" });
+  await page.getByRole("button", { name: texte("bulletins.calculer") }).click();
+  await expect(page.getByText(/^Bulletins calculés : \d+\.$/)).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("button", { name: texte("bulletins.ouvrir") }).first().click();
+  const conduite = page.getByRole("row").filter({ hasText: texte("bulletins.conduite") });
+  await expect(conduite).toBeVisible();
+  await expect(conduite.getByRole("cell").nth(4)).toHaveText("1");
+  await conduite.scrollIntoViewIfNeeded();
+  await capturer("135-bulletin-ecran-conduite");
+  await page.getByRole("button", { name: texte("bulletins.imprimer_un") }).click();
+  await expect(page.locator("iframe")).toBeVisible({ timeout: 30_000 });
+  // Le visionneur PDF de WebView2 rend la page hors du DOM : aucun signal à attendre.
+  await page.waitForTimeout(4000);
+  await page.locator("iframe").scrollIntoViewIfNeeded();
+  await capturer("136-bulletin-imprime-conduite");
+});

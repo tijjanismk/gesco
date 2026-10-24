@@ -2,7 +2,7 @@ import type { Cle } from "../i18n";
 import { ACCES, type NomCommande } from "../types/acces";
 import type { ModuleEcole } from "../types/gesco";
 
-export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
+export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
 
 interface Section {
   id: IdSection;
@@ -25,6 +25,7 @@ const SECTIONS: readonly Section[] = [
   { id: "absences", libelle: "nav.absences", groupe: "nav.groupe.scolarite", commande: "absences_releve_lire" },
   { id: "bulletins", libelle: "nav.bulletins", groupe: "nav.groupe.scolarite", commande: "bulletins_lire" },
   { id: "discipline", libelle: "nav.discipline", groupe: "nav.groupe.scolarite", commande: "discipline_registre_lire", module: "discipline" },
+  { id: "conduite", libelle: "nav.conduite", groupe: "nav.groupe.scolarite", commande: "conduite_classes_lire", module: "conduite" },
   { id: "remises", libelle: "nav.remises", groupe: "nav.groupe.scolarite", commande: "bulletins_non_retires_lire" },
   { id: "convocations", libelle: "nav.convocations", groupe: "nav.groupe.scolarite", commande: "convocations_lire" },
   { id: "emploi-du-temps", libelle: "nav.emploi_du_temps", groupe: "nav.groupe.scolarite", commande: "emploi_du_temps_lire", module: "emploi_du_temps" },

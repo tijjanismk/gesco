@@ -908,6 +908,16 @@ export type Classe = {
 	libelle: string,
 };
 
+/**  Classe qui a une note de conduite, avec ses périodes. */
+export type ClasseConduite = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Périodes de son niveau, dans l'ordre. */
+	periodes: PeriodeConduite[],
+};
+
 /**  Classe de l'emploi du temps. */
 export type ClasseEmploi = {
 	/**  Classe. */
@@ -918,6 +928,14 @@ export type ClasseEmploi = {
 	cycle: Cycle,
 	/**  Matières au programme. */
 	matieres: MatiereDeClasse[],
+};
+
+/**  Classes de l'année courante qui ont une note de conduite. */
+export type ClassesConduite = {
+	/**  Saisie ou calculée. */
+	mode: ModeConduite,
+	/**  Classes du 2e cycle, du lycée et du technique. */
+	classes: ClasseConduite[],
 };
 
 /**  Une demi-journée d'un élève. */
@@ -986,6 +1004,37 @@ export type CompteTresorerie = {
 	ouvert_le: string,
 	/**  Faux pour un compte fermé : il garde ses mouvements. */
 	actif: boolean,
+};
+
+/**
+ *  Note de conduite imprimée : une ligne du tableau quand elle compte dans la moyenne générale,
+ *  une ligne du bilan sinon.
+ */
+export type ConduiteBulletin = {
+	/**  Note, en centièmes du barème du niveau. */
+	note: number,
+	/**  Coefficient. */
+	coefficient: number,
+	/**  Note × coefficient, quand elle compte dans la moyenne générale ; rien sinon. */
+	points: number | null,
+};
+
+/**  Notes de conduite d'une classe pour une période. */
+export type ConduiteClasse = {
+	/**  Saisie ou calculée. */
+	mode: ModeConduite,
+	/**  Vrai si elle compte dans la moyenne générale. */
+	comptee: boolean,
+	/**  Coefficient, quand elle compte. */
+	coefficient: number,
+	/**  Barème du niveau, en centièmes. */
+	bareme: number,
+	/**  Retraits du calcul, en centièmes. */
+	retraits: Retraits,
+	/**  Vrai si plus rien n'entre dans la période. */
+	verrouillee: boolean,
+	/**  Élèves, dans l'ordre de la liste de classe. */
+	lignes: LigneConduite[],
 };
 
 /**  Conflit signalé sur une séance. */
@@ -1120,6 +1169,8 @@ export type ContenuBulletin = {
 	 *  « Blâme : bavardages répétés ».
 	 */
 	sanctions_conseil?: string[],
+	/**  Note de conduite de la période (2e cycle, lycée, technique), quand l'école l'a activée. */
+	conduite?: ConduiteBulletin | null,
 };
 
 /**  Contenu d'une grille : ses lignes et ses plans. */
@@ -1773,6 +1824,14 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	sanction_annuler: Signature<DemandeAnnulationSanction, DossierDiscipline>,
 	/**  Signature de la commande du même nom. */
+	conduite_classes_lire: Signature<null, ClassesConduite>,
+	/**  Signature de la commande du même nom. */
+	conduite_lire: Signature<DemandeConduite, ConduiteClasse>,
+	/**  Signature de la commande du même nom. */
+	conduite_noter: Signature<DemandeNoteConduite, ConduiteClasse>,
+	/**  Signature de la commande du même nom. */
+	conduite_retirer: Signature<DemandeRetraitConduite, ConduiteClasse>,
+	/**  Signature de la commande du même nom. */
 	journal_archive_verifier: Signature<DemandeVerificationArchive, VerificationArchive>,
 	/**  Signature de la commande du même nom. */
 	absences_seances_lire: Signature<DemandeReleve, ReleveParSeance>,
@@ -1895,6 +1954,24 @@ export type DecisionsClasse = {
 	figee: boolean,
 	/**  Élèves, par nom. */
 	lignes: LigneDecision[],
+};
+
+/**  Ce qui pèse sur la conduite d'un élève pendant une période. */
+export type DecompteConduite = {
+	/**  Avertissements. */
+	avertissements: number,
+	/**  Blâmes. */
+	blames: number,
+	/**  Retenues. */
+	retenues: number,
+	/**  Convocations des parents. */
+	convocations: number,
+	/**  Exclusions temporaires. */
+	exclusions: number,
+	/**  Demi-journées d'absence non justifiées. */
+	absences: number,
+	/**  Retards. */
+	retards: number,
 };
 
 /**  Règle de découpe d'une colonne « nom et prénoms », affichée et validée à l'écran. */
@@ -2290,6 +2367,14 @@ export type DemandeCompteTresorerie = {
 	ouvert_le: string,
 	/**  Actif. */
 	actif: boolean,
+};
+
+/**  Note de conduite d'une classe pour une période. */
+export type DemandeConduite = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Période. */
+	periode_id: string,
 };
 
 /**  Congé demandé. */
@@ -3313,6 +3398,20 @@ export type DemandeNote = {
 	saisie: string,
 };
 
+/**  Saisie ou correction de la note d'un élève. */
+export type DemandeNoteConduite = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Élève. */
+	inscription_id: string,
+	/**  Note telle que tapée : `15`, `14,5`. */
+	note: string,
+	/**  Motif : obligatoire pour corriger une note calculée. */
+	motif: string,
+};
+
 /**  Ouverture d'une session. */
 export type DemandeOuverture = {
 	/**  Fonds de caisse initial, en espèces. */
@@ -3685,6 +3784,18 @@ export type DemandeRestauration = {
 export type DemandeResteDuMois = {
 	/**  Mois. */
 	mois: string,
+};
+
+/**  Retrait de la note saisie d'un élève. */
+export type DemandeRetraitConduite = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Élève. */
+	inscription_id: string,
+	/**  Motif, obligatoire. */
+	motif: string,
 };
 
 /**  Séance à retirer. */
@@ -5500,6 +5611,24 @@ export type LigneCalculee = {
 	montant: Montant,
 };
 
+/**  Ligne d'un élève. */
+export type LigneConduite = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Prénoms et nom. */
+	eleve: string,
+	/**  Matricule. */
+	matricule: string,
+	/**  Ce qui pèse sur sa conduite, en mode calculé. */
+	decompte: DecompteConduite | null,
+	/**  Note calculée, en mode calculé. */
+	calculee: number | null,
+	/**  Note saisie : la note du mode saisi, ou la correction d'une note calculée. */
+	saisie: NoteConduite | null,
+	/**  Note retenue pour le bulletin. */
+	note: number | null,
+};
+
 /**  Ligne lue d'un relevé. */
 export type LigneDeReleve = {
 	/**  Jour. */
@@ -6079,6 +6208,13 @@ export type ModeCompte = {
 	compte_id: string | null,
 };
 
+/**  Saisie par la direction ou le surveillant, ou calculée par GESCO. */
+export type ModeConduite = 
+/**  La direction ou le surveillant saisit la note de chaque élève. */
+"manuelle" | 
+/**  GESCO calcule la note d'après la discipline et les absences ; elle se corrige. */
+"automatique";
+
 /**  Mode d'évaluation d'un niveau (ADR-013). */
 export type ModeEvaluation = 
 /**  Notation chiffrée. */
@@ -6128,7 +6264,12 @@ export type ModuleEcole =
 /**  Emploi du temps (SPEC_PHASE_8). */
 "emploi_du_temps" | 
 /**  Discipline (SPEC_VERSION_1_1). */
-"discipline";
+"discipline" | 
+/**
+ *  Note de conduite du 2e cycle, du lycée et du technique (porteur du projet, 24 octobre
+ *  2026).
+ */
+"conduite";
 
 /**  Bulletin de paie d'un membre, dans « Mon compte ». */
 export type MonBulletinPaie = {
@@ -6402,6 +6543,31 @@ export type Niveau = {
 	diplome_terminal: DiplomeTerminal,
 	/**  Faux pour un niveau que l'école n'enseigne pas. */
 	actif: boolean,
+};
+
+/**
+ *  Note de conduite saisie pour un élève et une période : la note du mode manuel, ou la
+ *  correction d'une note calculée.
+ */
+export type NoteConduite = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Inscription de l'élève. */
+	inscription_id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Note, en centièmes du barème du niveau. */
+	note: number,
+	/**  Motif : obligatoire pour corriger une note calculée. */
+	motif: string,
+	/**  Qui l'a saisie. */
+	saisie_par: string,
+	/**  Retirée, avec son motif. */
+	annulee: boolean,
+	/**  Motif du retrait. */
+	motif_annulation: string,
 };
 
 /**  Note d'un élève à une évaluation. */
@@ -6690,6 +6856,14 @@ export type PeriodeAffichee = {
 	/**  Période. */
 	periode: Periode,
 	/**  « Octobre », « 1er trimestre ». */
+	libelle: string,
+};
+
+/**  Période d'une classe, à choisir. */
+export type PeriodeConduite = {
+	/**  Période. */
+	periode_id: string,
+	/**  « 1er trimestre ». */
 	libelle: string,
 };
 
@@ -7407,6 +7581,24 @@ export type ResumeEtablissement = {
 	id: string,
 	/**  Nom. */
 	nom: string,
+};
+
+/**  Points retirés pour chaque fait, en centièmes. */
+export type Retraits = {
+	/**  Par avertissement. */
+	avertissement: number,
+	/**  Par blâme. */
+	blame: number,
+	/**  Par retenue. */
+	retenue: number,
+	/**  Par convocation des parents. */
+	convocation: number,
+	/**  Par exclusion temporaire. */
+	exclusion: number,
+	/**  Par demi-journée d'absence non justifiée. */
+	absence: number,
+	/**  Par retard. */
+	retard: number,
 };
 
 /**  Rôle d'un établissement, système ou créé par l'administrateur. */

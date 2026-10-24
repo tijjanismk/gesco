@@ -443,6 +443,11 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("discipline_dossier_lire", Permission::STUDENTS_READ),
     Commande::permise("sanction_noter", Permission::SANCTIONS_CREATE),
     Commande::permise("sanction_annuler", Permission::SANCTIONS_CANCEL),
+    // Note de conduite : la direction et le surveillant, qui notent les sanctions.
+    Commande::permise("conduite_classes_lire", Permission::SANCTIONS_CREATE),
+    Commande::permise("conduite_lire", Permission::SANCTIONS_CREATE),
+    Commande::permise("conduite_noter", Permission::SANCTIONS_CREATE),
+    Commande::permise("conduite_retirer", Permission::SANCTIONS_CREATE),
     // Numéros et consentement des responsables (SPEC_PHASE_5 §2).
     Commande::permise("responsable_messages_lire", Permission::STUDENTS_READ),
     Commande::permise(

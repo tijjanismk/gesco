@@ -642,3 +642,289 @@ async fn une_classe_se_calcule_se_valide_se_publie_puis_se_corrige() {
         1
     );
 }
+
+/// Note de conduite (porteur du projet, 24 octobre 2026) : éteinte tant que l'école ne l'active
+/// pas ; saisie par la direction, ou calculée d'après la discipline et les absences et corrigée
+/// avec un motif ; comptée dans la moyenne avec son coefficient, ou imprimée à part.
+#[tokio::test]
+async fn la_note_de_conduite_se_saisit_se_calcule_et_compte_dans_la_moyenne() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let annee = p
+        .ok(
+            "annee_creer",
+            Some(&admin),
+            json!({ "libelle": "2026-2027", "debut": RENTREE_2026, "fin": FIN_2027 }),
+        )
+        .await;
+    p.ok("annee_activer", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    poser_grille(&p, &admin, &annee["id"]).await;
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    let septieme = id_par(&ped["niveaux"], "code", "7");
+    let classe = p
+        .ok(
+            "classe_creer",
+            Some(&admin),
+            json!({ "annee_id": annee["id"], "niveau_id": septieme, "serie_id": null, "libelle": "7e A" }),
+        )
+        .await["id"]
+        .clone();
+    for prenom in ["Awa", "Binta"] {
+        let fiche = eleve(&p, &admin, prenom).await;
+        p.ok(
+            "inscription_creer",
+            Some(&admin),
+            json!({ "eleve_id": fiche["eleve"]["id"], "classe_id": classe, "date_inscription": "",
+                "redoublant": false, "etablissement_origine": "" }),
+        )
+        .await;
+    }
+    p.ok(
+        "inscriptions_valider_classe",
+        Some(&admin),
+        json!({ "id": classe }),
+    )
+    .await;
+    let trimestre = ped["periodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["periode"]["niveau_id"] == septieme && x["periode"]["rang"] == 1)
+        .unwrap()["periode"]["id"]
+        .clone();
+    let math = id_par(&ped["matieres"], "code", "MATH");
+    let c_math = ped["programme"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["niveau_id"] == septieme && l["matiere_id"] == math)
+        .unwrap()["coefficient"]
+        .as_i64()
+        .unwrap_or(1);
+    let composition = p
+        .ok(
+            "evaluation_creer",
+            Some(&admin),
+            json!({ "classe_id": classe, "periode_id": trimestre, "matiere_id": math,
+                "type_evaluation": "composition", "libelle": "Composition", "date": "2026-10-04", "bareme": null }),
+        )
+        .await["id"]
+        .clone();
+    let grille = p
+        .ok("notes_grille", Some(&admin), json!({ "id": composition }))
+        .await;
+    let eleves: Vec<Value> = grille["lignes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["inscription_id"].clone())
+        .collect();
+    for (i, note) in ["12", "14"].iter().enumerate() {
+        p.ok(
+            "note_saisir",
+            Some(&admin),
+            json!({ "evaluation_id": composition, "inscription_id": eleves[i], "saisie": note }),
+        )
+        .await;
+    }
+    let demande = json!({ "classe_id": classe, "periode_id": trimestre });
+    let noter = |i: usize, note: &str, motif: &str| {
+        json!({ "classe_id": classe, "periode_id": trimestre, "inscription_id": eleves[i],
+            "note": note, "motif": motif })
+    };
+    let definir = |cle: &str, valeur: Value| json!({ "cle": cle, "valeur": valeur });
+
+    // Éteinte : rien ne s'ouvre, et les bulletins n'en parlent pas.
+    assert_eq!(
+        p.refus("conduite_classes_lire", Some(&admin), Value::Null)
+            .await
+            .cle,
+        "conduite.inactive"
+    );
+    let calcul = p
+        .ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+    assert_eq!(
+        calcul["bulletins"][0]["bulletin"]["contenu"]["conduite"],
+        Value::Null
+    );
+
+    // Activée, saisie par défaut : la direction note Awa 16, puis 17.
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        definir(
+            "module.conduite",
+            json!({ "type": "booleen", "valeur": true }),
+        ),
+    )
+    .await;
+    let classes = p
+        .ok("conduite_classes_lire", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(classes["mode"], "manuelle");
+    assert_eq!(classes["classes"][0]["libelle"], "7e A");
+    assert_eq!(
+        classes["classes"][0]["periodes"][0]["libelle"],
+        "1er trimestre"
+    );
+    assert_eq!(
+        p.refus("conduite_noter", Some(&admin), noter(0, "21", ""))
+            .await
+            .cle,
+        "note.hors_bareme"
+    );
+    let lue = p
+        .ok("conduite_noter", Some(&admin), noter(0, "16", ""))
+        .await;
+    assert_eq!(lue["lignes"][0]["note"], 1600);
+    assert_eq!(lue["lignes"][1]["note"], Value::Null);
+    let lue = p
+        .ok("conduite_noter", Some(&admin), noter(0, "17", ""))
+        .await;
+    assert_eq!(lue["lignes"][0]["note"], 1700);
+    assert_eq!(lue["lignes"][0]["saisie"]["note"], 1700);
+    let calcul = p
+        .ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+    let awa = &calcul["bulletins"][0]["bulletin"]["contenu"];
+    assert_eq!(
+        awa["conduite"],
+        json!({ "note": 1700, "coefficient": 1, "points": 1700 })
+    );
+    assert_eq!(awa["total_coefficients"], c_math + 1);
+    assert_eq!(awa["total_points"], 1200 * c_math + 1700);
+    assert_eq!(awa["moyenne"], generale(&[(1200, c_math), (1700, 1)]));
+    // Binta, sans note de conduite, garde sa moyenne de maths.
+    let binta = &calcul["bulletins"][1]["bulletin"]["contenu"];
+    assert_eq!(binta["conduite"], Value::Null);
+    assert_eq!(binta["moyenne"], 1400);
+
+    // Calculée : Binta a un blâme du conseil et une demi-journée d'absence non justifiée,
+    // 20 − 4 − 0,5 = 15,5 ; la note saisie d'Awa devient une correction.
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        definir(
+            "conduite.mode",
+            json!({ "type": "texte", "valeur": "automatique" }),
+        ),
+    )
+    .await;
+    p.ok(
+        "sanction_noter",
+        Some(&admin),
+        json!({ "inscription_id": eleves[1], "nature": "blame", "date": "2026-10-04",
+            "motif": "Bavardages répétés", "decidee_par": "Conseil de classe", "periode_id": trimestre }),
+    )
+    .await;
+    p.ok(
+        "absences_releve_enregistrer",
+        Some(&admin),
+        json!({ "classe_id": classe, "date": "2026-10-04",
+            "lignes": [{ "inscription_id": eleves[1], "matin": "a", "apres_midi": "" }] }),
+    )
+    .await;
+    let lue = p.ok("conduite_lire", Some(&admin), demande.clone()).await;
+    assert_eq!(lue["mode"], "automatique");
+    assert_eq!(lue["lignes"][1]["decompte"]["blames"], 1);
+    assert_eq!(lue["lignes"][1]["decompte"]["absences"], 1);
+    assert_eq!(lue["lignes"][1]["calculee"], 1550);
+    assert_eq!(lue["lignes"][1]["note"], 1550);
+    assert_eq!(lue["lignes"][0]["calculee"], 2000);
+    assert_eq!(lue["lignes"][0]["note"], 1700);
+    // Corriger une note calculée demande un motif.
+    assert_eq!(
+        p.refus("conduite_noter", Some(&admin), noter(1, "16", " "))
+            .await
+            .cle,
+        "conduite.motif_obligatoire"
+    );
+    let lue = p
+        .ok(
+            "conduite_noter",
+            Some(&admin),
+            noter(1, "16", "Excuses présentées au conseil"),
+        )
+        .await;
+    assert_eq!(lue["lignes"][1]["note"], 1600);
+    // La correction d'Awa retirée, elle revient au calcul.
+    let retrait = |motif: &str| {
+        json!({ "classe_id": classe, "periode_id": trimestre, "inscription_id": eleves[0],
+            "motif": motif })
+    };
+    let lue = p
+        .ok(
+            "conduite_retirer",
+            Some(&admin),
+            retrait("Saisie faite trop tôt"),
+        )
+        .await;
+    assert_eq!(lue["lignes"][0]["saisie"], Value::Null);
+    assert_eq!(lue["lignes"][0]["note"], 2000);
+    assert_eq!(
+        p.refus("conduite_retirer", Some(&admin), retrait("Encore"))
+            .await
+            .cle,
+        "conduite.aucune_note"
+    );
+    let calcul = p
+        .ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+    let binta = &calcul["bulletins"][1]["bulletin"]["contenu"];
+    assert_eq!(binta["conduite"]["note"], 1600);
+    assert_eq!(binta["moyenne"], generale(&[(1400, c_math), (1600, 1)]));
+    let pdf = p
+        .ok("bulletins_produire", Some(&admin), demande.clone())
+        .await;
+    assert!(pdf["pdf"].as_str().unwrap().len() > 1000);
+
+    // Imprimée à part : ni les totaux ni la moyenne ne la comptent.
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        definir(
+            "conduite.comptee",
+            json!({ "type": "booleen", "valeur": false }),
+        ),
+    )
+    .await;
+    let calcul = p
+        .ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+    let awa = &calcul["bulletins"][0]["bulletin"]["contenu"];
+    assert_eq!(
+        awa["conduite"],
+        json!({ "note": 2000, "coefficient": 1, "points": null })
+    );
+    assert_eq!(awa["total_coefficients"], c_math);
+    assert_eq!(awa["moyenne"], 1200);
+    let pdf = p
+        .ok("bulletins_produire", Some(&admin), demande.clone())
+        .await;
+    assert!(pdf["pdf"].as_str().unwrap().len() > 1000);
+
+    // Réglages bornés : un mode connu, un coefficient de 1 à 10, des points lisibles.
+    for (cle, valeur) in [
+        (
+            "conduite.mode",
+            json!({ "type": "texte", "valeur": "au_hasard" }),
+        ),
+        (
+            "conduite.coefficient",
+            json!({ "type": "entier", "valeur": 0 }),
+        ),
+        (
+            "conduite.retrait_blame",
+            json!({ "type": "texte", "valeur": "beaucoup" }),
+        ),
+    ] {
+        p.refus("parametre_definir", Some(&admin), definir(cle, valeur))
+            .await;
+    }
+}

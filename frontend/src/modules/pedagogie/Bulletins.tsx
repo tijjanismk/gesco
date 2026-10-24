@@ -261,8 +261,23 @@ function BulletinEleve({ affiche, classe, permissions, surChange }: { affiche: B
               </tr>
             );
           })}
+          {/* La note de conduite qui compte dans la moyenne : une ligne comme une matière. */}
+          {c.conduite === undefined || c.conduite === null || c.conduite.points === null ? null : (
+            <tr className="border-b border-muet/30">
+              <td className="px-2 py-1 text-encre">{t("bulletins.conduite")}</td>
+              <td className="px-2 py-1" />
+              <td className="px-2 py-1" />
+              <td className="px-2 py-1 font-semibold text-encre">{moyenne(c.conduite.note)}</td>
+              <td className="px-2 py-1 text-encre">{c.conduite.coefficient}</td>
+              <td className="px-2 py-1 text-encre">{moyenne(c.conduite.points)}</td>
+              <td className="px-2 py-1" />
+            </tr>
+          )}
         </tbody>
       </table>
+      {c.conduite === undefined || c.conduite === null || c.conduite.points !== null ? null : (
+        <p className="text-sm text-encre">{t("bulletins.conduite_a_part", { note: moyenne(c.conduite.note), bareme: points(c.bareme) })}</p>
+      )}
       <p className="text-sm text-encre">
         {t("bulletins.total", { points: moyenne(c.total_points), coefficients: String(c.total_coefficients) })}{" "}
         <strong>{t("bulletins.generale", { moyenne: valeur(c.moyenne), rang: texteRang(c.rang), sur: String(c.ont_compose) })}</strong>
