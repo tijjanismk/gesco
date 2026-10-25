@@ -1,4 +1,7 @@
-renders/
+# Seuls les deux MP4 livrés sont suivis ; les dossiers de travail du rendu restent hors du dépôt.
+renders/*
+!renders/GESCO-16x9.mp4
+!renders/GESCO-9x16.mp4
 node_modules/
 .hyperframes/
 .verif-vertical/

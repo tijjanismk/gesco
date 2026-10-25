@@ -10,7 +10,8 @@ Aucune capture de l'application : chaque écran est redessiné, en simplifié.
 | 16:9, 1920 × 1080 | `index.html` | 60 s | présentation, site, réunion |
 | 9:16, 1080 × 1920 | `compositions/vertical.html` | 30 s | statuts WhatsApp, Facebook, TikTok |
 
-Les MP4 ne sont pas dans le dépôt : ils se refont avec les commandes ci-dessous.
+Les MP4 rendus sont dans `renders/` (`GESCO-16x9.mp4`, `GESCO-9x16.mp4`, avec la voix off) ;
+après une modification, les refaire avec les commandes ci-dessous et les commiter de nouveau.
 
 ## Les scènes
 
