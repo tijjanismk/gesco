@@ -2,7 +2,8 @@
 //! les fichiers versionnés de `frontend/src/types/` diffèrent de la génération : modifier une
 //! structure Rust casse alors la CI, puis la compilation du frontend une fois régénérés.
 //!
-//! Régénération : `GESCO_REGENERER_TYPES=1 cargo test -p gesco-services --test types_typescript`.
+//! Régénération :
+//! `GESCO_REGENERER_TYPES=1 cargo test -p gesco-services --test services types_typescript`.
 
 #![allow(
     clippy::unwrap_used,
@@ -19,7 +20,7 @@ use gesco_services::frontiere::{Contrat, ErreurCommande};
 use specta::datatype::{DataType, Fields, NamedReferenceType, Primitive, Reference};
 use specta::{Format, FormatError, Types};
 
-const ENTETE: &str = "// Fichier généré depuis Rust par `cargo test -p gesco-services --test types_typescript`.\n// Ne pas modifier à la main (R-37) : toute modification est écrasée à la régénération.\n";
+const ENTETE: &str = "// Fichier généré depuis Rust par `cargo test -p gesco-services --test services types_typescript`.\n// Ne pas modifier à la main (R-37) : toute modification est écrasée à la régénération.\n";
 
 const VALEUR_JSON: &str = "\n/** Valeur JSON libre : valeurs avant et après d'une ligne d'audit. */\nexport type ValeurJson = null | boolean | number | string | ValeurJson[] | { [cle: string]: ValeurJson };\n";
 

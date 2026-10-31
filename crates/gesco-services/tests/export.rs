@@ -8,10 +8,8 @@
     clippy::indexing_slicing
 )]
 
-mod commun;
-
+use crate::commun::*;
 use calamine::{Data, Reader, Xlsx};
-use commun::*;
 use serde_json::json;
 
 #[tokio::test]

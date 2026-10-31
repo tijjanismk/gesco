@@ -10,9 +10,7 @@
     clippy::indexing_slicing
 )]
 
-mod commun;
-
-use commun::*;
+use crate::commun::*;
 use serde_json::{Value, json};
 
 fn par_libelle<'a>(e: &'a Value, cle: &str, libelle: &str) -> &'a Value {

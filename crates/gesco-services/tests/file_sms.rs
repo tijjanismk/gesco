@@ -10,9 +10,7 @@
     clippy::indexing_slicing
 )]
 
-mod commun;
-
-use commun::*;
+use crate::commun::*;
 use gesco_core::notification::ErreurEnvoi;
 use gesco_services::file_sms::BilanFile;
 use gesco_services::session::Jeton;

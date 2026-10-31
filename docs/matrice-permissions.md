@@ -1,6 +1,6 @@
 # Matrice des permissions des rôles livrés
 
-Fichier généré par `cargo test -p gesco-services --test matrice_permissions` depuis `RoleSysteme::permissions_initiales` (composition livrée v10, `SPEC_PHASE_1.md` §5.2). Ne pas modifier à la main.
+Fichier généré par `cargo test -p gesco-services --test services matrice_permissions` depuis `RoleSysteme::permissions_initiales` (composition livrée v10, `SPEC_PHASE_1.md` §5.2). Ne pas modifier à la main.
 
 `x` : permission accordée à la livraison. Les rôles livrés restent modifiables par l'administrateur ; la portée par classe et matière s'ajoute en phase 2.
 

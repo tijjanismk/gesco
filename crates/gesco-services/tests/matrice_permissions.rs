@@ -1,7 +1,8 @@
 //! Matrice rôle × permission des rôles livrés (SPEC_PHASE_1 §5.5, blueprint §21.1). Le test
 //! échoue si `docs/matrice-permissions.md` diffère de la composition du noyau.
 //!
-//! Régénération : `GESCO_REGENERER_MATRICE=1 cargo test -p gesco-services --test matrice_permissions`.
+//! Régénération :
+//! `GESCO_REGENERER_MATRICE=1 cargo test -p gesco-services --test services matrice_permissions`.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -17,8 +18,8 @@ fn matrice() -> String {
         .collect();
     let mut texte = format!(
         "# Matrice des permissions des rôles livrés\n\n\
-         Fichier généré par `cargo test -p gesco-services --test matrice_permissions` depuis \
-         `RoleSysteme::permissions_initiales` (composition livrée v{COMPOSITION_ROLES_LIVRES}, \
+         Fichier généré par `cargo test -p gesco-services --test services matrice_permissions` \
+         depuis `RoleSysteme::permissions_initiales` (composition livrée v{COMPOSITION_ROLES_LIVRES}, \
          `SPEC_PHASE_1.md` §5.2). Ne pas modifier à la main.\n\n\
          `x` : permission accordée à la livraison. Les rôles livrés restent modifiables par \
          l'administrateur ; la portée par classe et matière s'ajoute en phase 2.\n\n| Permission |"
@@ -63,6 +64,6 @@ fn la_matrice_versionnee_suit_la_composition_du_noyau() {
     assert!(
         versionnee == attendue,
         "docs/matrice-permissions.md diffère de la composition : \
-         GESCO_REGENERER_MATRICE=1 cargo test -p gesco-services --test matrice_permissions"
+         GESCO_REGENERER_MATRICE=1 cargo test -p gesco-services --test services matrice_permissions"
     );
 }

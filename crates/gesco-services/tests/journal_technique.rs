@@ -3,9 +3,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-mod commun;
-
-use commun::*;
+use crate::commun::*;
 use serde_json::json;
 
 #[tokio::test]

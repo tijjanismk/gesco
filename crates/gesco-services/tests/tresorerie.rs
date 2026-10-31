@@ -9,9 +9,7 @@
     clippy::indexing_slicing
 )]
 
-mod commun;
-
-use commun::*;
+use crate::commun::*;
 use serde_json::{Value, json};
 
 fn categorie<'a>(t: &'a Value, libelle: &str) -> &'a Value {

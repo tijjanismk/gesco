@@ -8,9 +8,7 @@
     clippy::indexing_slicing
 )]
 
-mod commun;
-
-use commun::*;
+use crate::commun::*;
 use gesco_services::session::Jeton;
 use serde_json::{Value, json};
 

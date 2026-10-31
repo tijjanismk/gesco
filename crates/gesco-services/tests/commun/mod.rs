@@ -1,7 +1,7 @@
 //! Aides communes aux tests de bout en bout par la frontière : un poste de test, son horloge et
 //! son trousseau en mémoire, et les appels tels que le frontend les fait.
 
-// Chaque fichier de test est une crate à part : une aide qui n'y sert pas y paraît morte.
+// Module de l'exécutable `services` : une aide que plus aucun test n'appelle y paraît morte.
 #![allow(
     dead_code,
     clippy::unwrap_used,

@@ -1,4 +1,4 @@
-// Fichier généré depuis Rust par `cargo test -p gesco-services --test types_typescript`.
+// Fichier généré depuis Rust par `cargo test -p gesco-services --test services types_typescript`.
 // Ne pas modifier à la main (R-37) : toute modification est écrasée à la régénération.
 
 /** Valeur JSON libre : valeurs avant et après d'une ligne d'audit. */

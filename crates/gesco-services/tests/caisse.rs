@@ -7,10 +7,8 @@
     clippy::indexing_slicing
 )]
 
-mod commun;
-
+use crate::commun::*;
 use base64::Engine;
-use commun::*;
 use serde_json::{Value, json};
 
 #[tokio::test]
