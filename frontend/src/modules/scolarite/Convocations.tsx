@@ -91,6 +91,11 @@ function NouvelleConvocation({ surFait }: { surFait: (c: ConvocationAffichee) =>
   const valides = (inscrits.data ?? []).filter((l) => l.inscription.statut === "validee");
   const [inscriptionId, setInscriptionId] = useState("");
   const inscription = valides.find((l) => l.inscription.id === inscriptionId);
+  // Retrouver l'élève comme au guichet : quelques lettres, puis un clic parmi les inscrits.
+  const [texte, setTexte] = useState("");
+  const cherche = texte.trim().length >= 2 && inscriptionId === "";
+  const trouves = useQuery({ queryKey: ["convocation-eleves", texte], queryFn: () => appeler("eleves_rechercher", { texte }), enabled: cherche });
+  const proposes = (trouves.data ?? []).flatMap((e) => valides.filter((l) => l.inscription.eleve_id === e.id)).slice(0, 8);
   const fiche = useQuery({
     queryKey: ["eleve", inscription?.inscription.eleve_id],
     queryFn: () => appeler("eleve_lire", { id: inscription?.inscription.eleve_id ?? "" }),
@@ -108,6 +113,11 @@ function NouvelleConvocation({ surFait }: { surFait: (c: ConvocationAffichee) =>
   const [heure, setHeure] = useState("08:00");
   const [canal, setCanal] = useState<CanalConvocation>("eleve");
   const [sanctionId, setSanctionId] = useState("");
+  const choisir = (id: string) => {
+    setInscriptionId(id);
+    setResponsableId("");
+    setSanctionId("");
+  };
   const creation = useMutation({
     mutationFn: () =>
       appeler("convocation_creer", {
@@ -127,17 +137,27 @@ function NouvelleConvocation({ surFait }: { surFait: (c: ConvocationAffichee) =>
   return (
     <Section titre={t("convocations.nouvelle")}>
       <Formulaire surEnvoi={() => creation.mutate()}>
-        <Selection
-          id="convocation-eleve"
-          libelle={t("convocations.eleve")}
-          valeur={inscriptionId}
-          surChangement={(v) => {
-            setInscriptionId(v);
-            setResponsableId("");
-            setSanctionId("");
-          }}
-          options={[{ valeur: "", libelle: t("convocations.choisir") }, ...valides.map((l) => ({ valeur: l.inscription.id, libelle: `${l.eleve} (${l.classe})` }))]}
-        />
+        {inscription === undefined ? (
+          <>
+            <Champ id="convocation-eleve" type="search" libelle={t("convocations.eleve")} aide={t("convocations.eleve_aide")} value={texte} onChange={(e) => setTexte(e.target.value)} />
+            <ul className="flex flex-col gap-1">
+              {proposes.map((l) => (
+                <li key={l.inscription.id}>
+                  <button type="button" className="text-sm text-primaire underline" onClick={() => choisir(l.inscription.id)}>
+                    {`${l.eleve} (${l.classe}) · ${l.matricule}`}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {cherche && trouves.isSuccess && proposes.length === 0 ? <p className="text-sm text-muet">{t("convocations.aucun_eleve")}</p> : null}
+            <MessageErreur erreur={trouves.error} />
+          </>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-encre">{`${inscription.eleve} (${inscription.classe}) · ${inscription.matricule}`}</p>
+            <Bouton variante="secondaire" onClick={() => choisir("")}>{t("convocations.autre_eleve")}</Bouton>
+          </div>
+        )}
         <Selection
           id="convocation-responsable"
           libelle={t("convocations.responsable")}

@@ -30,6 +30,15 @@ const APPRECIATIONS = [
   "Doit redoubler d'efforts",
 ];
 
+/** Part du barème qui ouvre chaque appréciation type : 16, 14, 12, 11, 10, 8 et 6 sur 20 ; en
+ *  dessous, la dernière. */
+const SEUILS = [0.8, 0.7, 0.6, 0.55, 0.5, 0.4, 0.3];
+
+function appreciationType(moyenne: number, bareme: number): string {
+  const rang = SEUILS.findIndex((s) => moyenne >= s * bareme);
+  return APPRECIATIONS[rang === -1 ? APPRECIATIONS.length - 1 : rang] ?? "";
+}
+
 function valeur(c: number | null): string {
   return c === null ? "—" : moyenne(c);
 }
@@ -101,17 +110,49 @@ function BulletinsDeLaClasse({ classeId, periodeId, permissions }: { classeId: s
     },
   });
   const apercu = useMutation({ mutationFn: () => appeler("bulletins_produire", demande), onSuccess: (document) => setPdf(document.pdf) });
+  // Remplit d'après la moyenne les appréciations encore vides des matières de l'utilisateur, pour
+  // toute la classe ; ce qu'un enseignant a écrit reste, et l'appréciation générale aussi.
+  const remplissage = useMutation({
+    mutationFn: async () => {
+      const donnees = lecture.data;
+      let remplies = 0;
+      for (const a of donnees?.bulletins ?? []) {
+        if (donnees === undefined || a.bulletin.statut === "publie" || a.bulletin.statut === "remplace") continue;
+        for (const l of a.bulletin.contenu.lignes) {
+          if (l.moyenne === null || l.appreciation.trim() !== "" || !donnees.matieres_appreciables.includes(l.matiere_id)) continue;
+          await appeler("appreciation_saisir", {
+            inscription_id: a.bulletin.inscription_id,
+            periode_id: a.bulletin.periode_id,
+            matiere_id: l.matiere_id,
+            texte: appreciationType(l.moyenne, donnees.bareme),
+          });
+          remplies += 1;
+        }
+      }
+      return remplies;
+    },
+    onSuccess: (n) => {
+      setBilan(t("bulletins.remplies", { nombre: String(n) }));
+      rafraichir();
+    },
+    onError: rafraichir,
+  });
   const d = lecture.data;
   if (d === undefined) return <MessageErreur erreur={lecture.error} />;
   const premier = d.bulletins[0]?.bulletin.contenu;
   const choisi = d.bulletins.find((b) => b.bulletin.inscription_id === ouvert);
-  const erreur = calcul.error ?? validation.error ?? publication.error ?? apercu.error;
+  const erreur = calcul.error ?? validation.error ?? publication.error ?? apercu.error ?? remplissage.error;
   return (
     <>
       <Section titre={t("bulletins.classe", { classe: d.classe, periode: d.periode })}>
         <div className="flex flex-wrap gap-2">
           {commandeAutorisee("resultats_calculer", permissions) ? (
             <Bouton onClick={() => calcul.mutate()} disabled={calcul.isPending}>{t("bulletins.calculer")}</Bouton>
+          ) : null}
+          {d.matieres_appreciables.length > 0 ? (
+            <Bouton variante="secondaire" title={t("bulletins.remplir_aide")} onClick={() => remplissage.mutate()} disabled={remplissage.isPending || d.bulletins.length === 0}>
+              {t(remplissage.isPending ? "bulletins.remplissage" : "bulletins.remplir")}
+            </Bouton>
           ) : null}
           {commandeAutorisee("bulletins_valider", permissions) ? (
             <Bouton variante="secondaire" onClick={() => validation.mutate()} disabled={validation.isPending || d.bulletins.length === 0}>{t("bulletins.valider")}</Bouton>
