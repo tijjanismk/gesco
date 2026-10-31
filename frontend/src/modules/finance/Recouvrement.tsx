@@ -5,18 +5,16 @@ import { appeler } from "../../api";
 import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { Tableau } from "../../composants/Tableau";
-import { type Cle, dateCivile, dateHeure, francs, t } from "../../i18n";
-import type { LigneImpaye, LigneJournal, ModePaiement, TrancheAnciennete } from "../../types/gesco";
+import { dateCivile, dateHeure, francs, t } from "../../i18n";
+import type { LigneImpaye, LigneJournal, ModePaiement, TotalTranche, TrancheAnciennete } from "../../types/gesco";
 import { telephoneLisible } from "../scolarite/Identite";
 import { MODES } from "./Encaissement";
 import { aujourdHui } from "../../app/aujourdhui";
 
-export const TRANCHES: Record<TrancheAnciennete, Cle> = {
-  de_0_a_30: "impayes.tranche.de_0_a_30",
-  de_31_a_60: "impayes.tranche.de_31_a_60",
-  de_61_a_90: "impayes.tranche.de_61_a_90",
-  plus_de_90: "impayes.tranche.plus_de_90",
-};
+/** Libellé d'une tranche d'après les limites que l'école a réglées : « 16 à 30 jours ». */
+export function libelleTranche(tr: TotalTranche): string {
+  return tr.a === null ? t("impayes.tranche.plus_de", { jours: String(tr.de) }) : t("impayes.tranche.de_a", { de: String(tr.de), a: String(tr.a) });
+}
 
 const TOUTES = "";
 
@@ -34,6 +32,7 @@ export function Impayes({ surOuvrirEleve }: { surOuvrirEleve: (id: string) => vo
   const lignes = (donnees?.lignes ?? []).filter(
     (l) => (classe === TOUTES || l.classe === classe) && (tranche === TOUTES || l.impaye.tranche === tranche),
   );
+  const libelles = new Map<TrancheAnciennete, string>((donnees?.par_tranche ?? []).map((tr) => [tr.tranche, libelleTranche(tr)]));
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-encre">{t("impayes.titre")}</h1>
@@ -49,9 +48,9 @@ export function Impayes({ surOuvrirEleve }: { surOuvrirEleve: (id: string) => vo
                 key={tr.tranche}
                 type="button"
                 onClick={() => setTranche(tranche === tr.tranche ? TOUTES : tr.tranche)}
-                className={`flex flex-col rounded border p-2 text-left ${tranche === tr.tranche ? "border-primaire" : "border-muet/40"} ${tr.tranche === "plus_de_90" && tr.eleves > 0 ? "text-rouge" : "text-encre"}`}
+                className={`flex flex-col rounded border p-2 text-left ${tranche === tr.tranche ? "border-primaire" : "border-muet/40"} ${tr.tranche === "derniere" && tr.eleves > 0 ? "text-rouge" : "text-encre"}`}
               >
-                <span className="text-sm">{t(TRANCHES[tr.tranche])}</span>
+                <span className="text-sm">{libelleTranche(tr)}</span>
                 <span className="text-lg font-semibold">{francs(tr.echu)}</span>
                 <span className="text-xs text-muet">{t("impayes.nombre_eleves", { nombre: String(tr.eleves) })}</span>
               </button>
@@ -70,7 +69,7 @@ export function Impayes({ surOuvrirEleve }: { surOuvrirEleve: (id: string) => vo
               libelle={t("impayes.anciennete")}
               valeur={tranche}
               surChangement={setTranche}
-              options={[{ valeur: TOUTES, libelle: t("impayes.toutes_tranches") }, ...Object.entries(TRANCHES).map(([v, c]) => ({ valeur: v, libelle: t(c) }))]}
+              options={[{ valeur: TOUTES, libelle: t("impayes.toutes_tranches") }, ...donnees.par_tranche.map((tr) => ({ valeur: tr.tranche, libelle: libelleTranche(tr) }))]}
             />
           </div>
           {donnees.lignes.length === 0 ? (
@@ -90,7 +89,7 @@ export function Impayes({ surOuvrirEleve }: { surOuvrirEleve: (id: string) => vo
                 { titre: t("impayes.total"), valeur: (l) => francs(l.impaye.total) },
                 { titre: t("impayes.depuis"), valeur: (l) => dateCivile(l.impaye.plus_ancienne) },
                 { titre: t("impayes.jours"), valeur: (l) => String(l.impaye.jours) },
-                { titre: t("impayes.anciennete"), valeur: (l) => t(TRANCHES[l.impaye.tranche]) },
+                { titre: t("impayes.anciennete"), valeur: (l) => libelles.get(l.impaye.tranche) ?? "" },
                 { titre: t("impayes.payeurs"), valeur: payeurs },
               ]}
             />

@@ -845,16 +845,16 @@ test("phase 3 : UC-05, les impayés par tranche d'ancienneté, puis le journal d
   await allerA("nav.impayes");
   await expect(page.getByRole("heading", { name: texte("impayes.titre") })).toBeVisible();
   await expect(page.getByText(/élèves en retard/)).toBeVisible();
-  for (const tranche of ["0 à 30 jours", "31 à 60 jours", "61 à 90 jours", "Plus de 90 jours"]) {
+  for (const tranche of ["0 à 15 jours", "16 à 30 jours", "31 à 60 jours", "Plus de 60 jours"]) {
     await expect(page.getByRole("button", { name: new RegExp(tranche) })).toBeVisible();
   }
   // Oumar doit le reste de sa 1re tranche, échue le 5 octobre, et son inscription. L'élève du
   // jardin doit son inscription, échue aujourd'hui : 0 jour de retard.
-  await expect(page.getByRole("row").filter({ hasText: "Oumar Sangaré" }).getByRole("cell", { name: "0 à 30 jours" })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Oumar Sangaré" }).getByRole("cell", { name: "0 à 15 jours" })).toBeVisible();
   const bakary = page.getByRole("row").filter({ hasText: "Bakary Keïta" });
-  await expect(bakary.getByRole("cell", { name: "0 à 30 jours" })).toBeVisible();
+  await expect(bakary.getByRole("cell", { name: "0 à 15 jours" })).toBeVisible();
   await expect(bakary.getByRole("cell", { name: /Assitan Keïta \(\+223 79 00 00 01\)/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /0 à 30 jours.*2 élève/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /0 à 15 jours.*2 élève/ })).toBeVisible();
   await capturer("59-impayes");
 
   // Le journal du mois : un reçu valide de 50 000 F, et l'annulé à part.
@@ -2135,6 +2135,9 @@ test("phase 8 : une séance se place dans la journée de sa classe, l'emploi du 
   await expect(page.getByText(texte("seance.hors_journee"))).toBeVisible();
   await page.getByRole("button", { name: /Imprimer l'emploi du temps de la/ }).click();
   await expect(page.locator("iframe")).toBeVisible();
+  // Le visionneur PDF de WebView2 rend la page hors du DOM : aucun signal à attendre.
+  await page.waitForTimeout(4000);
+  await page.locator("iframe").scrollIntoViewIfNeeded();
   await capturer("109-emploi-du-temps");
 });
 
@@ -2445,7 +2448,10 @@ test("phase 5 : un bulletin de la 7e A se remet à l'oncle de l'élève ; ceux d
 
 test("phase 5 : un responsable est convoqué par le billet confié à l'élève ; sa réception se note", async () => {
   await allerA("nav.convocations");
-  await page.locator("#convocation-eleve").selectOption({ index: 1 });
+  // L'élève se retrouve par quelques lettres de son nom, comme au guichet.
+  await page.locator("#convocation-eleve").fill("Fatoumata");
+  await page.getByRole("button", { name: /^Fatoumata Diallo \(/ }).first().click();
+  await expect(page.getByRole("button", { name: texte("convocations.autre_eleve") })).toBeVisible();
   await page.locator("#convocation-motif").fill("Travail insuffisant en mathématiques");
   await page.locator("#convocation-date").fill("2026-10-20");
   await page.locator("#convocation-heure").fill("10:30");

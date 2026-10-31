@@ -6,40 +6,94 @@ use serde::{Deserialize, Serialize};
 use crate::commun::{DateCivile, ErreurMontant, Montant};
 
 /// Tranche d'ancienneté d'un impayé, comptée depuis la plus ancienne échéance passée et non
-/// soldée (T-20).
+/// soldée (T-20). Ses bornes en jours sont celles que l'école règle ([`Tranches`]).
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, specta::Type,
 )]
+#[serde(rename_all = "snake_case")]
 pub enum TrancheAnciennete {
-    /// De 0 à 30 jours.
-    #[serde(rename = "de_0_a_30")]
-    De0A30,
-    /// De 31 à 60 jours.
-    #[serde(rename = "de_31_a_60")]
-    De31A60,
-    /// De 61 à 90 jours.
-    #[serde(rename = "de_61_a_90")]
-    De61A90,
-    /// Plus de 90 jours.
-    #[serde(rename = "plus_de_90")]
-    PlusDe90,
+    /// De 0 jour à la première limite.
+    Premiere,
+    /// Jusqu'à la deuxième limite.
+    Deuxieme,
+    /// Jusqu'à la troisième limite.
+    Troisieme,
+    /// Au-delà de la troisième limite.
+    Derniere,
 }
 
 impl TrancheAnciennete {
     /// Toutes les tranches, de la plus récente à la plus ancienne.
-    pub const TOUTES: &'static [Self] =
-        &[Self::De0A30, Self::De31A60, Self::De61A90, Self::PlusDe90];
+    pub const TOUTES: &'static [Self] = &[
+        Self::Premiere,
+        Self::Deuxieme,
+        Self::Troisieme,
+        Self::Derniere,
+    ];
+}
+
+/// Réglage de l'école qui porte les limites des tranches.
+pub const PARAMETRE_TRANCHES: &str = "facturation.tranches_impayes";
+
+/// Limites des tranches d'ancienneté, en jours, que chaque école règle : certaines renvoient un
+/// élève dès 7 à 15 jours de retard, d'autres attendent pour ne pas harceler les familles
+/// (porteur du projet, 31 octobre 2026). Par défaut 15, 30 et 60 : 0 à 15 jours, 16 à 30, 31 à
+/// 60, plus de 60.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Tranches {
+    limites: [i64; 3],
+}
+
+impl Tranches {
+    /// Limites livrées.
+    pub const DEFAUT: Self = Self {
+        limites: [15, 30, 60],
+    };
+
+    /// Plus grande limite : un an.
+    pub const LIMITE_MAX: i64 = 365;
+
+    /// Lit le réglage `15,30,60` : trois nombres de jours croissants, de 1 à un an.
+    pub fn lire(texte: &str) -> Option<Self> {
+        let nombres: Vec<i64> = texte
+            .split(',')
+            .map(|n| n.trim().parse().ok())
+            .collect::<Option<_>>()?;
+        let limites: [i64; 3] = nombres.try_into().ok()?;
+        let croissantes = limites.windows(2).all(|p| matches!(p, [a, b] if a < b));
+        (croissantes && limites.iter().all(|n| (1..=Self::LIMITE_MAX).contains(n)))
+            .then_some(Self { limites })
+    }
+
+    /// Le réglage tel qu'il s'enregistre.
+    pub fn texte(&self) -> String {
+        let [a, b, c] = self.limites;
+        format!("{a},{b},{c}")
+    }
 
     /// Tranche d'un nombre de jours de retard ; une échéance du jour compte pour 0.
-    pub const fn depuis_jours(jours: i64) -> Self {
-        if jours <= 30 {
-            Self::De0A30
-        } else if jours <= 60 {
-            Self::De31A60
-        } else if jours <= 90 {
-            Self::De61A90
+    pub const fn classer(&self, jours: i64) -> TrancheAnciennete {
+        let [a, b, c] = self.limites;
+        if jours <= a {
+            TrancheAnciennete::Premiere
+        } else if jours <= b {
+            TrancheAnciennete::Deuxieme
+        } else if jours <= c {
+            TrancheAnciennete::Troisieme
         } else {
-            Self::PlusDe90
+            TrancheAnciennete::Derniere
+        }
+    }
+
+    /// Bornes d'une tranche en jours : de, et jusqu'à (comprise) ; sans fin pour la dernière,
+    /// qui commence après la troisième limite.
+    pub const fn bornes(&self, tranche: TrancheAnciennete) -> (i64, Option<i64>) {
+        let [a, b, c] = self.limites;
+        match tranche {
+            TrancheAnciennete::Premiere => (0, Some(a)),
+            TrancheAnciennete::Deuxieme => (a + 1, Some(b)),
+            TrancheAnciennete::Troisieme => (b + 1, Some(c)),
+            TrancheAnciennete::Derniere => (c, None),
         }
     }
 }
@@ -55,7 +109,8 @@ pub struct Impaye {
     pub plus_ancienne: DateCivile,
     /// Jours écoulés depuis cette échéance.
     pub jours: i64,
-    /// Tranche d'ancienneté.
+    /// Tranche d'ancienneté, selon les limites livrées ; la liste des impayés la reclasse selon
+    /// celles de l'école.
     pub tranche: TrancheAnciennete,
 }
 
@@ -87,7 +142,7 @@ pub fn impaye(
             total,
             plus_ancienne: p,
             jours,
-            tranche: TrancheAnciennete::depuis_jours(jours),
+            tranche: Tranches::DEFAUT.classer(jours),
         }
     }))
 }
@@ -107,24 +162,52 @@ mod tests {
     }
 
     #[test]
-    fn les_tranches_suivent_t_20() {
-        let tranches: Vec<_> = [0, 30, 31, 60, 61, 90, 91, 400]
+    fn les_tranches_livrees_sont_15_30_60() {
+        use TrancheAnciennete as T;
+        let tranches: Vec<_> = [0, 15, 16, 30, 31, 60, 61, 400]
             .into_iter()
-            .map(TrancheAnciennete::depuis_jours)
+            .map(|j| Tranches::DEFAUT.classer(j))
             .collect();
         assert_eq!(
             tranches,
             vec![
-                TrancheAnciennete::De0A30,
-                TrancheAnciennete::De0A30,
-                TrancheAnciennete::De31A60,
-                TrancheAnciennete::De31A60,
-                TrancheAnciennete::De61A90,
-                TrancheAnciennete::De61A90,
-                TrancheAnciennete::PlusDe90,
-                TrancheAnciennete::PlusDe90,
+                T::Premiere,
+                T::Premiere,
+                T::Deuxieme,
+                T::Deuxieme,
+                T::Troisieme,
+                T::Troisieme,
+                T::Derniere,
+                T::Derniere,
             ]
         );
+        assert_eq!(Tranches::DEFAUT.bornes(T::Deuxieme), (16, Some(30)));
+        assert_eq!(Tranches::DEFAUT.bornes(T::Derniere), (60, None));
+    }
+
+    #[test]
+    fn l_ecole_regle_ses_tranches() {
+        let strictes = Tranches::lire("7, 15,30").unwrap_or_else(|| unreachable!());
+        assert_eq!(strictes.texte(), "7,15,30");
+        assert_eq!(strictes.classer(8), TrancheAnciennete::Deuxieme);
+        assert_eq!(strictes.classer(31), TrancheAnciennete::Derniere);
+        assert_eq!(
+            Tranches::lire(&Tranches::DEFAUT.texte()),
+            Some(Tranches::DEFAUT)
+        );
+        // Trois nombres croissants, d'un jour à un an.
+        for refuse in [
+            "",
+            "15,30",
+            "15,30,60,90",
+            "30,15,60",
+            "15,15,60",
+            "0,30,60",
+            "15,30,400",
+            "a,b,c",
+        ] {
+            assert_eq!(Tranches::lire(refuse), None, "{refuse}");
+        }
     }
 
     #[test]
@@ -143,7 +226,7 @@ mod tests {
                 total: f(110_000),
                 plus_ancienne: d("2026-10-15"),
                 jours: 97,
-                tranche: TrancheAnciennete::PlusDe90,
+                tranche: TrancheAnciennete::Derniere,
             })
         );
         // Rien d'échu avant la première échéance non soldée ; une échéance du jour compte.
@@ -170,7 +253,7 @@ mod tests {
                     prop_assert!(i.echu <= i.total);
                     prop_assert!(i.echu > Montant::ZERO);
                     prop_assert!(i.jours >= 0);
-                    prop_assert_eq!(i.tranche, TrancheAnciennete::depuis_jours(i.jours));
+                    prop_assert_eq!(i.tranche, Tranches::DEFAUT.classer(i.jours));
                     prop_assert_eq!(i.plus_ancienne.jours_depuis_epoque() - origine, decalage - i.jours);
                 }
                 Ok(None) => prop_assert!(echeances.iter().all(|(dt, r)| *dt > aujourd_hui || *r <= Montant::ZERO)),

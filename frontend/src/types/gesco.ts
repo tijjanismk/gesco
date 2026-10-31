@@ -5295,7 +5295,10 @@ export type Impaye = {
 	plus_ancienne: string,
 	/**  Jours écoulés depuis cette échéance. */
 	jours: number,
-	/**  Tranche d'ancienneté. */
+	/**
+	 *  Tranche d'ancienneté, selon les limites livrées ; la liste des impayés la reclasse selon
+	 *  celles de l'école.
+	 */
 	tranche: TrancheAnciennete,
 };
 
@@ -8459,6 +8462,10 @@ export type TotalModeJournal = {
 export type TotalTranche = {
 	/**  Tranche. */
 	tranche: TrancheAnciennete,
+	/**  Premier jour de retard de la tranche. */
+	de: number,
+	/**  Dernier jour de retard compris ; aucun pour la dernière tranche (« plus de `de` jours »). */
+	a: number | null,
 	/**  Élèves. */
 	eleves: number,
 	/**  Reste échu. */
@@ -8526,17 +8533,17 @@ export type Tranche = {
 
 /**
  *  Tranche d'ancienneté d'un impayé, comptée depuis la plus ancienne échéance passée et non
- *  soldée (T-20).
+ *  soldée (T-20). Ses bornes en jours sont celles que l'école règle ([`Tranches`]).
  */
 export type TrancheAnciennete = 
-/**  De 0 à 30 jours. */
-"de_0_a_30" | 
-/**  De 31 à 60 jours. */
-"de_31_a_60" | 
-/**  De 61 à 90 jours. */
-"de_61_a_90" | 
-/**  Plus de 90 jours. */
-"plus_de_90";
+/**  De 0 jour à la première limite. */
+"premiere" | 
+/**  Jusqu'à la deuxième limite. */
+"deuxieme" | 
+/**  Jusqu'à la troisième limite. */
+"troisieme" | 
+/**  Au-delà de la troisième limite. */
+"derniere";
 
 /**  TrancheBareme d'un barème progressif. */
 export type TrancheBareme = {

@@ -1222,7 +1222,7 @@ async fn les_impayes_se_classent_par_anciennete_et_le_journal_totalise_les_recus
     assert_eq!(ligne["impaye"]["echu"], 10_000);
     assert_eq!(ligne["impaye"]["total"], 160_000);
     assert_eq!(ligne["impaye"]["jours"], 0);
-    assert_eq!(ligne["impaye"]["tranche"], "de_0_a_30");
+    assert_eq!(ligne["impaye"]["tranche"], "premiere");
     assert_eq!(ligne["payeurs"][0]["nom"], "Mariam Coulibaly");
     assert_eq!(
         ligne["payeurs"][0]["telephones"].as_array().unwrap().len(),
@@ -1276,7 +1276,8 @@ async fn les_impayes_se_classent_par_anciennete_et_le_journal_totalise_les_recus
     assert_eq!(liste["lignes"].as_array().unwrap().len(), 1);
     assert_eq!(liste["lignes"][0]["impaye"]["echu"], 70_000);
     assert_eq!(liste["lignes"][0]["impaye"]["jours"], 47);
-    assert_eq!(liste["lignes"][0]["impaye"]["tranche"], "de_31_a_60");
+    // Tranches livrées : 0 à 15 jours, 16 à 30, 31 à 60, plus de 60.
+    assert_eq!(liste["lignes"][0]["impaye"]["tranche"], "troisieme");
 
     // Le 20 janvier : Awa a plus de 90 jours de retard ; Binta doit la 2e tranche depuis 5 jours.
     e.p.horloge.avancer(9_301_469_750 - 4_031_069_750);
@@ -1291,8 +1292,8 @@ async fn les_impayes_se_classent_par_anciennete_et_le_journal_totalise_les_recus
             .map(|l| (l["impaye"]["tranche"].clone(), l["impaye"]["echu"].clone()))
             .unwrap()
     };
-    assert_eq!(tranche("Awa"), (json!("plus_de_90"), json!(115_000)));
-    assert_eq!(tranche("Binta"), (json!("de_0_a_30"), json!(45_000)));
+    assert_eq!(tranche("Awa"), (json!("derniere"), json!(115_000)));
+    assert_eq!(tranche("Binta"), (json!("premiere"), json!(45_000)));
     assert_eq!(liste["par_classe"][0]["eleves"], 2);
     assert_eq!(liste["par_classe"][0]["echu"], 160_000);
     assert_eq!(liste["echu"], 160_000);
@@ -1305,11 +1306,55 @@ async fn les_impayes_se_classent_par_anciennete_et_le_journal_totalise_les_recus
     assert_eq!(
         par_tranche,
         vec![
-            (json!("de_0_a_30"), json!(1)),
-            (json!("de_31_a_60"), json!(0)),
-            (json!("de_61_a_90"), json!(0)),
-            (json!("plus_de_90"), json!(1)),
+            (json!("premiere"), json!(1)),
+            (json!("deuxieme"), json!(0)),
+            (json!("troisieme"), json!(0)),
+            (json!("derniere"), json!(1)),
         ]
+    );
+    assert_eq!(
+        (
+            &liste["par_tranche"][1]["de"],
+            &liste["par_tranche"][1]["a"]
+        ),
+        (&json!(16), &json!(30))
+    );
+    assert_eq!(
+        (
+            &liste["par_tranche"][3]["de"],
+            &liste["par_tranche"][3]["a"]
+        ),
+        (&json!(60), &Value::Null)
+    );
+
+    // Une école plus stricte règle ses tranches à 3, 15 et 30 jours : Binta, 5 jours de retard,
+    // passe dans la deuxième. Des limites qui ne croissent pas sont refusées.
+    e.p.ok(
+        "parametre_definir",
+        Some(&admin),
+        json!({ "cle": "facturation.tranches_impayes", "valeur": { "type": "texte", "valeur": "3,15,30" } }),
+    )
+    .await;
+    e.p.refus(
+        "parametre_definir",
+        Some(&admin),
+        json!({ "cle": "facturation.tranches_impayes", "valeur": { "type": "texte", "valeur": "30,15,60" } }),
+    )
+    .await;
+    let liste = e.p.ok("impayes_lister", Some(&admin), Value::Null).await;
+    let binta = liste["lignes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["eleve"].as_str().unwrap().starts_with("Binta"))
+        .unwrap();
+    assert_eq!(binta["impaye"]["tranche"], "deuxieme");
+    assert_eq!(
+        (
+            &liste["par_tranche"][0]["de"],
+            &liste["par_tranche"][0]["a"]
+        ),
+        (&json!(0), &json!(3))
     );
 }
 

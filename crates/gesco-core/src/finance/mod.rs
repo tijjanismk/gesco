@@ -13,7 +13,7 @@ pub use facture::{
     ArriveeEnCours, ContexteTarifaire, Echeance, Facture, LigneFacture, StatutEcheance,
     StatutFacture,
 };
-pub use recouvrement::{Impaye, TrancheAnciennete};
+pub use recouvrement::{Impaye, PARAMETRE_TRANCHES, TrancheAnciennete, Tranches};
 pub use remise::{Remise, StatutRemise, TypeRemise, ValeurRemise};
 pub use tarif::{
     ContenuGrille, EcheanceCalculee, EtatGrille, Exigibilite, Grille, LigneTarifaire, PlanPaiement,

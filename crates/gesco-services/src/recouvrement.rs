@@ -7,9 +7,12 @@ use std::collections::HashMap;
 use gesco_core::commun::{DateCivile, Horodatage, Id, Montant};
 use gesco_core::core::{StatutAnnee, Utilisateur};
 use gesco_core::finance::recouvrement::impaye;
-use gesco_core::finance::{Impaye, ModePaiement, StatutVersement, TrancheAnciennete, Versement};
+use gesco_core::finance::{
+    Impaye, ModePaiement, PARAMETRE_TRANCHES, StatutVersement, TrancheAnciennete, Tranches,
+    Versement,
+};
 use gesco_core::scolarite::{Eleve, Inscription};
-use gesco_db::depots::{annee_scolaire, factures, personnes, versements};
+use gesco_db::depots::{annee_scolaire, factures, parametre, personnes, versements};
 use serde::{Deserialize, Serialize};
 
 use crate::erreur::{ErreurService, Resultat};
@@ -80,6 +83,10 @@ pub struct TotalClasse {
 pub struct TotalTranche {
     /// Tranche.
     pub tranche: TrancheAnciennete,
+    /// Premier jour de retard de la tranche.
+    pub de: i64,
+    /// Dernier jour de retard compris ; aucun pour la dernière tranche (« plus de `de` jours »).
+    pub a: Option<i64>,
     /// Élèves.
     pub eleves: u32,
     /// Reste échu.
@@ -242,6 +249,10 @@ impl<'n> ServiceRecouvrement<'n> {
             }
         }
         let mut cnx = self.connexion().await?;
+        // Les limites des tranches sont celles de l'école ; un réglage illisible garde les livrées.
+        let tranches =
+            Tranches::lire(&parametre::texte(&mut cnx, PARAMETRE_TRANCHES, "", &contexte).await?)
+                .unwrap_or(Tranches::DEFAUT);
         let mut ouvertes = HashMap::new();
         for a in std::iter::once(&annee).chain(&closes) {
             for facture in factures::factures_ouvertes(&mut cnx, a.id, &contexte).await? {
@@ -250,7 +261,8 @@ impl<'n> ServiceRecouvrement<'n> {
                     .iter()
                     .map(|e| (e.echeance.date, e.reste))
                     .collect();
-                if let Some(i) = calcul(impaye(&echeances, aujourd_hui))? {
+                if let Some(mut i) = calcul(impaye(&echeances, aujourd_hui))? {
+                    i.tranche = tranches.classer(i.jours);
                     ouvertes.insert(facture.inscription_id, (facture.numero, i));
                 }
             }
@@ -306,8 +318,11 @@ impl<'n> ServiceRecouvrement<'n> {
                 .iter()
                 .filter(|l| l.impaye.tranche == *tranche)
                 .collect();
+            let (de, a) = tranches.bornes(*tranche);
             par_tranche.push(TotalTranche {
                 tranche: *tranche,
+                de,
+                a,
                 eleves: nombre(dans.len()),
                 echu: calcul(
                     dans.iter()

@@ -77,6 +77,10 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
         }
         // SPEC_PHASE_8 §3 : le seuil d'accord des dépenses, en francs ; 0 : jamais d'accord.
         ("depense.seuil_accord", ValeurParametre::Entier(n)) => !(0..=1_000_000_000).contains(n),
+        // Tranches d'ancienneté des impayés : trois nombres de jours croissants.
+        (crate::finance::PARAMETRE_TRANCHES, ValeurParametre::Texte(t)) => {
+            crate::finance::Tranches::lire(t).is_none()
+        }
         ("facturation.jour_echeance", ValeurParametre::Entier(n)) => {
             !u8::try_from(*n).is_ok_and(|j| crate::finance::tarif::JOURS_ECHEANCE.contains(&j))
         }
@@ -241,6 +245,13 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         p(
             "facturation.jour_echeance",
             ValeurParametre::Entier(i64::from(crate::finance::tarif::JOUR_ECHEANCE_DEFAUT)),
+            true,
+        ),
+        // Tranches d'ancienneté des impayés (porteur du projet, 31 octobre 2026) : 0 à 15 jours,
+        // 16 à 30, 31 à 60, plus de 60 ; l'école les règle.
+        p(
+            crate::finance::PARAMETRE_TRANCHES,
+            ValeurParametre::Texte(crate::finance::Tranches::DEFAUT.texte()),
             true,
         ),
         // Q-31 : une inscription tardive avertit sans bloquer ; 0, jamais.

@@ -7,7 +7,7 @@ import { Bouton } from "../../composants/Bouton";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { dateCivile, francs, moisCivil, t } from "../../i18n";
 import type { AbsentDuJour, BlocPaie, BlocPersonnel, BlocTresorerie, Cycle, Effectifs, Finances, Scolarite } from "../../types/gesco";
-import { TRANCHES } from "../finance/Recouvrement";
+import { libelleTranche } from "../finance/Recouvrement";
 import { NATURES } from "../rh/Engagements";
 import { CYCLES } from "../scolarite/Cycles";
 
@@ -99,7 +99,7 @@ function BlocFinances({ f }: { f: Finances }) {
       {f.par_tranche.every((x) => x.eleves === 0) ? null : (
         <Rangee>
           {f.par_tranche.map((x) => (
-            <Chiffre key={x.tranche} libelle={t(TRANCHES[x.tranche])} valeur={francs(x.echu)} detail={t("tableau.eleves_en_retard", { nombre: String(x.eleves) })} />
+            <Chiffre key={x.tranche} libelle={libelleTranche(x)} valeur={francs(x.echu)} detail={t("tableau.eleves_en_retard", { nombre: String(x.eleves) })} />
           ))}
         </Rangee>
       )}
