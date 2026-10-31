@@ -9,6 +9,8 @@ cargo build --workspace --exclude gesco-app
 cargo build -p gesco-app   # sur Windows 10 1809+, WebView2 requis
 ```
 
+Après chaque montée de version, et avant une vérification complète, élaguer `target` (artefacts des crates du dépôt, dépendances gardées) : `powershell -ExecutionPolicy Bypass -File outils\elaguer-target.ps1` (`-Release`, `-Incremental` en option).
+
 ## Tester
 
 ```
