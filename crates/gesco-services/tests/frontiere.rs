@@ -25,9 +25,7 @@ use gesco_services::frontiere::COMMANDES_IMPLEMENTEES;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-mod commun;
-
-use commun::*;
+use crate::commun::*;
 
 #[test]
 fn le_contrat_couvre_exactement_le_catalogue_des_acces() {

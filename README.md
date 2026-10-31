@@ -22,6 +22,10 @@ node outils/ci/verifier-liste-blanche.mjs
 La cible de 400 documents en moins de 2 minutes (`cargo test --release -p gesco-docs --test moteur`) tourne
 dans la CI ; en local, seulement avant de construire l'installeur (`tauri build`), qui réutilise une partie de `target/release`.
 
+Les tests d'intégration de `gesco-services` et de `gesco-db` forment un seul exécutable par crate
+et tournent dans un seul processus ; si la mémoire manque, `RUST_TEST_THREADS=4`. Un seul fichier :
+`cargo test -p gesco-services --test services <fichier>`.
+
 Essais de bout en bout sur l'application réelle (21 scénarios), avec captures d'écran et chronomètre
 UC-01 dans `frontend/e2e/captures/` (`gesco-app` compilé en développement : `cargo build -p gesco-app` après
 `pnpm build`) :
@@ -40,7 +44,7 @@ pnpm verifier && pnpm lint && pnpm test && pnpm build
 ```
 
 Les types de `frontend/src/types/` sont générés depuis Rust :
-`GESCO_REGENERER_TYPES=1 cargo test -p gesco-services --test types_typescript`.
+`GESCO_REGENERER_TYPES=1 cargo test -p gesco-services --test services types_typescript`.
 
 ## Documents
 

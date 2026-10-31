@@ -10,9 +10,7 @@
     clippy::indexing_slicing
 )]
 
-mod commun;
-
-use commun::*;
+use crate::commun::*;
 use serde_json::{Value, json};
 
 fn facture<'a>(e: &'a Value, numero: &str) -> &'a Value {

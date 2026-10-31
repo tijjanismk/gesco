@@ -3,7 +3,7 @@
 //! calculés, la liste des impayés et la fin d'année lues. Chaque étape se mesure et reste sous
 //! son plafond.
 //!
-//! Long : `cargo test -p gesco-services --release --test charge -- --ignored --nocapture`.
+//! Long : `cargo test -p gesco-services --release --test services charge:: -- --ignored --nocapture`.
 
 #![allow(
     clippy::unwrap_used,
@@ -13,11 +13,9 @@
     clippy::print_stdout
 )]
 
-mod commun;
-
 use std::time::{Duration, Instant};
 
-use commun::*;
+use crate::commun::*;
 use gesco_docs::tableur::{Liste, classeur};
 use serde_json::{Value, json};
 

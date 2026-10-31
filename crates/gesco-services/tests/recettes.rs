@@ -10,9 +10,7 @@
     clippy::indexing_slicing
 )]
 
-mod commun;
-
-use commun::*;
+use crate::commun::*;
 use serde_json::{Value, json};
 
 fn solde(e: &Value, compte: &Value) -> i64 {
