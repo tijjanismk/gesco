@@ -1,14 +1,13 @@
 [workspace]
 resolver = "3"
+# gesco-server (serveur cloud) et gesco-sync reviendront à la phase 11 (retirés le 31 octobre 2026).
 members = [
     "crates/gesco-core",
     "crates/gesco-db",
     "crates/gesco-services",
     "crates/gesco-docs",
-    "crates/gesco-sync",
     "crates/gesco-sms",
     "crates/gesco-app",
-    "crates/gesco-server",
     "outils/licence",
 ]
 # Copie de libsqlite3-sys pour SQLite3 Multiple Ciphers : une dépendance, pas un membre.
@@ -20,9 +19,7 @@ default-members = [
     "crates/gesco-db",
     "crates/gesco-services",
     "crates/gesco-docs",
-    "crates/gesco-sync",
     "crates/gesco-sms",
-    "crates/gesco-server",
     "outils/licence",
 ]
 
@@ -55,7 +52,6 @@ rand = "0.10.3"
 getrandom = "0.4.3"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "json"] }
 tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "fs", "sync", "time"] }
-axum = "0.8.9"
 specta = { version = "=2.0.0-rc.25", features = ["derive", "serde_json"] }
 specta-typescript = "=0.0.12"
 specta-serde = "=0.0.12"

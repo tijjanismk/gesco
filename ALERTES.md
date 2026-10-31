@@ -19,6 +19,7 @@ Tous les fichiers de `gesco-core/src/commun/` sont importés une fois (par `mod.
 - Données initiales : la grille de la 3e à la 6e est une grille par défaut non officielle (Q-37). Ne jamais en faire une contrainte de validation (horaires seulement : les autres règles restent bloquantes).
 - Les décisions de §24.7 (arrivée en cours d'année, transferts) ajoutent `MoyenneReportee`, `CertificatTransfert`, des champs à `Inscription` et quatre paramètres d'établissement : à poser dans les migrations des phases 2 à 4, aucune n'existe encore.
 - **Toolchain** : `rust-toolchain.toml` épingle 1.99.0 en édition 2024 (§5.4) ; l'environnement de construction de ces livraisons disposait de la 1.98.1 seulement. Aucun écart de code ; à vérifier au premier `cargo build` sous rustup.
+- **Crates `gesco-server` et `gesco-sync` retirées (31 octobre 2026)** : deux squelettes vides (`fn main() {}`, une ligne), compilés à chaque vérification pour rien, `gesco-server` entraînant axum et `gesco-services` (donc Typst) alors que le disque du porteur du projet se remplit à chaque compilation. Elles reviendront à la phase 11 (serveur cloud, consommation de l'outbox) ; l'historique git les garde.
 
 ## Corrections documentaires du 4 octobre 2026 (blueprint v0.17, règles v0.3, spec v1.1)
 

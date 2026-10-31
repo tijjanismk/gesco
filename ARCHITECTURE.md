@@ -19,9 +19,12 @@ Carte de l'état du code au 9 octobre 2026 : phase 0.5 (étape 13 en cours : SQL
 gesco-app ──► gesco-services ──► gesco-core
                     ├──────────► gesco-db ──► gesco-core
                     └──────────► gesco-docs
-gesco-server ──► gesco-services (inactif, phase 11)
-gesco-sync, gesco-sms ──► gesco-core (vides)
+gesco-sms ──► gesco-core
 ```
+
+`gesco-server` (serveur cloud) et `gesco-sync` (consommation de l'outbox), deux squelettes vides,
+sont retirés de l'espace de travail le 31 octobre 2026 : ils étaient compilés à chaque fois pour
+rien. Ils reviendront à la phase 11 ; l'historique git garde leur point de départ.
 
 | Crate | Rôle | État |
 |---|---|---|
@@ -31,7 +34,7 @@ gesco-sync, gesco-sms ──► gesco-core (vides)
 | `gesco-services` | Noyau applicatif, authentification et session rapide, garde, comptes, rôles, mise à niveau des bases installées, années scolaires, fiche d'établissement, numérotation, documents, clés, archive, sauvegarde, restauration, administration et journal, licence ; scolarité : référentiel, élèves et responsables, inscriptions, fusion, export Excel, import des élèves ; frontière et contrat des commandes (82) | Phases 0.5, 1 et 2 |
 | `gesco-app` | Binaire Tauri : fenêtre, commande `executer`, trousseau Windows, empreinte machine, tâches périodiques, mode d'essai (`GESCO_DOSSIER_ESSAI`) ; installeur NSIS configuré | Phase 0.5 |
 | `outils/licence` (`gesco-licence`) | Outil de l'éditeur, jamais livré : clés de signature, émission des licences | Phase 0.5 |
-| `gesco-server`, `gesco-sync`, `gesco-sms` | Frontières posées, inactives | — |
+| `gesco-sms` | Frontière posée, inactive | — |
 
 ## Frontend
 
@@ -46,7 +49,7 @@ la session, la recherche globale (`Ctrl+K`) et la navigation filtrée par permis
 ## Points d'entrée
 
 - `crates/gesco-app/src/main.rs` — application du poste.
-- `crates/gesco-server/src/main.rs` — serveur cloud, inactif jusqu'en phase 11.
+- Serveur cloud (`gesco-server`) : retiré le 31 octobre 2026, il reviendra à la phase 11.
 - `frontend/src/main.tsx` — interface.
 
 ## Documents de référence
