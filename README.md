@@ -15,8 +15,10 @@ cargo build -p gesco-app   # sur Windows 10 1809+, WebView2 requis
 cargo test --workspace --exclude gesco-app
 cargo clippy --workspace --exclude gesco-app --all-targets -- -D warnings
 node outils/ci/verifier-liste-blanche.mjs
-cargo test --release -p gesco-docs --test moteur   # cible de 400 documents en moins de 2 minutes
 ```
+
+La cible de 400 documents en moins de 2 minutes (`cargo test --release -p gesco-docs --test moteur`) tourne
+dans la CI ; en local, seulement avant de construire l'installeur (`tauri build`), qui réutilise une partie de `target/release`.
 
 Essais de bout en bout sur l'application réelle (21 scénarios), avec captures d'écran et chronomètre
 UC-01 dans `frontend/e2e/captures/` (`gesco-app` compilé en développement : `cargo build -p gesco-app` après
