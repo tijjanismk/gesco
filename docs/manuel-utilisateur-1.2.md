@@ -1,6 +1,6 @@
 # GESCO — manuel d'utilisation
 
-Pour la version 1.2.5, du 24 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
+Pour la version 1.2.6, du 31 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
 qui n'existe qu'à partir de la 1.1 ou de la 1.2 est signalé « (1.1) » ou « (1.2) ».
 
 GESCO gère une école sur un seul poste Windows, sans internet : les élèves et leurs familles,
@@ -20,7 +20,7 @@ Chaque écran est désigné par son nom dans le menu de gauche, sous son groupe 
 L'installation est décrite pas à pas dans le guide `GESCO-guide-installation.pdf`, remis avec
 l'installeur. En bref :
 
-1. Lancez `GESCO_1.2.5_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
+1. Lancez `GESCO_1.2.6_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
    « Windows a protégé votre ordinateur », cliquez sur « Informations complémentaires », puis sur
    « Exécuter quand même ».
 2. Au premier démarrage, saisissez le nom de l'école, ses coordonnées et le compte
@@ -174,6 +174,10 @@ code d'accès (§4bis).
 
 - GESCO calcule moyennes et rangs d'après les notes, les coefficients et les règles de chaque
   cycle ; la direction relit, saisit les appréciations, valide puis publie.
+- **Remplir les appréciations vides (1.2.6)** : ce bouton met, pour toute la classe,
+  l'appréciation qui correspond à la moyenne de chaque matière (Excellent travail dès 16 sur 20,
+  puis 14, 12, 11, 10, 8 et 6 ; la moitié au 1er cycle, noté sur 10). Ce qu'un enseignant a déjà
+  écrit est gardé ; l'appréciation de la direction reste à écrire ; tout reste modifiable.
 - Le bulletin s'imprime au format réglé (A5 par défaut), avec les colonnes que l'école a
   choisies (Établissement → Bulletin imprimé).
 - **Avertissement et blâme du conseil de classe (1.1)** : notés dans Discipline et rattachés à la
@@ -198,6 +202,8 @@ retirer » se renvoie d'un clic.
 
 ### Convocations (Scolarité → Convocations) (1.2)
 
+L'élève se retrouve en tapant quelques lettres de son nom, de ses prénoms ou de son matricule,
+comme au guichet, puis en cliquant sur le bon (1.2.6).
 Convoquer un responsable au sujet d'un élève : le motif, le jour, l'heure et le canal (billet
 confié à l'élève, en main propre, SMS, WhatsApp). Le billet s'imprime, avec un coupon à
 rapporter signé. On note ensuite ce que l'école sait de la réception (confirmée ou non), un
@@ -268,8 +274,11 @@ Un versement saisi par erreur s'annule avec un motif ; la direction en est avert
 (fratrie, enfant du personnel…) se règlent sur la facture de l'élève.
 
 - **Finance → Sessions de caisse** : les caisses ouvertes et fermées, leurs états.
-- **Finance → Impayés** : ce qui reste dû, par ancienneté (0 à 30 jours, 31 à 60, 61 à 90, plus
-  de 90), exportable.
+- **Finance → Impayés** : ce qui reste dû, par tranche d'ancienneté, exportable. Les tranches
+  livrées sont 0 à 15 jours, 16 à 30, 31 à 60 et plus de 60 ; chaque école règle les siennes
+  dans Paramètres → Établissement, section « Frais et caisse », par trois nombres de jours
+  croissants (par exemple `7,15,30` pour une école stricte, `30,60,90` pour une école plus
+  souple) (1.2.6). GESCO montre les retards ; il ne renvoie personne de lui-même.
 - **Finance → Journal des encaissements** : tous les versements d'une période.
 
 ### Dépenses (Finance → Dépenses)

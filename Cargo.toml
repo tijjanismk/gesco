@@ -9,6 +9,8 @@ members = [
     "crates/gesco-sms",
     "crates/gesco-app",
     "outils/licence",
+    # Outil du porteur du projet : remplit une base de démonstration ; hors de la suite par défaut.
+    "outils/remplir",
 ]
 # Copie de libsqlite3-sys pour SQLite3 Multiple Ciphers : une dépendance, pas un membre.
 exclude = ["vendor"]
@@ -24,7 +26,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "1.2.5"
+version = "1.2.6"
 edition = "2024"
 rust-version = "1.98"
 license = "UNLICENSED"

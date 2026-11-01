@@ -1,0 +1,22 @@
+[package]
+name = "gesco-remplir"
+description = "Outil du porteur du projet : remplit une base GESCO de trois années de démonstration, à leurs vraies dates. Jamais livré aux écoles."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+gesco-core.workspace = true
+gesco-services.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+keyring-core = "1.0.0"
+windows-native-keyring-store = "1.1.0"
+zeroize.workspace = true
+
+[lints]
+workspace = true
