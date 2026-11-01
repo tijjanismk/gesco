@@ -350,7 +350,9 @@ async fn les_decisions_se_proposent_se_valident_puis_l_annee_se_cloture() {
     .await;
     // Ses bulletins, eux, se relisent et se réimpriment : la classe entière et un élève.
     let bulletins = json!({ "classe_id": classe, "periode_id": trimestre(3) });
-    let lus = p.ok("bulletins_lire", Some(&admin), bulletins.clone()).await;
+    let lus = p
+        .ok("bulletins_lire", Some(&admin), bulletins.clone())
+        .await;
     assert_eq!(lus["bulletins"].as_array().unwrap().len(), 3);
     let classe_pdf = p.ok("bulletins_produire", Some(&admin), bulletins).await;
     assert!(classe_pdf["pdf"].as_str().is_some_and(|s| !s.is_empty()));
