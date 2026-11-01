@@ -439,6 +439,7 @@ export const catalogue = {
   "bulletins.remplir_aide": "D'après la moyenne de chaque matière, pour toute la classe ; les appréciations déjà écrites sont gardées.",
   "bulletins.remplissage": "Remplissage en cours…",
   "bulletins.remplies": "Appréciations remplies : {nombre} ; celles déjà écrites sont gardées.",
+  "bulletins.annee_close": "Année close : ses bulletins se consultent et se réimpriment, sans rien recalculer ni corriger.",
   "bulletins.calcules": "Bulletins calculés : {nombre}.",
   "bulletins.valides": "Bulletins validés : {nombre}.",
   "bulletins.publies": "Bulletins publiés : le PDF de la classe est prêt à imprimer.",

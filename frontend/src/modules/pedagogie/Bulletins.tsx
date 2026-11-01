@@ -48,7 +48,12 @@ function valeur(c: number | null): string {
 export function Bulletins() {
   const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
   const annees = useQuery({ queryKey: ["annees"], queryFn: () => appeler("annees_lister", null) });
-  const anneeId = annees.data?.find((a) => a.est_courante)?.id ?? null;
+  // L'année en cours par défaut ; une année close se consulte et se réimprime, sans rien changer.
+  const [anneeChoisie, setAnneeChoisie] = useState<string | null>(null);
+  const ouvertes = (annees.data ?? []).filter((a) => a.statut !== "preparation");
+  const annee = ouvertes.find((a) => a.id === anneeChoisie) ?? ouvertes.find((a) => a.est_courante) ?? ouvertes[0];
+  const anneeId = annee?.id ?? null;
+  const close = annee?.statut === "cloturee" || annee?.statut === "archivee";
   const classes = useQuery({ queryKey: ["classes", anneeId], queryFn: () => appeler("classes_lister", { annee_id: anneeId ?? "" }), enabled: anneeId !== null });
   const pedagogie = useQuery({ queryKey: ["pedagogie", anneeId], queryFn: () => appeler("pedagogie_lire", { id: anneeId ?? "" }), enabled: anneeId !== null });
   const [classeChoisie, setClasseChoisie] = useState<string | null>(null);
@@ -62,6 +67,22 @@ export function Bulletins() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-encre">{t("bulletins.titre")}</h1>
+      {ouvertes.length > 1 ? (
+        <div className="flex flex-wrap items-end gap-3">
+          <Selection
+            id="bulletins-annee"
+            libelle={t("annees.libelle")}
+            valeur={anneeId ?? ""}
+            surChangement={(v) => {
+              setAnneeChoisie(v);
+              setClasseChoisie(null);
+              setPeriodeChoisie(null);
+            }}
+            options={ouvertes.map((a) => ({ valeur: a.id, libelle: a.libelle }))}
+          />
+          {close ? <p className="pb-2 text-sm text-muet">{t("bulletins.annee_close")}</p> : null}
+        </div>
+      ) : null}
       <MessageErreur erreur={classes.error ?? pedagogie.error} />
       {classe === undefined ? (
         <p className="text-sm text-muet">{t("bulletins.aucune_classe")}</p>
@@ -71,14 +92,16 @@ export function Bulletins() {
             <Selection id="bulletins-classe" libelle={t("enseignants.classe")} valeur={classe.classe.id} surChangement={setClasseChoisie} options={visibles.map((c) => ({ valeur: c.classe.id, libelle: `${c.classe.libelle} · ${c.niveau}` }))} />
             <Selection id="bulletins-periode" libelle={t("notes.periode")} valeur={periode?.periode.id ?? ""} surChangement={setPeriodeChoisie} options={periodes.map((p) => ({ valeur: p.periode.id, libelle: p.libelle }))} />
           </div>
-          {periode === undefined ? null : <BulletinsDeLaClasse key={`${classe.classe.id}-${periode.periode.id}`} classeId={classe.classe.id} periodeId={periode.periode.id} permissions={permissions} />}
+          {periode === undefined ? null : (
+            <BulletinsDeLaClasse key={`${classe.classe.id}-${periode.periode.id}`} classeId={classe.classe.id} periodeId={periode.periode.id} permissions={permissions} close={close} />
+          )}
         </>
       )}
     </div>
   );
 }
 
-function BulletinsDeLaClasse({ classeId, periodeId, permissions }: { classeId: string; periodeId: string; permissions: readonly string[] }) {
+function BulletinsDeLaClasse({ classeId, periodeId, permissions, close }: { classeId: string; periodeId: string; permissions: readonly string[]; close: boolean }) {
   const client = useQueryClient();
   const demande = { classe_id: classeId, periode_id: periodeId };
   const cle = ["bulletins", classeId, periodeId];
@@ -146,18 +169,18 @@ function BulletinsDeLaClasse({ classeId, periodeId, permissions }: { classeId: s
     <>
       <Section titre={t("bulletins.classe", { classe: d.classe, periode: d.periode })}>
         <div className="flex flex-wrap gap-2">
-          {commandeAutorisee("resultats_calculer", permissions) ? (
+          {!close && commandeAutorisee("resultats_calculer", permissions) ? (
             <Bouton onClick={() => calcul.mutate()} disabled={calcul.isPending}>{t("bulletins.calculer")}</Bouton>
           ) : null}
-          {d.matieres_appreciables.length > 0 ? (
+          {!close && d.matieres_appreciables.length > 0 ? (
             <Bouton variante="secondaire" title={t("bulletins.remplir_aide")} onClick={() => remplissage.mutate()} disabled={remplissage.isPending || d.bulletins.length === 0}>
               {t(remplissage.isPending ? "bulletins.remplissage" : "bulletins.remplir")}
             </Bouton>
           ) : null}
-          {commandeAutorisee("bulletins_valider", permissions) ? (
+          {!close && commandeAutorisee("bulletins_valider", permissions) ? (
             <Bouton variante="secondaire" onClick={() => validation.mutate()} disabled={validation.isPending || d.bulletins.length === 0}>{t("bulletins.valider")}</Bouton>
           ) : null}
-          {commandeAutorisee("bulletins_publier", permissions) ? (
+          {!close && commandeAutorisee("bulletins_publier", permissions) ? (
             <Bouton variante="secondaire" onClick={() => publication.mutate()} disabled={publication.isPending || d.bulletins.length === 0}>{t("bulletins.publier")}</Bouton>
           ) : null}
           {commandeAutorisee("bulletins_produire", permissions) ? (
@@ -221,17 +244,17 @@ function BulletinsDeLaClasse({ classeId, periodeId, permissions }: { classeId: s
           </>
         )}
       </Section>
-      {choisi === undefined ? null : <BulletinEleve key={choisi.bulletin.id} affiche={choisi} classe={d} permissions={permissions} surChange={rafraichir} />}
+      {choisi === undefined ? null : <BulletinEleve key={choisi.bulletin.id} affiche={choisi} classe={d} permissions={permissions} surChange={rafraichir} close={close} />}
       {pdf === null ? null : <ApercuPdf base64={pdf} />}
-      {commandeAutorisee("moyennes_reprises_lire", permissions) ? <MoyennesReprises classeId={classeId} periodeId={periodeId} /> : null}
+      {!close && commandeAutorisee("moyennes_reprises_lire", permissions) ? <MoyennesReprises classeId={classeId} periodeId={periodeId} /> : null}
     </>
   );
 }
 
-function BulletinEleve({ affiche, classe, permissions, surChange }: { affiche: BulletinAffiche; classe: BulletinsClasse; permissions: readonly string[]; surChange: () => void }) {
+function BulletinEleve({ affiche, classe, permissions, surChange, close }: { affiche: BulletinAffiche; classe: BulletinsClasse; permissions: readonly string[]; surChange: () => void; close: boolean }) {
   const b = affiche.bulletin;
   const c = b.contenu;
-  const fige = b.statut === "publie" || b.statut === "remplace";
+  const fige = close || b.statut === "publie" || b.statut === "remplace";
   const [textes, setTextes] = useState<Record<string, string>>({});
   const [motif, setMotif] = useState("");
   const [pdf, setPdf] = useState<string | null>(null);
@@ -349,7 +372,7 @@ function BulletinEleve({ affiche, classe, permissions, surChange }: { affiche: B
         {commandeAutorisee("bulletin_produire", permissions) ? (
           <Bouton variante="secondaire" onClick={() => impression.mutate(b.id)} disabled={impression.isPending}>{t("bulletins.imprimer_un")}</Bouton>
         ) : null}
-        {b.statut === "publie" && commandeAutorisee("bulletin_corriger", permissions) ? (
+        {!close && b.statut === "publie" && commandeAutorisee("bulletin_corriger", permissions) ? (
           <>
             <Champ id="correction-motif" libelle={t("bulletins.motif_correction")} value={motif} onChange={(e) => setMotif(e.target.value)} />
             <Bouton variante="secondaire" onClick={() => correction.mutate()} disabled={correction.isPending || motif.trim() === ""}>{t("bulletins.corriger")}</Bouton>
