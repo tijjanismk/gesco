@@ -21,6 +21,11 @@ classe, l'appréciation qui correspond à la moyenne de chaque matière (16, 14,
 sur 20). Ce qu'un enseignant a déjà écrit est gardé ; l'appréciation de la direction reste à la
 main ; tout reste modifiable.
 
+**Bulletins des années passées.** L'écran Bulletins propose l'année : une année close se
+consulte et se réimprime (aperçu de la classe, bulletin d'un élève), sans rien recalculer ni
+corriger. Les reçus des années passées se réimpriment en duplicata depuis la fiche de l'élève,
+et la paie de n'importe quel mois depuis l'écran Paie.
+
 ## Mettre à jour
 
 Installez la 1.2.6 par-dessus la version en place : les données sont gardées. Les impayés se

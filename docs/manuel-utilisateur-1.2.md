@@ -174,6 +174,9 @@ code d'accès (§4bis).
 
 - GESCO calcule moyennes et rangs d'après les notes, les coefficients et les règles de chaque
   cycle ; la direction relit, saisit les appréciations, valide puis publie.
+- **Bulletins d'une année passée (1.2.6)** : choisissez l'année en haut de l'écran. Une année
+  close se consulte et se réimprime (aperçu de la classe, bulletin d'un élève), sans rien
+  recalculer ni corriger.
 - **Remplir les appréciations vides (1.2.6)** : ce bouton met, pour toute la classe,
   l'appréciation qui correspond à la moyenne de chaque matière (Excellent travail dès 16 sur 20,
   puis 14, 12, 11, 10, 8 et 6 ; la moitié au 1er cycle, noté sur 10). Ce qu'un enseignant a déjà
