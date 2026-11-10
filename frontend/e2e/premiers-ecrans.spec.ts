@@ -1228,6 +1228,12 @@ test("phase 4 : bulletins d'une classe du 2e cycle, calculés, appréciés, vali
   await expect(page.getByText(/Moyenne générale : .* rang 2e sur 2/)).toBeVisible();
   await capturer("71-bulletins-classe");
 
+  // Les appréciations vides se remplissent d'après la moyenne ; celle de l'enseignante reste.
+  await page.getByRole("button", { name: texte("bulletins.remplir") }).click();
+  await expect(page.getByText(/Appréciations remplies : [1-9]\d* ; celles déjà écrites sont gardées\./)).toBeVisible();
+  await expect(maths).toHaveValue("Bon travail");
+  await expect(page.getByLabel("Appréciation en Français")).not.toHaveValue("");
+
   await page.getByRole("button", { name: texte("bulletins.valider") }).click();
   await expect(page.getByText("Bulletins validés : 2.")).toBeVisible();
   await page.getByRole("button", { name: texte("bulletins.publier") }).click();

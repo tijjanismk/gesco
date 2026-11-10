@@ -1009,6 +1009,7 @@ contrat! {
     bulletins_lire(DemandeBulletins) -> BulletinsClasse;
     resultats_calculer(DemandeBulletins) -> BulletinsClasse;
     appreciation_saisir(DemandeAppreciation) -> gesco_core::pedagogie::Bulletin;
+    appreciations_remplir(DemandeBulletins) -> u32;
     bulletins_valider(DemandeBulletins) -> u32;
     bulletins_publier(DemandeBulletins) -> DocumentAffiche;
     bulletin_corriger(DemandeCorrection) -> gesco_core::pedagogie::Bulletin;
@@ -3344,6 +3345,12 @@ impl Application {
     ) -> Resultat<gesco_core::pedagogie::Bulletin> {
         ServiceBulletins::nouveau(&appel.ouverte()?.noyau)
             .apprecier(appel.session()?, &entree)
+            .await
+    }
+
+    async fn appreciations_remplir(&self, appel: Appel, entree: DemandeBulletins) -> Resultat<u32> {
+        ServiceBulletins::nouveau(&appel.ouverte()?.noyau)
+            .remplir_appreciations(appel.session()?, &entree)
             .await
     }
 

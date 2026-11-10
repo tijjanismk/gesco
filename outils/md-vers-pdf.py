@@ -94,19 +94,21 @@ def liste(elements: list[str], numerotee: bool) -> ListFlowable:
 def composer(markdown: str) -> list:
     histoire = []
     lignes = markdown.splitlines()
+
+    def debut_de_bloc(ligne: str) -> bool:
+        """Vrai si la ligne ouvre autre chose qu'un paragraphe : elle ne s'y rattache pas."""
+        return bool(re.match(r"^(#{1,6} |\||- |\d+\. )", ligne)) or ligne.strip() == "---"
+
     i = 0
     while i < len(lignes):
         ligne = lignes[i]
+        titre_markdown = re.match(r"^(#{1,6}) +(.*)$", ligne)
         if not ligne.strip():
             i += 1
-        elif ligne.startswith("# "):
-            histoire.append(Paragraph(en_ligne(ligne[2:]), TITRE))
-            i += 1
-        elif ligne.startswith("## "):
-            histoire.append(Paragraph(en_ligne(ligne[3:]), H2))
-            i += 1
-        elif ligne.startswith("### "):
-            histoire.append(Paragraph(en_ligne(ligne[4:]), H3))
+        elif titre_markdown:
+            # Au-delà du niveau 3, le style du niveau 3.
+            style = {1: TITRE, 2: H2}.get(len(titre_markdown.group(1)), H3)
+            histoire.append(Paragraph(en_ligne(titre_markdown.group(2)), style))
             i += 1
         elif ligne.strip() == "---":
             histoire.append(HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#9ca3af"), spaceBefore=4, spaceAfter=8))
@@ -130,8 +132,10 @@ def composer(markdown: str) -> list:
             histoire.append(liste(elements, numerotee))
             histoire.append(Spacer(1, 4))
         else:
-            bloc = []
-            while i < len(lignes) and lignes[i].strip() and not re.match(r"^(#|\||- |\d+\. |---)", lignes[i]):
+            # La ligne courante est toujours consommée : aucune ligne ne peut bloquer la boucle.
+            bloc = [ligne.strip()]
+            i += 1
+            while i < len(lignes) and lignes[i].strip() and not debut_de_bloc(lignes[i]):
                 bloc.append(lignes[i].strip())
                 i += 1
             histoire.append(Paragraph(en_ligne(" ".join(bloc)), TEXTE))

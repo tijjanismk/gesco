@@ -436,7 +436,7 @@ export const catalogue = {
   "bulletins.publier": "Publier et imprimer",
   "bulletins.apercu": "Aperçu de la classe (PDF)",
   "bulletins.remplir": "Remplir les appréciations vides",
-  "bulletins.remplir_aide": "D'après la moyenne de chaque matière, pour toute la classe ; les appréciations déjà écrites sont gardées.",
+  "bulletins.remplir_aide": "D'après la moyenne de chaque matière, pour toute la classe ; elles suivent la moyenne à chaque calcul. Les appréciations écrites par un enseignant sont gardées.",
   "bulletins.remplissage": "Remplissage en cours…",
   "bulletins.remplies": "Appréciations remplies : {nombre} ; celles déjà écrites sont gardées.",
   "bulletins.annee_close": "Année close : ses bulletins se consultent et se réimpriment, sans rien recalculer ni corriger.",

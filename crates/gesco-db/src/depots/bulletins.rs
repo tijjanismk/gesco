@@ -221,14 +221,28 @@ pub async fn ecrire_statut(
     Ok(())
 }
 
-/// Appréciations d'une période : (inscription, matière ou « generale », texte).
+/// Appréciation enregistrée d'un élève pour une période.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AppreciationEnregistree {
+    /// Élève.
+    pub inscription_id: Id<Inscription>,
+    /// Identifiant de la matière, ou « generale ».
+    pub matiere_cle: String,
+    /// Texte ; vide si l'appréciation a été vidée.
+    pub texte: String,
+    /// Posée d'office d'après la moyenne : elle se refait à chaque calcul. Fausse pour celle
+    /// qu'un enseignant ou la direction a écrite.
+    pub automatique: bool,
+}
+
+/// Appréciations d'une période.
 pub async fn appreciations(
     cnx: &mut Connexion,
     periode_id: Id<Periode>,
     contexte: &Contexte,
-) -> Resultat<Vec<(Id<Inscription>, String, String)>> {
-    let lignes: Vec<(String, String, String)> = sqlx::query_as(
-        "SELECT inscription_id, matiere_cle, texte FROM appreciation
+) -> Resultat<Vec<AppreciationEnregistree>> {
+    let lignes: Vec<(String, String, String, i64)> = sqlx::query_as(
+        "SELECT inscription_id, matiere_cle, texte, automatique FROM appreciation
          WHERE periode_id = ?1 AND etablissement_id = ?2",
     )
     .bind(periode_id.vers_chaine())
@@ -237,26 +251,35 @@ pub async fn appreciations(
     .await?;
     lignes
         .into_iter()
-        .map(|(i, m, t)| Ok((lire_id("appreciation", "inscription_id", &i)?, m, t)))
+        .map(|(i, matiere_cle, texte, automatique)| {
+            Ok(AppreciationEnregistree {
+                inscription_id: lire_id("appreciation", "inscription_id", &i)?,
+                matiere_cle,
+                texte,
+                automatique: automatique != 0,
+            })
+        })
         .collect()
 }
 
-/// Écrit une appréciation ; un texte vide la vide.
+/// Écrit une appréciation ; un texte vide la vide. `automatique` dit si elle vient de la moyenne
+/// ou de la main d'un enseignant.
 pub async fn ecrire_appreciation(
     cnx: &mut Connexion,
     inscription_id: Id<Inscription>,
     periode_id: Id<Periode>,
     matiere_cle: &str,
     texte: &str,
+    automatique: bool,
     contexte: &Contexte,
 ) -> Resultat<()> {
     sqlx::query(
         "INSERT INTO appreciation (inscription_id, periode_id, matiere_cle, etablissement_id, texte, saisie_le,
-            saisie_par, identifiant_poste)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            saisie_par, identifiant_poste, automatique)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
          ON CONFLICT (inscription_id, periode_id, matiere_cle) DO UPDATE SET texte = excluded.texte,
             saisie_le = excluded.saisie_le, saisie_par = excluded.saisie_par,
-            identifiant_poste = excluded.identifiant_poste",
+            identifiant_poste = excluded.identifiant_poste, automatique = excluded.automatique",
     )
     .bind(inscription_id.vers_chaine())
     .bind(periode_id.vers_chaine())
@@ -266,6 +289,7 @@ pub async fn ecrire_appreciation(
     .bind(contexte.maintenant.millis_epoque())
     .bind(contexte.auteur())
     .bind(&contexte.poste.0)
+    .bind(i64::from(automatique))
     .execute(cnx)
     .await?;
     Ok(())

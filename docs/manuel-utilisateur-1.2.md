@@ -1,6 +1,6 @@
 # GESCO — manuel d'utilisation
 
-Pour la version 1.2.6, du 31 octobre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
+Pour la version 1.2.7, du 10 novembre 2026. Il vaut aussi pour les versions 1.0.0 et 1.1.0 : ce
 qui n'existe qu'à partir de la 1.1 ou de la 1.2 est signalé « (1.1) » ou « (1.2) ».
 
 GESCO gère une école sur un seul poste Windows, sans internet : les élèves et leurs familles,
@@ -20,7 +20,7 @@ Chaque écran est désigné par son nom dans le menu de gauche, sous son groupe 
 L'installation est décrite pas à pas dans le guide `GESCO-guide-installation.pdf`, remis avec
 l'installeur. En bref :
 
-1. Lancez `GESCO_1.2.6_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
+1. Lancez `GESCO_1.2.7_x64-setup.exe` sur un poste Windows 10 ou 11 (64 bits). Si Windows affiche
    « Windows a protégé votre ordinateur », cliquez sur « Informations complémentaires », puis sur
    « Exécuter quand même ».
 2. Au premier démarrage, saisissez le nom de l'école, ses coordonnées et le compte
@@ -181,6 +181,8 @@ code d'accès (§4bis).
   l'appréciation qui correspond à la moyenne de chaque matière (Excellent travail dès 16 sur 20,
   puis 14, 12, 11, 10, 8 et 6 ; la moitié au 1er cycle, noté sur 10). Ce qu'un enseignant a déjà
   écrit est gardé ; l'appréciation de la direction reste à écrire ; tout reste modifiable.
+  Une appréciation ainsi remplie suit la moyenne : après une note corrigée et un nouveau calcul,
+  elle change avec elle (1.2.7). Dès qu'on la corrige à la main, elle ne bouge plus.
 - Le bulletin s'imprime au format réglé (A5 par défaut), avec les colonnes que l'école a
   choisies (Établissement → Bulletin imprimé).
 - **Avertissement et blâme du conseil de classe (1.1)** : notés dans Discipline et rattachés à la

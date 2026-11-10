@@ -93,7 +93,7 @@ function NouvelleConvocation({ surFait }: { surFait: (c: ConvocationAffichee) =>
   const inscription = valides.find((l) => l.inscription.id === inscriptionId);
   // Retrouver l'élève comme au guichet : quelques lettres, puis un clic parmi les inscrits.
   const [texte, setTexte] = useState("");
-  const cherche = texte.trim().length >= 2 && inscriptionId === "";
+  const cherche = texte.trim().length >= 2 && inscription === undefined;
   const trouves = useQuery({ queryKey: ["convocation-eleves", texte], queryFn: () => appeler("eleves_rechercher", { texte }), enabled: cherche });
   const proposes = (trouves.data ?? []).flatMap((e) => valides.filter((l) => l.inscription.eleve_id === e.id)).slice(0, 8);
   const fiche = useQuery({
@@ -149,8 +149,9 @@ function NouvelleConvocation({ surFait }: { surFait: (c: ConvocationAffichee) =>
                 </li>
               ))}
             </ul>
-            {cherche && trouves.isSuccess && proposes.length === 0 ? <p className="text-sm text-muet">{t("convocations.aucun_eleve")}</p> : null}
-            <MessageErreur erreur={trouves.error} />
+            {/* « Aucun élève » ne se dit qu'une fois la liste des inscrits arrivée. */}
+            {cherche && trouves.isSuccess && inscrits.isSuccess && proposes.length === 0 ? <p className="text-sm text-muet">{t("convocations.aucun_eleve")}</p> : null}
+            <MessageErreur erreur={annees.error ?? inscrits.error ?? trouves.error} />
           </>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
@@ -192,7 +193,7 @@ function NouvelleConvocation({ surFait }: { surFait: (c: ConvocationAffichee) =>
         </div>
         {canal === "sms" ? <p className="text-sm text-muet">{t("convocations.sms_aide")}</p> : null}
         <MessageErreur erreur={creation.error} />
-        <div><Bouton type="submit" disabled={inscriptionId === "" || creation.isPending}>{t("convocations.convoquer")}</Bouton></div>
+        <div><Bouton type="submit" disabled={inscription === undefined || creation.isPending}>{t("convocations.convoquer")}</Bouton></div>
       </Formulaire>
     </Section>
   );

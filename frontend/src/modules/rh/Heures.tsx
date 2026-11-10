@@ -12,7 +12,7 @@ import { francs, t, texteDeCle } from "../../i18n";
 import type { EtatHeures, LigneHeures } from "../../types/gesco";
 
 /** Heures écrites comme on les saisit : « 24 », « 24,5 », « 24,25 ». */
-export function ecrireHeures(minutes: number): string {
+function ecrireHeures(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   if (m === 0) return String(h);

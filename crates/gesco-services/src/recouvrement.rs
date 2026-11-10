@@ -59,6 +59,8 @@ pub struct LigneImpaye {
     pub facture: String,
     /// Échu, total, ancienneté.
     pub impaye: Impaye,
+    /// Tranche d'ancienneté, selon les limites que l'école a réglées.
+    pub tranche: TrancheAnciennete,
     /// Payeurs, le premier d'abord.
     pub payeurs: Vec<PayeurAffiche>,
     /// Année clôturée dont reste cet arriéré (T-67) ; aucune pour l'année en cours.
@@ -261,8 +263,7 @@ impl<'n> ServiceRecouvrement<'n> {
                     .iter()
                     .map(|e| (e.echeance.date, e.reste))
                     .collect();
-                if let Some(mut i) = calcul(impaye(&echeances, aujourd_hui))? {
-                    i.tranche = tranches.classer(i.jours);
+                if let Some(i) = calcul(impaye(&echeances, aujourd_hui))? {
                     ouvertes.insert(facture.inscription_id, (facture.numero, i));
                 }
             }
@@ -292,6 +293,7 @@ impl<'n> ServiceRecouvrement<'n> {
                 matricule: l.matricule,
                 classe: l.classe,
                 facture,
+                tranche: tranches.classer(impaye.jours),
                 impaye,
                 arriere,
             });
@@ -314,10 +316,7 @@ impl<'n> ServiceRecouvrement<'n> {
         }
         let mut par_tranche = Vec::new();
         for tranche in TrancheAnciennete::TOUTES {
-            let dans: Vec<_> = lignes
-                .iter()
-                .filter(|l| l.impaye.tranche == *tranche)
-                .collect();
+            let dans: Vec<_> = lignes.iter().filter(|l| l.tranche == *tranche).collect();
             let (de, a) = tranches.bornes(*tranche);
             par_tranche.push(TotalTranche {
                 tranche: *tranche,

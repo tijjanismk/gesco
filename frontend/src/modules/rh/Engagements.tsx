@@ -40,7 +40,7 @@ function heures(minutes: number): string {
 
 /** Rémunération lisible ; rien quand le noyau en a retiré les montants (compte sans
  *  `contracts:read`). */
-export function texteRemuneration(r: Remuneration): string {
+function texteRemuneration(r: Remuneration): string {
   if (r.type === "mensuelle") return t("engagement.par_mois", { montant: francs(r.montant) });
   if (r.type === "horaire") return t("engagement.par_heure", { taux: francs(r.taux), heures: heures(r.minutes_par_semaine) });
   if (r.type === "masquee") return "";

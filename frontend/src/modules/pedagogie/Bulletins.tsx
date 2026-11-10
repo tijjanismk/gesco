@@ -18,27 +18,6 @@ const STATUTS: Record<StatutBulletin, Cle> = {
   remplace: "bulletins.statut.remplace",
 };
 
-/** Appréciations types, proposées au clavier ; le texte reste libre (T-31). */
-const APPRECIATIONS = [
-  "Excellent travail",
-  "Très bon travail",
-  "Bon travail",
-  "Assez bon travail",
-  "Travail passable",
-  "Peut mieux faire",
-  "Travail insuffisant",
-  "Doit redoubler d'efforts",
-];
-
-/** Part du barème qui ouvre chaque appréciation type : 16, 14, 12, 11, 10, 8 et 6 sur 20 ; en
- *  dessous, la dernière. */
-const SEUILS = [0.8, 0.7, 0.6, 0.55, 0.5, 0.4, 0.3];
-
-function appreciationType(moyenne: number, bareme: number): string {
-  const rang = SEUILS.findIndex((s) => moyenne >= s * bareme);
-  return APPRECIATIONS[rang === -1 ? APPRECIATIONS.length - 1 : rang] ?? "";
-}
-
 function valeur(c: number | null): string {
   return c === null ? "—" : moyenne(c);
 }
@@ -133,32 +112,15 @@ function BulletinsDeLaClasse({ classeId, periodeId, permissions, close }: { clas
     },
   });
   const apercu = useMutation({ mutationFn: () => appeler("bulletins_produire", demande), onSuccess: (document) => setPdf(document.pdf) });
-  // Remplit d'après la moyenne les appréciations encore vides des matières de l'utilisateur, pour
-  // toute la classe ; ce qu'un enseignant a écrit reste, et l'appréciation générale aussi.
+  // Le noyau pose d'après la moyenne les appréciations encore vides des matières de l'utilisateur,
+  // pour toute la classe ; elles suivront la moyenne à chaque calcul. Ce qu'un enseignant a écrit
+  // reste, et l'appréciation générale aussi.
   const remplissage = useMutation({
-    mutationFn: async () => {
-      const donnees = lecture.data;
-      let remplies = 0;
-      for (const a of donnees?.bulletins ?? []) {
-        if (donnees === undefined || a.bulletin.statut === "publie" || a.bulletin.statut === "remplace") continue;
-        for (const l of a.bulletin.contenu.lignes) {
-          if (l.moyenne === null || l.appreciation.trim() !== "" || !donnees.matieres_appreciables.includes(l.matiere_id)) continue;
-          await appeler("appreciation_saisir", {
-            inscription_id: a.bulletin.inscription_id,
-            periode_id: a.bulletin.periode_id,
-            matiere_id: l.matiere_id,
-            texte: appreciationType(l.moyenne, donnees.bareme),
-          });
-          remplies += 1;
-        }
-      }
-      return remplies;
-    },
+    mutationFn: () => appeler("appreciations_remplir", demande),
     onSuccess: (n) => {
       setBilan(t("bulletins.remplies", { nombre: String(n) }));
       rafraichir();
     },
-    onError: rafraichir,
   });
   const d = lecture.data;
   if (d === undefined) return <MessageErreur erreur={lecture.error} />;
@@ -274,7 +236,7 @@ function BulletinEleve({ affiche, classe, permissions, surChange, close }: { aff
     <Section titre={t("bulletins.de", { eleve: c.eleve, matricule: c.matricule })}>
       {b.motif_correction === "" ? null : <p className="text-sm text-ocre">{t("bulletins.corrige", { version: String(b.version), motif: b.motif_correction })}</p>}
       <datalist id="appreciations-types">
-        {APPRECIATIONS.map((a) => (
+        {classe.appreciations_types.map((a) => (
           <option key={a} value={a} />
         ))}
       </datalist>

@@ -11,8 +11,7 @@ export const CYCLES: Record<Cycle, Cle> = {
 };
 
 /** Les cycles dans l'ordre : l'enseignement général, puis le technique. */
-export const ORDRE_CYCLES: readonly Cycle[] = ["jardin", "premier_cycle", "second_cycle", "lycee", "technique"];
-const ORDRE = ORDRE_CYCLES;
+const ORDRE: readonly Cycle[] = ["jardin", "premier_cycle", "second_cycle", "lycee", "technique"];
 
 /** Cycles enseignés par l'école : seuls leurs niveaux servent aux classes et aux inscriptions. */
 export function ChoixCycles({ choisis, surChangement }: { choisis: readonly Cycle[]; surChangement: (cycles: Cycle[]) => void }) {

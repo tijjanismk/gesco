@@ -30,7 +30,7 @@ export function Impayes({ surOuvrirEleve }: { surOuvrirEleve: (id: string) => vo
   const [tranche, setTranche] = useState(TOUTES);
   const donnees = liste.data;
   const lignes = (donnees?.lignes ?? []).filter(
-    (l) => (classe === TOUTES || l.classe === classe) && (tranche === TOUTES || l.impaye.tranche === tranche),
+    (l) => (classe === TOUTES || l.classe === classe) && (tranche === TOUTES || l.tranche === tranche),
   );
   const libelles = new Map<TrancheAnciennete, string>((donnees?.par_tranche ?? []).map((tr) => [tr.tranche, libelleTranche(tr)]));
   return (
@@ -89,7 +89,7 @@ export function Impayes({ surOuvrirEleve }: { surOuvrirEleve: (id: string) => vo
                 { titre: t("impayes.total"), valeur: (l) => francs(l.impaye.total) },
                 { titre: t("impayes.depuis"), valeur: (l) => dateCivile(l.impaye.plus_ancienne) },
                 { titre: t("impayes.jours"), valeur: (l) => String(l.impaye.jours) },
-                { titre: t("impayes.anciennete"), valeur: (l) => libelles.get(l.impaye.tranche) ?? "" },
+                { titre: t("impayes.anciennete"), valeur: (l) => libelles.get(l.tranche) ?? "" },
                 { titre: t("impayes.payeurs"), valeur: payeurs },
               ]}
             />

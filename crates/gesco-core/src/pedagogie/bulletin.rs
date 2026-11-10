@@ -285,10 +285,52 @@ pub fn texte_rang(rang: Rang) -> String {
     }
 }
 
+/// Appréciations types, de la meilleure à la plus faible, avec la part du barème, en pour cent,
+/// qui ouvre chacune : 16, 14, 12, 11, 10, 8 et 6 sur 20 ; en dessous, la dernière. Proposées à
+/// la saisie, où le texte reste libre (T-31), et posées d'office aux matières qu'aucun enseignant
+/// n'a appréciées quand l'école le demande.
+pub const APPRECIATIONS_TYPES: [(i32, &str); 8] = [
+    (80, "Excellent travail"),
+    (70, "Très bon travail"),
+    (60, "Bon travail"),
+    (55, "Assez bon travail"),
+    (50, "Travail passable"),
+    (40, "Peut mieux faire"),
+    (30, "Travail insuffisant"),
+    (0, "Doit redoubler d'efforts"),
+];
+
+/// Appréciation type d'une moyenne sur son barème, tous deux en centièmes.
+pub fn appreciation_type(moyenne: i32, bareme: i32) -> &'static str {
+    APPRECIATIONS_TYPES
+        .iter()
+        .find(|(seuil, _)| i64::from(moyenne) * 100 >= i64::from(*seuil) * i64::from(bareme))
+        .map_or("", |(_, texte)| texte)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::core::transition::verifier_exhaustivement;
+
+    #[test]
+    fn l_appreciation_type_suit_la_moyenne_et_le_bareme() {
+        let sur_20 = |moyenne| appreciation_type(moyenne, 2000);
+        assert_eq!(sur_20(2000), "Excellent travail");
+        assert_eq!(sur_20(1600), "Excellent travail");
+        assert_eq!(sur_20(1599), "Très bon travail");
+        assert_eq!(sur_20(1200), "Bon travail");
+        assert_eq!(sur_20(1100), "Assez bon travail");
+        assert_eq!(sur_20(1099), "Travail passable");
+        assert_eq!(sur_20(999), "Peut mieux faire");
+        assert_eq!(sur_20(600), "Travail insuffisant");
+        assert_eq!(sur_20(599), "Doit redoubler d'efforts");
+        assert_eq!(sur_20(0), "Doit redoubler d'efforts");
+        // Au 1er cycle, sur 10 : les mêmes parts du barème.
+        assert_eq!(appreciation_type(800, 1000), "Excellent travail");
+        assert_eq!(appreciation_type(550, 1000), "Assez bon travail");
+        assert_eq!(appreciation_type(549, 1000), "Travail passable");
+    }
 
     #[test]
     fn etats_du_bulletin() {

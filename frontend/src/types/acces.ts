@@ -161,6 +161,7 @@ export const ACCES = {
   bulletins_lire: { type: "permission", permission: "grades:create" },
   resultats_calculer: { type: "permission", permission: "reports:generate" },
   appreciation_saisir: { type: "permission", permission: "grades:create" },
+  appreciations_remplir: { type: "permission", permission: "grades:create" },
   bulletins_valider: { type: "permission", permission: "grades:validate" },
   bulletins_publier: { type: "permission", permission: "reports:publish" },
   bulletin_corriger: { type: "permission", permission: "grades:validate" },

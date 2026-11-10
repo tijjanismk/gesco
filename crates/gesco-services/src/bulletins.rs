@@ -8,8 +8,8 @@ use gesco_core::commun::{DateCivile, Horodatage, Id};
 use gesco_core::core::{MachineAEtats, Operation, Permission, TypeEvenement};
 use gesco_core::pedagogie::assiduite::{TotauxAbsences, totaux};
 use gesco_core::pedagogie::bulletin::{
-    REGLAGES_IMPRESSION, arrive_pendant, non_suivie, reglages_impression, texte_rang,
-    verifier_reprise,
+    APPRECIATIONS_TYPES, REGLAGES_IMPRESSION, appreciation_type, arrive_pendant, non_suivie,
+    reglages_impression, texte_rang, verifier_reprise,
 };
 use gesco_core::pedagogie::calcul::{NoteCalcul, Rang, ecrire};
 use gesco_core::pedagogie::evaluation::{SaisieNote, lire_saisie};
@@ -94,6 +94,8 @@ pub struct BulletinsClasse {
     pub matieres_appreciables: Vec<Id<Matiere>>,
     /// Vrai si l'utilisateur écrit l'appréciation générale.
     pub appreciation_generale: bool,
+    /// Appréciations types proposées à la saisie, de la meilleure à la plus faible.
+    pub appreciations_types: Vec<String>,
 }
 
 /// Appréciation d'un élève, dans une matière ou générale.
@@ -416,11 +418,17 @@ impl<'n> ServiceBulletins<'n> {
                 .map(|f| format!("{} {}", f.prenoms, f.nom))
                 .unwrap_or_default()
         };
-        let appreciation = |i: Id<Inscription>, cle: &str| {
+        // Une appréciation posée d'office suit la moyenne du moment : une note corrigée ne laisse
+        // pas une appréciation qui la contredit. Celle qu'un enseignant a écrite ne change pas.
+        let appreciation = |i: Id<Inscription>, cle: &str, moyenne: Option<i32>| {
             appreciations
                 .iter()
-                .find(|(x, m, _)| *x == i && m == cle)
-                .map(|(_, _, t)| t.clone())
+                .find(|a| a.inscription_id == i && a.matiere_cle == cle)
+                .map(|a| match (a.automatique, moyenne) {
+                    (true, Some(m)) => appreciation_type(m, bareme).to_owned(),
+                    (true, None) => String::new(),
+                    (false, _) => a.texte.clone(),
+                })
                 .unwrap_or_default()
         };
         let effectif = u32::try_from(eleves.len()).unwrap_or(u32::MAX);
@@ -462,7 +470,11 @@ impl<'n> ServiceBulletins<'n> {
                             .iter()
                             .find(|m| m.matiere_id == l.matiere_id)
                             .and_then(|m| m.moyenne),
-                        appreciation: appreciation(*inscription_id, &l.matiere_id.vers_chaine()),
+                        appreciation: appreciation(
+                            *inscription_id,
+                            &l.matiere_id.vers_chaine(),
+                            l.moyenne,
+                        ),
                     })
                     .collect();
                 (
@@ -488,7 +500,11 @@ impl<'n> ServiceBulletins<'n> {
                         dernier: resultats.resume.dernier,
                         moyenne_classe: resultats.moyenne_classe,
                         absences: totaux(&siennes, periode.debut, periode.fin),
-                        appreciation_generale: appreciation(*inscription_id, APPRECIATION_GENERALE),
+                        appreciation_generale: appreciation(
+                            *inscription_id,
+                            APPRECIATION_GENERALE,
+                            None,
+                        ),
                         moyenne_annuelle: annuelle.and_then(|a| a.moyenne),
                         rang_annuel: annuelle.and_then(|a| a.rang),
                         moyenne_annuelle_imprimee: annuelle.is_some() && annuelle_imprimee,
@@ -596,6 +612,10 @@ impl<'n> ServiceBulletins<'n> {
                 })
                 .unwrap_or_default(),
             appreciation_generale: permissions.contains(&Permission::GRADES_VALIDATE),
+            appreciations_types: APPRECIATIONS_TYPES
+                .iter()
+                .map(|(_, texte)| (*texte).to_owned())
+                .collect(),
             evaluations_en_saisie: classement.evaluations_en_saisie,
             bulletins: derniers,
         })
@@ -766,6 +786,7 @@ impl<'n> ServiceBulletins<'n> {
             demande.periode_id,
             &cle,
             texte,
+            false,
             &contexte,
         )
         .await?;
@@ -786,6 +807,102 @@ impl<'n> ServiceBulletins<'n> {
         );
         self.noyau.terminer(unite).await?;
         Ok(apres)
+    }
+
+    /// Pose l'appréciation type de la moyenne aux matières que l'utilisateur apprécie et
+    /// qu'aucun enseignant n'a appréciées, sur les bulletins non publiés de la classe ; rend le
+    /// nombre d'appréciations posées ou refaites. Marquées automatiques, elles se refont à chaque
+    /// calcul. Celle qu'un enseignant a écrite et l'appréciation générale ne changent pas.
+    pub async fn remplir_appreciations(
+        &self,
+        session: &Session,
+        demande: &DemandeBulletins,
+    ) -> Resultat<u32> {
+        annees::exiger_classe_modifiable(self.noyau, session, demande.classe_id).await?;
+        let derniers = self.derniers(session, demande).await?;
+        let portee = ServiceEnseignants::nouveau(self.noyau)
+            .portee_notes(session)
+            .await?;
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let enregistrees = {
+            let mut cnx = self.connexion().await?;
+            bulletins::appreciations(&mut cnx, demande.periode_id, &contexte).await?
+        };
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Critique)
+            .await?;
+        let mut posees = 0_u32;
+        for avant in derniers
+            .iter()
+            .map(|a| &a.bulletin)
+            .filter(|b| !b.statut.fige())
+        {
+            let mut contenu = avant.contenu.clone();
+            let bareme = contenu.bareme;
+            let mut matieres = Vec::new();
+            for l in &mut contenu.lignes {
+                let Some(moyenne) = l.moyenne else {
+                    continue;
+                };
+                if !portee.autorise(avant.classe_id, l.matiere_id) {
+                    continue;
+                }
+                let cle = l.matiere_id.vers_chaine();
+                let texte = appreciation_type(moyenne, bareme);
+                let enregistree = enregistrees
+                    .iter()
+                    .find(|a| a.inscription_id == avant.inscription_id && a.matiere_cle == cle);
+                let a_poser = match enregistree {
+                    None => true,
+                    // Vidée à la main, elle se remplit ; écrite à la main, elle reste.
+                    Some(a) if !a.automatique => a.texte.trim().is_empty(),
+                    Some(a) => a.texte != texte || l.appreciation != texte,
+                };
+                if !a_poser {
+                    continue;
+                }
+                bulletins::ecrire_appreciation(
+                    unite.connexion(),
+                    avant.inscription_id,
+                    avant.periode_id,
+                    &cle,
+                    texte,
+                    true,
+                    &contexte,
+                )
+                .await?;
+                texte.clone_into(&mut l.appreciation);
+                matieres.push(cle);
+            }
+            if matieres.is_empty() {
+                continue;
+            }
+            posees = posees.saturating_add(u32::try_from(matieres.len()).unwrap_or(u32::MAX));
+            let apres = Bulletin {
+                contenu,
+                ..avant.clone()
+            };
+            bulletins::recrire(unite.connexion(), &apres, &contexte).await?;
+            unite.auditer(
+                "appreciation",
+                &format!("{}:{}", avant.inscription_id, avant.periode_id),
+                Operation::Modification,
+                None,
+                Some(serde_json::json!({ "automatiques": matieres })),
+                "bulletins.remplir_appreciations",
+            );
+        }
+        if posees > 0 {
+            unite.emettre(
+                TypeEvenement::AppreciationSaisie,
+                "classe",
+                &demande.classe_id.vers_chaine(),
+                serde_json::json!({ "periode_id": demande.periode_id, "automatiques": posees }),
+            );
+        }
+        self.noyau.terminer(unite).await?;
+        Ok(posees)
     }
 
     async fn transiter(

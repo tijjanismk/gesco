@@ -275,6 +275,7 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("bulletins_lire", Permission::GRADES_CREATE),
     Commande::permise("resultats_calculer", Permission::REPORTS_GENERATE),
     Commande::permise("appreciation_saisir", Permission::GRADES_CREATE),
+    Commande::permise("appreciations_remplir", Permission::GRADES_CREATE),
     Commande::permise("bulletins_valider", Permission::GRADES_VALIDATE),
     Commande::permise("bulletins_publier", Permission::REPORTS_PUBLISH),
     Commande::permise("bulletin_corriger", Permission::GRADES_VALIDATE),

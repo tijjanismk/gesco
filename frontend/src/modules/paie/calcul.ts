@@ -23,7 +23,7 @@ export function ecrireTaux(taux: number): string {
 }
 
 /** Un taux à saisir : « 3,06 », « 37 ». */
-export function texteTaux(taux: number): string {
+function texteTaux(taux: number): string {
   return ecrireTaux(taux).replace("\u00a0%", "");
 }
 

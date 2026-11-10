@@ -1,5 +1,5 @@
-//! Recouvrement (SPEC_PHASE_3 §9, UC-05) : ce qu'un élève doit à ce jour, depuis quand, et dans
-//! quelle tranche d'ancienneté (T-20). Règles pures, sans E/S (R-03).
+//! Recouvrement (SPEC_PHASE_3 §9, UC-05) : ce qu'un élève doit à ce jour et depuis quand ; les
+//! tranches d'ancienneté où l'école range ce retard (T-20). Règles pures, sans E/S (R-03).
 
 use serde::{Deserialize, Serialize};
 
@@ -107,11 +107,8 @@ pub struct Impaye {
     pub total: Montant,
     /// Plus ancienne échéance passée et non soldée.
     pub plus_ancienne: DateCivile,
-    /// Jours écoulés depuis cette échéance.
+    /// Jours écoulés depuis cette échéance ; [`Tranches::classer`] en donne la tranche.
     pub jours: i64,
-    /// Tranche d'ancienneté, selon les limites livrées ; la liste des impayés la reclasse selon
-    /// celles de l'école.
-    pub tranche: TrancheAnciennete,
 }
 
 /// Impayé d'une facture d'après ses échéances dues `(date, reste)`, à la date `aujourd_hui` :
@@ -142,7 +139,6 @@ pub fn impaye(
             total,
             plus_ancienne: p,
             jours,
-            tranche: Tranches::DEFAUT.classer(jours),
         }
     }))
 }
@@ -226,7 +222,6 @@ mod tests {
                 total: f(110_000),
                 plus_ancienne: d("2026-10-15"),
                 jours: 97,
-                tranche: TrancheAnciennete::Derniere,
             })
         );
         // Rien d'échu avant la première échéance non soldée ; une échéance du jour compte.
@@ -253,7 +248,6 @@ mod tests {
                     prop_assert!(i.echu <= i.total);
                     prop_assert!(i.echu > Montant::ZERO);
                     prop_assert!(i.jours >= 0);
-                    prop_assert_eq!(i.tranche, Tranches::DEFAUT.classer(i.jours));
                     prop_assert_eq!(i.plus_ancienne.jours_depuis_epoque() - origine, decalage - i.jours);
                 }
                 Ok(None) => prop_assert!(echeances.iter().all(|(dt, r)| *dt > aujourd_hui || *r <= Montant::ZERO)),

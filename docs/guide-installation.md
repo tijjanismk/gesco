@@ -1,6 +1,6 @@
 # GESCO — installer sur un ordinateur
 
-Pour la version 1.2.6, du 31 octobre 2026. Ce guide va de l'ordinateur vide à GESCO prêt à
+Pour la version 1.2.7, du 10 novembre 2026. Ce guide va de l'ordinateur vide à GESCO prêt à
 servir. Comptez une demi-heure, sans internet une fois l'installeur copié.
 
 ---
@@ -19,13 +19,13 @@ servir. Comptez une demi-heure, sans internet une fois l'installeur copié.
 
 Sur un ordinateur qui a internet, ouvrez la page de la version :
 **https://github.com/tijjanismk/gesco/releases/latest**, puis cliquez sur
-`GESCO_1.2.6_x64-setup.exe` (environ 225 Mo). Prenez aussi le manuel
+`GESCO_1.2.7_x64-setup.exe` (environ 225 Mo). Prenez aussi le manuel
 `GESCO-manuel-utilisation.pdf`. Copiez-les sur une clé USB pour les porter à l'école.
 
 **Vérifier le fichier (conseillé).** Pour être sûr que le fichier n'a pas été abîmé ni
 remplacé, ouvrez PowerShell dans le dossier du fichier et tapez :
 
-`Get-FileHash .\GESCO_1.2.6_x64-setup.exe`
+`Get-FileHash .\GESCO_1.2.7_x64-setup.exe`
 
 Le résultat doit être exactement l'empreinte SHA-256 indiquée sur la page de la version.
 S'il diffère, ne l'installez pas : téléchargez-le de nouveau.

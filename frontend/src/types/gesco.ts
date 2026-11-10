@@ -729,6 +729,8 @@ export type BulletinsClasse = {
 	matieres_appreciables: string[],
 	/**  Vrai si l'utilisateur écrit l'appréciation générale. */
 	appreciation_generale: boolean,
+	/**  Appréciations types proposées à la saisie, de la meilleure à la plus faible. */
+	appreciations_types: string[],
 };
 
 /**  Caissier présent dans la période, pour le filtre. */
@@ -1513,6 +1515,8 @@ export type Contrat = {
 	resultats_calculer: Signature<DemandeBulletins, BulletinsClasse>,
 	/**  Signature de la commande du même nom. */
 	appreciation_saisir: Signature<DemandeAppreciation, Bulletin>,
+	/**  Signature de la commande du même nom. */
+	appreciations_remplir: Signature<DemandeBulletins, number>,
 	/**  Signature de la commande du même nom. */
 	bulletins_valider: Signature<DemandeBulletins, number>,
 	/**  Signature de la commande du même nom. */
@@ -5293,13 +5297,8 @@ export type Impaye = {
 	total: Montant,
 	/**  Plus ancienne échéance passée et non soldée. */
 	plus_ancienne: string,
-	/**  Jours écoulés depuis cette échéance. */
+	/**  Jours écoulés depuis cette échéance ; [`Tranches::classer`] en donne la tranche. */
 	jours: number,
-	/**
-	 *  Tranche d'ancienneté, selon les limites livrées ; la liste des impayés la reclasse selon
-	 *  celles de l'école.
-	 */
-	tranche: TrancheAnciennete,
 };
 
 /**  Où la moyenne annuelle s'imprime ; elle est toujours calculée et enregistrée (T-33). */
@@ -5733,6 +5732,8 @@ export type LigneImpaye = {
 	facture: string,
 	/**  Échu, total, ancienneté. */
 	impaye: Impaye,
+	/**  Tranche d'ancienneté, selon les limites que l'école a réglées. */
+	tranche: TrancheAnciennete,
 	/**  Payeurs, le premier d'abord. */
 	payeurs: PayeurAffiche[],
 	/**  Année clôturée dont reste cet arriéré (T-67) ; aucune pour l'année en cours. */

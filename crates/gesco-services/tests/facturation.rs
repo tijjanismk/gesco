@@ -1222,7 +1222,7 @@ async fn les_impayes_se_classent_par_anciennete_et_le_journal_totalise_les_recus
     assert_eq!(ligne["impaye"]["echu"], 10_000);
     assert_eq!(ligne["impaye"]["total"], 160_000);
     assert_eq!(ligne["impaye"]["jours"], 0);
-    assert_eq!(ligne["impaye"]["tranche"], "premiere");
+    assert_eq!(ligne["tranche"], "premiere");
     assert_eq!(ligne["payeurs"][0]["nom"], "Mariam Coulibaly");
     assert_eq!(
         ligne["payeurs"][0]["telephones"].as_array().unwrap().len(),
@@ -1277,7 +1277,7 @@ async fn les_impayes_se_classent_par_anciennete_et_le_journal_totalise_les_recus
     assert_eq!(liste["lignes"][0]["impaye"]["echu"], 70_000);
     assert_eq!(liste["lignes"][0]["impaye"]["jours"], 47);
     // Tranches livrées : 0 à 15 jours, 16 à 30, 31 à 60, plus de 60.
-    assert_eq!(liste["lignes"][0]["impaye"]["tranche"], "troisieme");
+    assert_eq!(liste["lignes"][0]["tranche"], "troisieme");
 
     // Le 20 janvier : Awa a plus de 90 jours de retard ; Binta doit la 2e tranche depuis 5 jours.
     e.p.horloge.avancer(9_301_469_750 - 4_031_069_750);
@@ -1289,7 +1289,7 @@ async fn les_impayes_se_classent_par_anciennete_et_le_journal_totalise_les_recus
         lignes
             .iter()
             .find(|l| l["eleve"].as_str().unwrap().starts_with(prenom))
-            .map(|l| (l["impaye"]["tranche"].clone(), l["impaye"]["echu"].clone()))
+            .map(|l| (l["tranche"].clone(), l["impaye"]["echu"].clone()))
             .unwrap()
     };
     assert_eq!(tranche("Awa"), (json!("derniere"), json!(115_000)));
@@ -1348,7 +1348,7 @@ async fn les_impayes_se_classent_par_anciennete_et_le_journal_totalise_les_recus
         .iter()
         .find(|l| l["eleve"].as_str().unwrap().starts_with("Binta"))
         .unwrap();
-    assert_eq!(binta["impaye"]["tranche"], "deuxieme");
+    assert_eq!(binta["tranche"], "deuxieme");
     assert_eq!(
         (
             &liste["par_tranche"][0]["de"],

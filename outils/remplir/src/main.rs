@@ -12,8 +12,13 @@
 //!
 //! Tout passe par les commandes de l'application, comme l'écran : factures, échéances, bulletins,
 //! décisions et audit restent ceux de GESCO. Une horloge réglée fait vivre chaque geste à sa
-//! date. GESCO doit être fermé pendant le remplissage. Pour le poste, lancer l'outil par
-//! l'Explorateur : une console lancée depuis Claude voit un `%APPDATA%` virtualisé.
+//! date, du 1er septembre 2024 au 31 octobre 2026, sans jamais reculer : le journal d'audit garde
+//! l'ordre des dates. Seule exception, en mode `poste` : le premier démarrage, fait à l'écran le
+//! jour même, précède dans le journal des gestes datés de 2024.
+//!
+//! GESCO doit être fermé pendant le remplissage. Pour le poste, lancer l'outil par l'Explorateur :
+//! une console lancée depuis Claude voit un `%APPDATA%` virtualisé. Le mot de passe y est demandé
+//! sans s'afficher.
 
 // Les réponses se lisent comme l'écran les lit : `valeur["champ"]` sur une valeur JSON rend
 // `null` quand le champ manque, sans jamais paniquer.
@@ -52,6 +57,9 @@ const ANNEES: [(&str, &str, &str); 3] = [
 
 /// L'année en cours s'arrête à ce jour.
 const JOUR_FINAL: &str = "2026-10-31";
+
+/// Jour où l'horloge de l'outil démarre : un mois avant la première rentrée.
+const JOUR_DEPART: &str = "2024-09-01";
 
 /// Classes de chaque année : code du niveau, code de la série, libellé.
 const CLASSES: [(&str, Option<&str>, &str); 12] = [
@@ -177,8 +185,9 @@ struct Ecole {
     profils: HashMap<String, Profil>,
     /// Enseignants créés : clé (maître d'une classe, ou matière d'un cycle) vers leur id.
     enseignants: HashMap<String, Value>,
-    /// Personnes des maîtres du 1er cycle, payés moins que les professeurs.
-    maitres: HashSet<String>,
+    /// Personnes des enseignants créés par l'outil ; vrai pour un maître du 1er cycle, payé
+    /// moins qu'un professeur.
+    personnes_enseignants: HashMap<String, bool>,
 }
 
 fn dire(texte: &str) {
@@ -200,6 +209,37 @@ fn lire_ligne(question: &str) -> R<String> {
     Ok(ligne.trim_end_matches(['\r', '\n']).to_owned())
 }
 
+/// Lit un secret sans l'afficher : PowerShell le demande avec des astérisques et le rend sur sa
+/// sortie, que seul l'outil lit. L'espace de travail interdit `unsafe`, donc pas d'appel direct
+/// à la console de Windows, et l'outil reste sans dépendance de plus.
+#[cfg(windows)]
+fn lire_secret(question: &str) -> R<String> {
+    let script = format!(
+        "[Console]::OutputEncoding = [Text.Encoding]::UTF8; \
+         $s = Read-Host '{}' -AsSecureString; \
+         $p = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($s); \
+         try {{ [Console]::Out.Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($p)) }} \
+         finally {{ [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($p) }}",
+        question.replace('\'', "''")
+    );
+    let sortie = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-Command", &script])
+        .stdin(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .output()
+        .map_err(|e| format!("PowerShell n'a pas pu demander le mot de passe : {e}"))?;
+    if !sortie.status.success() {
+        return Err("le mot de passe n'a pas pu être lu sans s'afficher".to_owned());
+    }
+    String::from_utf8(sortie.stdout).map_err(|e| e.to_string())
+}
+
+/// Hors de Windows, l'outil ne sert qu'aux essais : la saisie reste visible.
+#[cfg(not(windows))]
+fn lire_secret(question: &str) -> R<String> {
+    lire_ligne(&format!("{question} : "))
+}
+
 fn date(texte: &str) -> R<DateCivile> {
     DateCivile::analyser(texte).ok_or_else(|| format!("date illisible : {texte}"))
 }
@@ -207,6 +247,11 @@ fn date(texte: &str) -> R<DateCivile> {
 fn decaler(jour: DateCivile, jours: i64) -> R<DateCivile> {
     jour.decaler(jours)
         .ok_or_else(|| "date hors calendrier".to_owned())
+}
+
+/// 8 h du matin ce jour-là, en millisecondes.
+fn huit_heures(jour: DateCivile) -> i64 {
+    jour.jours_depuis_epoque() * 86_400_000 + 8 * 3_600_000
 }
 
 fn texte(v: &Value) -> String {
@@ -238,10 +283,14 @@ impl Ecole {
         Ok(())
     }
 
-    /// Règle l'horloge sur 8 h le jour donné, puis rouvre une session : la précédente a expiré.
+    /// Avance l'horloge à 8 h le jour donné, puis rouvre une session : la précédente a expiré.
+    /// Refuse de reculer : le journal d'audit garde l'ordre des dates.
     async fn aller_au(&mut self, jour: DateCivile) -> R<()> {
-        let cible = jour.jours_depuis_epoque() * 86_400_000 + 8 * 3_600_000;
+        let cible = huit_heures(jour);
         let maintenant = self.horloge.maintenant().millis_epoque();
+        if cible < maintenant {
+            return Err(format!("l'horloge reculerait au {jour}"));
+        }
         self.horloge.avancer(cible - maintenant);
         self.connecter().await
     }
@@ -459,17 +508,15 @@ impl Ecole {
             )
             .await?;
         let id = fiche["enseignant"]["id"].clone();
-        if maitre {
-            self.maitres
-                .insert(texte(&fiche["enseignant"]["personne_id"]));
-        }
+        self.personnes_enseignants
+            .insert(texte(&fiche["enseignant"]["personne_id"]), maitre);
         self.enseignants.insert(cle.to_owned(), id.clone());
         Ok(id)
     }
 
     /// Un maître par classe du 1er cycle ; au 2e cycle et au lycée, un professeur par matière,
-    /// l'un pour le collège (7e à 9e), l'autre pour le lycée. Une affectation déjà reprise de
-    /// l'année précédente est laissée telle quelle.
+    /// l'un pour le collège (7e à 9e), l'autre pour le lycée. Une affectation qui existe déjà
+    /// est laissée telle quelle ; tout autre refus arrête l'outil et s'affiche.
     async fn affecter(&mut self, annee_id: &Value, pedagogie: &Value, classes: &[Classe]) -> R<()> {
         let mut affectations = 0;
         for classe in classes {
@@ -477,16 +524,12 @@ impl Ecole {
                 let maitre = self
                     .enseignant(&format!("maitre-{}", classe.code), true)
                     .await?;
-                if self
-                    .appel(
-                        "maitre_affecter",
-                        json!({ "classe_id": classe.id, "enseignant_id": maitre }),
-                    )
-                    .await
-                    .is_ok()
-                {
-                    affectations += 1;
-                }
+                self.appel(
+                    "maitre_affecter",
+                    json!({ "classe_id": classe.id, "enseignant_id": maitre }),
+                )
+                .await?;
+                affectations += 1;
                 continue;
             }
             let groupe = if matches!(classe.code, "7" | "8" | "9") {
@@ -511,15 +554,16 @@ impl Ecole {
                 .collect();
             for (matiere, code) in matieres {
                 let professeur = self.enseignant(&format!("{groupe}-{code}"), false).await?;
-                if self
+                match self
                     .appel(
                         "affectation_ajouter",
                         json!({ "classe_id": classe.id, "matiere_id": matiere, "enseignant_id": professeur }),
                     )
                     .await
-                    .is_ok()
                 {
-                    affectations += 1;
+                    Ok(_) => affectations += 1,
+                    Err(e) if e.contains("affectation.deja") => {}
+                    Err(e) => return Err(e),
                 }
             }
         }
@@ -530,29 +574,28 @@ impl Ecole {
         Ok(())
     }
 
-    /// Un contrat à durée indéterminée, payé au mois, pour chaque enseignant qui n'en a pas.
+    /// Un contrat à durée indéterminée, payé au mois, pour chaque enseignant que l'outil a créé ;
+    /// un refus arrête l'outil et s'affiche.
     async fn engager(&mut self, debut: DateCivile) -> R<()> {
         let registre = self.appel("personnel_lister", Value::Null).await?;
         let mut engages = 0;
         for m in liste(&registre) {
-            if m["enseignant"] != true {
+            let Some(maitre) = self
+                .personnes_enseignants
+                .get(&texte(&m["membre"]["personne_id"]))
+            else {
                 continue;
-            }
-            let maitre = self.maitres.contains(&texte(&m["membre"]["personne_id"]));
-            let montant = if maitre { 85_000 } else { 125_000 };
-            if self
-                .appel(
-                    "engagement_conclure",
-                    json!({ "membre_id": m["membre"]["id"], "nature": "duree_indeterminee",
-                        "debut": debut.to_string(), "fin": null, "fonction": "",
-                        "remuneration": { "type": "mensuelle", "montant": montant }, "note": "",
-                        "remplace": null, "renouvelle": null }),
-                )
-                .await
-                .is_ok()
-            {
-                engages += 1;
-            }
+            };
+            let montant = if *maitre { 85_000 } else { 125_000 };
+            self.appel(
+                "engagement_conclure",
+                json!({ "membre_id": m["membre"]["id"], "nature": "duree_indeterminee",
+                    "debut": debut.to_string(), "fin": null, "fonction": "",
+                    "remuneration": { "type": "mensuelle", "montant": montant }, "note": "",
+                    "remplace": null, "renouvelle": null }),
+            )
+            .await?;
+            engages += 1;
         }
         dire(&format!("  {engages} contrats d'enseignants"));
         Ok(())
@@ -652,7 +695,8 @@ impl Ecole {
     }
 
     /// L'année suivante : classes reprises, élèves admis ou redoublants réinscrits, nouveaux
-    /// élèves de 1re année, puis la rentrée.
+    /// élèves de 1re année, puis la rentrée. Entre les deux années, les paies d'août et de
+    /// septembre : les contrats sont payés douze mois.
     async fn annee_suivante(
         &mut self,
         decisions: &HashMap<String, (String, &'static str)>,
@@ -660,7 +704,7 @@ impl Ecole {
         rentree: DateCivile,
         fin: DateCivile,
     ) -> R<Annee> {
-        self.aller_au(decaler(rentree, -70)?).await?;
+        self.aller_au(decaler(rentree, -60)?).await?;
         let annee = self.creer_annee(libelle, rentree, fin).await?;
         self.appel("classes_reprendre", json!({ "id": annee.id }))
             .await?;
@@ -701,6 +745,9 @@ impl Ecole {
                     .await?;
             }
         }
+        let an = rentree.annee();
+        self.paie(&format!("{an}-08"), date(&format!("{an}-08-28"))?)
+            .await?;
         self.aller_au(decaler(rentree, -21)?).await?;
         if let Some(premiere) = classes.first() {
             for _ in 0..PAR_CLASSE {
@@ -714,6 +761,8 @@ impl Ecole {
         }
         self.aller_au(decaler(rentree, -6)?).await?;
         self.appel("annee_activer", json!({ "id": annee.id }))
+            .await?;
+        self.paie(&format!("{an}-09"), date(&format!("{an}-09-28"))?)
             .await?;
         Ok(Annee { classes, ..annee })
     }
@@ -956,10 +1005,11 @@ impl Ecole {
         Ok(())
     }
 
-    /// Décisions de fin d'année validées, puis clôture ; rend la décision de chaque élève avec
-    /// le niveau de sa classe.
+    /// Décisions de fin d'année validées, puis clôture, les deux derniers jours de l'année : après
+    /// la paie de juillet, dernier geste de l'année. Rend la décision de chaque élève avec le
+    /// niveau de sa classe.
     async fn clore(&mut self, annee: &Annee) -> R<HashMap<String, (String, &'static str)>> {
-        self.aller_au(decaler(annee.fin, -26)?).await?;
+        self.aller_au(decaler(annee.fin, -2)?).await?;
         let inscriptions: HashMap<String, String> = liste(
             &self
                 .appel("inscriptions_lister", json!({ "annee_id": annee.id }))
@@ -1004,7 +1054,7 @@ impl Ecole {
                 }
             }
         }
-        self.aller_au(decaler(annee.fin, -20)?).await?;
+        self.aller_au(decaler(annee.fin, -1)?).await?;
         self.appel("annee_cloturer", json!({ "id": annee.id }))
             .await?;
         let redoublants = decisions.values().filter(|(d, _)| d == "redouble").count();
@@ -1042,7 +1092,9 @@ async fn lancer() -> R<()> {
         _ => return Err(USAGE.to_owned()),
     };
     dire(&format!("Base : {}", racine.display()));
-    let horloge = Arc::new(HorlogeFixe::a(gesco_services::HorlogeSysteme.maintenant()));
+    let horloge = Arc::new(HorlogeFixe::a(
+        gesco_core::commun::Horodatage::depuis_millis_epoque(huit_heures(date(JOUR_DEPART)?)),
+    ));
     let poste = std::env::var("COMPUTERNAME").unwrap_or_else(|_| "poste".to_owned());
     let application = Application::demarrer(OptionsApplication {
         racine: racine.clone(),
@@ -1067,7 +1119,7 @@ async fn lancer() -> R<()> {
         compteur: 0,
         profils: HashMap::new(),
         enseignants: HashMap::new(),
-        maitres: HashSet::new(),
+        personnes_enseignants: HashMap::new(),
     };
     let phase = ecole.appel("etat_demarrage", Value::Null).await?["phase"].clone();
     match (phase.as_str(), essai) {
@@ -1103,7 +1155,7 @@ async fn lancer() -> R<()> {
         }
         (Some("pret"), false) => {
             ecole.identifiant = lire_ligne("Identifiant de l'administrateur : ")?;
-            ecole.mot_de_passe = lire_ligne("Mot de passe : ")?;
+            ecole.mot_de_passe = lire_secret("Mot de passe")?;
         }
         (autre, _) => {
             return Err(format!(
@@ -1134,6 +1186,7 @@ async fn lancer() -> R<()> {
             precedente = Some(ecole.clore(&annee).await?);
         }
     }
+    ecole.aller_au(limite).await?;
     ecole
         .application
         .fermer()
@@ -1143,9 +1196,28 @@ async fn lancer() -> R<()> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() {
-    let resultat = lancer().await;
+/// Pile du fil qui remplit. Celle du fil principal de Windows, 1 Mo, déborde dès l'ouverture de
+/// la base quand l'outil est compilé sans optimisation (`cargo run -p gesco-remplir`).
+const PILE: usize = 64 * 1024 * 1024;
+
+/// Le remplissage sur son propre fil, à grande pile.
+fn remplir() -> R<()> {
+    let fil = std::thread::Builder::new()
+        .stack_size(PILE)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| e.to_string())?
+                .block_on(lancer())
+        })
+        .map_err(|e| e.to_string())?;
+    fil.join()
+        .unwrap_or_else(|_| Err("le remplissage s'est interrompu".to_owned()))
+}
+
+fn main() {
+    let resultat = remplir();
     if let Err(e) = &resultat {
         let _ = writeln!(std::io::stderr(), "Échec : {e}");
     }

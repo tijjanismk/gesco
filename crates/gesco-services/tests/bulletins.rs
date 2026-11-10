@@ -950,3 +950,203 @@ async fn la_note_de_conduite_se_saisit_se_calcule_et_compte_dans_la_moyenne() {
         .await;
     assert!(pdf["pdf"].as_str().unwrap().len() > 1000);
 }
+
+/// Les appréciations posées d'office suivent la moyenne : une note corrigée, puis le recalcul, les
+/// refait ; celles qu'un enseignant a écrites ne changent jamais (revue du 10 novembre 2026).
+#[tokio::test]
+async fn les_appreciations_automatiques_suivent_la_moyenne_sans_toucher_celles_des_enseignants() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let annee = p
+        .ok(
+            "annee_creer",
+            Some(&admin),
+            json!({ "libelle": "2026-2027", "debut": RENTREE_2026, "fin": FIN_2027 }),
+        )
+        .await;
+    p.ok("annee_activer", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    poser_grille(&p, &admin, &annee["id"]).await;
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    let septieme = id_par(&ped["niveaux"], "code", "7");
+    let classe = p
+        .ok(
+            "classe_creer",
+            Some(&admin),
+            json!({ "annee_id": annee["id"], "niveau_id": septieme, "serie_id": null, "libelle": "7e A" }),
+        )
+        .await["id"]
+        .clone();
+    for prenom in ["Awa", "Binta"] {
+        let fiche = eleve(&p, &admin, prenom).await;
+        p.ok(
+            "inscription_creer",
+            Some(&admin),
+            json!({ "eleve_id": fiche["eleve"]["id"], "classe_id": classe, "date_inscription": "",
+                "redoublant": false, "etablissement_origine": "" }),
+        )
+        .await;
+    }
+    p.ok(
+        "inscriptions_valider_classe",
+        Some(&admin),
+        json!({ "id": classe }),
+    )
+    .await;
+    let trimestre = ped["periodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["periode"]["niveau_id"] == septieme && x["periode"]["rang"] == 1)
+        .unwrap()["periode"]["id"]
+        .clone();
+    let math = id_par(&ped["matieres"], "code", "MATH");
+    let francais = id_par(&ped["matieres"], "code", "FR");
+    let mut compositions = Vec::new();
+    for matiere in [&math, &francais] {
+        compositions.push(
+            p.ok(
+                "evaluation_creer",
+                Some(&admin),
+                json!({ "classe_id": classe, "periode_id": trimestre, "matiere_id": matiere,
+                    "type_evaluation": "composition", "libelle": "Composition", "date": "2026-10-04",
+                    "bareme": null }),
+            )
+            .await["id"]
+                .clone(),
+        );
+    }
+    let grille = p
+        .ok(
+            "notes_grille",
+            Some(&admin),
+            json!({ "id": compositions[0] }),
+        )
+        .await;
+    let eleves: Vec<Value> = grille["lignes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["inscription_id"].clone())
+        .collect();
+    let noter = async |evaluation: &Value, inscription: &Value, note: &str| {
+        p.ok(
+            "note_saisir",
+            Some(&admin),
+            json!({ "evaluation_id": evaluation, "inscription_id": inscription, "saisie": note }),
+        )
+        .await;
+    };
+    // Awa : 16 en maths, 9 en français ; Binta : 12 et 14.
+    for (i, notes) in [["16", "9"], ["12", "14"]].iter().enumerate() {
+        for (e, note) in notes.iter().enumerate() {
+            noter(&compositions[e], &eleves[i], note).await;
+        }
+    }
+    let demande = json!({ "classe_id": classe, "periode_id": trimestre });
+    let appreciation = |bulletins: &Value, eleve: usize, matiere: &Value| {
+        bulletins["bulletins"][eleve]["bulletin"]["contenu"]["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["matiere_id"] == *matiere)
+            .unwrap()["appreciation"]
+            .clone()
+    };
+    let saisir = async |inscription: &Value, matiere: &Value, texte: &str| {
+        p.ok(
+            "appreciation_saisir",
+            Some(&admin),
+            json!({ "inscription_id": inscription, "periode_id": trimestre, "matiere_id": matiere,
+                "texte": texte }),
+        )
+        .await;
+    };
+    let calcul = p
+        .ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+    assert_eq!(calcul["appreciations_types"].as_array().unwrap().len(), 8);
+    assert_eq!(calcul["appreciations_types"][0], "Excellent travail");
+
+    // Le professeur de français écrit celle d'Awa ; les trois autres se posent d'office.
+    saisir(&eleves[0], &francais, "Peut mieux faire à l'oral").await;
+    let remplir = async || {
+        p.ok("appreciations_remplir", Some(&admin), demande.clone())
+            .await
+    };
+    assert_eq!(remplir().await, 3);
+    let lus = p.ok("bulletins_lire", Some(&admin), demande.clone()).await;
+    assert_eq!(appreciation(&lus, 0, &math), "Excellent travail");
+    assert_eq!(
+        appreciation(&lus, 0, &francais),
+        "Peut mieux faire à l'oral"
+    );
+    assert_eq!(appreciation(&lus, 1, &math), "Bon travail");
+    assert_eq!(appreciation(&lus, 1, &francais), "Très bon travail");
+    // Rien à refaire tant que rien ne change.
+    assert_eq!(remplir().await, 0);
+
+    // La note d'Awa en maths était une erreur de saisie : 6, pas 16. Le recalcul refait son
+    // appréciation d'office, et laisse celle que son professeur de français a écrite.
+    noter(&compositions[0], &eleves[0], "6").await;
+    let recalcul = p
+        .ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+    assert_eq!(appreciation(&recalcul, 0, &math), "Travail insuffisant");
+    assert_eq!(
+        appreciation(&recalcul, 0, &francais),
+        "Peut mieux faire à l'oral"
+    );
+    assert_eq!(appreciation(&recalcul, 1, &math), "Bon travail");
+
+    // Réécrite à la main, elle n'est plus refaite ; vidée, elle se remplit de nouveau.
+    saisir(&eleves[0], &math, "Trimestre difficile").await;
+    assert_eq!(remplir().await, 0);
+    let recalcul = p
+        .ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+    assert_eq!(appreciation(&recalcul, 0, &math), "Trimestre difficile");
+    saisir(&eleves[0], &math, "").await;
+    assert_eq!(remplir().await, 1);
+    let lus = p.ok("bulletins_lire", Some(&admin), demande.clone()).await;
+    assert_eq!(appreciation(&lus, 0, &math), "Travail insuffisant");
+
+    // Publié, un bulletin ne reçoit plus rien.
+    for e in &compositions {
+        p.ok("evaluation_valider", Some(&admin), json!({ "id": e }))
+            .await;
+    }
+    p.ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+    p.ok("bulletins_valider", Some(&admin), demande.clone())
+        .await;
+    p.ok("bulletins_publier", Some(&admin), demande.clone())
+        .await;
+    saisir_refuse(&p, &admin, &eleves[1], &trimestre, &math).await;
+    assert_eq!(remplir().await, 0);
+}
+
+/// Une appréciation ne s'écrit plus sur un bulletin publié.
+async fn saisir_refuse(
+    p: &Poste_,
+    admin: &gesco_services::session::Jeton,
+    inscription: &Value,
+    periode: &Value,
+    matiere: &Value,
+) {
+    assert_eq!(
+        p.refus(
+            "appreciation_saisir",
+            Some(admin),
+            json!({ "inscription_id": inscription, "periode_id": periode, "matiere_id": matiere,
+                "texte": "Trop tard" }),
+        )
+        .await
+        .cle,
+        "bulletin.publie"
+    );
+}

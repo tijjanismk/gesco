@@ -16,7 +16,8 @@ pub mod resultats;
 
 pub use assiduite::{Absence, DemiJournee, NatureAbsence, PorteeAbsences, TotauxAbsences};
 pub use bulletin::{
-    Bulletin, ConduiteBulletin, ContenuBulletin, LigneBulletin, MoyenneReprise, StatutBulletin,
+    APPRECIATIONS_TYPES, Bulletin, ConduiteBulletin, ContenuBulletin, LigneBulletin,
+    MoyenneReprise, StatutBulletin, appreciation_type,
 };
 pub use enseignant::{AffectationEnseignement, Enseignant, PorteeNotes, StatutEnseignant};
 pub use evaluation::{Evaluation, NoteEleve, SaisieNote, StatutEvaluation};

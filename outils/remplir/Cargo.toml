@@ -18,5 +18,10 @@ keyring-core = "1.0.0"
 windows-native-keyring-store = "1.1.0"
 zeroize.workspace = true
 
+# Ces trois crates ne servent que par trousseau.rs de gesco-app, inclus par `#[path]` : hors du
+# dossier de l'outil, cargo-machete ne les y voit pas.
+[package.metadata.cargo-machete]
+ignored = ["keyring-core", "windows-native-keyring-store", "zeroize"]
+
 [lints]
 workspace = true

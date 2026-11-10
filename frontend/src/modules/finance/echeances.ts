@@ -1,6 +1,6 @@
 /** Jours d'échéance permis : du 1er au 28, qui existe dans tous les mois. */
-export const JOUR_MIN = 1;
-export const JOUR_MAX = 28;
+const JOUR_MIN = 1;
+const JOUR_MAX = 28;
 
 /** Lit un jour d'échéance saisi ; `null` hors du 1er au 28. */
 export function lireJour(saisie: string): number | null {

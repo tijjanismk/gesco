@@ -1,8 +1,10 @@
 name: CI
 
+# Les branches de travail aussi : une version se prépare sur sa branche de corrections (1.2.x)
+# avant d'arriver sur main, et doit y être vérifiée.
 on:
   push:
-    branches: [main]
+    branches: [main, developpement, "*.*.x"]
   pull_request:
 
 jobs:
@@ -20,8 +22,8 @@ jobs:
       - run: cargo fmt --all --check
       - run: node outils/ci/verifier-liste-blanche.mjs
       - run: outils/ci/verifier-marqueurs.sh
-      - run: cargo clippy --workspace --exclude gesco-app --all-targets -- -D warnings
-      - run: cargo test --workspace --exclude gesco-app
+      - run: cargo clippy --workspace --exclude gesco-app --exclude gesco-remplir --all-targets -- -D warnings
+      - run: cargo test --workspace --exclude gesco-app --exclude gesco-remplir
       - run: cargo test --release -p gesco-docs --test moteur
       - run: cargo install cargo-machete --locked && cargo machete
 
@@ -59,3 +61,6 @@ jobs:
       - run: pnpm --dir frontend build
       - run: cargo clippy -p gesco-app -- -D warnings
       - run: cargo build -p gesco-app
+      # L'outil de démonstration ouvre la base du poste par le trousseau Windows.
+      - run: cargo clippy -p gesco-remplir --all-targets -- -D warnings
+      - run: cargo test -p gesco-remplir
