@@ -385,6 +385,10 @@ reste validée une à une sur `developpement`, sans installeur publié entre-tem
 garder en tête : les écoles restent en 1.2.x jusque-là, et attendent donc plusieurs postes aussi
 longtemps que l'e-learning.
 
+**Seconde révision du 11 novembre 2026 (porteur du projet)** : la phase 9 (rapports de rentrée et
+de fermeture imprimés, statistiques de l'école pour l'enquête CPS) entre aussi dans la version
+2.0, après le lot A. Les décisions sont dans `ETAT_AVANCEMENT.md`, section « Phase 9 ».
+
 À la sortie de la 2.0.0 : étiquette `v2.0.0`, branche `2.0.x` pour ses corrections, `main` avance.
 Les lots C et D amèneront un second livrable, le serveur, qui aura ses propres versions : à
 décider avec l'hébergement.
