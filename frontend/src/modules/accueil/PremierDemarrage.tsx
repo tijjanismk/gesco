@@ -9,6 +9,7 @@ import { t } from "../../i18n";
 import type { Cycle, PhraseAffichee, StatutEtablissement } from "../../types/gesco";
 import { ChoixCycles } from "../scolarite/Cycles";
 import { PhraseSecours } from "./PhraseSecours";
+import { RejoindrePoste } from "./RejoindrePoste";
 import { Restauration } from "./Restauration";
 
 const STATUTS: readonly StatutEtablissement[] = ["prive", "public", "communautaire", "medersa"];
@@ -21,7 +22,7 @@ const LIBELLES_STATUT = {
 
 export function PremierDemarrage() {
   const client = useQueryClient();
-  const [mode, setMode] = useState<"creer" | "restaurer">("creer");
+  const [mode, setMode] = useState<"creer" | "restaurer" | "rejoindre">("creer");
   const [phrase, setPhrase] = useState<PhraseAffichee | null>(null);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [champs, setChamps] = useState({
@@ -88,8 +89,11 @@ export function PremierDemarrage() {
       <div className="flex gap-2">
         <Bouton variante={mode === "creer" ? "principal" : "secondaire"} onClick={() => setMode("creer")}>{t("demarrage.creer")}</Bouton>
         <Bouton variante={mode === "restaurer" ? "principal" : "secondaire"} onClick={() => setMode("restaurer")}>{t("demarrage.restaurer")}</Bouton>
+        <Bouton variante={mode === "rejoindre" ? "principal" : "secondaire"} onClick={() => setMode("rejoindre")}>{t("demarrage.rejoindre")}</Bouton>
       </div>
-      {mode === "restaurer" ? (
+      {mode === "rejoindre" ? (
+        <RejoindrePoste />
+      ) : mode === "restaurer" ? (
         <Restauration commande="sauvegarde_restaurer_initiale" surTermine={terminer} />
       ) : (
         <Section titre={t("demarrage.creer")}>

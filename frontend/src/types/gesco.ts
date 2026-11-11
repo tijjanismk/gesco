@@ -7704,6 +7704,15 @@ export type Role = {
 	systeme: boolean,
 };
 
+/**  Rôle d'un poste (SPEC_PHASE_11_A §2). */
+export type RolePoste = 
+/**  Le poste travaille seul, comme avant le réseau local. */
+"seul" | 
+/**  Le poste garde la base et répond aux postes reliés. */
+"principal" | 
+/**  Le poste transmet tout au poste principal. */
+"relie";
+
 /**  Montant saisi dans la paie, avec le nom du membre et de l'élément. */
 export type SaisieAffichee = {
 	/**  Saisie. */
@@ -8121,6 +8130,11 @@ export type SessionCourante = {
 	aujourd_hui: string | null,
 	/**  Modules que l'école a allumés : leurs écrans paraissent. */
 	modules: ModuleEcole[],
+	/**
+	 *  Rôle du poste d'où vient l'appel : l'écran d'un poste relié ne montre pas ce qui se fait
+	 *  sur le poste principal seulement.
+	 */
+	role_poste: RolePoste,
 };
 
 /**  Sexe d'une personne. */

@@ -8,6 +8,7 @@
 //! arrête l'écoute quand la direction allume ou éteint le réseau.
 
 pub mod chiffrement;
+pub mod relais;
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -58,6 +59,13 @@ pub const ENTETE_POSTE: &str = "x-gesco-poste";
 
 /// En-tête où un poste relié présente son secret.
 pub const ENTETE_SECRET: &str = "x-gesco-secret";
+
+/// En-tête où un poste relié dit sa version de GESCO.
+pub const ENTETE_VERSION: &str = "x-gesco-version";
+
+/// Clé d'erreur d'un poste relié d'une autre version que le poste principal ; le détail de
+/// l'erreur porte la version attendue.
+pub const CLE_VERSION_DIFFERENTE: &str = "reseau.version_differente";
 
 /// Clé d'erreur d'un corps qui n'est pas du JSON : la même que pour une entrée mal formée.
 const CLE_ENTREE_INVALIDE: &str = "commande.entree_invalide";
@@ -195,6 +203,26 @@ fn identite(entetes: &HeaderMap) -> Option<(&str, &str)> {
 }
 
 impl Etat {
+    /// Refus d'un poste d'une autre version que ce poste principal (SPEC_PHASE_11_A §5), avec
+    /// la version attendue ; `None` quand les versions sont les mêmes.
+    fn refus_de_version(&self, entetes: &HeaderMap) -> Option<Response> {
+        let attendue = self.application.version_applicative();
+        let presentee = entetes.get(ENTETE_VERSION).and_then(|v| v.to_str().ok());
+        if presentee == Some(attendue) {
+            return None;
+        }
+        self.application.noter_au_journal_technique(&format!(
+            "reseau version refusee presentee={} attendue={attendue}",
+            presentee.unwrap_or("aucune")
+        ));
+        let erreur = ErreurCommande {
+            cle: CLE_VERSION_DIFFERENTE.to_owned(),
+            jusqua: None,
+            detail: Some(attendue.to_owned()),
+        };
+        Some((StatusCode::UPGRADE_REQUIRED, Json(erreur)).into_response())
+    }
+
     /// Poste qui appelle, s'il est reconnu.
     async fn reconnaitre(&self, adresse: SocketAddr, entetes: &HeaderMap) -> Option<Poste> {
         match &self.reconnaissance {
@@ -215,10 +243,14 @@ impl Etat {
 async fn appairage(
     State(etat): State<Etat>,
     ConnectInfo(adresse): ConnectInfo<SocketAddr>,
+    entetes: HeaderMap,
     demande: Result<Json<DemandeAppairage>, JsonRejection>,
 ) -> Response {
     if !adresse_privee(adresse.ip()) {
         return refus(StatusCode::FORBIDDEN, CLE_POSTE_INCONNU);
+    }
+    if let Some(refus) = etat.refus_de_version(&entetes) {
+        return refus;
     }
     if etat.refus.en_attente(adresse.ip(), Instant::now()) {
         return refus(StatusCode::TOO_MANY_REQUESTS, CLE_TROP_D_ESSAIS);
@@ -253,6 +285,9 @@ async fn commande(
 ) -> Response {
     if etat.refus.en_attente(adresse.ip(), Instant::now()) {
         return refus(StatusCode::TOO_MANY_REQUESTS, CLE_TROP_D_ESSAIS);
+    }
+    if let Some(refus) = etat.refus_de_version(&entetes) {
+        return refus;
     }
     let Some(poste) = etat.reconnaitre(adresse, &entetes).await else {
         etat.refus.noter(adresse.ip(), Instant::now());

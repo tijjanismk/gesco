@@ -1,35 +1,85 @@
-//! Binaire du poste (ADR-014) : la fenêtre Tauri et une seule commande, `executer`, qui remet
-//! chaque appel du frontend à la frontière de `gesco-services`. La garde de permission y est
-//! appliquée côté Rust (R-21) ; aucune autre commande n'est exposée au webview, hormis le
-//! dialogue d'ouverture de fichier, qui ne lit rien et rend seulement un chemin.
+//! Binaire du poste (ADR-014) : la fenêtre Tauri et la commande `executer`, qui remet chaque
+//! appel du frontend à la frontière de `gesco-services` — sur place, ou par le poste principal
+//! quand ce poste est relié (SPEC_PHASE_11_A §5). La garde de permission y est appliquée côté
+//! Rust (R-21). S'y ajoutent les commandes du rôle du poste (rejoindre ou quitter le poste
+//! principal, état de la liaison), qui ne touchent à aucune donnée de l'école, et le dialogue
+//! d'ouverture de fichier, qui ne lit rien et rend seulement un chemin.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod empreinte;
+mod poste;
 mod trousseau;
 
-use std::net::{Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
-use gesco_core::core::Poste;
 use gesco_services::cles::Trousseau;
-use gesco_services::session::{Jeton, PolitiqueSession};
-use gesco_services::{
-    Application, ErreurCommande, Horloge, HorlogeDecalee, HorlogeSysteme, OptionsApplication,
-};
-use tauri::Manager;
+use gesco_services::{ErreurCommande, Horloge, HorlogeDecalee, HorlogeSysteme};
+use tauri::{Emitter, Manager};
 
-/// Point d'entrée unique du frontend (spécification §7.1, §12.2).
+use crate::poste::{ApercuAffiche, Demarrage, EtatPoste, InfoPoste};
+use crate::trousseau::CoffreLiaison;
+
+/// Événement envoyé à l'écran quand on ferme le poste principal alors que des postes reliés
+/// ont une session ouverte : l'écran demande confirmation.
+const EVENEMENT_FERMETURE: &str = "fermeture-demandee";
+
+/// Point d'entrée unique du frontend vers les données de l'école (spécification §7.1, §12.2).
 #[tauri::command]
 async fn executer(
-    application: tauri::State<'_, Arc<Application>>,
+    poste: tauri::State<'_, Arc<EtatPoste>>,
     nom: String,
     jeton: Option<String>,
     entree: serde_json::Value,
 ) -> Result<serde_json::Value, ErreurCommande> {
-    application.executer(&nom, jeton.map(Jeton), entree).await
+    poste.executer(&nom, jeton, entree).await
+}
+
+/// Rôle du poste, connu de l'écran avant toute session.
+#[tauri::command]
+async fn poste_lire(poste: tauri::State<'_, Arc<EtatPoste>>) -> Result<InfoPoste, ErreurCommande> {
+    Ok(poste.info().await)
+}
+
+/// Version et empreinte du poste principal à cette adresse, avant de s'y relier.
+#[tauri::command]
+async fn poste_principal_apercevoir(
+    poste: tauri::State<'_, Arc<EtatPoste>>,
+    adresse: String,
+) -> Result<ApercuAffiche, ErreurCommande> {
+    poste.apercevoir(&adresse).await
+}
+
+/// Relie ce poste au poste principal aperçu, avec le code qu'il affiche.
+#[tauri::command]
+async fn poste_rejoindre(
+    poste: tauri::State<'_, Arc<EtatPoste>>,
+    code: String,
+    nom: String,
+) -> Result<InfoPoste, ErreurCommande> {
+    poste.rejoindre(&code, &nom).await
+}
+
+/// Quitte le poste principal : le poste revient au premier lancement.
+#[tauri::command]
+async fn poste_quitter(
+    poste: tauri::State<'_, Arc<EtatPoste>>,
+) -> Result<InfoPoste, ErreurCommande> {
+    poste.quitter().await
+}
+
+/// Vérifie que le poste principal répond : le poste relié réessaie de lui-même après une coupure.
+#[tauri::command]
+async fn liaison_verifier(poste: tauri::State<'_, Arc<EtatPoste>>) -> Result<(), ErreurCommande> {
+    poste.verifier_liaison().await
+}
+
+/// Ferme le poste principal malgré les postes connectés : la personne vient de le confirmer.
+#[tauri::command]
+fn fermer_quand_meme(fenetre: tauri::Window, poste: tauri::State<'_, Arc<EtatPoste>>) {
+    poste.confirmer_fermeture();
+    let _ = fenetre.destroy();
 }
 
 /// Nom du poste, porté par chaque écriture (R-13) : le nom de l'ordinateur.
@@ -69,61 +119,29 @@ fn horloge() -> Arc<dyn Horloge> {
     }
 }
 
-/// Sauvegarde planifiée et test de restauration mensuel, vérifiés chaque minute (§11.1, §11.5).
-async fn taches_periodiques(application: Arc<Application>) {
-    let mut minute = tokio::time::interval(Duration::from_secs(60));
-    loop {
-        minute.tick().await;
-        application.taches_periodiques().await;
-    }
-}
-
-/// File des SMS, toutes les cinq secondes (SPEC_PHASE_5 §3) : l'utilisateur n'attend jamais
-/// l'envoi. Un échec se retente au passage suivant.
-async fn file_sms(application: Arc<Application>) {
-    let mut tic = tokio::time::interval(Duration::from_secs(5));
-    loop {
-        tic.tick().await;
-        let _ = application.traiter_file_sms().await;
-    }
-}
-
-/// Serveur du réseau local (SPEC_PHASE_11_A §3.1) : il écoute dès que la direction allume le
-/// réseau et s'arrête quand elle l'éteint. En mode d'essai, il n'écoute que la machine elle-même :
-/// les essais de bout en bout ne font pas paraître la question du pare-feu de Windows.
-fn servir_le_reseau(application: &Arc<Application>, poste: String, essai: bool) {
-    application.declarer_adresses_du_poste(Arc::new(move || {
-        if essai {
-            vec![Ipv4Addr::LOCALHOST.to_string()]
-        } else {
-            gesco_reseau::adresses_du_poste(&poste)
-        }
-    }));
-    let ou = if essai {
-        Ipv4Addr::LOCALHOST
-    } else {
-        Ipv4Addr::UNSPECIFIED
-    };
-    let application = Arc::clone(application);
-    // Le superviseur lance sa tâche : il lui faut le moteur asynchrone autour de lui.
-    tauri::async_runtime::block_on(async move {
-        gesco_reseau::superviser(application, move |port| SocketAddr::from((ou, port)));
-    });
-}
-
 fn main() -> tauri::Result<()> {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let essai = dossier_essai();
             let en_essai = essai.is_some();
-            let (racine, trousseau): (PathBuf, Arc<dyn Trousseau>) = match essai {
-                Some(dossier) => {
-                    let cles = dossier.join("trousseau-essai");
-                    (dossier, Arc::new(trousseau::TrousseauEssai::nouveau(cles)))
-                }
-                None => (app.path().app_data_dir()?, trousseau::du_systeme()?),
-            };
+            let (racine, trousseau, coffre): (PathBuf, Arc<dyn Trousseau>, Arc<dyn CoffreLiaison>) =
+                match essai {
+                    Some(dossier) => {
+                        let cles = dossier.join("trousseau-essai");
+                        let coffre = Arc::new(trousseau::CoffreEssai::nouveau(&cles));
+                        (
+                            dossier,
+                            Arc::new(trousseau::TrousseauEssai::nouveau(cles)),
+                            coffre,
+                        )
+                    }
+                    None => (
+                        app.path().app_data_dir()?,
+                        trousseau::du_systeme()?,
+                        trousseau::coffre_du_systeme(),
+                    ),
+                };
             // Une panique, où qu'elle survienne (tâche de fond comprise), laisse au journal
             // technique son message et sa ligne : la compilation de publication n'a pas de console.
             let journal = racine.clone();
@@ -136,34 +154,48 @@ fn main() -> tauri::Result<()> {
                 );
                 defaut(info);
             }));
-            let poste = nom_du_poste();
-            let options = OptionsApplication {
+            let demarrage = Demarrage {
                 racine,
-                empreinte_machine: empreinte::du_poste(&poste),
-                poste: Poste(poste.clone()),
+                en_essai,
+                nom_ordinateur: nom_du_poste(),
+                version: env!("CARGO_PKG_VERSION").to_owned(),
                 trousseau,
+                coffre,
                 horloge: horloge(),
-                politique_session: PolitiqueSession::default(),
-                version_applicative: env!("CARGO_PKG_VERSION").to_owned(),
                 cle_licence: gesco_services::licence::cle_publique_editeur()?,
             };
-            let application = Arc::new(tauri::async_runtime::block_on(Application::demarrer(
-                options,
+            let poste = Arc::new(tauri::async_runtime::block_on(EtatPoste::demarrer(
+                demarrage,
             ))?);
-            app.manage(Arc::clone(&application));
-            servir_le_reseau(&application, poste, en_essai);
-            tauri::async_runtime::spawn(taches_periodiques(Arc::clone(&application)));
-            tauri::async_runtime::spawn(file_sms(application));
+            app.manage(poste);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![executer])
+        .on_window_event(|fenetre, evenement| {
+            // Fermer le poste principal coupe le travail des postes reliés : s'il en reste de
+            // connectés, l'écran le dit et demande confirmation (SPEC_PHASE_11_A §5).
+            if let tauri::WindowEvent::CloseRequested { api, .. } = evenement {
+                let poste = fenetre.state::<Arc<EtatPoste>>();
+                let connectes = tauri::async_runtime::block_on(poste.postes_a_prevenir());
+                if connectes > 0 {
+                    api.prevent_close();
+                    let _ = fenetre.emit(EVENEMENT_FERMETURE, connectes);
+                }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            executer,
+            poste_lire,
+            poste_principal_apercevoir,
+            poste_rejoindre,
+            poste_quitter,
+            liaison_verifier,
+            fermer_quand_meme
+        ])
         .build(tauri::generate_context!())?;
     application.run(|app, evenement| {
         if let tauri::RunEvent::ExitRequested { .. } = evenement {
-            // Sauvegarde à la fermeture (§11.1). Son échec ne retient pas l'application : la
-            // sauvegarde planifiée suivante le rattrapera.
-            let etat = app.state::<Arc<Application>>();
-            let _ = tauri::async_runtime::block_on(etat.fermer());
+            let poste = app.state::<Arc<EtatPoste>>();
+            tauri::async_runtime::block_on(poste.fermer());
         }
     });
     Ok(())

@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 11, lot A — un poste principal et des postes reliés sur le réseau local de l'école ; version 2.0.0
-**Statut** : v1.3 — acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; étape 1 validée le 11 novembre 2026, étape 2 réalisée le 11 novembre 2026 et présentée pour validation
+**Statut** : v1.4 — acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; étape 1 validée le 11 novembre 2026, étape 2 validée le 11 novembre 2026, étape 3 réalisée le 11 novembre 2026 et présentée pour validation
 **Documents parents** : `docs/plan-phase-11.md` (T-80 à T-86, répondues le 10 novembre 2026), les quatre ADR du 10 novembre 2026 dans `docs/adr/` (serveur du réseau local, poste relié, sécurité du réseau local, modification simultanée), `PROJECT_BLUEPRINT.md` (ADR-014, §15.1, §17.4, §26.2), `docs/adr/2026-10-04-frontiere-commande-unique.md`, `SPEC_PHASE_4.md` (comptes des enseignants, portée des notes), `docs/optimisations-2026-10-31.md`
 **Date** : 10 novembre 2026
 
@@ -346,3 +346,4 @@ porteur. Une seule compilation complète par étape, `target` élagué avant.
 | v1.1 | 2026-11-10 | Spécification acceptée par le porteur du projet, avec le blocage des comptes de maîtres, les versions égales et le port 47800 |
 | v1.2 | 2026-11-10 | Décision du porteur du projet sur le prix : les deux formules, et un poste relié à l'essai sans mention dans la licence ; §4.4 et critère 14 ajoutés, la limite par la licence quitte les exclusions |
 | v1.3 | 2026-11-11 | Étape 2 réalisée. Événement `ReseauEteint` renommé `ReseauDesactive` (règle des noms d'événements). §4.3 : dix refus par minute et par adresse ; les appels d'un appareil non reconnu vont au journal technique, pas au journal d'audit (écart à la v1.2, à confirmer par le porteur du projet). §9 : contenu de l'écran « Postes de l'école » |
+| v1.4 | 2026-11-11 | Étape 3 réalisée. §2 : le réglage du poste ne dit que « relié » ; entre seul et principal, c'est la base qui tranche (réseau allumé ou non), pour qu'une sauvegarde restaurée garde son rôle — écart à confirmer par le porteur du projet. §3.3 : le contenu d'un fichier voyage en base64 dans l'entrée (commande qui lit) ou avec la sortie (commande qui écrit), vingt mégaoctets au plus. §5 : le poste relié dit sa version à chaque appel et le poste principal refuse une version différente avec la version attendue ; « Quitter le poste principal » est offert sans session. §9 : l'avertissement avant une opération qui demande d'être seul passe à l'étape 4 |

@@ -165,6 +165,18 @@ impl ReseauVivant {
     }
 }
 
+/// Rôle d'un poste (SPEC_PHASE_11_A §2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub enum RolePoste {
+    /// Le poste travaille seul, comme avant le réseau local.
+    Seul,
+    /// Le poste garde la base et répond aux postes reliés.
+    Principal,
+    /// Le poste transmet tout au poste principal.
+    Relie,
+}
+
 /// Code d'appairage affiché sur le poste principal.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
 pub struct AppairageAffiche {
@@ -598,6 +610,28 @@ impl<'n> ServicePostes<'n> {
             depot::noter_connexion(&mut cnx, id, &contexte).await?;
         }
         Ok(Some(Poste(poste.nom)))
+    }
+
+    /// Vrai quand le réseau local est allumé : ce poste est alors le poste principal.
+    pub async fn actif(&self, etablissement_id: Id<Etablissement>) -> Resultat<bool> {
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let mut cnx = self.connexion().await?;
+        Ok(depot::lire(&mut cnx, &contexte).await?.actif)
+    }
+
+    /// Nombre de postes reliés, en service, qui ont une session ouverte.
+    pub async fn connectes(&self, etablissement_id: Id<Etablissement>) -> Resultat<u32> {
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let postes = {
+            let mut cnx = self.connexion().await?;
+            depot::postes(&mut cnx, &contexte).await?
+        };
+        let en_session = self.noyau.postes_en_session();
+        let nombre = postes
+            .iter()
+            .filter(|p| p.en_service() && en_session.iter().any(|s| s.0 == p.nom))
+            .count();
+        Ok(u32::try_from(nombre).unwrap_or(u32::MAX))
     }
 
     /// Ce que le serveur doit servir, ou `None` quand le réseau est éteint.

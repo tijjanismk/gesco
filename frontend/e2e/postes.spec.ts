@@ -1,13 +1,13 @@
-// Postes de l'école, sur la vraie application : la direction allume le réseau, affiche un code,
-// un poste se relie par le canal chiffré et ouvre une session, puis il est révoqué. Le poste
-// à relier est joué par cet essai lui-même : l'écran de ce poste viendra avec l'étape suivante.
-// En mode d'essai, le serveur n'écoute que la machine elle-même.
+// Postes de l'école, sur la vraie application et sur deux instances de GESCO : le poste principal
+// allume le réseau et affiche un code ; un second GESCO, au premier lancement, rejoint le poste
+// principal, ouvre une session, exporte un classeur sur son propre disque, garde sa saisie quand
+// le poste principal s'éteint et reprend seul quand il revient ; puis il est révoqué et quitte le
+// poste principal. En mode d'essai, le serveur n'écoute que la machine elle-même.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { request } from "node:https";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { TLSSocket } from "node:tls";
 
 import { type Browser, type Page, chromium, expect, test } from "@playwright/test";
 
@@ -15,43 +15,69 @@ import { catalogue, type Cle } from "../src/i18n/fr-ML";
 
 const EXECUTABLE = join(import.meta.dirname, "..", "..", "target", "debug", "gesco-app.exe");
 const CAPTURES = join(import.meta.dirname, "captures");
-const PORT_DEBOGAGE = 9223;
 const PORT_RESEAU = 47800;
 const IDENTIFIANT = "direction";
 const NOM = "Awa Traoré";
 const MOT_DE_PASSE = "essai-premier-demarrage";
 const NOUVEAU_MOT_DE_PASSE = "essai-mot-de-passe-change";
 const POSTE = "Caisse";
+const EMPREINTE = /^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/;
 
-const texte = (cle: Cle) => catalogue[cle];
+const texte = (cle: Cle, valeurs: Record<string, string> = {}) =>
+  catalogue[cle].replace(/\{(\w+)\}/g, (entier, nom: string) => valeurs[nom] ?? entier);
 
-let application: ChildProcess | undefined;
-let navigateur: Browser | undefined;
-let page: Page;
+/** Une instance de GESCO : son processus, sa fenêtre et son espace de données. */
+interface Instance {
+  processus: ChildProcess;
+  navigateur: Browser;
+  page: Page;
+  donnees: string;
+}
+
 let dossier: string;
-/** Ce que le poste relié garde après son appairage. */
-let relie: { poste_id: string; secret: string };
+let principal: Instance;
+let relie: Instance;
 
-async function attendreWebView(): Promise<Browser> {
+async function lancer(nom: string, portDebogage: number): Promise<Instance> {
+  const donnees = join(dossier, nom, "donnees");
+  const processus = spawn(EXECUTABLE, [], {
+    env: {
+      ...process.env,
+      GESCO_DOSSIER_ESSAI: donnees,
+      GESCO_DATE_ESSAI: "2026-10-14",
+      WEBVIEW2_USER_DATA_FOLDER: join(dossier, nom, "webview"),
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${String(portDebogage)}`,
+    },
+    stdio: "ignore",
+  });
   for (let essai = 0; essai < 60; essai += 1) {
     try {
-      return await chromium.connectOverCDP(`http://127.0.0.1:${PORT_DEBOGAGE}`);
+      const navigateur = await chromium.connectOverCDP(`http://127.0.0.1:${String(portDebogage)}`);
+      const [contexte] = navigateur.contexts();
+      if (contexte === undefined) throw new Error("WebView2 n'expose aucun contexte");
+      const page = contexte.pages()[0] ?? (await contexte.waitForEvent("page"));
+      return { processus, navigateur, page, donnees };
     } catch {
       await new Promise((reprise) => setTimeout(reprise, 500));
     }
   }
-  throw new Error(`WebView2 ne répond pas sur le port ${PORT_DEBOGAGE}`);
+  throw new Error(`WebView2 ne répond pas sur le port ${String(portDebogage)}`);
+}
+
+async function arreter(instance: Instance | undefined) {
+  await instance?.navigateur.close().catch(() => undefined);
+  if (instance?.processus.pid !== undefined) spawnSync("taskkill", ["/pid", String(instance.processus.pid), "/T", "/F"]);
 }
 
 const DEPLIER = "html, body, #racine, .h-screen { height: auto !important; } main { overflow: visible !important; }";
 
-async function capturer(nom: string) {
+async function capturer(page: Page, nom: string) {
   const depli = await page.addStyleTag({ content: DEPLIER });
   await page.screenshot({ path: join(CAPTURES, `${nom}.png`), fullPage: true });
   await depli.evaluate((style) => style.parentNode?.removeChild(style));
 }
 
-async function allerA(cle: Cle) {
+async function allerA(page: Page, cle: Cle) {
   const navigation = page.getByRole("navigation");
   await navigation.getByRole("button", { name: texte("nav.accueil"), exact: true }).waitFor();
   const bouton = navigation.getByRole("button", { name: texte(cle), exact: true });
@@ -64,67 +90,34 @@ async function allerA(cle: Cle) {
   await bouton.click();
 }
 
-interface Reponse {
-  statut: number;
-  corps: Record<string, unknown>;
-  /** Empreinte courte du certificat présenté par le poste principal. */
-  empreinte: string;
-}
-
-/** Appel d'un poste au poste principal, par le canal chiffré. Le certificat n'est signé par
- *  personne : on relève son empreinte, que l'essai compare à celle de l'écran. */
-function appelerPrincipal(chemin: string, corps: unknown, entetes: Record<string, string> = {}): Promise<Reponse> {
-  const donnees = JSON.stringify(corps);
-  return new Promise((resoudre, rejeter) => {
-    const requete = request(
-      {
-        host: "127.0.0.1",
-        port: PORT_RESEAU,
-        path: chemin,
-        method: "POST",
-        rejectUnauthorized: false,
-        agent: false,
-        headers: { "content-type": "application/json", "content-length": Buffer.byteLength(donnees), ...entetes },
-      },
-      (reponse) => {
-        const complete = (reponse.socket as TLSSocket).getPeerCertificate().fingerprint256.replaceAll(":", "");
-        const empreinte = (complete.slice(0, 16).match(/.{4}/g) ?? []).join("-");
-        let recu = "";
-        reponse.setEncoding("utf8");
-        reponse.on("data", (morceau: string) => (recu += morceau));
-        reponse.on("end", () => resoudre({ statut: reponse.statusCode ?? 0, corps: JSON.parse(recu) as Record<string, unknown>, empreinte }));
-      },
-    );
-    requete.on("error", rejeter);
-    requete.end(donnees);
+/** Vrai si un programme écoute le port du réseau de l'école sur cette machine. */
+function portOuvert(): Promise<boolean> {
+  return new Promise((resoudre) => {
+    const prise = connect({ host: "127.0.0.1", port: PORT_RESEAU });
+    prise.once("connect", () => {
+      prise.destroy();
+      resoudre(true);
+    });
+    prise.once("error", () => resoudre(false));
   });
 }
 
-const identite = () => ({ "x-gesco-poste": relie.poste_id, "x-gesco-secret": relie.secret });
+async function connecter(page: Page, motDePasse: string) {
+  await page.getByLabel(texte("connexion.identifiant")).fill(IDENTIFIANT);
+  await page.getByLabel(texte("connexion.mot_de_passe")).fill(motDePasse);
+  await page.getByRole("button", { name: texte("connexion.valider") }).click();
+}
 
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
   dossier = mkdtempSync(join(tmpdir(), "gesco-postes-"));
-  application = spawn(EXECUTABLE, [], {
-    env: {
-      ...process.env,
-      GESCO_DOSSIER_ESSAI: join(dossier, "donnees"),
-      GESCO_DATE_ESSAI: "2026-10-14",
-      WEBVIEW2_USER_DATA_FOLDER: join(dossier, "webview"),
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT_DEBOGAGE}`,
-    },
-    stdio: "ignore",
-  });
-  navigateur = await attendreWebView();
-  const [contexte] = navigateur.contexts();
-  if (contexte === undefined) throw new Error("WebView2 n'expose aucun contexte");
-  page = contexte.pages()[0] ?? (await contexte.waitForEvent("page"));
+  principal = await lancer("principal", 9223);
 });
 
 test.afterAll(async () => {
-  await navigateur?.close();
-  if (application?.pid !== undefined) spawnSync("taskkill", ["/pid", String(application.pid), "/T", "/F"]);
+  await arreter(relie);
+  await arreter(principal);
   try {
     rmSync(dossier, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
   } catch {
@@ -133,6 +126,7 @@ test.afterAll(async () => {
 });
 
 test("une école d'essai et sa directrice", async () => {
+  const page = principal.page;
   await expect(page.getByRole("heading", { name: texte("demarrage.titre") })).toBeVisible({ timeout: 30_000 });
   const champs: [Cle, string][] = [
     ["demarrage.organisation", "Groupe scolaire Askia"],
@@ -152,9 +146,7 @@ test("une école d'essai et sa directrice", async () => {
   await page.getByLabel(texte("phrase.confirmation")).check();
   await page.getByRole("button", { name: texte("commun.continuer") }).click();
 
-  await page.getByLabel(texte("connexion.identifiant")).fill(IDENTIFIANT);
-  await page.getByLabel(texte("connexion.mot_de_passe")).fill(MOT_DE_PASSE);
-  await page.getByRole("button", { name: texte("connexion.valider") }).click();
+  await connecter(page, MOT_DE_PASSE);
   await expect(page.getByText(texte("compte.changement_exige"))).toBeVisible();
   const motDePasse = page.locator("form").first();
   await motDePasse.getByLabel(texte("compte.mot_de_passe_actuel")).fill(MOT_DE_PASSE);
@@ -164,86 +156,204 @@ test("une école d'essai et sa directrice", async () => {
 });
 
 test("la direction allume le réseau de l'école", async () => {
-  await allerA("nav.postes");
+  const page = principal.page;
+  await allerA(page, "nav.postes");
   await expect(page.getByRole("heading", { name: texte("postes.titre"), level: 1 })).toBeVisible();
   await expect(page.getByText(texte("postes.reseau.eteint"))).toBeVisible();
   await expect(page.getByText(texte("postes.liste_vide"))).toBeVisible();
-  await capturer("140-postes-reseau-eteint");
+  await capturer(page, "140-postes-reseau-eteint");
 
   // Tant que le réseau est éteint, personne ne répond sur le port.
-  await expect(appelerPrincipal("/api/appairage", { code: "AAAAAAAA", nom: POSTE })).rejects.toThrow();
+  expect(await portOuvert()).toBe(false);
 
   await page.getByRole("button", { name: texte("postes.activer") }).click();
   await expect(page.getByText(texte("postes.reseau.allume"))).toBeVisible();
   // Le serveur fabrique le certificat à la première activation : son empreinte paraît à la
   // relecture suivante de l'écran.
   await expect(page.getByText(texte("postes.empreinte_attente"))).toBeHidden({ timeout: 20_000 });
-  await expect(page.getByText(/^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/)).toBeVisible();
+  await expect(page.getByText(EMPREINTE)).toBeVisible();
   await expect(page.getByText("127.0.0.1", { exact: true })).toBeVisible();
-  await capturer("141-postes-reseau-allume");
+  await capturer(page, "141-postes-reseau-allume");
 });
 
-test("un poste se relie par le code affiché et ouvre une session", async () => {
-  await page.getByRole("button", { name: texte("postes.code_demander") }).click();
-  const zoneCode = page.getByRole("status");
+test("un second GESCO rejoint le poste principal par le code affiché", async () => {
+  relie = await lancer("relie", 9224);
+  const page = relie.page;
+  // Premier lancement : trois chemins, dont le troisième.
+  await expect(page.getByRole("heading", { name: texte("demarrage.titre") })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: texte("demarrage.rejoindre") }).click();
+  await expect(page.getByRole("heading", { name: texte("rejoindre.titre") })).toBeVisible();
+
+  // Une adresse où personne ne répond : le poste le dit, sans rien relier.
+  await page.getByLabel(texte("rejoindre.adresse")).fill("127.0.0.1:47999");
+  await page.getByRole("button", { name: texte("rejoindre.chercher") }).click();
+  await expect(page.getByRole("alert")).toContainText(texte("reseau.poste_principal_injoignable").slice(0, 40), { timeout: 20_000 });
+
+  // La bonne adresse : l'empreinte lue par ce poste est celle que montre le poste principal.
+  await page.getByLabel(texte("rejoindre.adresse")).fill("127.0.0.1");
+  await page.getByRole("button", { name: texte("rejoindre.chercher") }).click();
+  const empreinteVue = page.locator("#rejoindre-empreinte");
+  await expect(empreinteVue).toHaveText(EMPREINTE, { timeout: 20_000 });
+  const empreinteAffichee = (await principal.page.getByText(EMPREINTE).innerText()).trim();
+  await expect(empreinteVue).toHaveText(empreinteAffichee);
+
+  await principal.page.getByRole("button", { name: texte("postes.code_demander") }).click();
+  const zoneCode = principal.page.getByRole("status");
   await expect(zoneCode).toHaveText(/^[A-Z2-9]{4} [A-Z2-9]{4}$/);
   const code = (await zoneCode.innerText()).trim();
-  const empreinteAffichee = (await page.getByText(/^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/).innerText()).trim();
-  await capturer("142-postes-code-a-saisir");
+  await capturer(principal.page, "142-postes-code-a-saisir");
 
-  // Un code faux ne relie rien ; le bon, saisi en minuscules et sans espace, relie le poste.
-  const faux = await appelerPrincipal("/api/appairage", { code: "ZZZZZZZZ", nom: POSTE });
-  expect(faux.statut).toBe(422);
-  expect(faux.corps["cle"]).toBe("reseau.code_faux");
-  const conclu = await appelerPrincipal("/api/appairage", { code: code.replace(" ", "").toLowerCase(), nom: POSTE });
-  expect(conclu.statut).toBe(200);
-  // Le certificat que le poste a vu est bien celui dont l'écran montre l'empreinte.
-  expect(conclu.empreinte).toBe(empreinteAffichee);
-  relie = { poste_id: String(conclu.corps["poste_id"]), secret: String(conclu.corps["secret"]) };
+  // Le nom de l'ordinateur est proposé ; un code faux ne relie rien.
+  await expect(page.getByLabel(texte("rejoindre.nom"))).not.toHaveValue("");
+  await page.getByLabel(texte("rejoindre.nom")).fill(POSTE);
+  await page.getByLabel(texte("rejoindre.code")).fill("ZZZZZZZZ");
+  await page.getByRole("button", { name: texte("rejoindre.relier") }).click();
+  await expect(page.getByRole("alert")).toHaveText(texte("reseau.code_faux"));
+  // Le bon code, saisi en minuscules avec son espace, relie le poste.
+  await page.getByLabel(texte("rejoindre.code")).fill(code.toLowerCase());
+  await capturer(page, "147-rejoindre-le-poste-principal");
+  await page.getByRole("button", { name: texte("rejoindre.relier") }).click();
 
-  // Sans son secret, un appel est refusé ; avec lui, le poste ouvre une session sous son nom.
-  const anonyme = await appelerPrincipal("/api/commandes/etat_demarrage", null);
-  expect(anonyme.statut).toBe(401);
-  const session = await appelerPrincipal("/api/commandes/connexion", { identifiant: IDENTIFIANT, mot_de_passe: NOUVEAU_MOT_DE_PASSE }, identite());
-  expect(session.statut).toBe(200);
-  expect(session.corps["poste"]).toBe(POSTE);
-
-  // L'écran se relit de lui-même : le poste paraît, sa session ouverte ; le code a servi.
-  const ligne = page.getByRole("row", { name: new RegExp(`^${POSTE}`) });
-  await expect(ligne).toBeVisible({ timeout: 20_000 });
-  await expect(ligne.getByText(texte("postes.etat.connecte"))).toBeVisible({ timeout: 20_000 });
-  // Sans licence, un poste relié à l'essai : il est pris, on ne peut pas en relier un autre.
-  await expect(page.getByText(texte("postes.complet"))).toBeVisible();
-  await expect(page.getByRole("button", { name: texte("postes.code_demander") })).toBeDisabled();
-  await capturer("143-postes-poste-relie");
+  // Le poste est relié : écran de connexion de l'école, sous le bandeau du poste.
+  await expect(page.getByText(texte("bandeau_poste.nom", { nom: POSTE }))).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(texte("bandeau_poste.etablie"))).toBeVisible();
+  await expect(page.getByText("École fondamentale Askia")).toBeVisible();
+  await capturer(page, "148-poste-relie-connexion");
+  // Il ne garde ni base ni clé de données ; son réglage dit son rôle, hors de toute base.
+  expect(existsSync(join(relie.donnees, "gesco.db"))).toBe(false);
+  expect(existsSync(join(relie.donnees, "cles.json"))).toBe(false);
+  expect(JSON.parse(readFileSync(join(relie.donnees, "poste.json"), "utf8"))).toEqual({ role: "relie", nom: POSTE });
 });
 
-test("le poste révoqué ne travaille plus, et le journal garde tout", async () => {
-  await page.getByRole("button", { name: texte("postes.revoquer_nom").replace("{nom}", POSTE) }).click();
-  await capturer("144-postes-revoquer-confirmation");
-  await page.getByRole("button", { name: texte("postes.revoquer_confirmer").replace("{nom}", POSTE) }).click();
+test("le poste relié travaille sous son nom, sans les écrans du poste principal", async () => {
+  const page = relie.page;
+  await connecter(page, NOUVEAU_MOT_DE_PASSE);
+  const navigation = page.getByRole("navigation");
+  await expect(navigation.getByRole("button", { name: texte("nav.accueil"), exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(texte("bandeau.utilisateur", { nom: NOM }))).toBeVisible();
+
+  // Ce qui dépend du disque du poste principal n'y paraît pas : sauvegardes, postes de l'école.
+  await allerA(page, "nav.utilisateurs");
+  await expect(navigation.getByRole("button", { name: texte("nav.journal"), exact: true })).toBeVisible();
+  await expect(navigation.getByRole("button", { name: texte("nav.sauvegarde"), exact: true })).toHaveCount(0);
+  await expect(navigation.getByRole("button", { name: texte("nav.postes"), exact: true })).toHaveCount(0);
+
+  // Un export Excel : le classeur, composé sur le poste principal, s'écrit sur le disque du
+  // poste relié. Seul l'appel du dialogue d'enregistrement est substitué.
+  const classeur = join(relie.donnees, "utilisateurs.xlsx");
+  await page.evaluate((chemin) => {
+    const original = window.fetch.bind(window);
+    window.fetch = (entree, options) => {
+      const url = typeof entree === "string" ? entree : entree instanceof URL ? entree.href : entree.url;
+      if (decodeURIComponent(url).includes("ipc.localhost/plugin:dialog|save")) {
+        return Promise.resolve(new Response(JSON.stringify(chemin), { status: 200, headers: { "Tauri-Response": "ok", "content-type": "application/json" } }));
+      }
+      return original(entree, options);
+    };
+  }, classeur);
+  await expect(page.getByRole("cell", { name: NOM }).first()).toBeVisible();
+  await page.getByRole("button", { name: texte("commun.exporter_excel") }).click();
+  await expect(page.getByText(texte("commun.export_enregistre", { chemin: classeur }))).toBeVisible({ timeout: 20_000 });
+  expect(readFileSync(classeur).subarray(0, 2).toString("latin1")).toBe("PK");
+  // Rien ne reste sur le poste principal.
+  expect(existsSync(join(principal.donnees, "utilisateurs.xlsx"))).toBe(false);
+  await capturer(page, "149-poste-relie-au-travail");
+
+  // Le poste principal le voit connecté ; sans licence, un seul poste : la place est prise.
+  const ligne = principal.page.getByRole("row", { name: new RegExp(`^${POSTE}`) });
+  await expect(ligne).toBeVisible({ timeout: 20_000 });
+  await expect(ligne.getByText(texte("postes.etat.connecte"))).toBeVisible({ timeout: 20_000 });
+  await expect(principal.page.getByText(texte("postes.complet"))).toBeVisible();
+  await expect(principal.page.getByRole("button", { name: texte("postes.code_demander") })).toBeDisabled();
+  await capturer(principal.page, "143-postes-poste-relie");
+
+  // Le journal, lu depuis le poste relié, porte son nom sur ses écritures.
+  await allerA(page, "nav.journal");
+  await expect(page.getByRole("heading", { name: texte("journal.titre") })).toBeVisible();
+  await expect(page.getByRole("cell", { name: POSTE, exact: true }).first()).toBeVisible({ timeout: 20_000 });
+});
+
+test("fermer le poste principal quand un poste travaille demande confirmation", async () => {
+  // Demande de fermeture de la fenêtre, comme un clic sur sa croix.
+  if (principal.processus.pid !== undefined) spawnSync("taskkill", ["/pid", String(principal.processus.pid)]);
+  const avertissement = principal.page.getByRole("alertdialog", { name: texte("fermeture.titre") });
+  await expect(avertissement).toBeVisible({ timeout: 20_000 });
+  await expect(avertissement).toContainText(texte("fermeture.un_poste"));
+  await capturer(principal.page, "150-fermeture-du-poste-principal");
+  await avertissement.getByRole("button", { name: texte("fermeture.rester") }).click();
+  await expect(avertissement).toBeHidden();
+  // GESCO est resté ouvert et sert toujours le poste relié.
+  expect(await portOuvert()).toBe(true);
+});
+
+test("poste principal éteint : la saisie reste, puis le poste reprend seul", async () => {
+  const page = relie.page;
+  await allerA(page, "nav.compte");
+  const motDePasse = page.locator("form").first();
+  await motDePasse.getByLabel(texte("compte.mot_de_passe_actuel")).fill(NOUVEAU_MOT_DE_PASSE);
+  await motDePasse.getByLabel(texte("compte.nouveau_mot_de_passe")).fill("saisie-gardee-a-l-ecran");
+
+  // La direction éteint le réseau : le poste principal ne répond plus.
+  await allerA(principal.page, "nav.postes");
+  await principal.page.getByRole("button", { name: texte("postes.eteindre"), exact: true }).click();
+  await principal.page.getByRole("button", { name: texte("postes.eteindre_confirmer") }).click();
+  await expect(principal.page.getByText(texte("postes.reseau.eteint"))).toBeVisible();
+  await expect(async () => expect(await portOuvert()).toBe(false)).toPass({ timeout: 10_000 });
+
+  // L'enregistrement échoue, le bandeau le dit, et rien de ce qui est saisi ne disparaît.
+  await motDePasse.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(page.getByText(texte("bandeau_poste.coupee"))).toBeVisible({ timeout: 20_000 });
+  await expect(motDePasse.getByRole("alert")).toContainText(texte("reseau.poste_principal_injoignable").slice(0, 40));
+  await expect(motDePasse.getByLabel(texte("compte.nouveau_mot_de_passe"))).toHaveValue("saisie-gardee-a-l-ecran");
+  await capturer(page, "151-poste-principal-injoignable");
+
+  // Le réseau revient : sans rien toucher sur le poste relié, la liaison se rétablit.
+  await principal.page.getByRole("button", { name: texte("postes.activer") }).click();
+  await expect(principal.page.getByText(texte("postes.reseau.allume"))).toBeVisible();
+  await expect(page.getByText(texte("bandeau_poste.etablie"))).toBeVisible({ timeout: 30_000 });
+  await expect(motDePasse.getByLabel(texte("compte.nouveau_mot_de_passe"))).toHaveValue("saisie-gardee-a-l-ecran");
+  // La session a survécu : le poste principal n'a pas redémarré.
+  await allerA(page, "nav.journal");
+  await expect(page.getByRole("heading", { name: texte("journal.titre") })).toBeVisible();
+  await expect(page.getByRole("cell", { name: POSTE, exact: true }).first()).toBeVisible({ timeout: 20_000 });
+});
+
+test("le poste révoqué ne travaille plus, quitte le poste principal, et le journal garde tout", async () => {
+  const page = principal.page;
+  await page.getByRole("button", { name: texte("postes.revoquer_nom", { nom: POSTE }) }).click();
+  await capturer(page, "144-postes-revoquer-confirmation");
+  await page.getByRole("button", { name: texte("postes.revoquer_confirmer", { nom: POSTE }) }).click();
   const ligne = page.getByRole("row", { name: new RegExp(`^${POSTE}`) });
   await expect(ligne.getByText(/^Révoqué le /)).toBeVisible();
-  const refuse = await appelerPrincipal("/api/commandes/etat_demarrage", null, identite());
-  expect(refuse.statut).toBe(401);
-  expect(refuse.corps["cle"]).toBe("reseau.poste_inconnu");
   // Sa place est rendue : on peut relier un autre poste.
   await expect(page.getByRole("button", { name: texte("postes.code_demander") })).toBeEnabled();
-  await capturer("145-postes-poste-revoque");
+  await capturer(page, "145-postes-poste-revoque");
 
-  await allerA("nav.journal");
+  // Sur le poste révoqué, la première commande est refusée : l'écran dit quoi faire.
+  await allerA(relie.page, "nav.utilisateurs");
+  await expect(relie.page.getByRole("heading", { name: texte("liaison.panne_titre") })).toBeVisible({ timeout: 20_000 });
+  await expect(relie.page.getByRole("alert")).toHaveText(texte("reseau.poste_inconnu"));
+  await expect(relie.page.getByText(texte("bandeau_poste.refusee"))).toBeVisible();
+  await capturer(relie.page, "152-poste-revoque-sur-le-poste");
+  // « Quitter le poste principal » ramène au premier lancement, sans liaison ni secret.
+  await relie.page.getByRole("button", { name: texte("quitter_poste.lien") }).click();
+  await relie.page.getByRole("button", { name: texte("quitter_poste.confirmer") }).click();
+  await expect(relie.page.getByRole("heading", { name: texte("demarrage.titre") })).toBeVisible({ timeout: 30_000 });
+  await expect(relie.page.getByText(texte("bandeau_poste.nom", { nom: POSTE }))).toHaveCount(0);
+  expect(existsSync(join(relie.donnees, "poste.json"))).toBe(false);
+  expect(existsSync(join(relie.donnees, "trousseau-essai", "liaison.json"))).toBe(false);
+
+  await allerA(page, "nav.journal");
   await expect(page.getByRole("heading", { name: texte("journal.titre") })).toBeVisible();
   // Les lignes viennent du noyau, pas du réseau de la page : on attend de les voir.
   await expect(page.getByRole("cell", { name: texte("entite.poste_relie"), exact: true }).first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("cell", { name: texte("entite.reseau_local"), exact: true }).first()).toBeVisible();
-  await capturer("146-postes-journal");
+  await capturer(page, "146-postes-journal");
 
   // Réseau éteint : le port ne répond plus.
-  await allerA("nav.postes");
+  await allerA(page, "nav.postes");
   await page.getByRole("button", { name: texte("postes.eteindre"), exact: true }).click();
   await page.getByRole("button", { name: texte("postes.eteindre_confirmer") }).click();
   await expect(page.getByText(texte("postes.reseau.eteint"))).toBeVisible();
-  await expect(async () => {
-    await expect(appelerPrincipal("/api/appairage", { code: "AAAAAAAA", nom: POSTE })).rejects.toThrow();
-  }).toPass({ timeout: 10_000 });
+  await expect(async () => expect(await portOuvert()).toBe(false)).toPass({ timeout: 10_000 });
 });

@@ -65,11 +65,16 @@ pub fn configuration_serveur(
     Ok(Arc::new(configuration))
 }
 
+/// Ce que dit le canal quand le poste principal présente une autre empreinte que celle retenue.
+pub const AUTRE_EMPREINTE: &str =
+    "le poste principal présente une autre empreinte que celle retenue";
+
 /// Vérification faite par un poste relié : le certificat présenté doit avoir l'empreinte
-/// retenue à l'appairage. Ni sa date ni son nom ne comptent.
+/// retenue à l'appairage. Ni sa date ni son nom ne comptent. Sans empreinte retenue (avant
+/// l'appairage), tout certificat passe : c'est la personne qui compare l'empreinte à l'écran.
 #[derive(Debug)]
 struct EmpreinteRetenue {
-    empreinte: String,
+    empreinte: Option<String>,
     fournisseur: Arc<CryptoProvider>,
 }
 
@@ -82,12 +87,11 @@ impl ServerCertVerifier for EmpreinteRetenue {
         _ocsp_response: &[u8],
         _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
-        if empreinte_certificat(end_entity.as_ref()) == self.empreinte {
-            Ok(ServerCertVerified::assertion())
-        } else {
-            Err(rustls::Error::General(
-                "le poste principal présente une autre empreinte que celle retenue".to_owned(),
-            ))
+        match &self.empreinte {
+            Some(retenue) if *retenue != empreinte_certificat(end_entity.as_ref()) => {
+                Err(rustls::Error::General(AUTRE_EMPREINTE.to_owned()))
+            }
+            _ => Ok(ServerCertVerified::assertion()),
         }
     }
 
@@ -129,13 +133,24 @@ impl ServerCertVerifier for EmpreinteRetenue {
 /// Réglage d'un poste relié : il n'accepte que le poste principal dont le certificat a cette
 /// empreinte (en hexadécimal, telle que [`empreinte_certificat`] la rend).
 pub fn configuration_client(empreinte: &str) -> Result<Arc<ClientConfig>, ErreurChiffrement> {
+    client(Some(empreinte.to_owned()))
+}
+
+/// Réglage d'un poste qui n'est pas encore relié : il lit l'empreinte du poste principal pour
+/// la montrer à la personne, qui la compare à celle de l'écran « Postes de l'école ». Rien de
+/// secret ne passe par ce réglage.
+pub fn configuration_decouverte() -> Result<Arc<ClientConfig>, ErreurChiffrement> {
+    client(None)
+}
+
+fn client(empreinte: Option<String>) -> Result<Arc<ClientConfig>, ErreurChiffrement> {
     let fournisseur = fournisseur();
     let configuration = ClientConfig::builder_with_provider(Arc::clone(&fournisseur))
         .with_safe_default_protocol_versions()
         .map_err(erreur)?
         .dangerous()
         .with_custom_certificate_verifier(Arc::new(EmpreinteRetenue {
-            empreinte: empreinte.to_owned(),
+            empreinte,
             fournisseur,
         }))
         .with_no_client_auth();

@@ -47,6 +47,7 @@ import { Messages } from "../modules/communication/Messages";
 import { Convocations } from "../modules/scolarite/Convocations";
 import { Guichet } from "../modules/scolarite/Guichet";
 import { Remises } from "../modules/scolarite/Remises";
+import { BandeauPoste } from "./BandeauPoste";
 import { commandeAutorisee, GROUPES_REPLIES, type IdSection, sectionsAutorisees } from "./navigation";
 import { RechercheGlobale } from "./RechercheGlobale";
 import { useSession } from "./session";
@@ -105,9 +106,11 @@ export function Espace({ etablissement }: { etablissement: string }) {
   useVerrouillageInactivite(courante.data?.verrouillage_inactivite_ms, verrou.mutate);
 
   if (courante.isPending) return <p className="p-6 text-muet">{t("commun.chargement")}</p>;
-  if (courante.isError) return <div className="p-6"><MessageErreur erreur={courante.error} /></div>;
-  const { session: ouverte, permissions, doit_changer_mot_de_passe, modules } = courante.data;
-  const sections = sectionsAutorisees(permissions, modules);
+  // Une relecture ratée (poste principal injoignable) garde la session déjà lue : l'écran et la
+  // saisie en cours restent en place, le bandeau du poste dit la coupure.
+  if (courante.data === undefined) return <div className="p-6"><MessageErreur erreur={courante.error} /></div>;
+  const { session: ouverte, permissions, doit_changer_mot_de_passe, modules, role_poste } = courante.data;
+  const sections = sectionsAutorisees(permissions, modules, role_poste === "relie");
   const peutChercher = commandeAutorisee("eleves_rechercher", permissions) && !doit_changer_mot_de_passe;
   const groupes = [...new Set(sections.map((s) => s.groupe))];
 
@@ -157,6 +160,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
         })}
       </nav>
       <div className="flex flex-1 flex-col overflow-hidden">
+        <BandeauPoste />
         <header className="flex flex-wrap items-center gap-4 border-b border-muet/30 bg-surface px-4 py-2">
           <p className="text-sm text-muet">
             {etablissement}

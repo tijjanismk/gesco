@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { usePosteRelie } from "../../app/poste";
 import { choisirArchiveJournal } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
 import { Champ, Selection } from "../../composants/Champ";
@@ -127,6 +128,8 @@ function versMillis(jour: string, jourSuivant = false): number | null {
 /** Journal d'audit (SPEC_PHASE_1 §8) : filtres, noms lisibles, détail avant et après, chaîne
  *  vérifiable. */
 export function Journal() {
+  // La vérification d'une archive lit un fichier du poste principal : elle s'y fait.
+  const relie = usePosteRelie();
   const [filtres, setFiltres] = useState({ utilisateur: "", entite: "", operation: "", du: "", au: "" });
   const [page, setPage] = useState(0);
   const [choisie, setChoisie] = useState<string | null>(null);
@@ -216,7 +219,7 @@ export function Journal() {
         </div>
         {ligne === undefined ? null : <DetailLigne ligne={ligne} auteur={nomAuteur(ligne)} />}
       </div>
-      <ArchivesDuJournal />
+      {relie ? null : <ArchivesDuJournal />}
     </div>
   );
 }

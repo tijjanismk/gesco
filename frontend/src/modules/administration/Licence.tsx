@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { usePosteRelie } from "../../app/poste";
 import { Bouton } from "../../composants/Bouton";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, date, dateHeure, heure, t } from "../../i18n";
@@ -18,6 +19,7 @@ const STATUTS: Record<StatutLicence, Cle> = {
  *  Aucun état de la licence ne bloque l'application ; l'écran informe seulement. */
 export function Licence() {
   const client = useQueryClient();
+  const relie = usePosteRelie();
   const etat = useQuery({ queryKey: ["licence"], queryFn: () => appeler("licence_etat", null) });
   const installation = useMutation({
     mutationFn: (contenu: string) => appeler("licence_installer", { contenu }),
@@ -36,6 +38,7 @@ export function Licence() {
           <Situation affiche={etat.data} />
         </>
       )}
+      {relie ? <p className="text-sm text-muet">{t("licence.sur_poste_principal")}</p> : (
       <Section titre={t("licence.installer")}>
         <p className="text-sm text-muet">{t("licence.installer_aide")}</p>
         <label htmlFor="fichier-licence" className="flex flex-col gap-1 text-sm text-encre">
@@ -57,6 +60,7 @@ export function Licence() {
           <p role="status" className="text-sm text-vert">{t("licence.installee_a", { heure: heure(installation.data.installee_le) })}</p>
         )}
       </Section>
+      )}
     </div>
   );
 }

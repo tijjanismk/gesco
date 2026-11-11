@@ -38,6 +38,10 @@ function garderJeton(jeton: string | null): void {
   }
 }
 
+/** Ce qui ne dépend pas de la session survit à son ouverture et à sa fermeture : l'état du
+ *  démarrage et le rôle du poste. */
+const garderHorsSession = (q: { queryKey: readonly unknown[] }): boolean => q.queryKey[0] !== "etat" && q.queryKey[0] !== "poste";
+
 function etatInitial(): EtatSession {
   const jeton = jetonGarde();
   definirJeton(jeton);
@@ -53,7 +57,7 @@ export function FournisseurSession({ children }: { children: ReactNode }) {
     (jeton: string) => {
       definirJeton(jeton);
       garderJeton(jeton);
-      client.removeQueries({ predicate: (q) => q.queryKey[0] !== "etat" });
+      client.removeQueries({ predicate: garderHorsSession });
       setEtat({ jeton, verrouillee: false });
     },
     [client],
@@ -62,7 +66,7 @@ export function FournisseurSession({ children }: { children: ReactNode }) {
   const fermer = useCallback(() => {
     definirJeton(null);
     garderJeton(null);
-    client.removeQueries({ predicate: (q) => q.queryKey[0] !== "etat" });
+    client.removeQueries({ predicate: garderHorsSession });
     setEtat({ jeton: null, verrouillee: false });
   }, [client]);
   const valeur = useMemo(

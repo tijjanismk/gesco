@@ -11,6 +11,7 @@ publish.workspace = true
 gesco-core.workspace = true
 gesco-services.workspace = true
 gesco-reseau.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2.12.1", features = [] }
 tauri-plugin-dialog = "2.8.1"

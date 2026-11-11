@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 
 import { Application } from "./app/Application";
 import { GardeErreur, noterPanne } from "./composants/GardeErreur";
+import { FournisseurPoste } from "./app/poste";
 import { clientRequetes } from "./app/requetes";
 import { FournisseurSession } from "./app/session";
 import "./styles.css";
@@ -19,7 +20,9 @@ if (racine !== null) {
       <QueryClientProvider client={clientRequetes}>
         <FournisseurSession>
           <GardeErreur>
-            <Application />
+            <FournisseurPoste>
+              <Application />
+            </FournisseurPoste>
           </GardeErreur>
         </FournisseurSession>
       </QueryClientProvider>

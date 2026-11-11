@@ -13,13 +13,14 @@ gesco-services.workspace = true
 axum.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
+http-body-util.workspace = true
 tower-service.workspace = true
 rustls.workspace = true
 tokio-rustls.workspace = true
 rcgen.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio = { workspace = true, features = ["net"] }
+tokio = { workspace = true, features = ["net", "fs"] }
 
 [dev-dependencies]
 tempfile.workspace = true

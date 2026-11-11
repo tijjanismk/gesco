@@ -1,5 +1,5 @@
 import type { Cle } from "../i18n";
-import { ACCES, type NomCommande } from "../types/acces";
+import { ACCES, COMMANDES_POSTE_PRINCIPAL, type NomCommande } from "../types/acces";
 import type { ModuleEcole } from "../types/gesco";
 
 export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes";
@@ -74,6 +74,13 @@ export function commandeAutorisee(commande: NomCommande | null, permissions: rea
   return acces.type !== "permission" || (acces.permission !== undefined && permissions.includes(acces.permission));
 }
 
-export function sectionsAutorisees(permissions: readonly string[], modules: readonly ModuleEcole[]): Section[] {
-  return SECTIONS.filter((s) => commandeAutorisee(s.commande, permissions) && (s.module === undefined || modules.includes(s.module)));
+/** Sections affichées. Sur un poste relié, celles de ce qui ne se fait que sur le poste principal
+ *  (sauvegardes, postes de l'école) ne paraissent pas. */
+export function sectionsAutorisees(permissions: readonly string[], modules: readonly ModuleEcole[], relie = false): Section[] {
+  return SECTIONS.filter(
+    (s) =>
+      commandeAutorisee(s.commande, permissions) &&
+      (s.module === undefined || modules.includes(s.module)) &&
+      !(relie && s.commande !== null && COMMANDES_POSTE_PRINCIPAL.includes(s.commande)),
+  );
 }

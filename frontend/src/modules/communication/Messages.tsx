@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { appeler } from "../../api";
+import { usePosteRelie } from "../../app/poste";
 import { Bouton } from "../../composants/Bouton";
 import { Champ, Formulaire, Selection, ZoneTexte } from "../../composants/Champ";
 import { MessageErreur, MessageEnregistre, Section } from "../../composants/Messages";
@@ -66,6 +67,8 @@ function etatAffiche(m: MessageAffiche): string {
  *  pendant que les SMS partent. */
 export function Messages() {
   const client = useQueryClient();
+  // La clé modem est branchée sur le poste principal : son réglage s'y fait.
+  const relie = usePosteRelie();
   const [filtre, setFiltre] = useState<EtatMessage | null>(null);
   const [choisi, setChoisi] = useState<string | null>(null);
   const file = useQuery({
@@ -117,7 +120,7 @@ export function Messages() {
           </Section>
           {message === undefined ? null : <MessageChoisi key={message.message.id} m={message} f={f} surFait={poser} />}
           <SmsRecus configurer={f.droits.configurer} />
-          {f.droits.configurer && f.canal === "modem" ? <CleModem f={f} surFait={poser} /> : null}
+          {f.droits.configurer && f.canal === "modem" && !relie ? <CleModem f={f} surFait={poser} /> : null}
           {f.droits.configurer ? <SmsEssai surFait={poser} /> : null}
           {f.droits.configurer ? <Modeles f={f} surFait={poser} /> : null}
         </>
@@ -139,6 +142,7 @@ function libelleCanal(f: FileMessages): string {
 }
 
 function EtatCanal({ f, surFait }: { f: FileMessages; surFait: (f: FileMessages) => void }) {
+  const relie = usePosteRelie();
   const reprise = useMutation({ mutationFn: () => appeler("sms_reprendre", null), onSuccess: surFait });
   const lecture = useMutation({ mutationFn: () => appeler("sms_credit_lire", null), onSuccess: surFait });
   const e = f.etat_canal;
@@ -161,7 +165,7 @@ function EtatCanal({ f, surFait }: { f: FileMessages; surFait: (f: FileMessages)
       {f.droits.configurer ? (
         <div className="flex flex-wrap gap-2">
           {e.arretee ? <Bouton onClick={() => reprise.mutate()} disabled={reprise.isPending}>{t("messages.reprendre")}</Bouton> : null}
-          {f.canal === "modem" && f.credit_lisible ? (
+          {f.canal === "modem" && f.credit_lisible && !relie ? (
             <Bouton variante="secondaire" onClick={() => lecture.mutate()} disabled={lecture.isPending}>{t("messages.lire_credit")}</Bouton>
           ) : null}
         </div>

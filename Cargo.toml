@@ -48,7 +48,8 @@ gesco-reseau = { path = "crates/gesco-reseau" }
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 # Connexions servies une à une, pour passer par le canal chiffré avant les routes ; déjà au
 # verrou par Tauri.
-hyper = { version = "1.11.1", features = ["http1", "server"] }
+hyper = { version = "1.11.1", features = ["http1", "server", "client"] }
+http-body-util = "0.1.5"
 hyper-util = { version = "0.1.21", features = ["tokio"] }
 tower-service = "0.3.3"
 # Canal chiffré du réseau local (ADR du 10 novembre 2026) : rustls avec ring, qui se compile

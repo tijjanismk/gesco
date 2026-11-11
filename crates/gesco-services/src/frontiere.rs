@@ -199,7 +199,8 @@ use crate::personnel::{
     FicheMembre, MaFiche, MembreAffiche, ReferentielPersonnel, ServicePersonnel,
 };
 use crate::postes::{
-    AppairageConclu, DemandePoste, EtatReseau, ReseauAServir, ReseauVivant, ServicePostes,
+    AppairageConclu, DemandePoste, EtatReseau, ReseauAServir, ReseauVivant, RolePoste,
+    ServicePostes,
 };
 use crate::recettes::{
     DemandeAnnulationRecette, DemandeMoisRecettes, DemandeRecette, RecettesDuMois, ServiceRecettes,
@@ -445,6 +446,9 @@ pub struct SessionCourante {
     pub aujourd_hui: Option<gesco_core::commun::DateCivile>,
     /// Modules que l'école a allumés : leurs écrans paraissent.
     pub modules: Vec<gesco_core::core::ModuleEcole>,
+    /// Rôle du poste d'où vient l'appel : l'écran d'un poste relié ne montre pas ce qui se fait
+    /// sur le poste principal seulement.
+    pub role_poste: RolePoste,
 }
 
 /// Création d'un utilisateur.
@@ -1196,6 +1200,8 @@ impl Application {
         let espace = EspaceDonnees::nouveau(options.racine);
         espace.preparer()?;
         let cles = EspaceCles::nouveau(espace.cles(), options.trousseau);
+        // Fichiers de postes reliés qu'un arrêt brutal aurait laissés.
+        let _ = std::fs::remove_dir_all(crate::fichiers_relies::dossier_de_travail(&espace));
         let atelier = Arc::new(AtelierDocuments::nouveau(&espace)?);
         let canal_simule = Arc::new(gesco_sms::CanalSimule::nouveau(Some(
             espace.racine().join("sms-simules.txt"),
@@ -1309,14 +1315,6 @@ impl Application {
                 cle: "commande.poste_principal_seulement",
             });
         }
-        // Un chemin venu d'un poste relié désigne son disque, pas celui-ci : tant que le contenu
-        // des fichiers ne voyage pas à sa place (SPEC_PHASE_11_A §3.3, étape 3), il ne doit
-        // jamais atteindre un gestionnaire, qui lirait ou écrirait ici à cet endroit.
-        if origine.est_reliee() && commande.fichier().is_some() {
-            return Err(ErreurService::Regle {
-                cle: "commande.fichier_non_transporte",
-            });
-        }
         let ouverte = self.etat.read().await.clone();
         let session = match (&ouverte, commande.acces) {
             (_, Acces::Public) => None,
@@ -1331,16 +1329,31 @@ impl Application {
                 });
             }
         };
-        self.aiguiller(
-            nom,
-            Appel {
-                ouverte,
-                session,
-                jeton,
-            },
-            entree,
-        )
-        .await
+        // Un chemin venu d'un poste relié désigne son disque, pas celui-ci : c'est le contenu
+        // du fichier qui voyage (SPEC_PHASE_11_A §3.3). Aucun gestionnaire ne reçoit ce chemin.
+        // Après la garde : sans droit, rien n'est déposé.
+        let mut entree = entree;
+        let depot = match commande.fichier() {
+            Some(fichier) if origine.est_reliee() => {
+                crate::fichiers_relies::Depot::preparer(&self.espace, fichier, &mut entree)?
+            }
+            _ => None,
+        };
+        let sortie = self
+            .aiguiller(
+                nom,
+                Appel {
+                    ouverte,
+                    session,
+                    jeton,
+                },
+                entree,
+            )
+            .await?;
+        match depot {
+            Some(depot) => depot.conclure(sortie),
+            None => Ok(sortie),
+        }
     }
 
     /// Espace de données.
@@ -1429,6 +1442,18 @@ impl Application {
             .reconnaitre(etablissement_id, poste_id, secret)
             .await
             .ok()?
+    }
+
+    /// Postes reliés qui ont une session ouverte : le poste principal prévient avant de fermer
+    /// (SPEC_PHASE_11_A §5). Zéro quand la base est fermée ou l'école pas encore créée.
+    pub async fn postes_connectes(&self) -> u32 {
+        let Ok(Some((ouverte, etablissement_id))) = self.etablissement_ouvert().await else {
+            return 0;
+        };
+        self.postes(&ouverte)
+            .connectes(etablissement_id)
+            .await
+            .unwrap_or(0)
     }
 
     /// Version de GESCO sur ce poste : un poste relié d'une autre version est refusé.
@@ -2054,7 +2079,16 @@ impl Application {
             .await?
             .map(|a| a.libelle);
         let modules = crate::modules::actifs(&mut cnx, &contexte).await?;
+        drop(cnx);
+        let role_poste = if crate::origine::courante().est_reliee() {
+            RolePoste::Relie
+        } else if self.postes(ouverte).actif(session.etablissement_id).await? {
+            RolePoste::Principal
+        } else {
+            RolePoste::Seul
+        };
         Ok(SessionCourante {
+            role_poste,
             modules,
             session,
             permissions,

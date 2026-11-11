@@ -15,7 +15,7 @@
 use std::borrow::Cow;
 use std::path::PathBuf;
 
-use gesco_services::commandes::{Acces, COMMANDES};
+use gesco_services::commandes::{Acces, COMMANDES, COMMANDES_POSTE_PRINCIPAL};
 use gesco_services::frontiere::{Contrat, ErreurCommande};
 use specta::datatype::{DataType, Fields, NamedReferenceType, Primitive, Reference};
 use specta::{Format, FormatError, Types};
@@ -160,5 +160,13 @@ fn la_table_des_acces_est_a_jour() {
         texte.push_str(&format!("  {}: {acces},\n", commande.nom));
     }
     texte.push_str("} as const;\n\nexport type NomCommande = keyof typeof ACCES;\n");
+    texte.push_str(
+        "\n/** Commandes réservées au poste principal : un poste relié ne montre pas leurs écrans. */\n",
+    );
+    texte.push_str("export const COMMANDES_POSTE_PRINCIPAL: readonly NomCommande[] = [\n");
+    for nom in COMMANDES_POSTE_PRINCIPAL {
+        texte.push_str(&format!("  \"{nom}\",\n"));
+    }
+    texte.push_str("];\n");
     verifier_ou_ecrire("acces.ts", &texte);
 }

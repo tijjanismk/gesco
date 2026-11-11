@@ -330,3 +330,35 @@ export const ACCES = {
 } as const;
 
 export type NomCommande = keyof typeof ACCES;
+
+/** Commandes réservées au poste principal : un poste relié ne montre pas leurs écrans. */
+export const COMMANDES_POSTE_PRINCIPAL: readonly NomCommande[] = [
+  "premier_demarrage",
+  "cles_deverrouiller_phrase",
+  "administrateur_reinitialiser_par_phrase",
+  "certificat_confirmer_initial",
+  "certificat_confirmer",
+  "phrase_secours_regenerer",
+  "sauvegarde_apercu",
+  "sauvegarde_restaurer_initiale",
+  "sauvegarde_restaurer",
+  "sauvegarde_creer",
+  "sauvegardes_lister",
+  "sauvegarde_tester",
+  "sauvegarde_destinations_lister",
+  "sauvegarde_destinations_definir",
+  "licence_installer",
+  "sms_ports_lister",
+  "sms_cle_essayer",
+  "sms_port_choisir",
+  "sms_credit_lire",
+  "sms_reception_simuler",
+  "journal_archive_verifier",
+  "reseau_etat_lire",
+  "reseau_activer",
+  "reseau_eteindre",
+  "poste_appairage_ouvrir",
+  "poste_appairage_fermer",
+  "poste_revoquer",
+  "reseau_cle_renouveler",
+];

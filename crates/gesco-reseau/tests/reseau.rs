@@ -22,8 +22,9 @@ use gesco_core::core::reseau::{empreinte_certificat, empreinte_courte};
 use gesco_core::core::{Poste, licence};
 use gesco_reseau::chiffrement::{NOM_CERTIFICAT, configuration_client};
 use gesco_reseau::{
-    CLE_POSTE_INCONNU, CLE_TROP_D_ESSAIS, ENTETE_POSTE, ENTETE_SECRET, EtatServeur,
-    REFUS_MAX_PAR_MINUTE, Reconnaissance, ecouter_boucle_locale, servir, superviser,
+    CLE_POSTE_INCONNU, CLE_TROP_D_ESSAIS, CLE_VERSION_DIFFERENTE, ENTETE_POSTE, ENTETE_SECRET,
+    ENTETE_VERSION, EtatServeur, REFUS_MAX_PAR_MINUTE, Reconnaissance, ecouter_boucle_locale,
+    relais, servir, superviser,
 };
 use gesco_services::cles::TrousseauMemoire;
 use gesco_services::commandes::{COMMANDES, Lieu};
@@ -106,6 +107,10 @@ async fn echanger<F: AsyncRead + AsyncWrite + Unpin>(
 ) -> Reponse {
     let mut requete =
         format!("{methode} {chemin} HTTP/1.1\r\nHost: poste-principal\r\nConnection: close\r\n");
+    // Sauf mention contraire, l'appelant est de la version du poste principal.
+    if !entetes.iter().any(|(nom, _)| *nom == ENTETE_VERSION) {
+        requete.push_str(&format!("{ENTETE_VERSION}: {VERSION}\r\n"));
+    }
     for (nom, valeur) in entetes {
         requete.push_str(&format!("{nom}: {valeur}\r\n"));
     }
@@ -256,15 +261,6 @@ impl Ecole {
                     obtenu,
                     Err("commande.poste_principal_seulement".to_owned()),
                     "{} devrait être réservée au poste principal",
-                    commande.nom
-                );
-            } else if commande.fichier().is_some() {
-                // Tant que le contenu des fichiers ne voyage pas (étape 3), aucun chemin venu
-                // du réseau n'atteint un gestionnaire.
-                assert_eq!(
-                    obtenu,
-                    Err("commande.fichier_non_transporte".to_owned()),
-                    "{} manie un fichier et devrait être refusée par le réseau",
                     commande.nom
                 );
             } else {
@@ -761,4 +757,283 @@ async fn le_serveur_suit_le_reseau_allume_eteint_cle_renouvelee() {
             .statut,
         200
     );
+}
+
+// --- Le poste relié et son relais ---------------------------------------------------------------
+
+/// Relie un poste comme le fait son écran : aperçu de l'empreinte, code, puis relais.
+async fn relais_de(e: &mut EcoleReliee, nom: &str) -> (relais::Liaison, relais::Relais) {
+    let adresse = e.adresse().await.to_string();
+    let apercu = relais::apercevoir(&adresse).await.unwrap();
+    // L'empreinte courte lue par le poste est celle que montre l'écran du poste principal.
+    let etat = e.sur_place("reseau_etat_lire", Value::Null).await;
+    assert_eq!(etat["empreinte_courte"], apercu.empreinte_courte);
+    assert_eq!(apercu.version, VERSION);
+    let code = e.code().await;
+    let (liaison, conclu) = relais::appairer(&apercu, VERSION, &code, nom)
+        .await
+        .unwrap();
+    assert_eq!(conclu.nom, nom);
+    let relais = relais::Relais::nouveau(liaison.clone(), VERSION).unwrap();
+    (liaison, relais)
+}
+
+async fn connecter_par_relais(relais: &relais::Relais) -> String {
+    let session = relais
+        .executer("connexion", None, Ecole::identifiants())
+        .await
+        .unwrap();
+    session["jeton"].as_str().unwrap().to_owned()
+}
+
+#[tokio::test]
+async fn le_relais_transmet_les_commandes_et_le_contenu_des_fichiers() {
+    let mut e = ecole_reliee().await;
+    let (liaison, relais) = relais_de(&mut e, "Caisse").await;
+    relais.verifier().await.unwrap();
+    let jeton = connecter_par_relais(&relais).await;
+
+    // La session dit le rôle du poste, de chaque côté ; le poste principal compte ses postes.
+    let courante = relais
+        .executer("session_courante", Some(&jeton), Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(courante["role_poste"], "relie");
+    assert_eq!(courante["session"]["poste"], "Caisse");
+    let sur_place = e.sur_place("session_courante", Value::Null).await;
+    assert_eq!(sur_place["role_poste"], "principal");
+    assert_eq!(e.ecole.application.postes_connectes().await, 1);
+
+    // Une commande qui écrit un fichier : il arrive sur le disque du poste relié, au chemin
+    // choisi, et la réponse redit ce chemin.
+    let disque = tempfile::tempdir().unwrap();
+    let classeur = disque.path().join("liste des classes.xlsx");
+    let ecrit = relais
+        .executer(
+            "exporter_xlsx",
+            Some(&jeton),
+            json!({
+                "chemin": classeur.to_string_lossy(),
+                "titre": "Classes",
+                "entetes": ["Classe", "Effectif"],
+                "lignes": [["7e A", "42"], ["8e A", "39"]],
+            }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(ecrit["lignes"], 2);
+    assert_eq!(
+        ecrit["chemin"].as_str().unwrap(),
+        classeur.to_string_lossy()
+    );
+    let octets = std::fs::read(&classeur).unwrap();
+    assert!(octets.starts_with(b"PK"), "un classeur est une archive ZIP");
+
+    // Une commande qui lit un fichier : son contenu part du poste relié.
+    let annee = relais
+        .executer(
+            "annee_creer",
+            Some(&jeton),
+            json!({ "libelle": "2026-2027", "debut": 1_790_812_800_000_i64, "fin": 1_816_992_000_000_i64 }),
+        )
+        .await
+        .unwrap();
+    relais
+        .executer("annee_activer", Some(&jeton), json!({ "id": annee["id"] }))
+        .await
+        .unwrap();
+    let eleves = disque.path().join("eleves.csv");
+    std::fs::write(
+        &eleves,
+        "nom;prenoms;sexe;date_naissance;classe\nTraoré;Awa;F;12/03/2014;7e A\n",
+    )
+    .unwrap();
+    let analyse = relais
+        .executer(
+            "import_eleves_analyser",
+            Some(&jeton),
+            json!({ "chemin": eleves.to_string_lossy() }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        analyse["champs"],
+        json!(["nom", "prenoms", "sexe", "date_naissance", "classe"])
+    );
+    // Le refus du gestionnaire revient tel quel, et un fichier absent se dit sur ce poste.
+    let pdf = disque.path().join("eleves.pdf");
+    std::fs::write(&pdf, b"%PDF-").unwrap();
+    let refus = relais
+        .executer(
+            "import_eleves_analyser",
+            Some(&jeton),
+            json!({ "chemin": pdf.to_string_lossy() }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(refus.cle, "import.format_inconnu");
+    let absent = relais
+        .executer(
+            "import_eleves_analyser",
+            Some(&jeton),
+            json!({ "chemin": disque.path().join("absent.csv").to_string_lossy() }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(absent.cle, relais::CLE_FICHIER_INACCESSIBLE);
+
+    // Rien ne reste sur le poste principal.
+    let travail = e.ecole._dossier.path().join("temp").join("reseau");
+    let restes = std::fs::read_dir(&travail)
+        .map(Iterator::count)
+        .unwrap_or(0);
+    assert_eq!(
+        restes, 0,
+        "le dossier de travail est vide après chaque commande"
+    );
+
+    // Un chemin brut présenté par un poste relié n'atteint aucun gestionnaire.
+    let poste = PosteEssai {
+        adresse: e.adresse().await,
+        empreinte: liaison.empreinte.clone(),
+        id: liaison.poste_id.clone(),
+        secret: liaison.secret.clone(),
+    };
+    let brut = poste
+        .appeler(
+            "import_eleves_analyser",
+            Some(&Jeton(jeton.clone())),
+            json!({ "chemin": eleves.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(brut.statut, 422);
+    assert_eq!(brut.corps["cle"], "commande.entree_invalide");
+    // Sans session, la garde refuse d'abord : rien n'est déposé pour un inconnu.
+    let sans_session = poste
+        .appeler(
+            "import_eleves_analyser",
+            None,
+            json!({ "chemin": { "nom": "eleves.csv", "contenu": "bm9t" } }),
+        )
+        .await;
+    assert_eq!(sans_session.corps["cle"], "session.invalide");
+}
+
+#[tokio::test]
+async fn un_poste_d_une_autre_version_est_refuse_avec_la_version_attendue() {
+    let mut e = ecole_reliee().await;
+    let (liaison, _) = relais_de(&mut e, "Caisse").await;
+    let ancien_id = liaison.poste_id.clone();
+    let ancien = relais::Relais::nouveau(liaison, "1.2.7").unwrap();
+    let refus = ancien
+        .executer("etat_demarrage", None, Value::Null)
+        .await
+        .unwrap_err();
+    assert_eq!(refus.cle, CLE_VERSION_DIFFERENTE);
+    assert_eq!(refus.detail.as_deref(), Some(VERSION));
+    let refus = ancien.verifier().await.unwrap_err();
+    assert_eq!(refus.cle, CLE_VERSION_DIFFERENTE);
+    assert_eq!(refus.detail.as_deref(), Some(VERSION));
+
+    // L'appairage aussi : un poste d'une autre version ne se relie pas.
+    e.sur_place("poste_revoquer", json!({ "poste_id": ancien_id }))
+        .await;
+    let adresse = e.adresse().await.to_string();
+    let apercu = relais::apercevoir(&adresse).await.unwrap();
+    let code = e.code().await;
+    let refus = relais::appairer(&apercu, "1.2.7", &code, "Ancien")
+        .await
+        .unwrap_err();
+    assert_eq!(refus.cle, CLE_VERSION_DIFFERENTE);
+    // Le code n'a pas servi : le même poste, mis à la bonne version, se relie avec lui.
+    assert!(
+        relais::appairer(&apercu, VERSION, &code, "Nouveau")
+            .await
+            .is_ok()
+    );
+
+    // Sans dire sa version, un appel est refusé de même.
+    let muet = chiffre(
+        e.adresse().await,
+        &apercu.empreinte,
+        "POST",
+        "/api/commandes/etat_demarrage",
+        &[(ENTETE_VERSION, String::new())],
+        Some("null"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(muet.statut, 426);
+    assert_eq!(muet.corps["detail"], VERSION);
+}
+
+#[tokio::test]
+async fn poste_principal_eteint_le_relais_le_dit_puis_reprend() {
+    let mut e = ecole_reliee().await;
+    let (liaison, relais) = relais_de(&mut e, "Caisse").await;
+    let jeton = connecter_par_relais(&relais).await;
+
+    // Réseau éteint : la commande n'atteint pas le poste principal, et rien n'est mis de côté.
+    e.sur_place("reseau_eteindre", Value::Null).await;
+    e.serveur.wait_for(Option::is_none).await.unwrap();
+    let coupe = relais
+        .executer("session_courante", Some(&jeton), Value::Null)
+        .await
+        .unwrap_err();
+    assert_eq!(coupe.cle, relais::CLE_INJOIGNABLE);
+    assert_eq!(
+        relais.verifier().await.unwrap_err().cle,
+        relais::CLE_INJOIGNABLE
+    );
+
+    // Rallumé : le même poste, sans se relier de nouveau, retrouve sa session.
+    e.sur_place("reseau_activer", Value::Null).await;
+    let revenu = relais::Relais::nouveau(
+        relais::Liaison {
+            adresse: e.adresse().await.to_string(),
+            ..liaison.clone()
+        },
+        VERSION,
+    )
+    .unwrap();
+    revenu.verifier().await.unwrap();
+    let courante = revenu
+        .executer("session_courante", Some(&jeton), Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(courante["session"]["poste"], "Caisse");
+
+    // Clé du réseau renouvelée : le poste refuse ce poste principal, qui n'a plus l'empreinte
+    // retenue.
+    e.sur_place("reseau_cle_renouveler", Value::Null).await;
+    e.serveur.wait_for(Option::is_none).await.unwrap();
+    let change = relais::Relais::nouveau(
+        relais::Liaison {
+            adresse: e.adresse().await.to_string(),
+            ..liaison
+        },
+        VERSION,
+    )
+    .unwrap();
+    assert_eq!(
+        change.verifier().await.unwrap_err().cle,
+        relais::CLE_EMPREINTE_DIFFERENTE
+    );
+}
+
+#[tokio::test]
+async fn un_appareil_qui_ne_repond_pas_rend_poste_principal_injoignable() {
+    // Un appareil qui accepte la connexion et ne dit jamais rien.
+    let ecoute = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+        .await
+        .unwrap();
+    let adresse = ecoute.local_addr().unwrap();
+    tokio::spawn(async move {
+        let mut gardes = Vec::new();
+        while let Ok((flux, _)) = ecoute.accept().await {
+            gardes.push(flux);
+        }
+    });
+    let refus = relais::apercevoir(&adresse.to_string()).await.unwrap_err();
+    assert_eq!(refus.cle, relais::CLE_INJOIGNABLE);
 }
