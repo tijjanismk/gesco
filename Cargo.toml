@@ -1,12 +1,14 @@
 [workspace]
 resolver = "3"
-# gesco-server (serveur cloud) et gesco-sync reviendront à la phase 11 (retirés le 31 octobre 2026).
+# gesco-server (serveur en ligne) et gesco-sync, retirés le 31 octobre 2026, reviendront avec le
+# lot C de la phase 11. Le réseau local de l'école (lot A) vit dans gesco-reseau.
 members = [
     "crates/gesco-core",
     "crates/gesco-db",
     "crates/gesco-services",
     "crates/gesco-docs",
     "crates/gesco-sms",
+    "crates/gesco-reseau",
     "crates/gesco-app",
     "outils/licence",
     # Outil du porteur du projet : remplit une base de démonstration ; hors de la suite par défaut.
@@ -22,6 +24,7 @@ default-members = [
     "crates/gesco-services",
     "crates/gesco-docs",
     "crates/gesco-sms",
+    "crates/gesco-reseau",
     "outils/licence",
 ]
 
@@ -38,6 +41,10 @@ gesco-db = { path = "crates/gesco-db" }
 gesco-services = { path = "crates/gesco-services" }
 gesco-docs = { path = "crates/gesco-docs" }
 gesco-sms = { path = "crates/gesco-sms" }
+
+# Serveur du réseau local (ADR du 10 novembre 2026) : HTTP/1 et JSON seulement, sans formulaires
+# ni traces.
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 
 serde = { version = "1.0.229", features = ["derive"] }
 # Port série de la clé modem GSM (SPEC_PHASE_5 §4) ; sans libudev, la CI Linux n'en a pas besoin.

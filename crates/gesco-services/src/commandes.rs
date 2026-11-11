@@ -47,7 +47,99 @@ impl Commande {
     pub fn par_nom(nom: &str) -> Option<&'static Commande> {
         COMMANDES.iter().find(|c| c.nom == nom)
     }
+
+    /// Où la commande peut être demandée.
+    pub fn lieu(&self) -> Lieu {
+        if COMMANDES_POSTE_PRINCIPAL.contains(&self.nom) {
+            Lieu::PostePrincipal
+        } else {
+            Lieu::Partout
+        }
+    }
+
+    /// Fichier que la commande lit ou écrit, si elle en manie un.
+    pub fn fichier(&self) -> Option<Fichier> {
+        COMMANDES_A_FICHIER
+            .iter()
+            .find(|(nom, _)| *nom == self.nom)
+            .map(|(_, fichier)| *fichier)
+    }
 }
+
+/// Où une commande peut être demandée (SPEC_PHASE_11_A §3.4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lieu {
+    /// Depuis le poste principal comme depuis un poste relié.
+    Partout,
+    /// Depuis le poste principal seulement : elle dépend de son disque, de ses clés ou de ce qui
+    /// y est branché.
+    PostePrincipal,
+}
+
+/// Fichier que manie une commande, désigné par un chemin dans son entrée (SPEC_PHASE_11_A
+/// §3.3). Sur un poste relié, ce chemin est celui du poste relié : son contenu voyage à sa place.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fichier {
+    /// La commande lit le fichier dont le chemin est dans ce champ de l'entrée.
+    Lu(&'static str),
+    /// La commande écrit le fichier dont le chemin est dans ce champ de l'entrée.
+    Ecrit(&'static str),
+}
+
+/// Commandes réservées au poste principal, énumérées une seule fois : premier démarrage, clés et
+/// douze mots, sauvegarde et restauration, licence, clé modem, archive du journal.
+pub const COMMANDES_POSTE_PRINCIPAL: &[&str] = &[
+    "premier_demarrage",
+    "cles_deverrouiller_phrase",
+    "administrateur_reinitialiser_par_phrase",
+    "certificat_confirmer_initial",
+    "certificat_confirmer",
+    "phrase_secours_regenerer",
+    "sauvegarde_apercu",
+    "sauvegarde_restaurer_initiale",
+    "sauvegarde_restaurer",
+    "sauvegarde_creer",
+    "sauvegardes_lister",
+    "sauvegarde_tester",
+    "sauvegarde_destinations_lister",
+    "sauvegarde_destinations_definir",
+    "licence_installer",
+    "sms_ports_lister",
+    "sms_cle_essayer",
+    "sms_port_choisir",
+    "sms_credit_lire",
+    "sms_reception_simuler",
+    "journal_archive_verifier",
+];
+
+/// Commandes qui lisent ou écrivent un fichier au chemin donné par l'écran. Celles du poste
+/// principal y figurent aussi : la déclaration dit ce que la commande fait du chemin, le lieu
+/// dit d'où elle se demande. Un essai compare cette liste au contrat généré.
+pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
+    ("sauvegarde_apercu", Fichier::Lu("chemin")),
+    ("sauvegarde_restaurer_initiale", Fichier::Lu("chemin")),
+    ("sauvegarde_restaurer", Fichier::Lu("chemin")),
+    ("journal_archive_verifier", Fichier::Lu("chemin")),
+    ("exporter_xlsx", Fichier::Ecrit("chemin")),
+    ("import_eleves_analyser", Fichier::Lu("chemin")),
+    ("notes_import_analyser", Fichier::Lu("chemin")),
+    ("notes_importer", Fichier::Lu("chemin")),
+    ("personnel_import_modele", Fichier::Ecrit("chemin")),
+    ("personnel_import_analyser", Fichier::Lu("chemin")),
+    ("personnel_import_appliquer", Fichier::Lu("chemin")),
+    ("programme_import_modele", Fichier::Ecrit("chemin")),
+    ("programme_import_analyser", Fichier::Lu("chemin")),
+    ("programme_import_appliquer", Fichier::Lu("chemin")),
+    ("referentiel_import_modele", Fichier::Ecrit("chemin")),
+    ("referentiel_import_analyser", Fichier::Lu("chemin")),
+    ("referentiel_import_appliquer", Fichier::Lu("chemin")),
+    ("piece_dossier_ajouter", Fichier::Lu("chemin")),
+    ("piece_dossier_enregistrer_sous", Fichier::Ecrit("chemin")),
+    ("depense_piece_joindre", Fichier::Lu("chemin")),
+    ("depense_piece_enregistrer_sous", Fichier::Ecrit("chemin")),
+    ("releve_apercu", Fichier::Lu("chemin")),
+    ("releve_importer", Fichier::Lu("chemin")),
+];
 
 /// Commandes publiques, énumérées une seule fois : le test d'exhaustivité refuse toute commande
 /// publique hors de cette liste. Ce sont les commandes de l'écran d'accueil, de l'écran verrouillé
@@ -542,6 +634,36 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn les_commandes_du_poste_principal_et_a_fichier_existent_une_fois() {
+        let principal: HashSet<&str> = COMMANDES_POSTE_PRINCIPAL.iter().copied().collect();
+        assert_eq!(principal.len(), COMMANDES_POSTE_PRINCIPAL.len());
+        for nom in COMMANDES_POSTE_PRINCIPAL {
+            assert!(Commande::par_nom(nom).is_some(), "{nom} hors catalogue");
+        }
+        let fichiers: HashSet<&str> = COMMANDES_A_FICHIER.iter().map(|(nom, _)| *nom).collect();
+        assert_eq!(fichiers.len(), COMMANDES_A_FICHIER.len());
+        for (nom, _) in COMMANDES_A_FICHIER {
+            assert!(Commande::par_nom(nom).is_some(), "{nom} hors catalogue");
+        }
+    }
+
+    #[test]
+    fn lieu_et_fichier_d_une_commande() {
+        let restaurer = Commande::par_nom("sauvegarde_restaurer").map(|c| (c.lieu(), c.fichier()));
+        assert_eq!(
+            restaurer,
+            Some((Lieu::PostePrincipal, Some(Fichier::Lu("chemin"))))
+        );
+        let exporter = Commande::par_nom("exporter_xlsx").map(|c| (c.lieu(), c.fichier()));
+        assert_eq!(
+            exporter,
+            Some((Lieu::Partout, Some(Fichier::Ecrit("chemin"))))
+        );
+        let connexion = Commande::par_nom("connexion").map(|c| (c.lieu(), c.fichier()));
+        assert_eq!(connexion, Some((Lieu::Partout, None)));
     }
 
     #[test]

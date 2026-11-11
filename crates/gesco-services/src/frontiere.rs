@@ -47,7 +47,7 @@ use crate::caisse::{
 };
 use crate::cantine::{Cantine, DemandeCantine, DemandeRepas, ServiceCantine};
 use crate::cles::{EspaceCles, EtatCles, Trousseau};
-use crate::commandes::{Acces, Commande};
+use crate::commandes::{Acces, Commande, Lieu};
 use crate::comptes::ServiceComptes;
 use crate::conduite::{
     ClassesConduite, ConduiteClasse, DemandeConduite, DemandeNoteConduite, DemandeRetraitConduite,
@@ -177,6 +177,7 @@ use crate::messages::{
     ServiceMessages,
 };
 use crate::noyau::{Noyau, OptionsNoyau};
+use crate::origine::Origine;
 use crate::paie::{
     DemandeAttribution, DemandeElement, DemandeVersion, ElementsPaie, ReglagesPaie, ServicePaie,
 };
@@ -1225,17 +1226,32 @@ impl Application {
         Ok(application)
     }
 
-    /// Exécute une commande du frontend : garde, puis gestionnaire.
+    /// Exécute une commande de l'écran de ce poste : garde, puis gestionnaire.
     pub async fn executer(
         &self,
         nom: &str,
         jeton: Option<Jeton>,
         entree: serde_json::Value,
     ) -> Result<serde_json::Value, ErreurCommande> {
+        self.executer_depuis(Origine::Locale, nom, jeton, entree)
+            .await
+    }
+
+    /// Exécute une commande venue de l'origine donnée (SPEC_PHASE_11_A §3.2) : l'écran de ce
+    /// poste, ou un poste relié que le serveur du réseau local a reconnu. Même garde, même
+    /// gestionnaire ; l'origine signe les écritures et borne les commandes permises.
+    pub async fn executer_depuis(
+        &self,
+        origine: Origine,
+        nom: &str,
+        jeton: Option<Jeton>,
+        entree: serde_json::Value,
+    ) -> Result<serde_json::Value, ErreurCommande> {
         // Une panique devient une erreur interne : l'écran l'affiche au lieu d'attendre sans fin.
-        let resultat = match crate::journal_technique::SansPanique::nouveau(
-            self.executer_garde(nom, jeton, entree),
-        )
+        let resultat = match crate::journal_technique::SansPanique::nouveau(crate::origine::dans(
+            origine.clone(),
+            self.executer_garde(&origine, nom, jeton, entree),
+        ))
         .await
         {
             Ok(rendu) => rendu.map_err(ErreurCommande::from),
@@ -1265,6 +1281,7 @@ impl Application {
 
     async fn executer_garde(
         &self,
+        origine: &Origine,
         nom: &str,
         jeton: Option<Jeton>,
         entree: serde_json::Value,
@@ -1272,6 +1289,21 @@ impl Application {
         let commande = Commande::par_nom(nom).ok_or(ErreurService::Regle {
             cle: "commande.inconnue",
         })?;
+        // Ce qui dépend du disque, des clés ou du matériel du poste principal ne se demande pas
+        // d'un poste relié (SPEC_PHASE_11_A §3.4).
+        if origine.est_reliee() && commande.lieu() == Lieu::PostePrincipal {
+            return Err(ErreurService::Regle {
+                cle: "commande.poste_principal_seulement",
+            });
+        }
+        // Un chemin venu d'un poste relié désigne son disque, pas celui-ci : tant que le contenu
+        // des fichiers ne voyage pas à sa place (SPEC_PHASE_11_A §3.3, étape 3), il ne doit
+        // jamais atteindre un gestionnaire, qui lirait ou écrirait ici à cet endroit.
+        if origine.est_reliee() && commande.fichier().is_some() {
+            return Err(ErreurService::Regle {
+                cle: "commande.fichier_non_transporte",
+            });
+        }
         let ouverte = self.etat.read().await.clone();
         let session = match (&ouverte, commande.acces) {
             (_, Acces::Public) => None,
@@ -1301,6 +1333,11 @@ impl Application {
     /// Espace de données.
     pub fn espace(&self) -> &EspaceDonnees {
         &self.espace
+    }
+
+    /// Version de GESCO sur ce poste : un poste relié d'une autre version est refusé.
+    pub fn version_applicative(&self) -> &str {
+        &self.version_applicative
     }
 
     async fn ouvrir(&self, cle: CleDonnees) -> Resultat<Ouverte> {

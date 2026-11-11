@@ -7964,6 +7964,8 @@ export type Session = {
 	verrouillee: boolean,
 	/**  L'utilisateur a un code PIN ; sinon l'écran verrouillé demande son mot de passe. */
 	pin_defini: boolean,
+	/**  Poste qui a ouvert la session : elle ne vaut que depuis lui (SPEC_PHASE_11_A §3.2). */
+	poste: Poste,
 };
 
 /**  Session affichée. */

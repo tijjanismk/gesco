@@ -11,7 +11,8 @@ use gesco_db::{Base, Contexte, UniteDeTravail, nouvel_id};
 use crate::effets::{Effet, ExecuteurEffets, JournalEffets};
 use crate::erreur::Resultat;
 use crate::horloge::{Horloge, HorlogeSysteme};
-use crate::session::{PolitiqueSession, Session, Sessions};
+use crate::origine::{self, Origine};
+use crate::session::{PolitiqueSession, Session, Sessions, SessionsDuPoste};
 
 /// Options d'assemblage du noyau.
 pub struct OptionsNoyau {
@@ -78,9 +79,18 @@ impl Noyau {
         &self.base
     }
 
-    /// Poste.
+    /// Ce poste : celui qui détient la base.
     pub fn poste(&self) -> &Poste {
         &self.poste
+    }
+
+    /// Poste d'où vient l'appel en cours : ce poste, ou le poste relié que le serveur du réseau
+    /// local a reconnu (SPEC_PHASE_11_A §3.2). C'est lui qui signe les écritures.
+    pub fn poste_appelant(&self) -> Poste {
+        match origine::courante() {
+            Origine::Locale => self.poste.clone(),
+            Origine::Relie(poste) => poste,
+        }
     }
 
     /// Empreinte de la machine, comparée à celle de la licence.
@@ -93,11 +103,12 @@ impl Noyau {
         self.horloge.as_ref()
     }
 
-    /// Sessions du poste, après application de la politique d'inactivité à l'instant courant.
-    pub fn sessions(&self) -> &Sessions {
+    /// Sessions du poste appelant, après application de la politique d'inactivité à l'instant
+    /// courant : une session ne se lit ni ne se manie que depuis le poste qui l'a ouverte.
+    pub fn sessions(&self) -> SessionsDuPoste<'_> {
         self.sessions
             .appliquer(self.politique_session(), self.horloge.maintenant());
-        &self.sessions
+        self.sessions.du_poste(self.poste_appelant())
     }
 
     /// Politique de session en vigueur.
@@ -161,7 +172,7 @@ impl Noyau {
             etablissement_id,
             utilisateur_id: session.map(|s| s.utilisateur_id),
             role_actif: session.and_then(|s| s.role_actif.clone()),
-            poste: self.poste.clone(),
+            poste: self.poste_appelant(),
             empreinte_machine: self.empreinte_machine.clone(),
             maintenant: self.horloge.maintenant(),
             correlation_id: nouvel_id::<Utilisateur>().vers_chaine(),

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use gesco_core::commun::{Horodatage, Id};
-use gesco_core::core::{Etablissement, Utilisateur};
+use gesco_core::core::{Etablissement, Poste, Utilisateur};
 use serde::{Deserialize, Serialize};
 
 /// Jeton opaque d'une session, remis au frontend.
@@ -34,6 +34,8 @@ pub struct Session {
     pub verrouillee: bool,
     /// L'utilisateur a un code PIN ; sinon l'écran verrouillé demande son mot de passe.
     pub pin_defini: bool,
+    /// Poste qui a ouvert la session : elle ne vaut que depuis lui (SPEC_PHASE_11_A §3.2).
+    pub poste: Poste,
 }
 
 /// Codes PIN faux tolérés sur une session verrouillée avant de la fermer : au-delà, un PIN de
@@ -178,7 +180,15 @@ impl Sessions {
         )
     }
 
-    /// Sessions présentes sur le poste : c'est la liste de l'écran verrouillé (bascule rapide).
+    /// Les mêmes sessions, vues d'un poste.
+    pub fn du_poste(&self, poste: Poste) -> SessionsDuPoste<'_> {
+        SessionsDuPoste {
+            sessions: self,
+            poste,
+        }
+    }
+
+    /// Toutes les sessions ouvertes, tous postes confondus, la plus récemment active d'abord.
     pub fn lister(&self) -> Vec<Session> {
         self.sessions
             .lock()
@@ -188,6 +198,80 @@ impl Sessions {
                 v
             })
             .unwrap_or_default()
+    }
+}
+
+/// Sessions vues d'un poste (SPEC_PHASE_11_A §3.2) : le jeton d'une session ouverte ailleurs y
+/// est inconnu, comme s'il n'existait pas. Ce qui vise un utilisateur où qu'il soit connecté
+/// (compte désactivé, code PIN défini) touche ses sessions sur tous les postes.
+#[derive(Debug)]
+pub struct SessionsDuPoste<'a> {
+    sessions: &'a Sessions,
+    poste: Poste,
+}
+
+impl SessionsDuPoste<'_> {
+    /// Enregistre une session.
+    pub fn ouvrir(&self, session: Session) {
+        self.sessions.ouvrir(session);
+    }
+
+    /// Lit une session ouverte sur ce poste, verrouillée ou non.
+    pub fn lire(&self, jeton: &Jeton) -> Option<Session> {
+        self.sessions
+            .lire(jeton)
+            .filter(|session| session.poste == self.poste)
+    }
+
+    /// Marque une activité sur une session de ce poste.
+    pub fn toucher(&self, jeton: &Jeton, maintenant: Horodatage) -> Option<Session> {
+        self.lire(jeton)?;
+        self.sessions.toucher(jeton, maintenant)
+    }
+
+    /// Verrouille une session de ce poste.
+    pub fn verrouiller(&self, jeton: &Jeton) -> Option<Session> {
+        self.lire(jeton)?;
+        self.sessions.verrouiller(jeton)
+    }
+
+    /// Déverrouille une session de ce poste après vérification du PIN par l'appelant.
+    pub fn deverrouiller(&self, jeton: &Jeton, maintenant: Horodatage) -> Option<Session> {
+        self.lire(jeton)?;
+        self.sessions.deverrouiller(jeton, maintenant)
+    }
+
+    /// Ferme une session de ce poste.
+    pub fn fermer(&self, jeton: &Jeton) -> Option<Session> {
+        self.lire(jeton)?;
+        self.sessions.fermer(jeton)
+    }
+
+    /// Compte un code PIN faux et rend le total pour cette session.
+    pub fn noter_echec_pin(&self, jeton: &Jeton) -> u32 {
+        self.sessions.noter_echec_pin(jeton)
+    }
+
+    /// Remet à zéro les PIN faux d'une session rouverte ou fermée.
+    pub fn effacer_echecs_pin(&self, jeton: &Jeton) {
+        self.sessions.effacer_echecs_pin(jeton);
+    }
+
+    /// Note qu'un utilisateur vient de définir son PIN, sur toutes ses sessions.
+    pub fn marquer_pin_defini(&self, utilisateur_id: Id<Utilisateur>) {
+        self.sessions.marquer_pin_defini(utilisateur_id);
+    }
+
+    /// Ferme toutes les sessions d'un utilisateur, sur tous les postes.
+    pub fn fermer_de(&self, utilisateur_id: Id<Utilisateur>) -> Vec<Session> {
+        self.sessions.fermer_de(utilisateur_id)
+    }
+
+    /// Sessions présentes sur ce poste : c'est la liste de l'écran verrouillé (bascule rapide).
+    pub fn lister(&self) -> Vec<Session> {
+        let mut sessions = self.sessions.lister();
+        sessions.retain(|session| session.poste == self.poste);
+        sessions
     }
 }
 
@@ -207,6 +291,7 @@ mod tests {
             derniere_activite: Horodatage::depuis_millis_epoque(activite),
             verrouillee: false,
             pin_defini: true,
+            poste: Poste("secretariat".to_owned()),
         }
     }
 
@@ -268,5 +353,31 @@ mod tests {
         sessions.ouvrir(session("recente", 20));
         let noms: Vec<String> = sessions.lister().into_iter().map(|s| s.jeton.0).collect();
         assert_eq!(noms, vec!["recente".to_owned(), "ancienne".to_owned()]);
+    }
+
+    #[test]
+    fn une_session_n_existe_que_pour_le_poste_qui_l_a_ouverte() {
+        let sessions = Sessions::default();
+        sessions.ouvrir(session("a", 0));
+        let jeton = Jeton("a".to_owned());
+        let caisse = sessions.du_poste(Poste("caisse".to_owned()));
+        assert!(caisse.lire(&jeton).is_none());
+        assert!(
+            caisse
+                .toucher(&jeton, Horodatage::depuis_millis_epoque(500))
+                .is_none()
+        );
+        assert!(caisse.verrouiller(&jeton).is_none());
+        assert!(caisse.fermer(&jeton).is_none());
+        assert!(caisse.lister().is_empty());
+        // Rien n'a bougé pour le poste qui l'a ouverte.
+        let secretariat = sessions.du_poste(Poste("secretariat".to_owned()));
+        let vue = secretariat.lire(&jeton);
+        assert_eq!(
+            vue.map(|s| (s.verrouillee, s.derniere_activite.millis_epoque())),
+            Some((false, 0))
+        );
+        assert_eq!(secretariat.lister().len(), 1);
+        assert!(secretariat.fermer(&jeton).is_some());
     }
 }

@@ -20,11 +20,18 @@ gesco-app ──► gesco-services ──► gesco-core
                     ├──────────► gesco-db ──► gesco-core
                     └──────────► gesco-docs
 gesco-sms ──► gesco-core
+gesco-reseau ──► gesco-services
 ```
 
-`gesco-server` (serveur cloud) et `gesco-sync` (consommation de l'outbox), deux squelettes vides,
-sont retirés de l'espace de travail le 31 octobre 2026 : ils étaient compilés à chaque fois pour
-rien. Ils reviendront à la phase 11 ; l'historique git garde leur point de départ.
+`gesco-reseau` (phase 11, lot A, depuis le 10 novembre 2026) est le serveur du réseau local : le
+poste principal y répond aux postes reliés par une seule route, `POST /api/commandes/{nom}`, qui
+remet l'appel à la frontière avec son origine (`Application::executer_depuis`). `gesco-app` ne
+le démarre pas encore (étapes 2 et 3 de `SPEC_PHASE_11_A.md`).
+
+`gesco-server` (serveur en ligne) et `gesco-sync` (consommation de l'outbox), deux squelettes
+vides, sont retirés de l'espace de travail le 31 octobre 2026 : ils étaient compilés à chaque
+fois pour rien. Ils reviendront au lot C de la phase 11 ; l'historique git garde leur point de
+départ.
 
 | Crate | Rôle | État |
 |---|---|---|
@@ -35,6 +42,7 @@ rien. Ils reviendront à la phase 11 ; l'historique git garde leur point de dép
 | `gesco-app` | Binaire Tauri : fenêtre, commande `executer`, trousseau Windows, empreinte machine, tâches périodiques, mode d'essai (`GESCO_DOSSIER_ESSAI`) ; installeur NSIS configuré | Phase 0.5 |
 | `outils/licence` (`gesco-licence`) | Outil de l'éditeur, jamais livré : clés de signature, émission des licences | Phase 0.5 |
 | `gesco-sms` | Frontière posée, inactive | — |
+| `gesco-reseau` | Serveur du réseau local (axum) : route unique des commandes, route d'état, reconnaissance du poste appelant (la machine elle-même à l'étape 1) | Phase 11, lot A, étape 1 |
 
 ## Frontend
 
@@ -49,7 +57,7 @@ la session, la recherche globale (`Ctrl+K`) et la navigation filtrée par permis
 ## Points d'entrée
 
 - `crates/gesco-app/src/main.rs` — application du poste.
-- Serveur cloud (`gesco-server`) : retiré le 31 octobre 2026, il reviendra à la phase 11.
+- Serveur en ligne (`gesco-server`) : retiré le 31 octobre 2026, il reviendra au lot C de la phase 11.
 - `frontend/src/main.tsx` — interface.
 
 ## Documents de référence

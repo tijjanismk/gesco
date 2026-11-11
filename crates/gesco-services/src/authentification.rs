@@ -105,6 +105,7 @@ impl<'n> ServiceAuthentification<'n> {
             derniere_activite: maintenant,
             verrouillee: false,
             pin_defini: secrets.empreinte_pin.is_some(),
+            poste: self.noyau.poste_appelant(),
         };
         self.noyau.sessions().ouvrir(session.clone());
         Ok(session)

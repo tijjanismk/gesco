@@ -44,6 +44,7 @@ mod paie_mois;
 mod pedagogie;
 mod personnel;
 mod recettes;
+mod reseau_local;
 mod scolarite;
 mod socle_services;
 mod technique;

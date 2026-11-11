@@ -681,3 +681,69 @@ La discipline donne-t-elle une note, comme la conduite, au 2e cycle et au-delà 
 *Recommandation* : une note de conduite par élève et par période, sur le barème du niveau, au 2e cycle, au lycée et dans le technique ; un module que l'école active, éteint à l'installation. Saisie par la direction ou le surveillant, ou calculée d'après le registre de discipline et les absences, au choix de l'école. Barème du calcul : départ à 20 ; 2 points par avertissement, 4 par blâme, 1 par retenue, 1 par convocation des parents, 5 par exclusion temporaire, 0,5 par demi-journée d'absence non justifiée, 0,25 par retard ; chaque retrait se règle. Une note calculée se corrige avec un motif. Elle compte dans la moyenne générale avec un coefficient (1 par défaut), ou s'imprime à part, au choix de l'école.
 
 *Réponse* (porteur du projet, 24 octobre 2026) : la direction ou le surveillant, manuelle ou automatique selon les écoles, d'après la discipline de l'application ; le reste de la recommandation est retenu.
+
+## Phase 11 — plusieurs postes, jardin, service en ligne
+
+Questions posées le 10 novembre 2026 avec le plan de la phase (`docs/plan-phase-11.md`, où elles figurent avec toutes leurs options).
+
+### T-80 — Ce qu'une école attend en premier
+
+Parmi plusieurs ordinateurs en même temps, le livret du jardin d'enfants et la consultation en ligne par les parents, qu'est-ce qui est demandé d'abord ?
+
+*Recommandation* : plusieurs ordinateurs, puis le livret du jardin ; le livret passe devant si une école à jardin l'attend déjà.
+
+*Réponse* (porteur du projet, 10 novembre 2026) : recommandation retenue.
+
+### T-81 — Combien de postes, et qui s'y assoit
+
+Dans une école qui veut plusieurs postes, combien, et pour qui ?
+
+*Recommandation* : construire et mesurer pour dix postes en même temps, ce qui couvre le secrétariat, la caisse, la direction, le surveillant, le comptable et le directeur des études ; au-delà, mesurer avant de promettre.
+
+*Réponse* (porteur du projet, 10 novembre 2026) : recommandation retenue.
+
+### T-82 — Les enseignants et leurs notes
+
+Aujourd'hui la direction saisit toutes les notes (T-23). Avec plusieurs postes, les enseignants saisiront-ils eux-mêmes ?
+
+*Recommandation* : oui, sur un poste partagé de l'école, chacun ne voyant que ses classes et ses matières, comme une étape à part, éteinte à la livraison ; pas depuis leur téléphone dans la première version.
+
+*Réponse* (porteur du projet, 10 novembre 2026) : d'abord « la direction saisit », puis, le même jour : « on peut donner aussi la possibilité au maître de saisir, mais par défaut bloqué ». Recommandation retenue : la possibilité existe, bloquée à la livraison ; le téléphone personnel n'est pas demandé.
+
+### T-83 — Le réseau de l'école, et le poste principal éteint
+
+Comment les ordinateurs d'une école sont-ils reliés aujourd'hui ? Et quand le poste principal est éteint ou en panne, est-il acceptable que les autres postes attendent son retour ?
+
+*Recommandation* : oui, ils attendent, et l'écran le dit clairement ; le guide conseillera un portable comme poste principal, relié par câble à un petit routeur. Faire continuer chaque poste seul est un autre produit.
+
+*Réponse* (porteur du projet, 10 novembre 2026) : recommandation retenue. La façon dont les ordinateurs sont reliés aujourd'hui n'a pas été précisée : GESCO acceptera tout réseau local privé.
+
+### T-84 — Le jardin d'enfants : ce qu'on évalue et ce qu'on remet
+
+Que remettent les jardins aux parents, et quand ?
+
+*Recommandation* : un livret par domaine (langage, motricité, vie avec les autres, découverte du monde, arts), chaque compétence « acquis », « en cours » ou « non acquis », chaque trimestre, avec une liste livrée que l'école modifie et une appréciation générale ; pour le jardin seulement.
+
+*Réponse* (porteur du projet, 10 novembre 2026) : recommandation retenue.
+
+### T-85 — Ce qu'un parent voit en ligne
+
+Si un portail existe, que doit y trouver un parent ?
+
+*Recommandation* : comme par SMS (reste à payer et échéances, absences, moyenne du dernier bulletin publié), plus les bulletins publiés et les reçus à relire, en lecture seule ; ni sanctions ni appréciations ; écrire à l'école seulement si une école le demande.
+
+*Réponse* (porteur du projet, 10 novembre 2026) : recommandation retenue.
+
+### T-86 — Internet, téléphones et abonnement
+
+Les écoles visées ont-elles Internet, leurs parents un téléphone avec du forfait, et paieraient-elles chaque année pour le service en ligne ?
+
+*Recommandation* : ne pas construire le portail sans une école qui l'attend et accepte l'abonnement ; la sauvegarde hors site se défend même avec une connexion occasionnelle.
+
+*Réponse* (porteur du projet, 10 novembre 2026) : recommandation retenue. Le service en ligne et le portail attendent une école qui les demande.
+
+### Prix de plusieurs postes
+
+Plusieurs postes compris dans la licence, ou vendus par poste ?
+
+*Réponse* (porteur du projet, 10 novembre 2026) : **les deux formules**, et un poste relié à l'essai quand la licence ne dit rien (`docs/adr/2026-11-10-licence-et-postes.md`). Les prix restent à fixer.
