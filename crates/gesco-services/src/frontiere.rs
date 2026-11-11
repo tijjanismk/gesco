@@ -198,6 +198,9 @@ use crate::personnel::{
     DemandeIdPiece, DemandeMembre, DemandeMembreEnseignant, DemandePieceDossier, DemandePieceSous,
     FicheMembre, MaFiche, MembreAffiche, ReferentielPersonnel, ServicePersonnel,
 };
+use crate::postes::{
+    AppairageConclu, DemandePoste, EtatReseau, ReseauAServir, ReseauVivant, ServicePostes,
+};
 use crate::recettes::{
     DemandeAnnulationRecette, DemandeMoisRecettes, DemandeRecette, RecettesDuMois, ServiceRecettes,
 };
@@ -774,6 +777,8 @@ pub struct Application {
     modem: std::sync::Mutex<Option<(String, Arc<gesco_sms::CanalModem>)>>,
     /// Établissement créé à l'instant, dont la case du certificat attend d'être notée.
     certificat_initial: std::sync::Mutex<Option<Id<Etablissement>>>,
+    /// Réseau local : code d'appairage en attente et signal du serveur (SPEC_PHASE_11_A §4).
+    reseau: ReseauVivant,
 }
 
 impl SourceCanaux for Application {
@@ -1175,6 +1180,13 @@ contrat! {
     absences_seances_enregistrer(DemandeReleveParSeance) -> ReleveParSeance;
     releve_apercu(DemandeApercuReleve) -> ApercuReleve;
     releve_importer(DemandeImportReleve) -> ResultatReleve;
+    reseau_etat_lire(()) -> EtatReseau;
+    reseau_activer(()) -> EtatReseau;
+    reseau_eteindre(()) -> EtatReseau;
+    poste_appairage_ouvrir(()) -> EtatReseau;
+    poste_appairage_fermer(()) -> EtatReseau;
+    poste_revoquer(DemandePoste) -> EtatReseau;
+    reseau_cle_renouveler(()) -> EtatReseau;
 }
 
 impl Application {
@@ -1206,6 +1218,7 @@ impl Application {
             modem_simule: gesco_sms::ModemSimule::nouveau(5_000),
             modem: std::sync::Mutex::new(None),
             certificat_initial: std::sync::Mutex::new(None),
+            reseau: ReseauVivant::default(),
         };
         let cles = match application.cles.preparer()? {
             EtatCles::Ouvertes(cle) => {
@@ -1333,6 +1346,89 @@ impl Application {
     /// Espace de données.
     pub fn espace(&self) -> &EspaceDonnees {
         &self.espace
+    }
+
+    /// Note une ligne au journal technique du poste : pannes et refus du réseau local, qui
+    /// n'ont pas leur place au journal d'audit.
+    pub fn noter_au_journal_technique(&self, texte: &str) {
+        crate::journal_technique::noter(self.espace.racine(), self.horloge.maintenant(), texte);
+    }
+
+    /// Retient comment trouver les adresses de ce poste sur le réseau de l'école, pour l'écran
+    /// « Postes de l'école ».
+    pub fn declarer_adresses_du_poste(&self, source: crate::postes::SourceAdresses) {
+        self.reseau.declarer_adresses(source);
+    }
+
+    /// Suit les changements du réseau local : quand la valeur change, le serveur relit ce qu'il
+    /// doit servir ([`Self::reseau_a_servir`]).
+    pub fn suivre_reseau(&self) -> tokio::sync::watch::Receiver<u64> {
+        self.reseau.suivre()
+    }
+
+    /// Établissement installé sur ce poste et son noyau, quand la base est ouverte.
+    async fn etablissement_ouvert(&self) -> Resultat<Option<(Arc<Ouverte>, Id<Etablissement>)>> {
+        let Some(ouverte) = self.etat.read().await.clone() else {
+            return Ok(None);
+        };
+        let fiche = Self::installe(&ouverte.noyau).await?;
+        Ok(fiche.map(|f| (ouverte, f.id)))
+    }
+
+    /// Ce que le serveur du réseau local doit servir ; `None` tant que la base est fermée, que
+    /// l'école n'est pas créée ou que le réseau est éteint.
+    pub async fn reseau_a_servir(&self) -> Result<Option<ReseauAServir>, ErreurCommande> {
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Ok(None);
+        };
+        Ok(self.postes(&ouverte).a_servir(etablissement_id).await?)
+    }
+
+    /// Garde le certificat que le serveur vient de fabriquer, s'il n'y en a pas déjà un.
+    pub async fn enregistrer_certificat_reseau(
+        &self,
+        certificat: Vec<u8>,
+        cle: Vec<u8>,
+    ) -> Result<(), ErreurCommande> {
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Err(ErreurService::Regle {
+                cle: "application.cles_verrouillees",
+            }
+            .into());
+        };
+        Ok(self
+            .postes(&ouverte)
+            .enregistrer_certificat(etablissement_id, certificat, cle)
+            .await?)
+    }
+
+    /// Relie le poste qui présente le code d'appairage affiché sur ce poste (SPEC_PHASE_11_A
+    /// §4.2) : il reçoit son identifiant et son secret.
+    pub async fn conclure_appairage(
+        &self,
+        code: &str,
+        nom: &str,
+    ) -> Result<AppairageConclu, ErreurCommande> {
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Err(ErreurService::Regle {
+                cle: "reseau.aucun_appairage",
+            }
+            .into());
+        };
+        Ok(self
+            .postes(&ouverte)
+            .conclure_appairage(etablissement_id, code, nom)
+            .await?)
+    }
+
+    /// Reconnaît un poste relié à son identifiant et à son secret : son nom, ou `None` pour un
+    /// inconnu, un poste révoqué, un secret faux ou un réseau éteint.
+    pub async fn reconnaitre_poste(&self, poste_id: &str, secret: &str) -> Option<Poste> {
+        let (ouverte, etablissement_id) = self.etablissement_ouvert().await.ok()??;
+        self.postes(&ouverte)
+            .reconnaitre(etablissement_id, poste_id, secret)
+            .await
+            .ok()?
     }
 
     /// Version de GESCO sur ce poste : un poste relié d'une autre version est refusé.
@@ -3898,6 +3994,52 @@ impl Application {
             pdf: base64(&produit.pdf),
             document: produit.document,
         })
+    }
+
+    fn postes<'a>(&'a self, ouverte: &'a Ouverte) -> ServicePostes<'a> {
+        ServicePostes::nouveau(&ouverte.noyau, &self.reseau, self.cle_licence)
+    }
+
+    async fn reseau_etat_lire(&self, appel: Appel, _entree: ()) -> Resultat<EtatReseau> {
+        self.postes(appel.ouverte()?)
+            .etat(appel.session()?.etablissement_id)
+            .await
+    }
+
+    async fn reseau_activer(&self, appel: Appel, _entree: ()) -> Resultat<EtatReseau> {
+        self.postes(appel.ouverte()?)
+            .regler_actif(appel.session()?, true)
+            .await
+    }
+
+    async fn reseau_eteindre(&self, appel: Appel, _entree: ()) -> Resultat<EtatReseau> {
+        self.postes(appel.ouverte()?)
+            .regler_actif(appel.session()?, false)
+            .await
+    }
+
+    async fn poste_appairage_ouvrir(&self, appel: Appel, _entree: ()) -> Resultat<EtatReseau> {
+        self.postes(appel.ouverte()?)
+            .ouvrir_appairage(appel.session()?)
+            .await
+    }
+
+    async fn poste_appairage_fermer(&self, appel: Appel, _entree: ()) -> Resultat<EtatReseau> {
+        self.postes(appel.ouverte()?)
+            .fermer_appairage(appel.session()?)
+            .await
+    }
+
+    async fn poste_revoquer(&self, appel: Appel, entree: DemandePoste) -> Resultat<EtatReseau> {
+        self.postes(appel.ouverte()?)
+            .revoquer(appel.session()?, entree.poste_id)
+            .await
+    }
+
+    async fn reseau_cle_renouveler(&self, appel: Appel, _entree: ()) -> Resultat<EtatReseau> {
+        self.postes(appel.ouverte()?)
+            .renouveler_cle(appel.session()?)
+            .await
     }
 
     async fn licence_etat(&self, appel: Appel, _entree: ()) -> Resultat<EtatLicenceAffiche> {

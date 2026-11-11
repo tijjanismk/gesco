@@ -23,7 +23,9 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use gesco_core::commun::Horodatage;
+use gesco_core::core::PostesCouverts;
 use gesco_core::core::licence::{self, EMPREINTE_LIBRE, Edition, Licence};
+use gesco_core::core::reseau::MENTION_POSTES;
 use zeroize::Zeroizing;
 
 const USAGE: &str = "usage :
@@ -100,16 +102,7 @@ fn emettre(arguments: &[String]) -> Result<String, String> {
             .unwrap_or_else(|| format!("LIC-{}", emise_le.millis_epoque())),
         etablissement: exiger("etablissement")?,
         edition,
-        modules: options
-            .get("modules")
-            .map(|m| {
-                m.split(',')
-                    .map(str::trim)
-                    .filter(|m| !m.is_empty())
-                    .map(str::to_owned)
-                    .collect()
-            })
-            .unwrap_or_default(),
+        modules: modules(options.get("modules").map(String::as_str))?,
         empreinte_machine: exiger("empreinte")?.trim().to_uppercase(),
         emise_le,
         echeance: options.get("echeance").map(|d| date(d)).transpose()?,
@@ -211,6 +204,33 @@ Clé publique : {}",
     ))
 }
 
+/// Modules de la licence, séparés par des virgules. Le nombre de postes reliés s'y écrit
+/// `postes:illimites` (formule « postes compris ») ou `postes:N` (N postes en plus du poste
+/// principal) : une mention mal écrite, ou écrite deux fois, vaudrait un seul poste à l'essai
+/// chez l'école sans que personne le voie, donc elle est refusée ici.
+fn modules(saisie: Option<&str>) -> Result<Vec<String>, String> {
+    let modules: Vec<String> = saisie
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|m| !m.is_empty())
+        .map(str::to_owned)
+        .collect();
+    let postes: Vec<&String> = modules
+        .iter()
+        .filter(|m| m.starts_with(MENTION_POSTES))
+        .collect();
+    if postes.len() > 1 {
+        return Err("le nombre de postes ne s'écrit qu'une fois dans --modules".to_owned());
+    }
+    match postes.first() {
+        Some(mention) if PostesCouverts::depuis_mention(mention).is_none() => Err(format!(
+            "mention de postes mal écrite : {mention} (attendu postes:illimites ou postes:N)"
+        )),
+        _ => Ok(modules),
+    }
+}
+
 fn edition(options: &HashMap<String, String>) -> Result<Edition, String> {
     match options.get("edition").map(String::as_str) {
         None | Some("essentielle") => Ok(Edition::Essentielle),
@@ -297,6 +317,18 @@ mod tests {
         );
         assert!(date("2027-13-01").is_err());
         assert!(date("demain").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn le_nombre_de_postes_s_ecrit_d_une_seule_facon() -> Result<(), String> {
+        assert!(modules(None)?.is_empty());
+        assert_eq!(modules(Some("sms, postes:3"))?, vec!["sms", "postes:3"]);
+        assert_eq!(modules(Some("postes:illimites"))?, vec!["postes:illimites"]);
+        for mal_ecrit in ["postes:trois", "postes:", "postes:-1", "postes:illimité"] {
+            assert!(modules(Some(mal_ecrit)).is_err(), "{mal_ecrit}");
+        }
+        assert!(modules(Some("postes:2,postes:5")).is_err());
         Ok(())
     }
 }

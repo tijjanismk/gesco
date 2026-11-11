@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 11, lot A — un poste principal et des postes reliés sur le réseau local de l'école ; version 2.0.0
-**Statut** : v1.2 — proposée puis acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; aucune ligne de code encore : l'étape 1 attend l'étiquette de la 1.2.7 et la mise à jour de `developpement`
+**Statut** : v1.3 — acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; étape 1 validée le 11 novembre 2026, étape 2 réalisée le 11 novembre 2026 et présentée pour validation
 **Documents parents** : `docs/plan-phase-11.md` (T-80 à T-86, répondues le 10 novembre 2026), les quatre ADR du 10 novembre 2026 dans `docs/adr/` (serveur du réseau local, poste relié, sécurité du réseau local, modification simultanée), `PROJECT_BLUEPRINT.md` (ADR-014, §15.1, §17.4, §26.2), `docs/adr/2026-10-04-frontiere-commande-unique.md`, `SPEC_PHASE_4.md` (comptes des enseignants, portée des notes), `docs/optimisations-2026-10-31.md`
 **Date** : 10 novembre 2026
 
@@ -191,11 +191,16 @@ l'empreinte retenue, pas de la date. Il voyage avec les sauvegardes.
 - Chaque appel porte le secret du poste, puis le jeton de la session.
 - **Révoquer** un poste le refuse à l'appel suivant et ferme ses sessions.
 - **Renouveler la clé du réseau** refait le certificat : chaque poste doit être relié de nouveau.
-- Le poste principal n'accepte que des adresses de réseau privé ; les essais d'appairage et de
-  connexion sont comptés par adresse.
+- Le poste principal n'accepte que des adresses de réseau privé. Les refus sont comptés par
+  adresse : après **dix refus en une minute** (code faux, poste non reconnu), l'adresse n'est
+  plus écoutée jusqu'à la fin de la minute (`reseau.trop_d_essais`).
 - Au journal d'audit : réseau activé ou éteint, poste relié, poste révoqué, clé renouvelée,
-  appairage raté, connexion refusée. Événements `ReseauActive`, `ReseauEteint`, `PosteRelie`,
-  `PosteRevoque`, `CleReseauRenouvelee`.
+  appairage refusé (code faux, expiré, annulé). Événements `ReseauActive`, `ReseauDesactive`,
+  `PosteRelie`, `PosteRevoque`, `CleReseauRenouvelee`.
+- Au journal technique du poste principal, et non au journal d'audit : les appels d'un appareil
+  non reconnu (secret faux, poste révoqué, aucun secret), avec son adresse. Un appareil inconnu
+  n'a pas d'identité à inscrire, et il ne doit pas pouvoir remplir à volonté un journal chaîné
+  qui ne s'efface jamais.
 
 ### 4.4 Nombre de postes et licence
 
@@ -288,8 +293,10 @@ leur ouverture ; matrice des permissions régénérée.
 ## 9. Écrans
 
 - **Paramètres → « Postes de l'école »** (poste principal) : activer ou éteindre le réseau ;
-  l'adresse à donner aux postes ; « Relier un poste » ; la liste des postes (nom, relié le,
-  dernière connexion, connecté ou non) ; révoquer ; renouveler la clé du réseau.
+  le nom, l'adresse, le port et l'empreinte à donner aux postes ; les postes couverts par la
+  licence et en service ; « Relier un poste » et son code ; la liste des postes (nom, relié le,
+  dernière connexion, session ouverte ou non) ; révoquer ; renouveler la clé du réseau. Éteindre,
+  révoquer et renouveler demandent une confirmation. L'écran se relit toutes les dix secondes.
 - **Premier lancement** : « Rejoindre le poste principal de l'école ».
 - **Bandeau** d'un poste relié : nom du poste, état de la liaison.
 - **Poste principal** : avertissement avant de fermer ou de lancer une opération qui demande
@@ -338,3 +345,4 @@ porteur. Une seule compilation complète par étape, `target` élagué avant.
 | v1.0 | 2026-11-10 | Création après les réponses du porteur du projet à T-80 à T-86 et son accord sur les quatre ADR du 10 novembre 2026 |
 | v1.1 | 2026-11-10 | Spécification acceptée par le porteur du projet, avec le blocage des comptes de maîtres, les versions égales et le port 47800 |
 | v1.2 | 2026-11-10 | Décision du porteur du projet sur le prix : les deux formules, et un poste relié à l'essai sans mention dans la licence ; §4.4 et critère 14 ajoutés, la limite par la licence quitte les exclusions |
+| v1.3 | 2026-11-11 | Étape 2 réalisée. Événement `ReseauEteint` renommé `ReseauDesactive` (règle des noms d'événements). §4.3 : dix refus par minute et par adresse ; les appels d'un appareil non reconnu vont au journal technique, pas au journal d'audit (écart à la v1.2, à confirmer par le porteur du projet). §9 : contenu de l'écran « Postes de l'école » |

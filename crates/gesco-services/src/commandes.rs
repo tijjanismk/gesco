@@ -87,7 +87,8 @@ pub enum Fichier {
 }
 
 /// Commandes réservées au poste principal, énumérées une seule fois : premier démarrage, clés et
-/// douze mots, sauvegarde et restauration, licence, clé modem, archive du journal.
+/// douze mots, sauvegarde et restauration, licence, clé modem, archive du journal, postes de
+/// l'école.
 pub const COMMANDES_POSTE_PRINCIPAL: &[&str] = &[
     "premier_demarrage",
     "cles_deverrouiller_phrase",
@@ -110,6 +111,13 @@ pub const COMMANDES_POSTE_PRINCIPAL: &[&str] = &[
     "sms_credit_lire",
     "sms_reception_simuler",
     "journal_archive_verifier",
+    "reseau_etat_lire",
+    "reseau_activer",
+    "reseau_eteindre",
+    "poste_appairage_ouvrir",
+    "poste_appairage_fermer",
+    "poste_revoquer",
+    "reseau_cle_renouveler",
 ];
 
 /// Commandes qui lisent ou écrivent un fichier au chemin donné par l'écran. Celles du poste
@@ -599,6 +607,14 @@ pub const COMMANDES: &[Commande] = &[
     // Import des relevés des comptes (SPEC_VERSION_1_1 §1, T-72).
     Commande::permise("releve_apercu", Permission::TREASURY_MANAGE),
     Commande::permise("releve_importer", Permission::TREASURY_MANAGE),
+    // Postes de l'école : réseau local, appairage, révocation (SPEC_PHASE_11_A §4).
+    Commande::permise("reseau_etat_lire", Permission::WORKSTATIONS_MANAGE),
+    Commande::permise("reseau_activer", Permission::WORKSTATIONS_MANAGE),
+    Commande::permise("reseau_eteindre", Permission::WORKSTATIONS_MANAGE),
+    Commande::permise("poste_appairage_ouvrir", Permission::WORKSTATIONS_MANAGE),
+    Commande::permise("poste_appairage_fermer", Permission::WORKSTATIONS_MANAGE),
+    Commande::permise("poste_revoquer", Permission::WORKSTATIONS_MANAGE),
+    Commande::permise("reseau_cle_renouveler", Permission::WORKSTATIONS_MANAGE),
 ];
 
 #[cfg(test)]

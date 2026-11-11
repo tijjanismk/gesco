@@ -11,6 +11,7 @@ import { Annees } from "../modules/administration/Annees";
 import { Journal } from "../modules/administration/Journal";
 import { Licence } from "../modules/administration/Licence";
 import { Parametres } from "../modules/administration/Parametres";
+import { Postes } from "../modules/administration/Postes";
 import { Roles } from "../modules/administration/Roles";
 import { Utilisateurs } from "../modules/administration/Utilisateurs";
 import { MonCompte } from "../modules/compte/MonCompte";
@@ -247,6 +248,8 @@ function Contenu({
       return <Utilisateurs />;
     case "roles":
       return <Roles />;
+    case "postes":
+      return <Postes />;
     case "parametres":
       return <Parametres />;
     case "annees":

@@ -111,6 +111,27 @@ impl Noyau {
         self.sessions.du_poste(self.poste_appelant())
     }
 
+    /// Postes d'où une session est ouverte en ce moment, sans doublon.
+    pub fn postes_en_session(&self) -> Vec<Poste> {
+        self.sessions
+            .appliquer(self.politique_session(), self.horloge.maintenant());
+        let mut postes: Vec<Poste> = self
+            .sessions
+            .lister()
+            .into_iter()
+            .map(|s| s.poste)
+            .collect();
+        postes.sort_by(|a, b| a.0.cmp(&b.0));
+        postes.dedup();
+        postes
+    }
+
+    /// Ferme les sessions ouvertes depuis un poste relié qui vient d'être révoqué ; rend leur
+    /// nombre.
+    pub fn fermer_sessions_du_poste(&self, poste: &Poste) -> usize {
+        self.sessions.fermer_du_poste(poste).len()
+    }
+
     /// Politique de session en vigueur.
     pub fn politique_session(&self) -> PolitiqueSession {
         self.politique_session

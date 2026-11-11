@@ -41,10 +41,21 @@ gesco-db = { path = "crates/gesco-db" }
 gesco-services = { path = "crates/gesco-services" }
 gesco-docs = { path = "crates/gesco-docs" }
 gesco-sms = { path = "crates/gesco-sms" }
+gesco-reseau = { path = "crates/gesco-reseau" }
 
 # Serveur du réseau local (ADR du 10 novembre 2026) : HTTP/1 et JSON seulement, sans formulaires
 # ni traces.
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
+# Connexions servies une à une, pour passer par le canal chiffré avant les routes ; déjà au
+# verrou par Tauri.
+hyper = { version = "1.11.1", features = ["http1", "server"] }
+hyper-util = { version = "0.1.21", features = ["tokio"] }
+tower-service = "0.3.3"
+# Canal chiffré du réseau local (ADR du 10 novembre 2026) : rustls avec ring, qui se compile
+# avec le seul compilateur C ; rcgen fabrique le certificat du poste principal.
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
+rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "ring"] }
 
 serde = { version = "1.0.229", features = ["derive"] }
 # Port série de la clé modem GSM (SPEC_PHASE_5 §4) ; sans libudev, la CI Linux n'en a pas besoin.

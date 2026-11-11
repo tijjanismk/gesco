@@ -180,6 +180,21 @@ impl Sessions {
         )
     }
 
+    /// Ferme toutes les sessions ouvertes depuis un poste : il vient d'être révoqué.
+    pub fn fermer_du_poste(&self, poste: &Poste) -> Vec<Session> {
+        self.sessions.lock().map_or_else(
+            |_| Vec::new(),
+            |mut s| {
+                let jetons: Vec<Jeton> = s
+                    .values()
+                    .filter(|x| &x.poste == poste)
+                    .map(|x| x.jeton.clone())
+                    .collect();
+                jetons.iter().filter_map(|j| s.remove(j)).collect()
+            },
+        )
+    }
+
     /// Les mêmes sessions, vues d'un poste.
     pub fn du_poste(&self, poste: Poste) -> SessionsDuPoste<'_> {
         SessionsDuPoste {

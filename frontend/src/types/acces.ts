@@ -320,6 +320,13 @@ export const ACCES = {
   absences_seances_enregistrer: { type: "permission", permission: "attendance:create" },
   releve_apercu: { type: "permission", permission: "treasury:manage" },
   releve_importer: { type: "permission", permission: "treasury:manage" },
+  reseau_etat_lire: { type: "permission", permission: "workstations:manage" },
+  reseau_activer: { type: "permission", permission: "workstations:manage" },
+  reseau_eteindre: { type: "permission", permission: "workstations:manage" },
+  poste_appairage_ouvrir: { type: "permission", permission: "workstations:manage" },
+  poste_appairage_fermer: { type: "permission", permission: "workstations:manage" },
+  poste_revoquer: { type: "permission", permission: "workstations:manage" },
+  reseau_cle_renouveler: { type: "permission", permission: "workstations:manage" },
 } as const;
 
 export type NomCommande = keyof typeof ACCES;

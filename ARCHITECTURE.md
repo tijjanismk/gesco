@@ -21,12 +21,19 @@ gesco-app ──► gesco-services ──► gesco-core
                     └──────────► gesco-docs
 gesco-sms ──► gesco-core
 gesco-reseau ──► gesco-services
+gesco-app ──► gesco-reseau
 ```
 
 `gesco-reseau` (phase 11, lot A, depuis le 10 novembre 2026) est le serveur du réseau local : le
 poste principal y répond aux postes reliés par une seule route, `POST /api/commandes/{nom}`, qui
-remet l'appel à la frontière avec son origine (`Application::executer_depuis`). `gesco-app` ne
-le démarre pas encore (étapes 2 et 3 de `SPEC_PHASE_11_A.md`).
+remet l'appel à la frontière avec son origine (`Application::executer_depuis`). Depuis l'étape 2
+(11 novembre 2026), `gesco-app` lance son superviseur (`gesco_reseau::superviser`) : il écoute
+quand la direction a allumé le réseau, par un canal chiffré (rustls) dont le certificat est
+fabriqué sur le poste principal et gardé dans la base ; un poste se relie par
+`POST /api/appairage` avec le code affiché, reçoit un secret, et le présente à chaque appel.
+Le service `gesco-services/src/postes.rs` tient l'état du réseau, les postes reliés et le code
+en attente ; les règles pures (code, secret, empreintes, postes couverts par la licence) sont
+dans `gesco-core/src/core/reseau.rs`. Le poste relié lui-même vient à l'étape 3.
 
 `gesco-server` (serveur en ligne) et `gesco-sync` (consommation de l'outbox), deux squelettes
 vides, sont retirés de l'espace de travail le 31 octobre 2026 : ils étaient compilés à chaque
@@ -42,7 +49,7 @@ départ.
 | `gesco-app` | Binaire Tauri : fenêtre, commande `executer`, trousseau Windows, empreinte machine, tâches périodiques, mode d'essai (`GESCO_DOSSIER_ESSAI`) ; installeur NSIS configuré | Phase 0.5 |
 | `outils/licence` (`gesco-licence`) | Outil de l'éditeur, jamais livré : clés de signature, émission des licences | Phase 0.5 |
 | `gesco-sms` | Frontière posée, inactive | — |
-| `gesco-reseau` | Serveur du réseau local (axum) : route unique des commandes, route d'état, reconnaissance du poste appelant (la machine elle-même à l'étape 1) | Phase 11, lot A, étape 1 |
+| `gesco-reseau` | Serveur du réseau local (axum, rustls) : route unique des commandes, route d'état, route d'appairage, canal chiffré et certificat du poste principal, reconnaissance du poste appelant par son secret, refus comptés par adresse, superviseur qui suit le réseau allumé ou éteint | Phase 11, lot A, étapes 1 et 2 |
 
 ## Frontend
 

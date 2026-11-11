@@ -376,6 +376,15 @@ nouvelle. Deux conditions avant d'y écrire :
 2. `developpement` reçoit `1.2.x` : au 10 novembre elle a 14 commits de retard (elle en est à la
    1.2.5 du 24 octobre) et aucun d'avance, la mise à jour se fait donc sans conflit.
 
+**Révision du 11 novembre 2026 (porteur du projet)** : un seul installeur pour le réseau local,
+l'e-learning et la sauvegarde hors de l'école. La version 2.0.0 ne sort donc plus au premier lot
+validé : elle sort quand le lot A (plusieurs postes), la sauvegarde hors de l'école (§7) et la
+phase 12 (e-learning) sont tous validés ; le livret du jardin (lot B) y entre s'il est prêt. Les
+suites `2.1.0` et `2.2.0` prévues ci-dessus n'ont plus lieu d'être pour ces lots. Chaque étape
+reste validée une à une sur `developpement`, sans installeur publié entre-temps. Conséquence à
+garder en tête : les écoles restent en 1.2.x jusque-là, et attendent donc plusieurs postes aussi
+longtemps que l'e-learning.
+
 À la sortie de la 2.0.0 : étiquette `v2.0.0`, branche `2.0.x` pour ses corrections, `main` avance.
 Les lots C et D amèneront un second livrable, le serveur, qui aura ses propres versions : à
 décider avec l'hébergement.
@@ -392,3 +401,90 @@ décider avec l'hébergement.
 4. Lot B (livret du jardin) après le lot A, ou avant si une école à jardin l'attend.
 5. Lots C et D : en attente d'une école qui les demande et accepte l'abonnement (T-86) ; rien à
    lancer hors du code d'ici là.
+
+---
+
+## 7. Demande du 11 novembre 2026 : mettre les sauvegardes à l'abri sur le cloud
+
+Demande du porteur du projet, le 11 novembre 2026 : « une dernière phase : possibilité d'héberger
+en ligne et/ou sauvegarder sur le cloud comme Google Drive ou tout autre », « pour qu'en local,
+en plus de la sauvegarde sur clé, il ne perde pas les données ». Le but est donc de ne pas perdre
+les données d'une école si l'ordinateur et la clé USB disparaissent ensemble (vol, incendie).
+
+### 7.1 Ce que GESCO sait déjà faire
+
+Vérifié dans `gesco-services/src/sauvegarde.rs` : une destination de sauvegarde est un simple
+dossier ; chaque sauvegarde y est copiée, avec la même rotation ; une destination absente
+n'empêche pas les autres. L'archive `.gsv` est chiffrée par la clé de l'école et se restaure sur
+un autre ordinateur avec les douze mots.
+
+Conséquence : **un dossier synchronisé par Google Drive, OneDrive ou Dropbox peut déjà servir de
+destination**, sans une ligne de code, dès la 1.2.x. Le logiciel du fournisseur envoie l'archive
+quand il y a Internet ; le fournisseur ne peut pas la lire. Non essayé sur un vrai compte.
+
+### 7.2 Ce qui manque pour en faire une vraie fonction
+
+- GESCO ne sait pas qu'une destination est « en ligne » : il ne la propose pas, ne l'explique
+  pas, et n'avertit pas l'école qui n'a aucune copie hors de ses murs.
+- Il ne sait pas si l'envoi a vraiment eu lieu : seul le logiciel du fournisseur le sait.
+- **Le forfait** : chaque sauvegarde est une archive entière. Une sauvegarde par jour envoyée en
+  ligne peut coûter cher en données (blueprint §3.2). Il faut un rythme à part pour cette
+  destination (une fois par semaine, ou à la demande), et afficher la taille de ce qui part.
+- Un dossier synchronisé ne protège pas d'un rançongiciel comme le fait une clé débranchée : il
+  s'ajoute à la clé, il ne la remplace pas.
+- Le guide d'installation n'en dit rien.
+
+### 7.3 Lot proposé — « Sauvegarde hors de l'école »
+
+Il remplace l'étape C1 du §2.4, sans serveur de l'éditeur ni abonnement.
+
+| Étape | Contenu | Risques | Vérifiable par |
+|---|---|---|---|
+| S1 — Destination « en ligne » | Troisième sorte de destination à côté du dossier du poste et du support déconnectable ; GESCO propose les dossiers Google Drive, OneDrive et Dropbox qu'il trouve sur le poste ; rythme choisi par l'école : à la demande (rien ne part seul, réglage livré), chaque semaine ou chaque mois ; taille affichée ; avertissement au tableau de bord quand aucune copie n'existe hors de l'école | Forfait consommé ; logiciel du fournisseur non installé ou déconnecté | Essais de services ; captures ; une archive déposée dans un dossier synchronisé puis restaurée sur un autre poste avec les douze mots |
+| S2 — Guide et essai réel | Guide : installer le logiciel du fournisseur, choisir le dossier, vérifier que l'envoi se fait ; essai du porteur sur un vrai compte | L'école croit être protégée alors que rien ne part | Liste d'essais à la main sur un vrai compte ; restauration depuis le fichier téléchargé |
+
+**Rythme** (porteur du projet, 11 novembre 2026) : « pas de sauvegarde automatique, ou il choisit
+hebdomadaire ou mensuel ». La copie en ligne ne part donc jamais chaque jour : l'école choisit
+entre à la demande, chaque semaine et chaque mois. Livré sur « à la demande » (interprétation à
+confirmer : le réglage de départ est celui qui ne consomme rien sans un geste). Les sauvegardes
+du poste et de la clé gardent leur rythme actuel.
+
+Non retenu dans ce lot, à décider en ADR si le dossier synchronisé ne suffit pas : GESCO qui se
+connecte lui-même au compte Google de l'école (pas de logiciel à installer, mais un agrément à
+obtenir de Google par l'éditeur, un code par fournisseur, des jetons à garder). L'hébergement en
+ligne de GESCO lui-même reste le lot C (§2.4), en attente d'une école (T-86).
+
+### 7.4 Questions de terrain
+
+À la suite de T-94, dernière question de `docs/plan-phase-12.md` au 11 novembre 2026.
+
+#### T-95 — Ce que « en ligne » doit apporter
+
+- a) seulement mettre les sauvegardes à l'abri hors de l'école ;
+- b) aussi travailler ou consulter à distance (le directeur chez lui, deux sites d'une même école).
+
+*Recommandation* : a) maintenant. b) est l'hébergement en ligne du lot C : un serveur à louer et
+à surveiller, donc un abonnement ; il attend une école qui le demande.
+
+#### T-96 — Par quel moyen
+
+- a) un dossier synchronisé par le logiciel du fournisseur (Google Drive, OneDrive, Dropbox), sur
+  le compte de l'école ;
+- b) GESCO se connecte lui-même au compte Google de l'école ;
+- c) un serveur de l'éditeur, par abonnement.
+
+*Recommandation* : a). Rien à payer à l'éditeur, l'école garde la main sur son compte, cela
+marche avec n'importe quel fournisseur, et l'essentiel existe déjà.
+
+#### T-97 — Quand
+
+- a) en dernière phase, après l'e-learning ;
+- b) dans la version 2.0, comme une petite étape à part.
+
+*Recommandation* : b). C'est court, cela ne dépend ni du réseau local ni de l'e-learning, et
+c'est ce qui protège une école d'une perte totale. En attendant, une école peut déjà ajouter à
+la main un dossier Google Drive comme destination de sauvegarde.
+
+*Réponse* (porteur du projet, 11 novembre 2026) : « dans le même installeur que réseau,
+e-learning ». La sauvegarde hors de l'école sort donc dans la version 2.0, avec le réseau local
+et l'e-learning, en un seul installeur (voir §5, révision du 11 novembre 2026).

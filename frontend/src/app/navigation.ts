@@ -2,7 +2,7 @@ import type { Cle } from "../i18n";
 import { ACCES, type NomCommande } from "../types/acces";
 import type { ModuleEcole } from "../types/gesco";
 
-export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence";
+export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes";
 
 interface Section {
   id: IdSection;
@@ -56,6 +56,7 @@ const SECTIONS: readonly Section[] = [
   { id: "parametres", libelle: "nav.parametres", groupe: "nav.groupe.parametres", commande: "parametres_lister" },
   { id: "utilisateurs", libelle: "nav.utilisateurs", groupe: "nav.groupe.parametres", commande: "utilisateurs_lister" },
   { id: "roles", libelle: "nav.roles", groupe: "nav.groupe.parametres", commande: "roles_lister" },
+  { id: "postes", libelle: "nav.postes", groupe: "nav.groupe.parametres", commande: "reseau_etat_lire" },
   { id: "compte", libelle: "nav.compte", groupe: "nav.groupe.outils", commande: null },
   { id: "sauvegarde", libelle: "nav.sauvegarde", groupe: "nav.groupe.outils", commande: "sauvegardes_lister" },
   { id: "journal", libelle: "nav.journal", groupe: "nav.groupe.outils", commande: "audit_lister" },

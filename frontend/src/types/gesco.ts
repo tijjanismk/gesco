@@ -363,6 +363,14 @@ export type ApercuSms = {
 	sms: number,
 };
 
+/**  Code d'appairage affiché sur le poste principal. */
+export type AppairageAffiche = {
+	/**  Le code, en deux groupes de quatre. */
+	code: string,
+	/**  Fin de validité. */
+	expire_le: number,
+};
+
 /**
  *  Ce qu'on facture à un élève arrivé en cours d'année (Q-26, paramètre
  *  `facturation.arrivee_en_cours`) ; chaque école choisit sa règle, et une autre peut être
@@ -1845,6 +1853,20 @@ export type Contrat = {
 	releve_apercu: Signature<DemandeApercuReleve, ApercuReleve>,
 	/**  Signature de la commande du même nom. */
 	releve_importer: Signature<DemandeImportReleve, ResultatReleve>,
+	/**  Signature de la commande du même nom. */
+	reseau_etat_lire: Signature<null, EtatReseau>,
+	/**  Signature de la commande du même nom. */
+	reseau_activer: Signature<null, EtatReseau>,
+	/**  Signature de la commande du même nom. */
+	reseau_eteindre: Signature<null, EtatReseau>,
+	/**  Signature de la commande du même nom. */
+	poste_appairage_ouvrir: Signature<null, EtatReseau>,
+	/**  Signature de la commande du même nom. */
+	poste_appairage_fermer: Signature<null, EtatReseau>,
+	/**  Signature de la commande du même nom. */
+	poste_revoquer: Signature<DemandePoste, EtatReseau>,
+	/**  Signature de la commande du même nom. */
+	reseau_cle_renouveler: Signature<null, EtatReseau>,
 };
 
 /**  Convocation d'un responsable au sujet d'un élève. */
@@ -3538,6 +3560,12 @@ export type DemandePort = {
 	port: string,
 };
 
+/**  Poste désigné par son identifiant. */
+export type DemandePoste = {
+	/**  Poste relié. */
+	poste_id: string,
+};
+
 /**  Données du premier démarrage. */
 export type DemandePremierDemarrage = {
 	/**  Organisation propriétaire. */
@@ -4793,6 +4821,36 @@ export type EtatMessage =
 "annule" | 
 /**  Resté trop longtemps en attente. */
 "expire";
+
+/**  État du réseau local, pour l'écran « Postes de l'école ». */
+export type EtatReseau = {
+	/**  Le poste principal écoute les postes reliés. */
+	actif: boolean,
+	/**  Port d'écoute. */
+	port: number,
+	/**  Nom du poste principal, à donner aux postes à relier. */
+	nom_poste_principal: string,
+	/**
+	 *  Adresses du poste principal sur le réseau de l'école ; vide si le réseau est éteint ou si
+	 *  l'ordinateur n'est sur aucun réseau.
+	 */
+	adresses: string[],
+	/**
+	 *  Empreinte courte du certificat, à comparer à l'œil lors d'un appairage ; absente tant que
+	 *  le serveur ne l'a pas fabriqué.
+	 */
+	empreinte_courte: string | null,
+	/**  Postes reliés, en service ou révoqués, du plus récent au plus ancien. */
+	postes: PosteRelie[],
+	/**  Postes en service. */
+	en_service: number,
+	/**  Postes en service d'où une session est ouverte en ce moment. */
+	connectes: string[],
+	/**  Postes que la licence couvre. */
+	couverts: PostesCouverts,
+	/**  Code d'appairage en attente. */
+	appairage: AppairageAffiche | null,
+};
 
 /**  Évaluation : un devoir ou une composition d'une matière d'une classe. */
 export type Evaluation = {
@@ -7006,6 +7064,33 @@ couples: ([string, string])[] };
 
 /**  Poste physique identifié ; porté par chaque ligne synchronisable (R-13). */
 export type Poste = string;
+
+/**  Poste relié au poste principal. Rien ne se supprime : un poste se révoque. */
+export type PosteRelie = {
+	/**  Identifiant technique ; le poste relié le présente à chaque appel. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Nom donné au poste : c'est lui qui signe ses écritures au journal. */
+	nom: string,
+	/**  Instant de l'appairage. */
+	relie_le: number,
+	/**  Qui a ouvert l'appairage sur le poste principal. */
+	relie_par: string | null,
+	/**  Dernier appel reçu de ce poste. */
+	derniere_connexion: number | null,
+	/**  Instant de la révocation ; `None` tant que le poste est en service. */
+	revoque_le: number | null,
+	/**  Qui l'a révoqué. */
+	revoque_par: string | null,
+};
+
+/**  Postes reliés que la licence couvre, en plus du poste principal (ADR « licence et postes »). */
+export type PostesCouverts = 
+/**  Formule « postes compris » : autant qu'on veut. */
+{ type: "illimites" } | 
+/**  Formule par poste, ou poste à l'essai quand la licence ne dit rien. */
+{ type: "nombre"; nombre: number };
 
 /**  Résultat du premier démarrage. */
 export type PremierDemarrageEffectue = {

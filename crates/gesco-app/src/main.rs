@@ -8,6 +8,7 @@
 mod empreinte;
 mod trousseau;
 
+use std::net::{Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -87,11 +88,35 @@ async fn file_sms(application: Arc<Application>) {
     }
 }
 
+/// Serveur du réseau local (SPEC_PHASE_11_A §3.1) : il écoute dès que la direction allume le
+/// réseau et s'arrête quand elle l'éteint. En mode d'essai, il n'écoute que la machine elle-même :
+/// les essais de bout en bout ne font pas paraître la question du pare-feu de Windows.
+fn servir_le_reseau(application: &Arc<Application>, poste: String, essai: bool) {
+    application.declarer_adresses_du_poste(Arc::new(move || {
+        if essai {
+            vec![Ipv4Addr::LOCALHOST.to_string()]
+        } else {
+            gesco_reseau::adresses_du_poste(&poste)
+        }
+    }));
+    let ou = if essai {
+        Ipv4Addr::LOCALHOST
+    } else {
+        Ipv4Addr::UNSPECIFIED
+    };
+    let application = Arc::clone(application);
+    // Le superviseur lance sa tâche : il lui faut le moteur asynchrone autour de lui.
+    tauri::async_runtime::block_on(async move {
+        gesco_reseau::superviser(application, move |port| SocketAddr::from((ou, port)));
+    });
+}
+
 fn main() -> tauri::Result<()> {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let essai = dossier_essai();
+            let en_essai = essai.is_some();
             let (racine, trousseau): (PathBuf, Arc<dyn Trousseau>) = match essai {
                 Some(dossier) => {
                     let cles = dossier.join("trousseau-essai");
@@ -115,7 +140,7 @@ fn main() -> tauri::Result<()> {
             let options = OptionsApplication {
                 racine,
                 empreinte_machine: empreinte::du_poste(&poste),
-                poste: Poste(poste),
+                poste: Poste(poste.clone()),
                 trousseau,
                 horloge: horloge(),
                 politique_session: PolitiqueSession::default(),
@@ -126,6 +151,7 @@ fn main() -> tauri::Result<()> {
                 options,
             ))?);
             app.manage(Arc::clone(&application));
+            servir_le_reseau(&application, poste, en_essai);
             tauri::async_runtime::spawn(taches_periodiques(Arc::clone(&application)));
             tauri::async_runtime::spawn(file_sms(application));
             Ok(())

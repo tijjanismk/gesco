@@ -288,6 +288,16 @@ pub enum TypeEvenement {
     CodeAccesRevoque,
     /// Un SMS est reçu : consultation servie ou refusée.
     SmsRecu,
+    /// Le réseau local de l'école est activé sur le poste principal (SPEC_PHASE_11_A §4).
+    ReseauActive,
+    /// Le réseau local de l'école est éteint.
+    ReseauDesactive,
+    /// Un poste est relié au poste principal.
+    PosteRelie,
+    /// Un poste relié est révoqué.
+    PosteRevoque,
+    /// La clé du réseau est renouvelée : chaque poste doit être relié de nouveau.
+    CleReseauRenouvelee,
 }
 
 impl TypeEvenement {
@@ -430,6 +440,11 @@ impl TypeEvenement {
         Self::CodeAccesRemis,
         Self::CodeAccesRevoque,
         Self::SmsRecu,
+        Self::ReseauActive,
+        Self::ReseauDesactive,
+        Self::PosteRelie,
+        Self::PosteRevoque,
+        Self::CleReseauRenouvelee,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -572,6 +587,11 @@ impl TypeEvenement {
             Self::CodeAccesRemis => "CodeAccesRemis",
             Self::CodeAccesRevoque => "CodeAccesRevoque",
             Self::SmsRecu => "SmsRecu",
+            Self::ReseauActive => "ReseauActive",
+            Self::ReseauDesactive => "ReseauDesactive",
+            Self::PosteRelie => "PosteRelie",
+            Self::PosteRevoque => "PosteRevoque",
+            Self::CleReseauRenouvelee => "CleReseauRenouvelee",
         }
     }
 
@@ -715,7 +735,12 @@ impl TypeEvenement {
             | Self::ConvocationAnnulee
             | Self::CodeAccesRemis
             | Self::CodeAccesRevoque
-            | Self::SmsRecu => 1,
+            | Self::SmsRecu
+            | Self::ReseauActive
+            | Self::ReseauDesactive
+            | Self::PosteRelie
+            | Self::PosteRevoque
+            | Self::CleReseauRenouvelee => 1,
         }
     }
 

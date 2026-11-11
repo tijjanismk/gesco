@@ -39,6 +39,8 @@ const ENTITES: Record<string, Cle> = {
   niveau: "entite.niveau",
   numero: "entite.numero",
   organisation: "entite.organisation",
+  poste_relie: "entite.poste_relie",
+  reseau_local: "entite.reseau_local",
   parametre: "entite.parametre",
   reduction: "entite.reduction",
   responsable: "entite.responsable",

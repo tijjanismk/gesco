@@ -132,6 +132,7 @@ catalogue! {
     EXPORT_FULL = "export:full",
     LICENCE_READ = "licence:read",
     LICENCE_INSTALL = "licence:install",
+    WORKSTATIONS_MANAGE = "workstations:manage",
 }
 
 /// Version de la composition des rôles livrés. Une phase qui ajoute des permissions à
@@ -172,7 +173,9 @@ catalogue! {
 /// le Caissier `documents:deliver` ; le Surveillant général `convocations:close`,
 /// `notifications:send_manual` et `notifications:read` ; la Consultation seule
 /// `notifications:read`, qui lit la file sans rien relancer.
-pub const COMPOSITION_ROLES_LIVRES: i64 = 10;
+/// Version 11 (SPEC_PHASE_11_A §8) : `workstations:manage`, nouvelle, pour le Directeur :
+/// activer le réseau de l'école, relier un poste, le révoquer, renouveler la clé du réseau.
+pub const COMPOSITION_ROLES_LIVRES: i64 = 11;
 
 /// Rôles livrés avec le produit (§11.4), composés selon SPEC_PHASE_1 §5.2 (Q-44).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -259,6 +262,7 @@ impl RoleSysteme {
                 P::CORE_AUDIT_READ,
                 P::CORE_BACKUP_CREATE,
                 P::LICENCE_READ,
+                P::WORKSTATIONS_MANAGE,
                 P::STUDENTS_READ,
                 P::ENROLLMENTS_VALIDATE,
                 P::ENROLLMENTS_EXPEL,

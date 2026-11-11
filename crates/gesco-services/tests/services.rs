@@ -43,6 +43,7 @@ mod paie;
 mod paie_mois;
 mod pedagogie;
 mod personnel;
+mod postes;
 mod recettes;
 mod reseau_local;
 mod scolarite;

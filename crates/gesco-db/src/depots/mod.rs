@@ -38,6 +38,7 @@ pub mod personnes;
 pub mod recettes;
 pub mod remises;
 pub mod remises_documents;
+pub mod reseau;
 pub mod role;
 pub mod sauvegarde;
 pub mod sequence;
