@@ -1,16 +1,19 @@
-import type { ErreurCommande } from "../types/gesco";
+import type { ErreurCommande, FicheModifiee } from "../types/gesco";
 
 /** Erreur d'une commande : la clé du noyau, traduite à l'affichage (R-39). */
 export class ErreurApi extends Error {
   readonly cle: string;
   readonly jusqua: number | null;
   readonly detail: string | null;
+  /** Qui a modifié la fiche et quand, quand elle a changé depuis sa lecture. */
+  readonly modifiee: FicheModifiee | null;
 
   constructor(erreur: ErreurCommande) {
     super(erreur.cle);
     this.cle = erreur.cle;
     this.jusqua = erreur.jusqua;
     this.detail = erreur.detail;
+    this.modifiee = erreur.modifiee ?? null;
   }
 }
 
@@ -31,6 +34,7 @@ export function versErreurApi(valeur: unknown): ErreurApi {
       cle: valeur.cle,
       jusqua: valeur.jusqua ?? null,
       detail: valeur.detail ?? null,
+      modifiee: valeur.modifiee ?? null,
     });
   }
   return new ErreurApi({ cle: "erreur.transport", jusqua: null, detail: String(valeur) });

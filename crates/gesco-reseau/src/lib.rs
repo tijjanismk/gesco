@@ -181,6 +181,7 @@ fn refus(statut: StatusCode, cle: &str) -> Response {
         cle: cle.to_owned(),
         jusqua: None,
         detail: None,
+        modifiee: None,
     };
     (statut, Json(erreur)).into_response()
 }
@@ -219,6 +220,7 @@ impl Etat {
             cle: CLE_VERSION_DIFFERENTE.to_owned(),
             jusqua: None,
             detail: Some(attendue.to_owned()),
+            modifiee: None,
         };
         Some((StatusCode::UPGRADE_REQUIRED, Json(erreur)).into_response())
     }

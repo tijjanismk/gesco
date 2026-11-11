@@ -4,6 +4,7 @@ import { useState } from "react";
 import { appeler } from "../../api";
 import { choisirClasseur, choisirTableur } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
+import { useEtreSeul } from "../../composants/EtreSeul";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { t, texteDeCle } from "../../i18n";
 import type { AnalyseImportPersonnel, BilanImportPersonnel, CategoriePersonnel } from "../../types/gesco";
@@ -16,6 +17,7 @@ export function ImportPersonnel({ categories, surTermine }: { categories: readon
   const [analyse, setAnalyse] = useState<AnalyseImportPersonnel | null>(null);
   const [bilan, setBilan] = useState<BilanImportPersonnel | null>(null);
   const [modele, setModele] = useState<string | null>(null);
+  const seul = useEtreSeul("seul.import");
   const ecritureModele = useMutation({
     mutationFn: async () => {
       const destination = await choisirClasseur(t("import_personnel.nom_modele"), t("commun.classeur_excel"));
@@ -106,9 +108,10 @@ export function ImportPersonnel({ categories, surTermine }: { categories: readon
           </div>
           <MessageErreur erreur={application.error} />
           <div>
-            <Bouton disabled={analyse.pretes === 0 || application.isPending} onClick={() => application.mutate()}>
+            <Bouton disabled={analyse.pretes === 0 || application.isPending} onClick={() => seul.demander(() => application.mutate())}>
               {t("import_personnel.importer", { nombre: analyse.pretes })}
             </Bouton>
+            {seul.dialogue}
           </div>
         </>
       )}

@@ -185,6 +185,9 @@ pub struct Classe {
     pub serie_id: Option<Id<Serie>>,
     /// Libellé libre, unique dans l'année : « 7e A », « 12TSE ».
     pub libelle: String,
+    /// Instant de dernière modification, millisecondes depuis l'époque : l'écran le renvoie
+    /// quand il renomme la classe.
+    pub modifiee_le: i64,
 }
 
 /// Niveau du référentiel national livré avec le produit.

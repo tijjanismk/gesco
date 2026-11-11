@@ -528,6 +528,7 @@ mod tests {
             niveau_id: id(niveau),
             serie_id: serie.map(id),
             libelle: String::new(),
+            modifiee_le: 0,
         }
     }
 

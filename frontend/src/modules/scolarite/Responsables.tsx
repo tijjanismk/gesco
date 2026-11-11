@@ -246,13 +246,27 @@ function EditionResponsable({ fiche, responsable, surTermine }: { fiche: FicheEl
     employeur: responsable.responsable.employeur,
   });
   const [qualites, setQualites] = useState(responsable.qualites);
+  const [lueLe, setLueLe] = useState(responsable.modifiee_le);
   const termine = (nouvelle: FicheEleve) => {
     poser(nouvelle);
     surTermine();
   };
   const modification = useMutation({
-    mutationFn: () => appeler("responsable_modifier", { eleve_id: fiche.eleve.id, responsable_id: responsable.responsable.id, saisie, qualites }),
+    mutationFn: () => appeler("responsable_modifier", { eleve_id: fiche.eleve.id, responsable_id: responsable.responsable.id, lue_le: lueLe, saisie, qualites }),
     onSuccess: termine,
+  });
+  const relecture = useMutation({
+    mutationFn: () => appeler("eleve_lire", { id: fiche.eleve.id }),
+    onSuccess: (fraiche) => {
+      poser(fraiche);
+      const relu = fraiche.responsables.find((r) => r.responsable.id === responsable.responsable.id);
+      // Le lien a pu être retiré entre-temps : il n'y a plus rien à modifier.
+      if (relu === undefined) return surTermine();
+      setSaisie({ identite: saisieDepuis(relu.identite), profession: relu.responsable.profession, employeur: relu.responsable.employeur });
+      setQualites(relu.qualites);
+      setLueLe(relu.modifiee_le);
+      modification.reset();
+    },
   });
   const retrait = useMutation({
     mutationFn: () => appeler("responsable_detacher", { eleve_id: fiche.eleve.id, responsable_id: responsable.responsable.id }),
@@ -263,7 +277,7 @@ function EditionResponsable({ fiche, responsable, surTermine }: { fiche: FicheEl
       <ChampsIdentite prefixe="responsable" valeur={saisie.identite} surChangement={(identite) => setSaisie({ ...saisie, identite })} eleve={false} sexeImpose={SEXE_DU_LIEN[qualites.lien]} />
       <Champ id="responsable-profession" libelle={t("responsables.profession")} value={saisie.profession} onChange={(e) => setSaisie({ ...saisie, profession: e.target.value })} />
       <ChampsQualites prefixe="responsable" valeur={qualites} surChangement={setQualites} />
-      <MessageErreur erreur={modification.error ?? retrait.error} />
+      <MessageErreur erreur={relecture.error ?? modification.error ?? retrait.error} surRelire={() => relecture.mutate()} />
       <div className="flex flex-wrap gap-2">
         <Bouton type="submit" disabled={modification.isPending}>{t("commun.enregistrer")}</Bouton>
         <Bouton variante="secondaire" onClick={surTermine}>{t("commun.annuler")}</Bouton>

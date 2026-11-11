@@ -57,6 +57,15 @@ impl Commande {
         }
     }
 
+    /// Clé du message qui nomme l'opération, si la commande demande d'être seul sur le réseau
+    /// de l'école (SPEC_PHASE_11_A §6.3).
+    pub fn seule(&self) -> Option<&'static str> {
+        COMMANDES_SEULES
+            .iter()
+            .find(|(nom, _)| *nom == self.nom)
+            .map(|(_, cle)| *cle)
+    }
+
     /// Fichier que la commande lit ou écrit, si elle en manie un.
     pub fn fichier(&self) -> Option<Fichier> {
         COMMANDES_A_FICHIER
@@ -118,6 +127,102 @@ pub const COMMANDES_POSTE_PRINCIPAL: &[&str] = &[
     "poste_appairage_fermer",
     "poste_revoquer",
     "reseau_cle_renouveler",
+    "postes_connectes_lire",
+];
+
+/// Commandes qui modifient une fiche en bloc (SPEC_PHASE_11_A §6.1) : leur entrée porte
+/// l'instant de dernière modification lu avec la fiche (`lue_le`), et rien ne s'enregistre s'il
+/// a bougé. Un essai compare cette liste au contrat généré.
+pub const COMMANDES_DE_FICHE: &[&str] = &[
+    "eleve_modifier",
+    "responsable_modifier",
+    "membre_enregistrer",
+    "classe_modifier",
+    "grille_modifier",
+    "etablissement_modifier",
+];
+
+/// Pourquoi une commande qui modifie ne vérifie pas l'instant de dernière modification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SansControle {
+    /// Grille de saisie : la dernière écriture d'une case gagne.
+    Grille,
+    /// Une seule valeur à la fois : rien d'autre ne peut être écrasé avec elle.
+    Valeur,
+    /// Changement d'état, vérifié dans sa transaction : le second reçoit déjà un refus.
+    Etat,
+    /// Écriture d'argent : elle s'ajoute et s'annule, elle ne se modifie pas.
+    Argent,
+    /// Donnée de référence, réglée par la direction : la dernière écriture gagne.
+    Reference,
+    /// Fiche modifiée en bloc, pas encore protégée : à faire entrer dans
+    /// [`COMMANDES_DE_FICHE`].
+    FicheAProteger,
+}
+
+/// Les autres commandes dont le nom dit qu'elles modifient, chacune avec sa raison. Un essai
+/// refuse toute commande de ce genre qui ne serait ni ici ni dans [`COMMANDES_DE_FICHE`].
+pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
+    ("utilisateur_modifier", SansControle::FicheAProteger),
+    ("role_modifier", SansControle::FicheAProteger),
+    ("annee_modifier", SansControle::FicheAProteger),
+    ("inscription_modifier", SansControle::FicheAProteger),
+    ("enseignant_enregistrer", SansControle::FicheAProteger),
+    ("fournisseur_enregistrer", SansControle::FicheAProteger),
+    ("passage_regler", SansControle::Grille),
+    ("absences_releve_enregistrer", SansControle::Grille),
+    ("absences_seances_enregistrer", SansControle::Grille),
+    ("eleve_photo_definir", SansControle::Valeur),
+    ("etablissement_logo_definir", SansControle::Valeur),
+    ("parametre_definir", SansControle::Valeur),
+    ("responsable_consentement_definir", SansControle::Valeur),
+    ("message_modele_definir", SansControle::Valeur),
+    ("sauvegarde_destinations_definir", SansControle::Valeur),
+    ("bulletin_corriger", SansControle::Etat),
+    ("facture_fournisseur_enregistrer", SansControle::Argent),
+    ("cycles_definir", SansControle::Reference),
+    ("niveau_modifier", SansControle::Reference),
+    ("serie_modifier", SansControle::Reference),
+    ("matiere_enregistrer", SansControle::Reference),
+    ("programme_enregistrer", SansControle::Reference),
+    ("periodes_definir", SansControle::Reference),
+    ("calendrier_modifier", SansControle::Reference),
+    ("regle_enregistrer", SansControle::Reference),
+    ("categorie_personnel_enregistrer", SansControle::Reference),
+    ("fonction_personnel_enregistrer", SansControle::Reference),
+    ("type_conge_enregistrer", SansControle::Reference),
+    ("element_paie_enregistrer", SansControle::Reference),
+    ("element_paie_version_enregistrer", SansControle::Reference),
+    ("attribution_enregistrer", SansControle::Reference),
+    ("paie_reglages_enregistrer", SansControle::Reference),
+    ("categorie_tresorerie_enregistrer", SansControle::Reference),
+    ("compte_tresorerie_enregistrer", SansControle::Reference),
+    ("tresorerie_reglages_enregistrer", SansControle::Reference),
+    ("journee_regler", SansControle::Reference),
+];
+
+/// Terminaisons des noms de commandes qui modifient ce qui existe.
+pub const TERMINAISONS_DE_MODIFICATION: &[&str] = &[
+    "_modifier",
+    "_enregistrer",
+    "_definir",
+    "_regler",
+    "_corriger",
+];
+
+/// Opérations qui demandent d'être seul (SPEC_PHASE_11_A §6.3) : le temps qu'elles durent, les
+/// commandes des autres postes sont refusées avec le message dont la clé est donnée ici, qui
+/// nomme l'opération. La mise à niveau d'une base se fait à l'ouverture, avant que le réseau
+/// ne serve quoi que ce soit : elle n'a pas besoin d'y figurer. Les imports sont ceux qui
+/// touchent toute l'école (élèves, personnel, programme, référentiel) ; les notes d'une
+/// évaluation et le relevé d'un compte s'importent comme une saisie ordinaire.
+pub const COMMANDES_SEULES: &[(&str, &str)] = &[
+    ("annee_cloturer", "poste.occupe.cloture"),
+    ("sauvegarde_restaurer", "poste.occupe.restauration"),
+    ("import_eleves_appliquer", "poste.occupe.import"),
+    ("personnel_import_appliquer", "poste.occupe.import"),
+    ("programme_import_appliquer", "poste.occupe.import"),
+    ("referentiel_import_appliquer", "poste.occupe.import"),
 ];
 
 /// Commandes qui lisent ou écrivent un fichier au chemin donné par l'écran. Celles du poste
@@ -615,6 +720,9 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("poste_appairage_fermer", Permission::WORKSTATIONS_MANAGE),
     Commande::permise("poste_revoquer", Permission::WORKSTATIONS_MANAGE),
     Commande::permise("reseau_cle_renouveler", Permission::WORKSTATIONS_MANAGE),
+    // Postes reliés qui ont une session ouverte, pour prévenir avant une opération qui demande
+    // d'être seul (§6.3).
+    Commande::connectee("postes_connectes_lire"),
 ];
 
 #[cfg(test)]
@@ -663,6 +771,54 @@ mod tests {
         assert_eq!(fichiers.len(), COMMANDES_A_FICHIER.len());
         for (nom, _) in COMMANDES_A_FICHIER {
             assert!(Commande::par_nom(nom).is_some(), "{nom} hors catalogue");
+        }
+    }
+
+    #[test]
+    fn les_listes_du_travail_a_plusieurs_nomment_des_commandes_une_fois() {
+        let mut vues = HashSet::new();
+        for nom in COMMANDES_DE_FICHE
+            .iter()
+            .chain(MODIFICATIONS_SANS_CONTROLE.iter().map(|(nom, _)| nom))
+        {
+            assert!(Commande::par_nom(nom).is_some(), "{nom} hors catalogue");
+            assert!(vues.insert(*nom), "{nom} classée deux fois");
+        }
+        let mut seules = HashSet::new();
+        for (nom, cle) in COMMANDES_SEULES {
+            assert!(Commande::par_nom(nom).is_some(), "{nom} hors catalogue");
+            assert!(seules.insert(*nom), "{nom} déclarée deux fois");
+            assert!(cle.starts_with("poste.occupe."));
+        }
+        assert_eq!(
+            Commande::par_nom("annee_cloturer").and_then(Commande::seule),
+            Some("poste.occupe.cloture")
+        );
+        assert_eq!(
+            Commande::par_nom("eleve_lire").and_then(Commande::seule),
+            None
+        );
+    }
+
+    #[test]
+    fn toute_commande_qui_modifie_est_classee() {
+        for commande in COMMANDES {
+            if !TERMINAISONS_DE_MODIFICATION
+                .iter()
+                .any(|t| commande.nom.ends_with(t))
+            {
+                continue;
+            }
+            let fiche = COMMANDES_DE_FICHE.contains(&commande.nom);
+            let sans = MODIFICATIONS_SANS_CONTROLE
+                .iter()
+                .any(|(nom, _)| *nom == commande.nom);
+            assert!(
+                fiche || sans,
+                "{} modifie : la déclarer dans COMMANDES_DE_FICHE (avec `lue_le` dans son \
+                 entrée) ou dans MODIFICATIONS_SANS_CONTROLE, avec sa raison",
+                commande.nom
+            );
         }
     }
 

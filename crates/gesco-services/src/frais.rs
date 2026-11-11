@@ -18,6 +18,7 @@ use gesco_db::unite::Durabilite;
 use serde::{Deserialize, Serialize};
 
 use crate::erreur::{ErreurService, Resultat};
+use crate::fraicheur::{self, Ligne};
 use crate::noyau::Noyau;
 use crate::session::Session;
 
@@ -84,6 +85,8 @@ pub struct SaisiePlan {
 /// Contenu d'un brouillon, remplacé en entier.
 #[derive(Debug, Deserialize, specta::Type)]
 pub struct DemandeModificationGrille {
+    /// Instant de dernière modification lu avec la grille.
+    pub lue_le: i64,
     /// Grille en brouillon.
     pub id: Id<Grille>,
     /// Libellé.
@@ -94,6 +97,12 @@ pub struct DemandeModificationGrille {
     pub plans: Vec<SaisiePlan>,
 }
 
+/// Lignes dont dépend l'instant de dernière modification d'une grille : son contenu se
+/// remplace en bloc avec elle, la grille le date.
+fn lignes_de_la_grille(id: Id<Grille>) -> [Ligne; 1] {
+    [Ligne::par_id("grille_tarifaire", id.vers_chaine())]
+}
+
 /// Grille avec son contenu.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 pub struct GrilleAffichee {
@@ -101,6 +110,8 @@ pub struct GrilleAffichee {
     pub grille: Grille,
     /// Lignes et plans.
     pub contenu: ContenuGrille,
+    /// Instant de dernière modification, à renvoyer avec la modification.
+    pub modifiee_le: i64,
 }
 
 /// Résultat d'une mise en vigueur.
@@ -156,7 +167,12 @@ impl<'n> ServiceFrais<'n> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
         let contenu = tarifs::contenu(&mut cnx, grille.id, &contexte).await?;
-        Ok(GrilleAffichee { grille, contenu })
+        let modifiee_le = fraicheur::instant(&mut cnx, &lignes_de_la_grille(grille.id)).await?;
+        Ok(GrilleAffichee {
+            grille,
+            contenu,
+            modifiee_le,
+        })
     }
 
     /// Grilles d'une année, la plus récente d'abord, avec leur contenu.
@@ -260,7 +276,7 @@ impl<'n> ServiceFrais<'n> {
             "frais.creer",
         );
         self.noyau.terminer(unite).await?;
-        Ok(GrilleAffichee { grille, contenu })
+        self.affichee(session, grille).await
     }
 
     /// Remplace le contenu d'un brouillon, après vérification des lignes et des plans.
@@ -338,6 +354,12 @@ impl<'n> ServiceFrais<'n> {
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
+        fraicheur::verifier(
+            unite.connexion(),
+            &lignes_de_la_grille(grille.id),
+            demande.lue_le,
+        )
+        .await?;
         tarifs::ecrire_grille(unite.connexion(), &grille, &contexte).await?;
         tarifs::remplacer_contenu(unite.connexion(), grille.id, &contenu, &contexte).await?;
         unite.auditer(
@@ -349,7 +371,7 @@ impl<'n> ServiceFrais<'n> {
             "frais.modifier",
         );
         self.noyau.terminer(unite).await?;
-        Ok(GrilleAffichee { grille, contenu })
+        self.affichee(session, grille).await
     }
 
     /// Met un brouillon en vigueur ; la grille en vigueur de l'année, s'il y en a une, est
@@ -360,7 +382,7 @@ impl<'n> ServiceFrais<'n> {
         id: Id<Grille>,
     ) -> Resultat<MiseEnVigueur> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
-        let (grille, contenu, precedente, niveaux_sans_scolarite) = {
+        let (grille, precedente, niveaux_sans_scolarite) = {
             let mut cnx = self.connexion().await?;
             let grille = tarifs::grille(&mut cnx, id, &contexte).await?;
             let etat = grille.etat.transiter(EtatGrille::EnVigueur)?;
@@ -385,7 +407,7 @@ impl<'n> ServiceFrais<'n> {
                 })
                 .map(|n| n.libelle.clone())
                 .collect();
-            (Grille { etat, ..grille }, contenu, precedente, sans)
+            (Grille { etat, ..grille }, precedente, sans)
         };
         self.annee_ouverte(session, grille.annee_id).await?;
         let mut unite = self
@@ -429,7 +451,7 @@ impl<'n> ServiceFrais<'n> {
         );
         self.noyau.terminer(unite).await?;
         Ok(MiseEnVigueur {
-            grille: GrilleAffichee { grille, contenu },
+            grille: self.affichee(session, grille).await?,
             niveaux_sans_scolarite,
         })
     }

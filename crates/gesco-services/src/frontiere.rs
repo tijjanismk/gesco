@@ -260,6 +260,31 @@ pub struct ErreurCommande {
     pub jusqua: Option<i64>,
     /// Détail technique pour l'assistance, présent seulement pour les erreurs internes.
     pub detail: Option<String>,
+    /// Qui a modifié la fiche et quand, pour l'erreur « modifiée entre-temps ».
+    #[serde(default)]
+    pub modifiee: Option<FicheModifiee>,
+}
+
+/// Modification faite par quelqu'un d'autre depuis la lecture d'une fiche (SPEC_PHASE_11_A
+/// §6.1).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct FicheModifiee {
+    /// Nom affiché de la personne ; absent si la modification vient du système.
+    pub par: Option<String>,
+    /// Instant de la modification, millisecondes depuis l'époque.
+    pub le: i64,
+}
+
+impl ErreurCommande {
+    /// Erreur qui ne porte qu'une clé et, au besoin, un détail technique.
+    pub fn simple(cle: impl Into<String>, detail: Option<String>) -> Self {
+        Self {
+            cle: cle.into(),
+            jusqua: None,
+            detail,
+            modifiee: None,
+        }
+    }
 }
 
 impl From<ErreurService> for ErreurCommande {
@@ -279,10 +304,18 @@ impl From<ErreurService> for ErreurCommande {
                 | ErreurService::Document(_)
         )
         .then(|| erreur.to_string());
+        let modifiee = match &erreur {
+            ErreurService::ModifieeEntreTemps { par, le } => Some(FicheModifiee {
+                par: par.clone(),
+                le: *le,
+            }),
+            _ => None,
+        };
         Self {
             cle: erreur.cle_traduction().to_owned(),
             jusqua,
             detail,
+            modifiee,
         }
     }
 }
@@ -628,6 +661,8 @@ pub struct DemandeCreationClasse {
 /// Nouveau libellé d'une classe.
 #[derive(Debug, Deserialize, specta::Type)]
 pub struct DemandeModificationClasse {
+    /// Instant de dernière modification lu avec la classe.
+    pub lue_le: i64,
     /// Classe.
     pub id: Id<Classe>,
     /// Nouveau libellé.
@@ -783,6 +818,8 @@ pub struct Application {
     certificat_initial: std::sync::Mutex<Option<Id<Etablissement>>>,
     /// Réseau local : code d'appairage en attente et signal du serveur (SPEC_PHASE_11_A §4).
     reseau: ReseauVivant,
+    /// Opération qui demande d'être seul, tant qu'elle dure (SPEC_PHASE_11_A §6.3).
+    seule: crate::seul::Exclusivite,
 }
 
 impl SourceCanaux for Application {
@@ -1191,6 +1228,7 @@ contrat! {
     poste_appairage_fermer(()) -> EtatReseau;
     poste_revoquer(DemandePoste) -> EtatReseau;
     reseau_cle_renouveler(()) -> EtatReseau;
+    postes_connectes_lire(()) -> Vec<String>;
 }
 
 impl Application {
@@ -1225,6 +1263,7 @@ impl Application {
             modem: std::sync::Mutex::new(None),
             certificat_initial: std::sync::Mutex::new(None),
             reseau: ReseauVivant::default(),
+            seule: crate::seul::Exclusivite::default(),
         };
         let cles = match application.cles.preparer()? {
             EtatCles::Ouvertes(cle) => {
@@ -1274,11 +1313,7 @@ impl Application {
         .await
         {
             Ok(rendu) => rendu.map_err(ErreurCommande::from),
-            Err(panique) => Err(ErreurCommande {
-                cle: "erreur.interne".to_owned(),
-                jusqua: None,
-                detail: Some(panique),
-            }),
+            Err(panique) => Err(ErreurCommande::simple("erreur.interne", Some(panique))),
         };
         // Chaque erreur rendue à l'écran se note au journal technique, pour l'assistance.
         if let Err(e) = &resultat {
@@ -1328,6 +1363,13 @@ impl Application {
                     cle: "application.cles_verrouillees",
                 });
             }
+        };
+        // Pendant une opération qui demande d'être seul, les autres postes attendent
+        // (SPEC_PHASE_11_A §6.3) ; les commandes d'entrée, sans session, restent servies.
+        let _seul = if commande.acces == Acces::Public {
+            None
+        } else {
+            self.seule.entrer(commande, origine)?
         };
         // Un chemin venu d'un poste relié désigne son disque, pas celui-ci : c'est le contenu
         // du fichier qui voyage (SPEC_PHASE_11_A §3.3). Aucun gestionnaire ne reçoit ce chemin.
@@ -2576,7 +2618,7 @@ impl Application {
         entree: DemandeModificationClasse,
     ) -> Resultat<Classe> {
         ServiceReferentiel::nouveau(&appel.ouverte()?.noyau)
-            .renommer_classe(appel.session()?, entree.id, &entree.libelle)
+            .renommer_classe(appel.session()?, entree.id, &entree.libelle, entree.lue_le)
             .await
     }
 
@@ -2620,7 +2662,7 @@ impl Application {
         entree: DemandeModificationEleve,
     ) -> Resultat<FicheEleve> {
         ServiceEleves::nouveau(&appel.ouverte()?.noyau)
-            .modifier(appel.session()?, entree.id, &entree.saisie)
+            .modifier(appel.session()?, entree.id, &entree.saisie, entree.lue_le)
             .await
     }
 
@@ -2791,6 +2833,7 @@ impl Application {
                 entree.responsable_id,
                 &entree.saisie,
                 entree.qualites,
+                entree.lue_le,
             )
             .await
     }
@@ -4073,6 +4116,12 @@ impl Application {
     async fn reseau_cle_renouveler(&self, appel: Appel, _entree: ()) -> Resultat<EtatReseau> {
         self.postes(appel.ouverte()?)
             .renouveler_cle(appel.session()?)
+            .await
+    }
+
+    async fn postes_connectes_lire(&self, appel: Appel, _entree: ()) -> Resultat<Vec<String>> {
+        self.postes(appel.ouverte()?)
+            .noms_connectes(appel.session()?.etablissement_id)
             .await
     }
 

@@ -241,20 +241,41 @@ function EditionGrille({ affichee, referentiel, surVigueur }: { affichee: Grille
   const [libelle, setLibelle] = useState(affichee.grille.libelle);
   const [groupes, setGroupes] = useState<GroupeLigne[]>(() => grouper(affichee.contenu.lignes));
   const [plans, setPlans] = useState<SaisiePlan[]>(() => affichee.contenu.plans.map((p) => ({ libelle: p.libelle, par_defaut: p.par_defaut, tranches: p.tranches })));
+  // L'instant lu avec ce que montre le formulaire : il suit la saisie, pas les relectures de fond.
+  const [lueLe, setLueLe] = useState(affichee.modifiee_le);
   const [enregistre, setEnregistre] = useState<number | null>(null);
   const ordre = referentiel.niveaux.map((n) => n.id);
   const lignes = () => deplier(groupes, ordre);
   const incomplet = groupes.some((g) => g.niveaux.length === 0);
+  const enregistrer = async () => {
+    const nouvelle = await appeler("grille_modifier", { id: affichee.grille.id, lue_le: lueLe, libelle, lignes: lignes(), plans });
+    setLueLe(nouvelle.modifiee_le);
+    return nouvelle;
+  };
   const enregistrement = useMutation({
-    mutationFn: () => appeler("grille_modifier", { id: affichee.grille.id, libelle, lignes: lignes(), plans }),
+    mutationFn: enregistrer,
     onSuccess: () => {
       setEnregistre(Date.now());
       void client.invalidateQueries({ queryKey: ["grilles"] });
     },
   });
+  const relecture = useMutation({
+    mutationFn: () => appeler("grilles_lister", { annee_id: affichee.grille.annee_id }),
+    onSuccess: (grilles) => {
+      void client.invalidateQueries({ queryKey: ["grilles"] });
+      const relue = grilles.find((g) => g.grille.id === affichee.grille.id);
+      if (relue === undefined) return;
+      setLibelle(relue.grille.libelle);
+      setGroupes(grouper(relue.contenu.lignes));
+      setPlans(relue.contenu.plans.map((p) => ({ libelle: p.libelle, par_defaut: p.par_defaut, tranches: p.tranches })));
+      setLueLe(relue.modifiee_le);
+      enregistrement.reset();
+      vigueur.reset();
+    },
+  });
   const vigueur = useMutation({
     mutationFn: async () => {
-      await appeler("grille_modifier", { id: affichee.grille.id, libelle, lignes: lignes(), plans });
+      await enregistrer();
       return appeler("grille_mettre_en_vigueur", { id: affichee.grille.id });
     },
     onSuccess: (r) => {
@@ -415,7 +436,7 @@ function EditionGrille({ affichee, referentiel, surVigueur }: { affichee: Grille
           </div>
         ) : null}
       </Section>
-      <MessageErreur erreur={enregistrement.error ?? vigueur.error} />
+      <MessageErreur erreur={relecture.error ?? enregistrement.error ?? vigueur.error} surRelire={() => relecture.mutate()} />
       <MessageEnregistre instant={enregistre} />
       <div className="flex flex-wrap gap-2">
         <Bouton onClick={() => enregistrement.mutate()} disabled={enregistrement.isPending || incomplet}>{t("commun.enregistrer")}</Bouton>

@@ -890,6 +890,8 @@ export type ChampsEtablissement = {
 	telephones: string[],
 	/**  Mentions légales imprimées en pied de page. */
 	mentions_legales: string,
+	/**  Instant de dernière modification lu avec la fiche. */
+	lue_le: number,
 };
 
 /**  Choix du parent à la validation : plan de paiement et frais facultatifs cochés. */
@@ -916,6 +918,11 @@ export type Classe = {
 	serie_id: string | null,
 	/**  Libellé libre, unique dans l'année : « 7e A », « 12TSE ». */
 	libelle: string,
+	/**
+	 *  Instant de dernière modification, millisecondes depuis l'époque : l'écran le renvoie
+	 *  quand il renomme la classe.
+	 */
+	modifiee_le: number,
 };
 
 /**  Classe qui a une note de conduite, avec ses périodes. */
@@ -1867,6 +1874,8 @@ export type Contrat = {
 	poste_revoquer: Signature<DemandePoste, EtatReseau>,
 	/**  Signature de la commande du même nom. */
 	reseau_cle_renouveler: Signature<null, EtatReseau>,
+	/**  Signature de la commande du même nom. */
+	postes_connectes_lire: Signature<null, string[]>,
 };
 
 /**  Convocation d'un responsable au sujet d'un élève. */
@@ -3213,6 +3222,11 @@ export type DemandeMembre = {
 	situation_famille: SituationFamille | null,
 	/**  Enfants à charge. */
 	enfants_a_charge: number | null,
+	/**
+	 *  Instant de dernière modification lu avec la fiche ; exigé pour modifier une fiche,
+	 *  absent pour en créer une.
+	 */
+	lue_le?: number | null,
 };
 
 /**  Un membre devient enseignant. */
@@ -3269,6 +3283,8 @@ export type DemandeModificationAnnee = {
 
 /**  Nouveau libellé d'une classe. */
 export type DemandeModificationClasse = {
+	/**  Instant de dernière modification lu avec la classe. */
+	lue_le: number,
 	/**  Classe. */
 	id: string,
 	/**  Nouveau libellé. */
@@ -3281,10 +3297,14 @@ export type DemandeModificationEleve = {
 	id: string,
 	/**  Fiche saisie. */
 	saisie: SaisieEleve,
+	/**  Instant de dernière modification lu avec la fiche. */
+	lue_le: number,
 };
 
 /**  Contenu d'un brouillon, remplacé en entier. */
 export type DemandeModificationGrille = {
+	/**  Instant de dernière modification lu avec la grille. */
+	lue_le: number,
 	/**  Grille en brouillon. */
 	id: string,
 	/**  Libellé. */
@@ -3305,6 +3325,8 @@ export type DemandeModificationInscription = {
 
 /**  Rectification d'un responsable et de son lien. */
 export type DemandeModificationResponsable = {
+	/**  Instant de dernière modification lu avec le responsable. */
+	lue_le: number,
 	/**  Élève. */
 	eleve_id: string,
 	/**  Responsable. */
@@ -4613,6 +4635,8 @@ export type ErreurCommande = {
 	jusqua: number | null,
 	/**  Détail technique pour l'assistance, présent seulement pour les erreurs internes. */
 	detail: string | null,
+	/**  Qui a modifié la fiche et quand, pour l'erreur « modifiée entre-temps ». */
+	modifiee?: FicheModifiee | null,
 };
 
 /**  Raison d'un échec, clé du message affiché. */
@@ -5059,6 +5083,11 @@ export type FicheEleve = {
 	responsables: ResponsableDeLEleve[],
 	/**  Inscriptions, la plus récente d'abord. */
 	inscriptions: InscriptionAffichee[],
+	/**
+	 *  Instant de dernière modification de l'élève ou de son identité, à renvoyer avec la
+	 *  modification.
+	 */
+	modifiee_le: number,
 };
 
 /**  Enseignant affiché. */
@@ -5081,6 +5110,8 @@ export type FicheEtablissement = {
 	etablissement: Etablissement,
 	/**  Logo en URL de données (`data:image/png;base64,…`), pour l'aperçu. */
 	logo: string | null,
+	/**  Instant de dernière modification, à renvoyer avec la modification. */
+	modifiee_le: number,
 };
 
 /**  Fiche complète d'un membre. */
@@ -5097,6 +5128,22 @@ export type FicheMembre = {
 	enseignant: Enseignant | null,
 	/**  Nom affiché du compte lié. */
 	compte: string | null,
+	/**
+	 *  Instant de dernière modification du membre ou de son identité, à renvoyer avec la
+	 *  modification.
+	 */
+	modifiee_le: number,
+};
+
+/**
+ *  Modification faite par quelqu'un d'autre depuis la lecture d'une fiche (SPEC_PHASE_11_A
+ *  §6.1).
+ */
+export type FicheModifiee = {
+	/**  Nom affiché de la personne ; absent si la modification vient du système. */
+	par: string | null,
+	/**  Instant de la modification, millisecondes depuis l'époque. */
+	le: number,
 };
 
 /**  Rôle et permissions accordées. */
@@ -5293,6 +5340,8 @@ export type GrilleAffichee = {
 	grille: Grille,
 	/**  Lignes et plans. */
 	contenu: ContenuGrille,
+	/**  Instant de dernière modification, à renvoyer avec la modification. */
+	modifiee_le: number,
 };
 
 /**  Grille de saisie d'une évaluation. */
@@ -7579,6 +7628,11 @@ export type ResponsableDeLEleve = {
 	identite: Personne,
 	/**  Qualités du lien. */
 	qualites: Qualites,
+	/**
+	 *  Instant de dernière modification du responsable, de son identité ou de son lien avec
+	 *  l'élève, à renvoyer avec la modification.
+	 */
+	modifiee_le: number,
 };
 
 /**  Responsable de la famille. */

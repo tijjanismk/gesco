@@ -258,6 +258,7 @@ impl<'n> ServiceImportPersonnel<'n> {
                 utilisateur_id: None,
                 situation_famille: None,
                 enfants_a_charge: None,
+                lue_le: None,
             });
             lues.push(Lue { demande, ligne });
         }

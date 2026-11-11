@@ -75,7 +75,7 @@ async fn ecole(dossier: &std::path::Path) -> Ecole {
     p.ok(
         "grille_modifier",
         Some(&admin),
-        json!({ "id": grille["grille"]["id"], "libelle": "Frais 2026-2027", "plans": plans, "lignes": [
+        json!({ "id": grille["grille"]["id"], "lue_le": grille["modifiee_le"], "libelle": "Frais 2026-2027", "plans": plans, "lignes": [
             { "niveau_id": sept, "serie_id": null, "type_frais": "inscription", "libelle": "Frais d'inscription",
               "montant": 10_000, "obligatoire": true, "exigibilite": "une_fois" },
             { "niveau_id": sept, "serie_id": null, "type_frais": "scolarite", "libelle": "Scolarité",

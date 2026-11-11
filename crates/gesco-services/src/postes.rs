@@ -621,17 +621,27 @@ impl<'n> ServicePostes<'n> {
 
     /// Nombre de postes reliés, en service, qui ont une session ouverte.
     pub async fn connectes(&self, etablissement_id: Id<Etablissement>) -> Resultat<u32> {
+        let nombre = self.noms_connectes(etablissement_id).await?.len();
+        Ok(u32::try_from(nombre).unwrap_or(u32::MAX))
+    }
+
+    /// Noms des postes reliés, en service, qui ont une session ouverte : le poste principal les
+    /// montre avant une opération qui demande d'être seul (SPEC_PHASE_11_A §6.3).
+    pub async fn noms_connectes(
+        &self,
+        etablissement_id: Id<Etablissement>,
+    ) -> Resultat<Vec<String>> {
         let contexte = self.noyau.contexte(etablissement_id, None);
         let postes = {
             let mut cnx = self.connexion().await?;
             depot::postes(&mut cnx, &contexte).await?
         };
         let en_session = self.noyau.postes_en_session();
-        let nombre = postes
-            .iter()
+        Ok(postes
+            .into_iter()
             .filter(|p| p.en_service() && en_session.iter().any(|s| s.0 == p.nom))
-            .count();
-        Ok(u32::try_from(nombre).unwrap_or(u32::MAX))
+            .map(|p| p.nom)
+            .collect())
     }
 
     /// Ce que le serveur doit servir, ou `None` quand le réseau est éteint.

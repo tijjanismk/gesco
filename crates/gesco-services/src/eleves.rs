@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::effets::Effet;
 use crate::erreur::{ErreurService, Resultat};
+use crate::fraicheur::{self, Ligne};
 use crate::image;
 use crate::noyau::Noyau;
 use crate::numerotation;
@@ -23,6 +24,34 @@ use crate::session::Session;
 
 fn regle(cle: &'static str) -> ErreurService {
     ErreurService::Regle { cle }
+}
+
+/// Lignes dont dépend l'instant de dernière modification d'une fiche élève.
+fn lignes_de_l_eleve(id: Id<Eleve>, personne: String) -> [Ligne; 2] {
+    [
+        Ligne::par_id("eleve", id.vers_chaine()),
+        Ligne::par_id("personne", personne),
+    ]
+}
+
+/// Lignes dont dépend l'instant de dernière modification d'un responsable vu depuis un élève :
+/// le responsable, son identité et son lien avec cet élève.
+fn lignes_du_responsable(
+    eleve: Id<Eleve>,
+    responsable: Id<Responsable>,
+    personne: String,
+) -> [Ligne; 3] {
+    [
+        Ligne::par_id("responsable", responsable.vers_chaine()),
+        Ligne::par_id("personne", personne),
+        Ligne {
+            table: "eleve_responsable",
+            cles: vec![
+                ("eleve_id", eleve.vers_chaine()),
+                ("responsable_id", responsable.vers_chaine()),
+            ],
+        },
+    ]
 }
 
 /// Taille maximale d'une photo : 100 Ko (T-10).
@@ -93,6 +122,9 @@ pub struct ResponsableDeLEleve {
     pub identite: Personne,
     /// Qualités du lien.
     pub qualites: Qualites,
+    /// Instant de dernière modification du responsable, de son identité ou de son lien avec
+    /// l'élève, à renvoyer avec la modification.
+    pub modifiee_le: i64,
 }
 
 /// Fiche élève complète.
@@ -108,6 +140,9 @@ pub struct FicheEleve {
     pub responsables: Vec<ResponsableDeLEleve>,
     /// Inscriptions, la plus récente d'abord.
     pub inscriptions: Vec<crate::inscriptions::InscriptionAffichee>,
+    /// Instant de dernière modification de l'élève ou de son identité, à renvoyer avec la
+    /// modification.
+    pub modifiee_le: i64,
 }
 
 /// Ligne d'une liste d'élèves : le nécessaire pour reconnaître l'élève (R-24).
@@ -154,6 +189,8 @@ pub struct DemandeModificationEleve {
     pub id: Id<Eleve>,
     /// Fiche saisie.
     pub saisie: SaisieEleve,
+    /// Instant de dernière modification lu avec la fiche.
+    pub lue_le: i64,
 }
 
 /// Photo d'un élève, ou son retrait.
@@ -181,6 +218,8 @@ pub struct DemandeRattachement {
 /// Rectification d'un responsable et de son lien.
 #[derive(Debug, Deserialize, specta::Type)]
 pub struct DemandeModificationResponsable {
+    /// Instant de dernière modification lu avec le responsable.
+    pub lue_le: i64,
     /// Élève.
     pub eleve_id: Id<Eleve>,
     /// Responsable.
@@ -359,14 +398,23 @@ impl<'n> ServiceEleves<'n> {
         {
             let (responsable, identite) =
                 personnes::responsable(&mut cnx, responsable_id, &contexte).await?;
+            let modifiee_le = fraicheur::instant(
+                &mut cnx,
+                &lignes_du_responsable(id, responsable_id, identite.id.vers_chaine()),
+            )
+            .await?;
             responsables.push(ResponsableDeLEleve {
                 responsable,
                 identite,
                 qualites,
+                modifiee_le,
             });
         }
+        let modifiee_le =
+            fraicheur::instant(&mut cnx, &lignes_de_l_eleve(id, identite.id.vers_chaine())).await?;
         drop(cnx);
         Ok(FicheEleve {
+            modifiee_le,
             inscriptions: crate::inscriptions::ServiceInscriptions::nouveau(self.noyau)
                 .de_l_eleve(session, id)
                 .await?,
@@ -708,6 +756,7 @@ impl<'n> ServiceEleves<'n> {
         session: &Session,
         id: Id<Eleve>,
         saisie: &SaisieEleve,
+        lue_le: i64,
     ) -> Resultat<FicheEleve> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let (eleve_avant, personne_avant) = self.vivant(session, id).await?;
@@ -730,6 +779,12 @@ impl<'n> ServiceEleves<'n> {
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
+        fraicheur::verifier(
+            unite.connexion(),
+            &lignes_de_l_eleve(id, personne.id.vers_chaine()),
+            lue_le,
+        )
+        .await?;
         personnes::modifier_personne(unite.connexion(), &personne, &contexte).await?;
         personnes::modifier_eleve(unite.connexion(), &eleve, &contexte).await?;
         if eleve.matricule_interne != eleve_avant.matricule_interne {
@@ -978,6 +1033,7 @@ impl<'n> ServiceEleves<'n> {
         responsable_id: Id<Responsable>,
         saisie: &SaisieResponsable,
         qualites: Qualites,
+        lue_le: i64,
     ) -> Resultat<FicheEleve> {
         verifier_qualites(&qualites)?;
         self.vivant(session, eleve_id).await?;
@@ -1003,6 +1059,12 @@ impl<'n> ServiceEleves<'n> {
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
+        fraicheur::verifier(
+            unite.connexion(),
+            &lignes_du_responsable(eleve_id, responsable_id, personne.id.vers_chaine()),
+            lue_le,
+        )
+        .await?;
         personnes::modifier_personne(unite.connexion(), &personne, &contexte).await?;
         personnes::modifier_responsable(unite.connexion(), &responsable, &contexte).await?;
         personnes::modifier_lien(

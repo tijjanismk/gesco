@@ -180,7 +180,7 @@ function FicheMembreEcran({
       {f.membre.parti_le === null ? null : (
         <p className="text-sm text-ocre">{t("personnel.parti_motif", { date: dateCivile(f.membre.parti_le), motif: f.membre.motif_depart })}</p>
       )}
-      <FormulaireMembre key={JSON.stringify(f.membre)} fiche={f} categories={categories} fonctions={fonctions} permissions={permissions} surEnregistre={() => setEnregistre(true)} surAnnuler={null} />
+      <FormulaireMembre key={f.modifiee_le} fiche={f} categories={categories} fonctions={fonctions} permissions={permissions} surEnregistre={() => setEnregistre(true)} surAnnuler={null} />
       {enregistre ? <p role="status" className="text-sm text-vert">{t("personnel.enregistre")}</p> : null}
       {commandeAutorisee("engagements_lister", permissions) ? <EngagementsMembre fiche={f} permissions={permissions} /> : null}
       <PiecesDossier fiche={f} permissions={permissions} />
@@ -303,6 +303,7 @@ function FormulaireMembre({
     mutationFn: () =>
       appeler("membre_enregistrer", {
         id: fiche?.membre.id ?? null,
+        lue_le: fiche?.modifiee_le ?? null,
         nom: s.nom,
         prenoms: s.prenoms,
         sexe: s.sexe,
@@ -435,7 +436,7 @@ function FormulaireMembre({
           <Bouton variante="secondaire" onClick={() => maj({ diplomes: [...s.diplomes, { intitule: "", delivre_par: "", annee: null }] })}>{t("personnel.diplome.ajouter")}</Bouton>
         </div>
       ) : null}
-      <MessageErreur erreur={enregistrer.error} />
+      <MessageErreur erreur={enregistrer.error} surRelire={rafraichir} />
       {modifiable ? (
         <div className="flex flex-wrap gap-2">
           <Bouton onClick={() => enregistrer.mutate()} disabled={enregistrer.isPending}>{t("commun.enregistrer")}</Bouton>

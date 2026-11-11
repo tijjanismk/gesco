@@ -158,7 +158,7 @@ async fn niveaux_series_et_classes_de_l_annee() {
     p.ok(
         "classe_modifier",
         Some(&admin),
-        json!({ "id": septa["id"], "libelle": "7e B" }),
+        json!({ "id": septa["id"], "lue_le": septa["modifiee_le"], "libelle": "7e B" }),
     )
     .await;
     p.ok(
@@ -393,7 +393,7 @@ async fn fiche_eleve_matricule_responsables_et_photo() {
         .ok(
             "eleve_modifier",
             Some(&admin),
-            json!({ "id": awa["eleve"]["id"], "saisie": saisie }),
+            json!({ "id": awa["eleve"]["id"], "lue_le": awa["modifiee_le"], "saisie": saisie }),
         )
         .await;
     assert_eq!(rectifiee["eleve"]["matricule_national"], "ML2026001");
@@ -402,7 +402,7 @@ async fn fiche_eleve_matricule_responsables_et_photo() {
         p.refus(
             "eleve_modifier",
             Some(&admin),
-            json!({ "id": homonyme["eleve"]["id"], "saisie": saisie }),
+            json!({ "id": homonyme["eleve"]["id"], "lue_le": homonyme["modifiee_le"], "saisie": saisie }),
         )
         .await
         .cle,
@@ -512,7 +512,7 @@ async fn fiche_eleve_matricule_responsables_et_photo() {
         .ok(
             "responsable_modifier",
             Some(&admin),
-            json!({ "eleve_id": frere["eleve"]["id"], "responsable_id": responsable_id, "saisie": rectifiee, "qualites": qualites("mere", true, true, 1) }),
+            json!({ "eleve_id": frere["eleve"]["id"], "responsable_id": responsable_id, "lue_le": responsable["modifiee_le"], "saisie": rectifiee, "qualites": qualites("mere", true, true, 1) }),
         )
         .await;
     assert_eq!(
@@ -699,7 +699,7 @@ async fn matricule_selon_les_regles_de_l_ecole_ou_saisi() {
         .ok(
             "eleve_modifier",
             Some(&admin),
-            json!({ "id": saisi["eleve"]["id"], "saisie": saisie }),
+            json!({ "id": saisi["eleve"]["id"], "lue_le": saisi["modifiee_le"], "saisie": saisie }),
         )
         .await;
     assert_eq!(corrige["eleve"]["matricule_interne"], "L/2013/043");
@@ -708,7 +708,7 @@ async fn matricule_selon_les_regles_de_l_ecole_ou_saisi() {
         p.refus(
             "eleve_modifier",
             Some(&admin),
-            json!({ "id": saisi["eleve"]["id"], "saisie": saisie }),
+            json!({ "id": saisi["eleve"]["id"], "lue_le": saisi["modifiee_le"], "saisie": saisie }),
         )
         .await
         .cle,
@@ -1003,7 +1003,7 @@ async fn inscription_brouillon_validation_abandon_et_changement_de_classe() {
     p.ok(
         "eleve_modifier",
         Some(&admin),
-        json!({ "id": moussa["eleve"]["id"], "saisie": saisie }),
+        json!({ "id": moussa["eleve"]["id"], "lue_le": moussa["modifiee_le"], "saisie": saisie }),
     )
     .await;
     p.ok("inscription_valider", Some(&admin), id_neuvieme).await;
@@ -1053,7 +1053,7 @@ async fn inscription_brouillon_validation_abandon_et_changement_de_classe() {
         "responsable_modifier",
         Some(&admin),
         json!({
-            "eleve_id": petit["eleve"]["id"], "responsable_id": mere["responsable"]["id"],
+            "eleve_id": petit["eleve"]["id"], "responsable_id": mere["responsable"]["id"], "lue_le": mere["modifiee_le"],
             "saisie": { "identite": { "nom": "Coulibaly", "prenoms": "Mariam", "sexe": "feminin", "date_naissance": "",
                 "date_naissance_estimee": false, "lieu_naissance": "", "nationalite": "", "adresse": "",
                 "telephones": ["76 12 34 56"] }, "profession": "", "employeur": "" },
@@ -1319,7 +1319,7 @@ async fn fusion_de_deux_fiches_en_doublon() {
         ),
         (
             "eleve_modifier",
-            json!({ "id": hawa["eleve"]["id"], "saisie": saisie_eleve(identite("Traoré", "Hawa", json!("feminin"), "2014-03-02")) }),
+            json!({ "id": hawa["eleve"]["id"], "lue_le": hawa["modifiee_le"], "saisie": saisie_eleve(identite("Traoré", "Hawa", json!("feminin"), "2014-03-02")) }),
             "eleve.absorbe",
         ),
     ] {
@@ -1379,7 +1379,7 @@ async fn le_sexe_d_un_pere_ou_d_une_mere_ne_se_redemande_pas() {
         .ok(
             "responsable_modifier",
             Some(&admin),
-            json!({ "eleve_id": eleve["eleve"]["id"], "responsable_id": responsable_id, "saisie": saisie,
+            json!({ "eleve_id": eleve["eleve"]["id"], "responsable_id": responsable_id, "lue_le": fiche["responsables"][0]["modifiee_le"], "saisie": saisie,
                 "qualites": qualites("mere", true, true, 1) }),
         )
         .await;

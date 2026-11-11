@@ -5,6 +5,7 @@ import { appeler } from "../../api";
 import { choisirArchive } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
 import { Champ, Formulaire, ZoneTexte } from "../../composants/Champ";
+import { useEtreSeul } from "../../composants/EtreSeul";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { date, t } from "../../i18n";
 import type { RapportRestauration } from "../../types/gesco";
@@ -20,6 +21,7 @@ export function Restauration({
 }) {
   const [chemin, setChemin] = useState("");
   const [phrase, setPhrase] = useState("");
+  const seul = useEtreSeul("seul.restauration");
   const apercu = useMutation({ mutationFn: (archive: string) => appeler("sauvegarde_apercu", { chemin: archive }) });
   const parcourir = useMutation({
     mutationFn: () => choisirArchive(t("restauration.filtre")),
@@ -47,7 +49,8 @@ export function Restauration({
         </div>
       </Formulaire>
       {apercu.data === undefined ? null : (
-        <Formulaire surEnvoi={() => restauration.mutate()}>
+        <Formulaire surEnvoi={() => seul.demander(() => restauration.mutate())}>
+          {seul.dialogue}
           <p className="text-sm text-encre">
             {t("restauration.apercu", {
               etablissement: apercu.data.etablissement_nom,

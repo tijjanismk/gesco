@@ -5,6 +5,7 @@ import { appeler } from "../../api";
 import { commandeAutorisee } from "../../app/navigation";
 import { Bouton } from "../../composants/Bouton";
 import { Champ, Formulaire, Selection } from "../../composants/Champ";
+import { useEtreSeul } from "../../composants/EtreSeul";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { Tableau } from "../../composants/Tableau";
 import { type Cle, t } from "../../i18n";
@@ -213,6 +214,7 @@ function Decisions({ classeId }: { classeId: string }) {
 function Cloture({ fin }: { fin: Fin }) {
   const rafraichir = useRafraichir();
   const [confirmation, setConfirmation] = useState(false);
+  const seul = useEtreSeul("seul.cloture");
   const cloturer = useMutation({
     mutationFn: () => appeler("annee_cloturer", { id: fin.annee.id }),
     onSuccess: () => {
@@ -229,9 +231,10 @@ function Cloture({ fin }: { fin: Fin }) {
       <div className="flex flex-wrap gap-2">
         {confirmation ? (
           <>
-            <Bouton variante="danger" onClick={() => cloturer.mutate()} disabled={cloturer.isPending}>
+            <Bouton variante="danger" onClick={() => seul.demander(() => cloturer.mutate())} disabled={cloturer.isPending}>
               {t("fin_annee.confirmer_cloture", { annee: fin.annee.libelle })}
             </Bouton>
+            {seul.dialogue}
             <Bouton variante="secondaire" onClick={() => setConfirmation(false)}>
               {t("commun.annuler")}
             </Bouton>

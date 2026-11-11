@@ -1,6 +1,7 @@
 //! Fiche de l'établissement et logo (SPEC_PHASE_1 §2) : ce que l'en-tête de chaque document
 //! imprime. Le logo vit dans la base, à côté de la fiche, pour voyager avec les sauvegardes.
 
+use gesco_core::commun::Id;
 use gesco_core::core::{Etablissement, Operation, StatutEtablissement, TypeEvenement};
 use gesco_db::depots::etablissement;
 use gesco_db::unite::Durabilite;
@@ -8,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::erreur::{ErreurService, Resultat};
+use crate::fraicheur;
 use crate::image;
 use crate::noyau::Noyau;
 use crate::session::Session;
@@ -26,6 +28,8 @@ pub struct FicheEtablissement {
     pub etablissement: Etablissement,
     /// Logo en URL de données (`data:image/png;base64,…`), pour l'aperçu.
     pub logo: Option<String>,
+    /// Instant de dernière modification, à renvoyer avec la modification.
+    pub modifiee_le: i64,
 }
 
 /// Champs modifiables de la fiche.
@@ -45,6 +49,8 @@ pub struct ChampsEtablissement {
     pub telephones: Vec<String>,
     /// Mentions légales imprimées en pied de page.
     pub mentions_legales: String,
+    /// Instant de dernière modification lu avec la fiche.
+    pub lue_le: i64,
 }
 
 /// Noms des champs dont la valeur a changé, pour la charge utile de l'événement.
@@ -60,6 +66,11 @@ fn champs_changes(avant: &Etablissement, apres: &Etablissement) -> Resultat<Vec<
                 .collect()
         })
         .unwrap_or_default())
+}
+
+/// Lignes dont dépend l'instant de dernière modification de la fiche.
+fn lignes_de_la_fiche(id: Id<Etablissement>) -> [fraicheur::Ligne; 1] {
+    [fraicheur::Ligne::par_id("etablissement", id.vers_chaine())]
 }
 
 /// Service de la fiche d'établissement.
@@ -87,9 +98,12 @@ impl<'n> ServiceEtablissement<'n> {
         let logo = etablissement::logo(&mut cnx, &contexte)
             .await?
             .map(|(octets, format)| image::url_de_donnees(&octets, &format));
+        let modifiee_le =
+            fraicheur::instant(&mut cnx, &lignes_de_la_fiche(session.etablissement_id)).await?;
         Ok(FicheEtablissement {
             etablissement: fiche,
             logo,
+            modifiee_le,
         })
     }
 
@@ -108,6 +122,12 @@ impl<'n> ServiceEtablissement<'n> {
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
+        fraicheur::verifier(
+            unite.connexion(),
+            &lignes_de_la_fiche(session.etablissement_id),
+            champs.lue_le,
+        )
+        .await?;
         let avant = etablissement::lire(unite.connexion(), session.etablissement_id).await?;
         let apres = Etablissement {
             nom: nom.to_owned(),

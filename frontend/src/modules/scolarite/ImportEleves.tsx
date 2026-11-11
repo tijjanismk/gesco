@@ -5,6 +5,7 @@ import { appeler } from "../../api";
 import { choisirTableur } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
 import { Selection } from "../../composants/Champ";
+import { useEtreSeul } from "../../composants/EtreSeul";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, dateCivile, t, texteDeCle } from "../../i18n";
 import type { Analyse, Apercu, Champ, Decoupe, Disposition, EtatLigne, Rapport } from "../../types/gesco";
@@ -54,6 +55,7 @@ export function ImportEleves({ surTermine }: { surTermine: () => void }) {
   const [decoupe, setDecoupe] = useState<Decoupe>("nom_d_abord");
   const [apercu, setApercu] = useState<Apercu | null>(null);
   const [rapport, setRapport] = useState<Rapport | null>(null);
+  const seul = useEtreSeul("seul.import");
   const lecture = useMutation({
     mutationFn: async () => {
       const chemin = await choisirTableur(t("import.filtre"));
@@ -210,9 +212,10 @@ export function ImportEleves({ surTermine }: { surTermine: () => void }) {
               <p className="text-sm text-muet">{t("import.confirmation_aide")}</p>
               <MessageErreur erreur={application.error} />
               <div className="flex flex-wrap gap-2">
-                <Bouton disabled={application.isPending || apercu.valides + apercu.avertissements === 0} onClick={() => application.mutate()}>
+                <Bouton disabled={application.isPending || apercu.valides + apercu.avertissements === 0} onClick={() => seul.demander(() => application.mutate())}>
                   {t("import.appliquer", { nombre: apercu.valides + apercu.avertissements })}
                 </Bouton>
+                {seul.dialogue}
                 <Bouton variante="secondaire" onClick={surTermine}>{t("commun.annuler")}</Bouton>
               </div>
             </Section>

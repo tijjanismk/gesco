@@ -289,6 +289,7 @@ struct LigneClasse {
     niveau_id: String,
     serie_id: Option<String>,
     libelle: String,
+    mis_a_jour_le: i64,
 }
 
 impl LigneClasse {
@@ -304,6 +305,7 @@ impl LigneClasse {
                 .map(|s| lire_id("classe", "serie_id", s))
                 .transpose()?,
             libelle: self.libelle,
+            modifiee_le: self.mis_a_jour_le,
         })
     }
 }
@@ -311,7 +313,7 @@ impl LigneClasse {
 macro_rules! selectionner_classe {
     ($suite:literal) => {
         concat!(
-            "SELECT id, etablissement_id, annee_id, niveau_id, serie_id, libelle FROM classe ",
+            "SELECT id, etablissement_id, annee_id, niveau_id, serie_id, libelle, mis_a_jour_le FROM classe ",
             $suite
         )
     };

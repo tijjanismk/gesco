@@ -82,6 +82,20 @@ pub enum ErreurService {
     /// Fichier de licence illisible ou non authentique.
     #[error(transparent)]
     Licence(#[from] ErreurLicence),
+    /// La fiche a été modifiée depuis sa lecture (SPEC_PHASE_11_A §6.1) : rien n'est écrit.
+    #[error("fiche modifiée entre-temps")]
+    ModifieeEntreTemps {
+        /// Nom affiché de la personne qui l'a modifiée ; absent si c'est le système.
+        par: Option<String>,
+        /// Instant de sa modification, millisecondes depuis l'époque.
+        le: i64,
+    },
+    /// Une opération qui demande d'être seul est en cours depuis un autre poste (§6.3).
+    #[error("opération en cours : {cle}")]
+    OperationEnCours {
+        /// Clé du message, qui nomme l'opération.
+        cle: &'static str,
+    },
 }
 
 impl ErreurService {
@@ -126,6 +140,8 @@ impl ErreurService {
             Self::Licence(ErreurLicence::FormatInconnu(_)) => "licence.format_inconnu",
             Self::Licence(ErreurLicence::SignatureInvalide) => "licence.signature_invalide",
             Self::Licence(ErreurLicence::CleInvalide) => "licence.cle_invalide",
+            Self::ModifieeEntreTemps { .. } => "fiche.modifiee_entre_temps",
+            Self::OperationEnCours { cle } => cle,
         }
     }
 }

@@ -25,6 +25,7 @@ use sha2::{Digest, Sha256};
 
 use crate::effets::Effet;
 use crate::erreur::{ErreurService, Resultat};
+use crate::fraicheur::{self, Ligne};
 use crate::noyau::Noyau;
 use crate::session::Session;
 
@@ -73,6 +74,9 @@ pub struct FicheMembre {
     pub enseignant: Option<Enseignant>,
     /// Nom affiché du compte lié.
     pub compte: Option<String>,
+    /// Instant de dernière modification du membre ou de son identité, à renvoyer avec la
+    /// modification.
+    pub modifiee_le: i64,
 }
 
 /// Fiche du membre lié au compte connecté, avec ses engagements montants compris
@@ -130,6 +134,18 @@ pub struct DemandeMembre {
     pub situation_famille: Option<SituationFamille>,
     /// Enfants à charge.
     pub enfants_a_charge: Option<i64>,
+    /// Instant de dernière modification lu avec la fiche ; exigé pour modifier une fiche,
+    /// absent pour en créer une.
+    #[serde(default)]
+    pub lue_le: Option<i64>,
+}
+
+/// Lignes dont dépend l'instant de dernière modification d'une fiche du personnel.
+fn lignes_du_membre(membre: &MembrePersonnel) -> [Ligne; 2] {
+    [
+        Ligne::par_id("membre_personnel", membre.id.vers_chaine()),
+        Ligne::par_id("personne", membre.personne_id.vers_chaine()),
+    ]
 }
 
 /// Membre désigné.
@@ -601,6 +617,7 @@ impl<'n> ServicePersonnel<'n> {
             None => None,
         };
         Ok(FicheMembre {
+            modifiee_le: fraicheur::instant(&mut cnx, &lignes_du_membre(&membre)).await?,
             pieces: personnel::pieces(&mut cnx, id, &contexte).await?,
             membre,
             personne,
@@ -682,6 +699,10 @@ impl<'n> ServicePersonnel<'n> {
             ),
             None => None,
         };
+        if let Some(a) = &avant {
+            let lue_le = demande.lue_le.ok_or(regle("commande.entree_invalide"))?;
+            fraicheur::verifier(unite.connexion(), &lignes_du_membre(a), lue_le).await?;
+        }
         let categories = personnel::categories(unite.connexion(), &contexte).await?;
         let categorie = categories
             .iter()

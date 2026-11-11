@@ -459,6 +459,7 @@ impl<'n> ServiceReferentiel<'n> {
             niveau_id,
             serie_id,
             libelle,
+            modifiee_le: contexte.maintenant.millis_epoque(),
         };
         let mut unite = self
             .noyau
@@ -495,6 +496,7 @@ impl<'n> ServiceReferentiel<'n> {
         session: &Session,
         id: Id<Classe>,
         libelle: &str,
+        lue_le: i64,
     ) -> Resultat<Classe> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let libelle = libelle_valide(libelle, "classe.libelle_invalide").map_err(regle)?;
@@ -510,12 +512,19 @@ impl<'n> ServiceReferentiel<'n> {
         };
         let apres = Classe {
             libelle,
+            modifiee_le: contexte.maintenant.millis_epoque(),
             ..avant.clone()
         };
         let mut unite = self
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
+        crate::fraicheur::verifier(
+            unite.connexion(),
+            &[crate::fraicheur::Ligne::par_id("classe", id.vers_chaine())],
+            lue_le,
+        )
+        .await?;
         academique::renommer_classe(unite.connexion(), id, &apres.libelle, &contexte).await?;
         unite.auditer(
             "classe",

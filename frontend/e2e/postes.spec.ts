@@ -286,6 +286,78 @@ test("fermer le poste principal quand un poste travaille demande confirmation", 
   expect(await portOuvert()).toBe(true);
 });
 
+test("la même fiche modifiée de deux postes : la seconde est refusée et garde sa saisie", async () => {
+  const adresse = (page: Page) => page.locator("#etablissement-adresse");
+  const telephones = (page: Page) => page.locator("#etablissement-telephones");
+  const fiche = (page: Page) => page.locator("form").filter({ has: adresse(page) });
+  const enregistrer = (page: Page) => fiche(page).getByRole("button", { name: texte("commun.enregistrer") }).click();
+  const enregistree = (page: Page) => expect(fiche(page).getByRole("status")).toContainText(texte("commun.enregistre_a", { heure: "" }), { timeout: 20_000 });
+
+  // Les deux postes ont la fiche de l'établissement sous les yeux.
+  for (const page of [principal.page, relie.page]) {
+    await allerA(page, "nav.parametres");
+    await expect(adresse(page)).toHaveValue("Hamdallaye ACI 2000, Bamako", { timeout: 20_000 });
+  }
+  // Le poste principal corrige l'adresse.
+  await adresse(principal.page).fill("Badalabougou, Bamako");
+  await enregistrer(principal.page);
+  await enregistree(principal.page);
+
+  // Le poste relié, sur la fiche d'avant, corrige le téléphone : rien ne s'enregistre, le refus
+  // dit qui a modifié la fiche et à quelle heure, et la saisie reste à l'écran.
+  const page = relie.page;
+  await telephones(page).fill("+223 20 22 11 11");
+  await enregistrer(page);
+  const refus = fiche(page).getByRole("alert");
+  await expect(refus).toContainText(texte("fiche.modifiee_entre_temps", { personne: NOM, heure: "" }).split(NOM)[0] + NOM, { timeout: 20_000 });
+  await expect(refus).toContainText(/à \d{1,2} h \d{2}|à \d{1,2}:\d{2}/);
+  await expect(telephones(page)).toHaveValue("+223 20 22 11 11");
+  await expect(adresse(page)).toHaveValue("Hamdallaye ACI 2000, Bamako");
+  await capturer(page, "153-fiche-modifiee-entre-temps");
+
+  // Relire la fiche montre la correction du collègue ; la sienne se refait et s'enregistre.
+  await refus.getByRole("button", { name: texte("fiche.relire") }).click();
+  await expect(adresse(page)).toHaveValue("Badalabougou, Bamako", { timeout: 20_000 });
+  await expect(refus).toBeHidden();
+  await telephones(page).fill("+223 20 22 11 11");
+  await enregistrer(page);
+  await enregistree(page);
+  await capturer(page, "154-fiche-relue-puis-enregistree");
+
+  // Écrans qui se relisent : en revenant sur l'écran, le poste principal lit les deux corrections.
+  await allerA(principal.page, "nav.utilisateurs");
+  await allerA(principal.page, "nav.parametres");
+  await expect(telephones(principal.page)).toHaveValue("+223 20 22 11 11", { timeout: 20_000 });
+  await expect(adresse(principal.page)).toHaveValue("Badalabougou, Bamako");
+});
+
+test("avant une opération qui demande d'être seul, le poste principal montre les postes connectés", async () => {
+  const page = principal.page;
+  await allerA(page, "nav.annees");
+  await page.locator("#nouvelle-annee-libelle").fill("2026-2027");
+  await page.locator("#nouvelle-annee-debut").fill("2026-10-01");
+  await page.locator("#nouvelle-annee-fin").fill("2027-07-31");
+  await page.getByRole("button", { name: texte("annees.creer") }).click();
+  await page.getByRole("cell", { name: "2026-2027" }).click();
+  await page.getByRole("button", { name: texte("annees.ouvrir") }).click();
+  await expect(page.getByText(texte("bandeau.annee").replace("{annee}", "2026-2027"), { exact: false })).toBeVisible();
+
+  // Clôturer l'année : le poste relié a une session ouverte, la confirmation le nomme.
+  await allerA(page, "nav.fin_annee");
+  await page.getByRole("button", { name: texte("fin_annee.cloturer", { annee: "2026-2027" }) }).click();
+  await page.getByRole("button", { name: texte("fin_annee.confirmer_cloture", { annee: "2026-2027" }) }).click();
+  const confirmation = page.getByRole("alertdialog", { name: texte("fermeture.titre") });
+  await expect(confirmation).toBeVisible({ timeout: 20_000 });
+  await expect(confirmation.getByRole("listitem")).toHaveText([POSTE]);
+  await expect(confirmation).toContainText(texte("seul.cloture"));
+  await capturer(page, "155-operation-seule-postes-connectes");
+  // La direction renonce : rien n'est clôturé.
+  await confirmation.getByRole("button", { name: texte("commun.annuler") }).click();
+  await expect(confirmation).toBeHidden();
+  await expect(page.getByRole("button", { name: texte("fin_annee.confirmer_cloture", { annee: "2026-2027" }) })).toBeVisible();
+  await allerA(page, "nav.postes");
+});
+
 test("poste principal éteint : la saisie reste, puis le poste reprend seul", async () => {
   const page = relie.page;
   await allerA(page, "nav.compte");

@@ -488,6 +488,7 @@ async fn les_enseignants_d_avant_la_phase_6_entrent_au_registre_du_personnel() {
             niveau_id: premiere.id,
             serie_id: None,
             libelle: "1re A".to_owned(),
+            modifiee_le: 0,
         };
         academique::inserer_classe(&mut cnx, &classe, &contexte)
             .await

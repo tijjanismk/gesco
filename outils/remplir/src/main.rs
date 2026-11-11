@@ -345,7 +345,7 @@ impl Ecole {
             .collect();
         self.appel(
             "grille_modifier",
-            json!({ "id": grille["grille"]["id"], "libelle": grille["grille"]["libelle"], "lignes": lignes, "plans": plans }),
+            json!({ "id": grille["grille"]["id"], "lue_le": grille["modifiee_le"], "libelle": grille["grille"]["libelle"], "lignes": lignes, "plans": plans }),
         )
         .await?;
         self.appel(

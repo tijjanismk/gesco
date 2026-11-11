@@ -111,19 +111,31 @@ function useRafraichir(id: string) {
 function EditionEleve({ fiche }: { fiche: FicheEleve }) {
   const rafraichir = useRafraichir(fiche.eleve.id);
   const [saisie, setSaisie] = useState(() => saisieDeLaFiche(fiche));
+  // L'instant lu avec ce que montre le formulaire : il suit la saisie, pas les relectures de fond.
+  const [lueLe, setLueLe] = useState(fiche.modifiee_le);
   const [enregistre, setEnregistre] = useState<number | null>(null);
   const modification = useMutation({
-    mutationFn: () => appeler("eleve_modifier", { id: fiche.eleve.id, saisie }),
+    mutationFn: () => appeler("eleve_modifier", { id: fiche.eleve.id, lue_le: lueLe, saisie }),
     onSuccess: (nouvelle) => {
       setEnregistre(Date.now());
+      setLueLe(nouvelle.modifiee_le);
       rafraichir(nouvelle);
+    },
+  });
+  const relecture = useMutation({
+    mutationFn: () => appeler("eleve_lire", { id: fiche.eleve.id }),
+    onSuccess: (fraiche) => {
+      setSaisie(saisieDeLaFiche(fraiche));
+      setLueLe(fraiche.modifiee_le);
+      rafraichir(fraiche);
+      modification.reset();
     },
   });
   return (
     <Section titre={t("eleves.identite")}>
       <Formulaire surEnvoi={() => modification.mutate()}>
         <ChampsEleve prefixe="eleve" valeur={saisie} surChangement={setSaisie} />
-        <MessageErreur erreur={modification.error} />
+        <MessageErreur erreur={relecture.error ?? modification.error} surRelire={() => relecture.mutate()} />
         <MessageEnregistre instant={enregistre} />
         <div><Bouton type="submit" disabled={modification.isPending}>{t("commun.enregistrer")}</Bouton></div>
       </Formulaire>

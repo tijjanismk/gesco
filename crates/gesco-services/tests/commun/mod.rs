@@ -213,7 +213,7 @@ pub async fn poser_grille(p: &Poste_, admin: &Jeton, annee_id: &Value) -> Value 
     p.ok(
         "grille_modifier",
         Some(admin),
-        json!({ "id": grille["grille"]["id"], "libelle": grille["grille"]["libelle"], "lignes": lignes, "plans": plans }),
+        json!({ "id": grille["grille"]["id"], "lue_le": grille["modifiee_le"], "libelle": grille["grille"]["libelle"], "lignes": lignes, "plans": plans }),
     )
     .await;
     p.ok(

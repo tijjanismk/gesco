@@ -138,3 +138,18 @@ Tous les fichiers de `gesco-core/src/commun/` sont importés une fois (par `mod.
 - **Journal technique du poste relié** : `journal-technique.txt` de son propre dossier ; un changement d'état de la liaison (coupée, refusée, rétablie) s'y note une fois, et les pannes de l'écran s'y notent sur place au lieu de partir au poste principal.
 - **Essais sur une seule machine** : les deux instances de Playwright tournent sur le même ordinateur, le serveur n'écoutant que la machine elle-même. L'essai sur deux vraies machines (pare-feu, adresse du réseau) reste à l'étape 6.
 - **Dépendances** : `hyper` reçoit sa fonction « client » ; `http-body-util` 0.1.5 est nommé (déjà au verrou par axum). Aucun paquet de plus au verrou.
+
+## Phase 11, lot A, étape 4, première partie (11 novembre 2026) — travailler à plusieurs
+
+- **Six fiches protégées, six autres à protéger.** Le refus « modifiée entre-temps » vaut pour la fiche d'un élève, un responsable, un membre du personnel, une classe, une grille de tarifs en brouillon et la fiche de l'établissement. Le compte d'un utilisateur, un rôle, une année scolaire, une inscription, un enseignant et un fournisseur se modifient encore sans contrôle : celui qui enregistre en second écrase le premier, sans message. Ils sont nommés dans `MODIFICATIONS_SANS_CONTROLE` (`FicheAProteger`).
+- **Les données de référence gardent la dernière écriture** (niveaux, séries, matières, programme, périodes, règles d'évaluation, catégories, éléments de paie, comptes de trésorerie, réglages) : choix de cette étape, à confirmer par le porteur du projet.
+- **L'instant d'une fiche couvre plusieurs lignes.** Une photo posée, un matricule renuméroté ou un enseignant renommé (même identité qu'un membre du personnel) changent l'instant de la fiche : la personne qui avait la fiche ouverte est alors refusée à l'enregistrement, même si elle corrigeait autre chose.
+- **Même milliseconde** : deux modifications dans la même milliseconde ne se distinguent pas (accepté par l'ADR ; les écritures se suivent une à une).
+- **« Relire la fiche » efface la saisie du formulaire** : elle le remplace par la fiche relue. Le message demande de noter sa correction avant de relire ; rien ne la reporte seule.
+- **Une liste ou une fiche qui n'est plus à l'écran n'est plus gardée en mémoire** : chaque retour sur un écran montre « Chargement » le temps de relire, sur un poste seul comme sur un poste relié. Les données de référence ont trente secondes de délai : une classe créée sur un autre poste peut mettre jusqu'à trente secondes à paraître dans une liste déroulante.
+- **Revenir à la fenêtre de GESCO ne relit rien.** Un écran laissé ouvert montre ce qu'il a lu à son ouverture, jusqu'à ce qu'on en change ou qu'on enregistre.
+- **Opérations qui demandent d'être seul** : les commandes déjà parties d'un autre poste avant le début de l'opération vont à leur terme. Les commandes sans session (écran de connexion, état du démarrage) restent servies. Une opération interrompue par une panne rend la main à tout le monde.
+- **Un import lancé d'un poste relié écarte aussi le poste principal**, sans que personne n'ait été prévenu : seul le poste principal montre les postes connectés avant de lancer.
+- **La confirmation ne paraît que s'il y a des postes connectés** au moment du clic ; un poste qui ouvre une session une seconde plus tard n'est pas annoncé, il est simplement refusé pendant l'opération.
+- **Restauration** : toutes les sessions sont fermées, sur tous les postes ; ce qui était saisi sans être enregistré sur un poste relié est perdu pour de bon, puisque les données ont changé sous lui.
+- **Aucune dépendance nouvelle.**

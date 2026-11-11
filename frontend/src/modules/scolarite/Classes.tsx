@@ -123,12 +123,26 @@ function NouvelleClasse({ anneeId, referentiel }: { anneeId: string; referentiel
 function FicheClasseEdition({ fiche, surSupprimee }: { fiche: FicheClasse; surSupprimee: () => void }) {
   const rafraichir = useRafraichir();
   const [libelle, setLibelle] = useState(fiche.classe.libelle);
+  const [lueLe, setLueLe] = useState(fiche.classe.modifiee_le);
   const [enregistre, setEnregistre] = useState<number | null>(null);
   const modification = useMutation({
-    mutationFn: () => appeler("classe_modifier", { id: fiche.classe.id, libelle }),
-    onSuccess: () => {
+    mutationFn: () => appeler("classe_modifier", { id: fiche.classe.id, lue_le: lueLe, libelle }),
+    onSuccess: (nouvelle) => {
       setEnregistre(Date.now());
+      setLueLe(nouvelle.modifiee_le);
       rafraichir();
+    },
+  });
+  const relecture = useMutation({
+    mutationFn: () => appeler("classes_lister", { annee_id: fiche.classe.annee_id }),
+    onSuccess: (classes) => {
+      rafraichir();
+      const relue = classes.find((c) => c.classe.id === fiche.classe.id);
+      // La classe a pu être supprimée entre-temps.
+      if (relue === undefined) return surSupprimee();
+      setLibelle(relue.classe.libelle);
+      setLueLe(relue.classe.modifiee_le);
+      modification.reset();
     },
   });
   const suppression = useMutation({
@@ -148,7 +162,7 @@ function FicheClasseEdition({ fiche, surSupprimee }: { fiche: FicheClasse; surSu
           <Bouton variante="danger" onClick={() => suppression.mutate()} disabled={suppression.isPending}>{t("classes.supprimer")}</Bouton>
         </div>
       </Formulaire>
-      <MessageErreur erreur={modification.error ?? suppression.error} />
+      <MessageErreur erreur={relecture.error ?? modification.error ?? suppression.error} surRelire={() => relecture.mutate()} />
       <MessageEnregistre instant={enregistre} />
     </Section>
   );

@@ -1259,6 +1259,7 @@ async fn la_fiche_et_le_logo_de_l_etablissement_passent_dans_les_documents() {
             "etablissement_modifier",
             Some(&admin),
             json!({
+                "lue_le": fiche["modifiee_le"],
                 "nom": "  Lycée Askia Mohamed de Bamako ",
                 "statut": "prive",
                 "code_academie": "AE-BKO-RD",
@@ -1332,6 +1333,7 @@ async fn la_fiche_et_le_logo_de_l_etablissement_passent_dans_les_documents() {
             "etablissement_modifier",
             Some(&admin),
             json!({
+                "lue_le": fiche["modifiee_le"],
                 "nom": " ", "statut": "prive", "code_academie": "", "code_cap": "",
                 "adresse": "", "telephones": [], "mentions_legales": "",
             }),

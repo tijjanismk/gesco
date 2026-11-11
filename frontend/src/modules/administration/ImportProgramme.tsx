@@ -4,6 +4,7 @@ import { useState } from "react";
 import { appeler } from "../../api";
 import { choisirClasseur, choisirTableur } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
+import { useEtreSeul } from "../../composants/EtreSeul";
 import { MessageErreur } from "../../composants/Messages";
 import { t, texteDeCle } from "../../i18n";
 import type { AnalyseImportProgramme, BilanImportProgramme } from "../../types/gesco";
@@ -24,6 +25,7 @@ export function ImportProgramme() {
   const [analyse, setAnalyse] = useState<AnalyseImportProgramme | null>(null);
   const [bilan, setBilan] = useState<BilanImportProgramme | null>(null);
   const [modele, setModele] = useState<string | null>(null);
+  const seul = useEtreSeul("seul.import");
   const ecritureModele = useMutation({
     mutationFn: async () => {
       const destination = await choisirClasseur(t("import_programme.nom_modele"), t("commun.classeur_excel"));
@@ -105,9 +107,10 @@ export function ImportProgramme() {
               </table>
             </div>
             <div>
-              <Bouton disabled={analyse.niveaux_prets === 0 || application.isPending} onClick={() => application.mutate()}>
+              <Bouton disabled={analyse.niveaux_prets === 0 || application.isPending} onClick={() => seul.demander(() => application.mutate())}>
                 {t("import_programme.importer", { niveaux: analyse.niveaux_prets })}
               </Bouton>
+              {seul.dialogue}
             </div>
           </>
         )}

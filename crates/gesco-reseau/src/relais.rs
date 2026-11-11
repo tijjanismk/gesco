@@ -72,6 +72,7 @@ fn erreur(cle: &str, detail: Option<String>) -> ErreurCommande {
         cle: cle.to_owned(),
         jusqua: None,
         detail,
+        modifiee: None,
     }
 }
 

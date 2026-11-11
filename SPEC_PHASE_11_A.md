@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 11, lot A — un poste principal et des postes reliés sur le réseau local de l'école ; version 2.0.0
-**Statut** : v1.4 — acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; étape 1 validée le 11 novembre 2026, étape 2 validée le 11 novembre 2026, étape 3 réalisée le 11 novembre 2026 et présentée pour validation
+**Statut** : v1.5 — acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; étape 1 validée le 11 novembre 2026, étape 2 validée le 11 novembre 2026, étape 3 réalisée le 11 novembre 2026 et présentée pour validation ; étape 4, première partie (même fiche, écrans qui se relisent, opérations qui demandent d'être seul) réalisée le 11 novembre 2026, les lenteurs et la mesure restant à faire
 **Documents parents** : `docs/plan-phase-11.md` (T-80 à T-86, répondues le 10 novembre 2026), les quatre ADR du 10 novembre 2026 dans `docs/adr/` (serveur du réseau local, poste relié, sécurité du réseau local, modification simultanée), `PROJECT_BLUEPRINT.md` (ADR-014, §15.1, §17.4, §26.2), `docs/adr/2026-10-04-frontiere-commande-unique.md`, `SPEC_PHASE_4.md` (comptes des enseignants, portée des notes), `docs/optimisations-2026-10-31.md`
 **Date** : 10 novembre 2026
 
@@ -242,11 +242,31 @@ nomme la personne et l'heure. Leur liste s'arrête à l'étape 4 par un essai qu
 contrat. Les grilles (notes, absences, appréciations) gardent la dernière écriture par case ; les
 écritures d'argent et les changements d'état ne changent pas.
 
+Liste arrêtée à l'étape 4 (`COMMANDES_DE_FICHE`) : la fiche d'un élève, un responsable vu depuis
+son élève, la fiche d'un membre du personnel, une classe, une grille de tarifs en brouillon, la
+fiche de l'établissement. L'instant d'une fiche est le plus récent des lignes qui la composent
+(l'élève et son identité ; le responsable, son identité et son lien ; le membre et son identité).
+Chaque autre commande dont le nom dit qu'elle modifie est classée avec sa raison
+(`MODIFICATIONS_SANS_CONTROLE`) : grille de saisie, valeur unique, changement d'état, écriture
+d'argent, donnée de référence. Six y sont notées « fiche à protéger », hors de la liste à ce
+jour : le compte d'un utilisateur, un rôle, une année scolaire, une inscription, un enseignant,
+un fournisseur.
+
+À l'écran, le refus dit qui a modifié la fiche et à quelle heure ; la saisie reste, et « Relire
+la fiche » remplace le formulaire par la fiche relue, où la correction se refait.
+
 ### 6.2 Écrans qui se relisent
 
 Les listes et les fiches se relisent à l'ouverture, au retour sur l'écran et après un refus. Les
 données de référence (classes, matières, réglages) gardent un délai court. Rien n'est poussé par
 le poste principal.
+
+Réalisé à l'étape 4 : une liste ou une fiche qui n'est plus à l'écran n'est pas gardée en
+mémoire, l'écran la relit avant de l'afficher. Les données de référence (niveaux et séries,
+classes, années, paramètres, référentiel du personnel) ne sont pas redemandées pendant trente
+secondes, sauf après une écriture de ce poste ou un refus. Revenir à la fenêtre de GESCO depuis
+un autre programme ne relit rien : un formulaire en cours de saisie ne doit pas changer sous les
+doigts.
 
 ### 6.3 Opérations qui demandent d'être seul
 
@@ -254,6 +274,14 @@ Clôture de l'année, restauration, imports, mise à niveau à l'ouverture d'une
 poste principal montre les postes connectés, demande confirmation, puis refuse les commandes des
 autres postes le temps de l'opération, avec un message qui la nomme. Une restauration ferme toutes
 les sessions.
+
+Réalisé à l'étape 4 (`COMMANDES_SEULES`) : clôture de l'année, restauration, imports des élèves,
+du personnel, du programme et du référentiel. Le temps de la commande, toute commande d'un autre
+poste qui demande une session est refusée ; le poste qui a lancé l'opération reste servi. Un
+import lancé d'un poste relié écarte de même les autres postes, poste principal compris, sans
+confirmation préalable (ce poste ne connaît pas les autres). Les notes d'une évaluation et le
+relevé d'un compte s'importent comme une saisie ordinaire. La mise à niveau se fait à
+l'ouverture, avant que le réseau ne serve.
 
 ### 6.4 Lenteurs à corriger avant de mesurer
 
@@ -347,3 +375,4 @@ porteur. Une seule compilation complète par étape, `target` élagué avant.
 | v1.2 | 2026-11-10 | Décision du porteur du projet sur le prix : les deux formules, et un poste relié à l'essai sans mention dans la licence ; §4.4 et critère 14 ajoutés, la limite par la licence quitte les exclusions |
 | v1.3 | 2026-11-11 | Étape 2 réalisée. Événement `ReseauEteint` renommé `ReseauDesactive` (règle des noms d'événements). §4.3 : dix refus par minute et par adresse ; les appels d'un appareil non reconnu vont au journal technique, pas au journal d'audit (écart à la v1.2, à confirmer par le porteur du projet). §9 : contenu de l'écran « Postes de l'école » |
 | v1.4 | 2026-11-11 | Étape 3 réalisée. §2 : le réglage du poste ne dit que « relié » ; entre seul et principal, c'est la base qui tranche (réseau allumé ou non), pour qu'une sauvegarde restaurée garde son rôle — écart à confirmer par le porteur du projet. §3.3 : le contenu d'un fichier voyage en base64 dans l'entrée (commande qui lit) ou avec la sortie (commande qui écrit), vingt mégaoctets au plus. §5 : le poste relié dit sa version à chaque appel et le poste principal refuse une version différente avec la version attendue ; « Quitter le poste principal » est offert sans session. §9 : l'avertissement avant une opération qui demande d'être seul passe à l'étape 4 |
+| v1.5 | 2026-11-11 | Étape 4, première partie. §6.1 : liste des six fiches protégées, classement des autres commandes de modification, six fiches notées « à protéger ». §6.2 : relecture à l'ouverture, trente secondes pour les données de référence, pas de relecture au retour à la fenêtre. §6.3 : opérations retenues, imports limités à ceux qui touchent toute l'école, import lancé d'un poste relié — choix à confirmer par le porteur du projet. §6.4 et §6.5 (lenteurs, mesure) restent à faire |

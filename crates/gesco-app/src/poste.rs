@@ -119,6 +119,7 @@ fn erreur(cle: &str) -> ErreurCommande {
         cle: cle.to_owned(),
         jusqua: None,
         detail: None,
+        modifiee: None,
     }
 }
 
@@ -230,6 +231,7 @@ impl Demarrage {
             cle: "erreur.interne".to_owned(),
             jusqua: None,
             detail: Some(e.to_string()),
+            modifiee: None,
         })?;
         self.noter(&format!(
             "demarrage version={} role=relie poste={nom} principal={}",
@@ -410,6 +412,7 @@ impl EtatPoste {
                 cle: gesco_reseau::CLE_VERSION_DIFFERENTE.to_owned(),
                 jusqua: None,
                 detail: Some(apercu.version),
+                modifiee: None,
             });
         }
         let code: String = code.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
@@ -419,6 +422,7 @@ impl EtatPoste {
             cle: "erreur.interne".to_owned(),
             jusqua: None,
             detail: Some(e.to_string()),
+            modifiee: None,
         })?;
         // Sans trousseau, le secret serait perdu à la fermeture : le poste ne se dit pas relié.
         self.demarrage.coffre.ecrire(&contenu).map_err(|e| {
@@ -439,6 +443,7 @@ impl EtatPoste {
                 cle: "erreur.interne".to_owned(),
                 jusqua: None,
                 detail: Some(e.to_string()),
+                modifiee: None,
             });
         }
         let relie = self.demarrage.relie(liaison, conclu.nom)?;

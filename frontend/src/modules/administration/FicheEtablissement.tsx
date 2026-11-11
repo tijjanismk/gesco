@@ -25,7 +25,7 @@ export function FicheEtablissement() {
   if (fiche.data === undefined) return <MessageErreur erreur={fiche.error} />;
   return (
     <>
-      <EditeurFiche key={fiche.data.etablissement.id} etablissement={fiche.data.etablissement} />
+      <EditeurFiche key={fiche.data.etablissement.id} fiche={fiche.data} />
       <Logo fiche={fiche.data} />
     </>
   );
@@ -39,9 +39,8 @@ function useRafraichir() {
   };
 }
 
-function EditeurFiche({ etablissement }: { etablissement: Etablissement }) {
-  const rafraichir = useRafraichir();
-  const [champs, setChamps] = useState({
+function champsDe(etablissement: Etablissement) {
+  return {
     nom: etablissement.nom,
     statut: etablissement.statut,
     code_academie: etablissement.code_academie,
@@ -49,13 +48,30 @@ function EditeurFiche({ etablissement }: { etablissement: Etablissement }) {
     adresse: etablissement.adresse,
     telephones: etablissement.telephones.join(", "),
     mentions_legales: etablissement.mentions_legales,
-  });
+  };
+}
+
+function EditeurFiche({ fiche }: { fiche: Fiche }) {
+  const rafraichir = useRafraichir();
+  const [champs, setChamps] = useState(() => champsDe(fiche.etablissement));
+  // L'instant lu avec ce que montre le formulaire : il suit la saisie, pas les relectures de fond.
+  const [lueLe, setLueLe] = useState(fiche.modifiee_le);
   const [enregistre, setEnregistre] = useState<number | null>(null);
   const modification = useMutation({
-    mutationFn: () => appeler("etablissement_modifier", { ...champs, telephones: champs.telephones.split(",") }),
+    mutationFn: () => appeler("etablissement_modifier", { ...champs, telephones: champs.telephones.split(","), lue_le: lueLe }),
     onSuccess: (nouvelle) => {
       setEnregistre(Date.now());
+      setLueLe(nouvelle.modifiee_le);
       rafraichir(nouvelle);
+    },
+  });
+  const relecture = useMutation({
+    mutationFn: () => appeler("etablissement_lire", null),
+    onSuccess: (fraiche) => {
+      setChamps(champsDe(fraiche.etablissement));
+      setLueLe(fraiche.modifiee_le);
+      rafraichir(fraiche);
+      modification.reset();
     },
   });
   const champ = (cle: "nom" | "code_academie" | "code_cap" | "adresse" | "telephones", libelle: string, aide?: string) => (
@@ -67,7 +83,7 @@ function EditeurFiche({ etablissement }: { etablissement: Etablissement }) {
       onChange={(e) => setChamps({ ...champs, [cle]: e.target.value })}
     />
   );
-  const codesManquants = etablissement.code_academie === "" || etablissement.code_cap === "";
+  const codesManquants = fiche.etablissement.code_academie === "" || fiche.etablissement.code_cap === "";
   return (
     <Section titre={t("etablissement.fiche")}>
       {codesManquants ? <p className="text-sm text-ocre">{t("etablissement.codes_manquants")}</p> : null}
@@ -93,7 +109,7 @@ function EditeurFiche({ etablissement }: { etablissement: Etablissement }) {
           valeur={champs.mentions_legales}
           surChangement={(mentions_legales) => setChamps({ ...champs, mentions_legales })}
         />
-        <MessageErreur erreur={modification.error} />
+        <MessageErreur erreur={relecture.error ?? modification.error} surRelire={() => relecture.mutate()} />
         <MessageEnregistre instant={enregistre} />
         <div><Bouton type="submit" disabled={modification.isPending}>{t("commun.enregistrer")}</Bouton></div>
       </Formulaire>

@@ -327,6 +327,7 @@ export const ACCES = {
   poste_appairage_fermer: { type: "permission", permission: "workstations:manage" },
   poste_revoquer: { type: "permission", permission: "workstations:manage" },
   reseau_cle_renouveler: { type: "permission", permission: "workstations:manage" },
+  postes_connectes_lire: { type: "connecte" },
 } as const;
 
 export type NomCommande = keyof typeof ACCES;
@@ -361,4 +362,5 @@ export const COMMANDES_POSTE_PRINCIPAL: readonly NomCommande[] = [
   "poste_appairage_fermer",
   "poste_revoquer",
   "reseau_cle_renouveler",
+  "postes_connectes_lire",
 ];

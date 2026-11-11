@@ -25,6 +25,7 @@ pub mod evaluations;
 pub mod factures;
 pub mod file_sms;
 pub mod fournisseurs;
+pub mod fraicheur;
 pub mod inscriptions;
 pub mod licence;
 pub mod livres;

@@ -43,6 +43,7 @@ pub mod fichiers_relies;
 pub mod file_sms;
 pub mod fin_annee;
 pub mod fournisseurs;
+pub mod fraicheur;
 pub mod frais;
 pub mod frontiere;
 pub mod fusion;
@@ -84,6 +85,7 @@ pub mod roles;
 pub mod sauvegarde;
 pub mod secrets;
 pub mod session;
+mod seul;
 pub mod tableau;
 pub mod tresorerie;
 

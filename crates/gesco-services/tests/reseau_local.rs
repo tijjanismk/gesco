@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use gesco_services::commandes::{COMMANDES, COMMANDES_A_FICHIER, Commande, Fichier, Lieu};
 
 /// Types générés : pour chacun, les noms de ses champs.
-fn champs_des_types(texte: &str) -> HashMap<String, HashSet<String>> {
+pub(crate) fn champs_des_types(texte: &str) -> HashMap<String, HashSet<String>> {
     let mut types = HashMap::new();
     let mut courant: Option<(String, HashSet<String>)> = None;
     for ligne in texte.lines() {
@@ -46,7 +46,7 @@ fn champs_des_types(texte: &str) -> HashMap<String, HashSet<String>> {
 }
 
 /// Type d'entrée de chaque commande, tel que le contrat généré l'écrit.
-fn entrees_du_contrat(texte: &str) -> HashMap<String, String> {
+pub(crate) fn entrees_du_contrat(texte: &str) -> HashMap<String, String> {
     texte
         .lines()
         .filter_map(|ligne| {
@@ -57,7 +57,7 @@ fn entrees_du_contrat(texte: &str) -> HashMap<String, String> {
         .collect()
 }
 
-fn contrat_genere() -> String {
+pub(crate) fn contrat_genere() -> String {
     let chemin =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../frontend/src/types/gesco.ts");
     std::fs::read_to_string(chemin).unwrap()

@@ -103,7 +103,7 @@ async fn une_grille_se_saisit_se_met_en_vigueur_et_se_remplace() {
             { "libelle": "Octobre", "echeance": "2026-10-15", "part": 60 },
             { "libelle": "Février", "echeance": "2027-02-15", "part": 40 } ] },
     ]);
-    let modification = |lignes: Value, plans: Value| json!({ "id": grille["grille"]["id"], "libelle": "Frais 2026-2027", "lignes": lignes, "plans": plans });
+    let modification = |lignes: Value, plans: Value| json!({ "id": grille["grille"]["id"], "lue_le": grille["modifiee_le"], "libelle": "Frais 2026-2027", "lignes": lignes, "plans": plans });
     let lignes = json!([
         ligne(&sept, "inscription", "Frais d'inscription", 10_000),
         ligne(&sept, "scolarite", "Scolarité", 150_000),

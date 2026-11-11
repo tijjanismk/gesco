@@ -4,6 +4,7 @@ import { useState } from "react";
 import { appeler } from "../../api";
 import { choisirClasseur, choisirTableur } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
+import { useEtreSeul } from "../../composants/EtreSeul";
 import { MessageErreur } from "../../composants/Messages";
 import { t, texteDeCle } from "../../i18n";
 import type { AnalyseImportReferentiel, BilanImportReferentiel, NatureLigneReferentiel } from "../../types/gesco";
@@ -21,6 +22,7 @@ export function ImportReferentiel() {
   const [analyse, setAnalyse] = useState<AnalyseImportReferentiel | null>(null);
   const [bilan, setBilan] = useState<BilanImportReferentiel | null>(null);
   const [modele, setModele] = useState<string | null>(null);
+  const seul = useEtreSeul("seul.import");
   const ecritureModele = useMutation({
     mutationFn: async () => {
       const destination = await choisirClasseur(t("import_referentiel.nom_modele"), t("commun.classeur_excel"));
@@ -99,9 +101,10 @@ export function ImportReferentiel() {
               </table>
             </div>
             <div>
-              <Bouton disabled={aCreer === 0 || application.isPending} onClick={() => application.mutate()}>
+              <Bouton disabled={aCreer === 0 || application.isPending} onClick={() => seul.demander(() => application.mutate())}>
                 {t("import_referentiel.importer", { nombre: aCreer })}
               </Bouton>
+              {seul.dialogue}
             </div>
           </>
         )}
