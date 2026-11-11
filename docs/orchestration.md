@@ -36,12 +36,20 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
 
 ## État au 11 novembre 2026
 
-### Code (branche `developpement`, à jour avec GitHub, dernier commit `5207478`)
+### Code (branche `developpement`, à jour avec GitHub, dernier commit de code `eb7f598`)
 
 - Version 1.2.7 figée : branche `1.2.x`, étiquette `v1.2.7`, commit `c0e2a6a`, installeur dans
   `Documents\GESCO-1.2.7`. On n'y touche plus.
 - Phase 11, lot A (`SPEC_PHASE_11_A.md`, tableau des étapes dans `ETAT_AVANCEMENT.md`) :
-  étapes 1 à 3 faites ; étape 4 faite pour sa première partie.
+  étapes 1 à 4 faites (étape 4 : commits `0a9f3c4` et `eb7f598`, tout vert, 96,6 % des
+  commandes sous une seconde à dix postes simulés). L'étape 4 reste à valider par le porteur,
+  qui doit confirmer trois choix : la cible de la mesure (95 % sous une seconde à une commande
+  par seconde et par poste), la file d'attente des écritures (`gesco-db`), la connexion par
+  commande gardée telle quelle.
+- Suites à donner de l'étape 4 (dans `ETAT_AVANCEMENT.md`) : avertissement « Aucune année
+  scolaire n'est ouverte » resté sur un poste relié ; versement lent à dix postes (1,7 s au
+  95e centile) ; deux essais fragiles (`gesco-reseau`, SMS d'essai Playwright).
+- Disque : `target/release` pèse 10 Go ; élaguer avec `-Release` avant l'étape 5.
 - Phase 9 : décisions du 11 novembre dans `ETAT_AVANCEMENT.md` ; elle vient après le lot A,
   spécification d'abord.
 - Phase 12 : plan dans `docs/plan-phase-12.md`, encore hors du dépôt (non suivi).
@@ -52,34 +60,32 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
 | Matière | Fait | Reste | Fichier d'état |
 |---|---|---|---|
 | Biologie | 22 leçons sur 22 | rien | `biologie\ETAT.md` |
-| Physique-chimie | 12 sur 26 | P-13 et P-14 coupées en rédaction, P-15 à P-17, C-01 à C-09 | `physique-chimie\ETAT.md` |
+| Physique-chimie | 17 sur 26 (physique finie ; P-13 et P-15 plus longues que demandé) | C-01 à C-09 | `physique-chimie\ETAT.md` |
 | Mathématiques | 17 fichiers sur 31 prévues | une leçon de géométrie coupée en rédaction, puis la suite | aucun : découpage dans `LISEZMOI.md`, « Où en est la rédaction » |
 
 Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
 ## File du code (dans l'ordre)
 
-1. Étape 4, seconde partie : les cinq lenteurs (P-19, P-21, P-2, C-8, P-4), la mesure à dix
-   postes simulés, et les reprises listées dans `ETAT_AVANCEMENT.md` (« Reste pour la seconde
-   partie de l'étape 4 »).
-2. Étape 5 : saisie des notes par les maîtres, éteinte à la livraison.
-3. Étape 6 : livraison (pare-feu, installeur, guide, essai sur deux machines). Attend que le
+1. Étape 5 : saisie des notes par les maîtres, éteinte à la livraison ; avec, en reprise, les
+   suites à donner de l'étape 4.
+2. Étape 6 : livraison (pare-feu, installeur, guide, essai sur deux machines). Attend que le
    porteur fournisse deux ordinateurs Windows.
-4. Lot B : livret du jardin.
-5. Phase 9 : spécification, puis étapes.
-6. Phase 12 dans l'application, selon `docs/plan-phase-12.md`.
+3. Lot B : livret du jardin.
+4. Phase 9 : spécification, puis étapes.
+5. Phase 12 dans l'application, selon `docs/plan-phase-12.md`.
 
 ## File des contenus (dans l'ordre, lots de cinq ou six leçons)
 
-1. Physique : P-13 à P-17 (regarder d'abord si les fichiers de P-13 et P-14 existent).
-2. Chimie : C-01 à C-05.
-3. Chimie : C-06 à C-09.
-4. Mathématiques : écrire `mathematiques\ETAT.md` d'après `LISEZMOI.md` et les fichiers présents,
+1. Chimie : C-01 à C-05.
+2. Chimie : C-06 à C-09.
+3. Mathématiques : écrire `mathematiques\ETAT.md` d'après `LISEZMOI.md` et les fichiers présents,
    puis un premier lot de cinq leçons.
-5. Mathématiques : lots suivants jusqu'à 31.
+4. Mathématiques : lots suivants jusqu'à 31.
 
 ## Ce que seul le porteur peut fournir
 
+- La validation de l'étape 4 et ses trois choix à confirmer (voir « État »).
 - Deux ordinateurs Windows pour l'essai de l'étape 6.
 - Le questionnaire CPS du fondamental (phase 9), les prix.
 - Les réponses aux questions de terrain en attente dans `docs/plan-phase-12.md`.
@@ -88,3 +94,5 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 ## Journal
 
 - 2026-11-11 : tableau créé. Dix anciennes sessions archivées. Rien en cours.
+- 2026-11-11 : étape 4, seconde partie, faite et poussée (`0a9f3c4`, `eb7f598`) ; physique P-13 à
+  P-17 faite (17 sur 26). Les deux sessions ont coûté environ 50 % de la fenêtre de 5 heures.
