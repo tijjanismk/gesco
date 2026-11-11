@@ -123,15 +123,30 @@ function EditeurRole({
   const [libelle, setLibelle] = useState(role.libelle);
   const [cochees, setCochees] = useState<readonly string[]>(fiche.permissions);
   const [enregistre, setEnregistre] = useState<number | null>(null);
-  const rafraichir = () => {
+  const [lueLe, setLueLe] = useState(fiche.modifiee_le);
+  const rafraichir = (nouvelle: FicheRole) => {
     setEnregistre(Date.now());
+    setLueLe(nouvelle.modifiee_le);
     void client.invalidateQueries({ queryKey: ["roles"] });
   };
   const modification = useMutation({
-    mutationFn: () => appeler("role_modifier", { code: role.code, libelle, permissions: [...cochees] }),
+    mutationFn: () => appeler("role_modifier", { code: role.code, lue_le: lueLe, libelle, permissions: [...cochees] }),
     onSuccess: rafraichir,
   });
   const retablissement = useMutation({ mutationFn: () => appeler("role_retablir", { code: role.code }), onSuccess: rafraichir });
+  const relecture = useMutation({
+    mutationFn: () => appeler("roles_lister", null),
+    onSuccess: (roles) => {
+      const relue = roles.find((r) => r.role.code === role.code);
+      // Le rôle a pu être supprimé entre-temps.
+      if (relue === undefined) return surSupprime();
+      setLibelle(relue.role.libelle);
+      setCochees(relue.permissions);
+      setLueLe(relue.modifiee_le);
+      modification.reset();
+      void client.invalidateQueries({ queryKey: ["roles"] });
+    },
+  });
   const suppression = useMutation({
     mutationFn: () => appeler("role_supprimer", { code: role.code }),
     onSuccess: () => {
@@ -172,7 +187,7 @@ function EditeurRole({
             </fieldset>
           ))}
         </div>
-        <MessageErreur erreur={modification.error ?? retablissement.error ?? suppression.error} />
+        <MessageErreur erreur={relecture.error ?? modification.error ?? retablissement.error ?? suppression.error} surRelire={() => relecture.mutate()} />
         <MessageEnregistre instant={enregistre} />
         {intouchable ? null : (
           <div className="flex flex-wrap gap-2">

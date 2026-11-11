@@ -13,7 +13,7 @@ use gesco_core::rh::engagement::{
 use gesco_core::rh::{
     Engagement, MembrePersonnel, NatureEngagement, Remuneration, StatutEngagement,
 };
-use gesco_db::depots::{annee_scolaire, parametre, personnel, personnes, role};
+use gesco_db::depots::{annee_scolaire, parametre, personnel, personnes};
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
 use serde::{Deserialize, Serialize};
@@ -36,11 +36,10 @@ pub(crate) async fn voit_les_montants(noyau: &Noyau, session: &Session) -> Resul
         .acquire()
         .await
         .map_err(gesco_db::ErreurBase::from)?;
-    Ok(
-        role::permissions_de(&mut cnx, session.utilisateur_id, &contexte)
-            .await?
-            .contains(&Permission::CONTRACTS_READ),
-    )
+    Ok(noyau
+        .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+        .await?
+        .contains(&Permission::CONTRACTS_READ))
 }
 
 /// Motif écrit sur l'engagement qu'un nouveau remplace.

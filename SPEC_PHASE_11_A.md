@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 11, lot A — un poste principal et des postes reliés sur le réseau local de l'école ; version 2.0.0
-**Statut** : v1.5 — acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; étape 1 validée le 11 novembre 2026, étape 2 validée le 11 novembre 2026, étape 3 réalisée le 11 novembre 2026 et présentée pour validation ; étape 4, première partie (même fiche, écrans qui se relisent, opérations qui demandent d'être seul) réalisée le 11 novembre 2026, les lenteurs et la mesure restant à faire
+**Statut** : v1.6 — acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; étape 1 validée le 11 novembre 2026, étape 2 validée le 11 novembre 2026, étape 3 réalisée le 11 novembre 2026 et présentée pour validation ; étape 4 (même fiche, écrans qui se relisent, opérations qui demandent d'être seul, lenteurs, mesure à dix postes) réalisée le 11 novembre 2026 et présentée pour validation
 **Documents parents** : `docs/plan-phase-11.md` (T-80 à T-86, répondues le 10 novembre 2026), les quatre ADR du 10 novembre 2026 dans `docs/adr/` (serveur du réseau local, poste relié, sécurité du réseau local, modification simultanée), `PROJECT_BLUEPRINT.md` (ADR-014, §15.1, §17.4, §26.2), `docs/adr/2026-10-04-frontiere-commande-unique.md`, `SPEC_PHASE_4.md` (comptes des enseignants, portée des notes), `docs/optimisations-2026-10-31.md`
 **Date** : 10 novembre 2026
 
@@ -242,15 +242,18 @@ nomme la personne et l'heure. Leur liste s'arrête à l'étape 4 par un essai qu
 contrat. Les grilles (notes, absences, appréciations) gardent la dernière écriture par case ; les
 écritures d'argent et les changements d'état ne changent pas.
 
-Liste arrêtée à l'étape 4 (`COMMANDES_DE_FICHE`) : la fiche d'un élève, un responsable vu depuis
-son élève, la fiche d'un membre du personnel, une classe, une grille de tarifs en brouillon, la
-fiche de l'établissement. L'instant d'une fiche est le plus récent des lignes qui la composent
-(l'élève et son identité ; le responsable, son identité et son lien ; le membre et son identité).
+Liste arrêtée à l'étape 4 (`COMMANDES_DE_FICHE`), douze fiches : la fiche d'un élève, un
+responsable vu depuis son élève, la fiche d'un membre du personnel, une classe, une grille de
+tarifs en brouillon, la fiche de l'établissement ; puis, à la seconde partie de l'étape, le
+compte d'un utilisateur, un rôle, une année scolaire en préparation, une inscription en
+brouillon, un enseignant, un fournisseur. L'instant d'une fiche est le plus récent des lignes qui
+la composent (l'élève et son identité ; le responsable, son identité et son lien ; le membre et
+son identité ; l'enseignant et son identité). Un rôle est marqué modifié quand sa composition
+change. Le compte d'un utilisateur bouge aussi quand son titulaire se connecte : la modification
+partie d'une lecture plus ancienne est alors refusée, et se refait après relecture.
 Chaque autre commande dont le nom dit qu'elle modifie est classée avec sa raison
 (`MODIFICATIONS_SANS_CONTROLE`) : grille de saisie, valeur unique, changement d'état, écriture
-d'argent, donnée de référence. Six y sont notées « fiche à protéger », hors de la liste à ce
-jour : le compte d'un utilisateur, un rôle, une année scolaire, une inscription, un enseignant,
-un fournisseur.
+d'argent, donnée de référence.
 
 À l'écran, le refus dit qui a modifié la fiche et à quelle heure ; la saisie reste, et « Relire
 la fiche » remplace le formulaire par la fiche relue, où la correction se refait.
@@ -290,11 +293,63 @@ tenu (P-19) ; envois par la clé modem qui bloquent (P-21) ; sauvegarde à la fe
 changement (P-2) ; permissions relues à chaque commande (C-8) ; fiches de toute l'école chargées à
 chaque note (P-4).
 
+Réalisé à l'étape 4, seconde partie :
+
+- **P-19** : le compte se lit et le mot de passe (ou le code PIN) se vérifie avant l'unité de
+  travail, sur un fil à part ; sous le verrou d'écriture, le compte est relu et le verdict n'est
+  retenu que si l'empreinte n'a pas changé entre-temps. Vaut pour la connexion, le
+  déverrouillage, le code PIN, le changement de mot de passe et la confirmation par mot de passe.
+- **P-21** : chaque échange avec la clé modem se fait sur un fil à part ; la connexion à la base
+  est rendue le temps d'un envoi ; la clé n'est interrogée (« répond-elle ? ») qu'après une
+  coupure, la relève des accusés tenant lieu de vérification le reste du temps.
+- **P-2** : la fermeture ne refait pas la sauvegarde quand la dernière ligne du journal d'audit
+  est celle de la dernière sauvegarde, que celle-ci a réussi, que son archive est toujours là et
+  qu'elle date de moins que l'intervalle réglé.
+- **C-8** : les permissions d'un utilisateur sont gardées en mémoire entre deux écritures ;
+  toute unité de travail validée, quelle qu'elle soit, les fait relire. Un rôle modifié, retiré,
+  un compte désactivé prennent donc effet à la commande suivante, comme avant.
+- **P-4** : la saisie d'une note, l'appel, la conduite, les bulletins et la validation d'une
+  classe ne lisent que les inscriptions et les fiches de la classe ; la liste des inscriptions
+  d'une année ne cherche plus chaque élève dans toute la liste.
+
 ### 6.5 Mesure
 
 Dix postes simulés, sur l'école d'essai de trois ans, jouent ensemble inscriptions, versements,
 notes et lectures. Cible proposée, à confirmer après une première mesure : une commande courante
 répond en moins d'une seconde dans 95 cas sur 100.
+
+Réalisé à l'étape 4, seconde partie (`gesco-remplir mesurer`, `outils/remplir/src/mesure.rs`) :
+sur une copie de l'école d'essai de trois ans, le poste principal allume son réseau, dix postes
+s'y relient par le vrai canal chiffré et ouvrent chacun leur session ; trois inscrivent (fiche,
+responsable, inscription, validation), trois encaissent (ce que la famille doit, puis le
+versement et son reçu), deux notent, deux lisent (recherche, fiche, liste des inscriptions,
+impayés, tableau de bord). Chaque commande est chronométrée du départ de la demande à l'arrivée
+de la réponse.
+
+**Cible fixée** : dix postes qui envoient chacun une commande par seconde — bien plus vite que
+dix personnes au clavier — reçoivent leur réponse en moins d'une seconde dans 95 cas sur 100.
+Mesuré le 11 novembre 2026 sur le poste de développement, application compilée comme à la
+livraison : 1 033 commandes, 96,6 % sous la seconde, médiane 0,18 s, 95 % à 0,75 s, la plus
+longue à 2,5 s ; aucune écriture refusée par la base. La cible est tenue ; elle reste à confirmer
+par le porteur du projet, et à rejouer sur deux vraies machines à l'étape 6.
+
+**Ce que la mesure a montré** :
+
+- Une écriture « critique » (argent, audit, sécurité) coûte environ 0,17 s sur ce poste : c'est
+  la synchronisation du disque, et elle borne le débit à cinq ou six écritures par seconde, tous
+  postes confondus. Les lectures répondent en quelques centièmes de seconde.
+- SQLite n'admet qu'un écrivain et fait patienter les autres en réessayant au hasard : à dix
+  postes, certains attendaient plus de dix secondes et étaient refusés (« erreur de la base »).
+  Les unités de travail attendent donc leur tour dans une file, dans l'ordre d'arrivée
+  (`Base::tour_d_ecriture`). Trente secondes d'attente au plus, après quoi SQLite décide comme
+  avant.
+- À cadence forcée (une commande tous les dixièmes de seconde par poste), le verrou sature :
+  81 % des commandes sous la seconde, aucune refusée par la base. Ce rythme n'est pas celui
+  d'une école ; il dit où est la limite.
+- Le versement est la commande la plus lente (médiane 0,5 s, 95 % à 1,7 s à dix postes).
+- **Connexion par commande** : ouvrir le canal chiffré, lire l'état et le refermer prend moins
+  d'un centième de seconde sur la machine elle-même. Le relais garde une connexion par
+  commande ; la question se repose sur un vrai réseau, à l'étape 6.
 
 ## 7. Saisie des notes par les maîtres
 
@@ -376,3 +431,4 @@ porteur. Une seule compilation complète par étape, `target` élagué avant.
 | v1.3 | 2026-11-11 | Étape 2 réalisée. Événement `ReseauEteint` renommé `ReseauDesactive` (règle des noms d'événements). §4.3 : dix refus par minute et par adresse ; les appels d'un appareil non reconnu vont au journal technique, pas au journal d'audit (écart à la v1.2, à confirmer par le porteur du projet). §9 : contenu de l'écran « Postes de l'école » |
 | v1.4 | 2026-11-11 | Étape 3 réalisée. §2 : le réglage du poste ne dit que « relié » ; entre seul et principal, c'est la base qui tranche (réseau allumé ou non), pour qu'une sauvegarde restaurée garde son rôle — écart à confirmer par le porteur du projet. §3.3 : le contenu d'un fichier voyage en base64 dans l'entrée (commande qui lit) ou avec la sortie (commande qui écrit), vingt mégaoctets au plus. §5 : le poste relié dit sa version à chaque appel et le poste principal refuse une version différente avec la version attendue ; « Quitter le poste principal » est offert sans session. §9 : l'avertissement avant une opération qui demande d'être seul passe à l'étape 4 |
 | v1.5 | 2026-11-11 | Étape 4, première partie. §6.1 : liste des six fiches protégées, classement des autres commandes de modification, six fiches notées « à protéger ». §6.2 : relecture à l'ouverture, trente secondes pour les données de référence, pas de relecture au retour à la fenêtre. §6.3 : opérations retenues, imports limités à ceux qui touchent toute l'école, import lancé d'un poste relié — choix à confirmer par le porteur du projet. §6.4 et §6.5 (lenteurs, mesure) restent à faire |
+| v1.6 | 2026-11-11 | Étape 4, seconde partie. §6.1 : douze fiches protégées (compte d'un utilisateur, rôle, année, inscription, enseignant, fournisseur ajoutés). §6.4 : ce qui a été fait pour chacune des cinq lenteurs. §6.5 : la mesure à dix postes, la cible fixée (une commande par seconde et par poste, 95 % sous la seconde), les écrivains mis en file dans l'ordre d'arrivée, la connexion par commande gardée — cible et file à confirmer par le porteur du projet |

@@ -19,6 +19,7 @@ struct Ligne {
     fin: i64,
     statut: String,
     est_courante: i64,
+    mis_a_jour_le: i64,
 }
 
 impl Ligne {
@@ -36,6 +37,7 @@ impl Ligne {
             statut: StatutAnnee::depuis_nom(&self.statut)
                 .ok_or_else(|| ErreurBase::illisible("annee_scolaire", "statut", &self.statut))?,
             est_courante: booleen(self.est_courante),
+            modifiee_le: self.mis_a_jour_le,
         })
     }
 }
@@ -44,7 +46,7 @@ impl Ligne {
 /// chaînes SQL dynamiques, et les colonnes ne sont écrites qu'une fois.
 macro_rules! selectionner {
     ($suite:literal) => {
-        concat!("SELECT id, etablissement_id, libelle, debut, fin, statut, est_courante FROM annee_scolaire ", $suite)
+        concat!("SELECT id, etablissement_id, libelle, debut, fin, statut, est_courante, mis_a_jour_le FROM annee_scolaire ", $suite)
     };
 }
 

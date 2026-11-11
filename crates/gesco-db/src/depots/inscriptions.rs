@@ -313,6 +313,24 @@ pub async fn de_l_annee(
     .collect()
 }
 
+/// Inscriptions d'une classe, de tout état (index `inscription_classe`).
+pub async fn de_la_classe(
+    cnx: &mut Connexion,
+    classe_id: Id<Classe>,
+    contexte: &Contexte,
+) -> Resultat<Vec<Inscription>> {
+    sqlx::query_as::<_, Ligne>(selectionner!(
+        "WHERE classe_id = ?1 AND etablissement_id = ?2 ORDER BY rowid"
+    ))
+    .bind(classe_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(Ligne::vers_entite)
+    .collect()
+}
+
 /// Nombre d'inscriptions, de tout état, dans une classe : une classe qui en a reçu une ne se
 /// supprime plus.
 pub async fn compter_dans_classe(

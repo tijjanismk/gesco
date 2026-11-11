@@ -29,11 +29,14 @@ pub struct UniteDeTravail<E> {
     audits: Vec<LigneAudit>,
     evenements: Vec<Evenement>,
     effets: Vec<E>,
+    /// Tour d'écriture, rendu après la transaction (les champs se libèrent dans l'ordre).
+    _tour: crate::base::TourDEcriture,
 }
 
 impl<E> UniteDeTravail<E> {
     /// Ouvre une transaction `BEGIN IMMEDIATE` : le verrou d'écriture est pris d'emblée, ce qui
-    /// sérialise les écrivains et rend le chaînage d'audit sûr.
+    /// sérialise les écrivains et rend le chaînage d'audit sûr. L'unité attend d'abord son tour
+    /// dans la file des écrivains de la base, pour passer dans l'ordre d'arrivée.
     pub async fn commencer(
         base: &Base,
         contexte: Contexte,
@@ -43,8 +46,11 @@ impl<E> UniteDeTravail<E> {
             Durabilite::Critique => base.pool_critique(),
             Durabilite::Ordinaire => base.pool(),
         };
+        // Sur le tas : cette attente ne doit pas grossir le calcul de chaque commande.
+        let tour = Box::pin(base.tour_d_ecriture()).await;
         let tx = pool.begin_with("BEGIN IMMEDIATE").await?;
         Ok(Self {
+            _tour: tour,
             tx,
             contexte,
             audits: Vec::new(),

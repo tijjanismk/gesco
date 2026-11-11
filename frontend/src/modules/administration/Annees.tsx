@@ -120,11 +120,25 @@ function FicheAnnee({ annee, surSupprimee }: { annee: AnneeScolaire; surSupprime
   const rafraichir = useRafraichir();
   const [valeurs, setValeurs] = useState({ libelle: annee.libelle, debut: versJour(annee.debut), fin: versJour(annee.fin) });
   const [enregistre, setEnregistre] = useState<number | null>(null);
+  const [lueLe, setLueLe] = useState(annee.modifiee_le ?? 0);
   const modification = useMutation({
     mutationFn: () =>
-      appeler("annee_modifier", { id: annee.id, libelle: valeurs.libelle, debut: versMillis(valeurs.debut), fin: versMillis(valeurs.fin) }),
-    onSuccess: () => {
+      appeler("annee_modifier", { id: annee.id, lue_le: lueLe, libelle: valeurs.libelle, debut: versMillis(valeurs.debut), fin: versMillis(valeurs.fin) }),
+    onSuccess: (nouvelle) => {
       setEnregistre(Date.now());
+      setLueLe(nouvelle.modifiee_le ?? 0);
+      rafraichir();
+    },
+  });
+  const relecture = useMutation({
+    mutationFn: () => appeler("annees_lister", null),
+    onSuccess: (annees) => {
+      const relue = annees.find((a) => a.id === annee.id);
+      // L'année a pu être supprimée entre-temps.
+      if (relue === undefined) return surSupprimee();
+      setValeurs({ libelle: relue.libelle, debut: versJour(relue.debut), fin: versJour(relue.fin) });
+      setLueLe(relue.modifiee_le ?? 0);
+      modification.reset();
       rafraichir();
     },
   });
@@ -154,7 +168,7 @@ function FicheAnnee({ annee, surSupprimee }: { annee: AnneeScolaire; surSupprime
         <Bouton onClick={() => activation.mutate()} disabled={activation.isPending}>{t("annees.ouvrir")}</Bouton>
         <Bouton variante="danger" onClick={() => suppression.mutate()} disabled={suppression.isPending}>{t("annees.supprimer")}</Bouton>
       </div>
-      <MessageErreur erreur={modification.error ?? activation.error ?? suppression.error} />
+      <MessageErreur erreur={relecture.error ?? modification.error ?? activation.error ?? suppression.error} surRelire={() => relecture.mutate()} />
       <MessageEnregistre instant={enregistre} />
     </Section>
   );

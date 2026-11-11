@@ -603,6 +603,7 @@ async fn un_role_personnalise_se_cree_se_recompose_et_se_supprime() {
             Some(&admin),
             json!({
                 "code": "perso_agent_d_accueil",
+                "lue_le": cree["modifiee_le"],
                 "libelle": "Accueil",
                 "permissions": ["students:read", "attendance:create"],
             }),
@@ -636,7 +637,7 @@ async fn un_role_personnalise_se_cree_se_recompose_et_se_supprime() {
         ),
         (
             "role_modifier",
-            json!({ "code": "administrateur", "libelle": "", "permissions": [] }),
+            json!({ "code": "administrateur", "lue_le": 0, "libelle": "", "permissions": [] }),
             "role.administrateur_intouchable",
         ),
         (
@@ -729,7 +730,7 @@ async fn un_role_livre_se_recompose_puis_se_retablit() {
         .ok(
             "role_modifier",
             Some(&admin),
-            json!({ "code": "secretaire", "libelle": "Autre nom", "permissions": reduite }),
+            json!({ "code": "secretaire", "lue_le": secretaire["modifiee_le"], "libelle": "Autre nom", "permissions": reduite }),
         )
         .await;
     assert_eq!(
@@ -771,12 +772,14 @@ async fn on_n_accorde_pas_une_permission_que_l_on_ne_detient_pas() {
     )
     .await;
     let moussa = p.connecter("moussa", "roles-2026-gestion").await;
+    let lue_le = role_lu(&p, &admin, "perso_gestion_des_roles").await;
     let refus = p
         .refus(
             "role_modifier",
             Some(&moussa),
             json!({
                 "code": "perso_gestion_des_roles",
+                "lue_le": lue_le,
                 "libelle": "Gestion des rôles",
                 "permissions": ["core:roles:assign", "core:users:read", "core:backup:restore"],
             }),
@@ -824,10 +827,11 @@ async fn cycle_de_vie_d_un_compte_et_garde_fous_du_dernier_administrateur() {
 
     // Désactiver ferme la session ouverte, et le compte ne se connecte plus.
     let session_fanta = p.connecter("fanta", "secretariat-2026").await;
+    let lue_le = compte_lu(&p, &admin, &json!(fanta)).await;
     p.ok(
         "utilisateur_modifier",
         Some(&admin),
-        json!({ "id": fanta, "nom_affiche": "Fanta Coulibaly", "actif": false }),
+        json!({ "id": fanta, "lue_le": lue_le, "nom_affiche": "Fanta Coulibaly", "actif": false }),
     )
     .await;
     assert_eq!(
@@ -844,10 +848,11 @@ async fn cycle_de_vie_d_un_compte_et_garde_fous_du_dernier_administrateur() {
         )
         .await;
     assert_eq!(refus.cle, "connexion.compte_inactif");
+    let lue_le = compte_lu(&p, &admin, &json!(fanta)).await;
     p.ok(
         "utilisateur_modifier",
         Some(&admin),
-        json!({ "id": fanta, "nom_affiche": "Fanta Coulibaly", "actif": true }),
+        json!({ "id": fanta, "lue_le": lue_le, "nom_affiche": "Fanta Coulibaly", "actif": true }),
     )
     .await;
 
@@ -897,7 +902,7 @@ async fn cycle_de_vie_d_un_compte_et_garde_fous_du_dernier_administrateur() {
     for (commande, entree, cle) in [
         (
             "utilisateur_modifier",
-            json!({ "id": moi, "nom_affiche": "Administrateur", "actif": false }),
+            json!({ "id": moi, "lue_le": 0, "nom_affiche": "Administrateur", "actif": false }),
             "utilisateur.desactivation_de_soi",
         ),
         (
@@ -948,10 +953,11 @@ async fn cycle_de_vie_d_un_compte_et_garde_fous_du_dernier_administrateur() {
         json!({ "utilisateur_id": moi, "role": "administrateur", "attribue": true }),
     )
     .await;
+    let lue_le = compte_lu(&p, &admin, &json!(fanta)).await;
     p.ok(
         "utilisateur_modifier",
         Some(&admin),
-        json!({ "id": fanta, "nom_affiche": "Fanta Coulibaly", "actif": false }),
+        json!({ "id": fanta, "lue_le": lue_le, "nom_affiche": "Fanta Coulibaly", "actif": false }),
     )
     .await;
     let seul = p
@@ -1388,7 +1394,7 @@ async fn une_annee_scolaire_se_prepare_puis_s_ouvre() {
         .ok(
             "annee_modifier",
             Some(&admin),
-            json!({ "id": annee["id"], "libelle": "2026-2027", "debut": RENTREE_2026, "fin": 1_811_808_000_000_i64 }),
+            json!({ "id": annee["id"], "lue_le": annee["modifiee_le"], "libelle": "2026-2027", "debut": RENTREE_2026, "fin": 1_811_808_000_000_i64 }),
         )
         .await;
     assert_eq!(corrigee["fin"], 1_811_808_000_000_i64);
@@ -1432,7 +1438,7 @@ async fn une_annee_scolaire_se_prepare_puis_s_ouvre() {
         ),
         (
             "annee_modifier",
-            json!({ "id": annee["id"], "libelle": "2026-2027", "debut": RENTREE_2026, "fin": FIN_2027 }),
+            json!({ "id": annee["id"], "lue_le": 0, "libelle": "2026-2027", "debut": RENTREE_2026, "fin": FIN_2027 }),
             "annee.non_modifiable",
         ),
         (
@@ -1615,4 +1621,74 @@ async fn l_administrateur_qui_a_perdu_son_mot_de_passe_le_remplace_avec_les_douz
         .to_string();
     assert!(alertes.contains("avertissement.mot_de_passe_reinitialise_par_phrase"));
     assert!(!alertes.contains("avertissement.certificat_non_confirme"));
+}
+
+/// Instant de dernière modification d'un rôle, lu avec la liste des rôles.
+async fn role_lu(p: &Poste_, jeton: &gesco_services::session::Jeton, code: &str) -> Value {
+    p.ok("roles_lister", Some(jeton), Value::Null)
+        .await
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["role"]["code"] == code)
+        .unwrap()["modifiee_le"]
+        .clone()
+}
+
+/// Instant de dernière modification d'un compte, lu avec la liste des utilisateurs.
+async fn compte_lu(p: &Poste_, jeton: &gesco_services::session::Jeton, id: &Value) -> Value {
+    p.ok("utilisateurs_lister", Some(jeton), Value::Null)
+        .await
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["utilisateur"]["id"] == *id)
+        .unwrap()["modifiee_le"]
+        .clone()
+}
+
+/// Nombre de sauvegardes au registre, lu par une session ouverte pour cela.
+async fn sauvegardes_au_registre(p: &Poste_) -> usize {
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    p.ok("sauvegardes_lister", Some(&admin), Value::Null)
+        .await
+        .as_array()
+        .unwrap()
+        .len()
+}
+
+#[tokio::test]
+async fn la_fermeture_ne_refait_pas_la_sauvegarde_quand_rien_ne_s_est_ecrit() {
+    let dossier = tempfile::tempdir().unwrap();
+    let racine = dossier.path().join("poste");
+    let p = poste_vierge(&racine).await;
+    p.installer().await;
+    let (horloge, trousseau) = (p.horloge.clone(), Arc::clone(&p.trousseau));
+    // Une session s'est ouverte : la fermeture sauvegarde.
+    let avant = sauvegardes_au_registre(&p).await;
+    horloge.avancer(60_000);
+    p.application.fermer().await.unwrap();
+    drop(p);
+
+    // GESCO est rouvert puis refermé sans que personne n'y travaille : rien de plus.
+    let p = demarrer(&racine, Arc::clone(&trousseau), horloge.clone()).await;
+    horloge.avancer(60_000);
+    p.application.fermer().await.unwrap();
+    drop(p);
+
+    // La session qui lit le registre s'écrit au journal : la fermeture sauvegarde de nouveau.
+    let p = demarrer(&racine, Arc::clone(&trousseau), horloge.clone()).await;
+    assert_eq!(sauvegardes_au_registre(&p).await, avant + 1);
+    horloge.avancer(60_000);
+    p.application.fermer().await.unwrap();
+    drop(p);
+
+    // Un jour plus tard, sans rien de neuf, la dernière sauvegarde a dépassé l'intervalle
+    // réglé : elle se refait.
+    let p = demarrer(&racine, Arc::clone(&trousseau), horloge.clone()).await;
+    horloge.avancer(25 * 3_600_000);
+    p.application.fermer().await.unwrap();
+    drop(p);
+    let p = demarrer(&racine, trousseau, horloge.clone()).await;
+    assert_eq!(sauvegardes_au_registre(&p).await, avant + 3);
 }

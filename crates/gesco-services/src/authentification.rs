@@ -14,7 +14,9 @@ use crate::comptes::{empreinte_conforme, politique_mot_de_passe, seuil_verrouill
 use crate::effets::Effet;
 use crate::erreur::{ErreurService, MotifRefus, Resultat};
 use crate::noyau::Noyau;
-use crate::secrets::{MotDePasse, Pin, empreinte_pin, mot_de_passe_correspond, pin_correspond};
+use crate::secrets::{
+    MotDePasse, Pin, empreinte_pin, mot_de_passe_correspond_a_part, pin_correspond_a_part,
+};
 use crate::session::{ESSAIS_PIN, Jeton, Session};
 
 /// Demande de création d'un utilisateur par un administrateur.
@@ -41,6 +43,34 @@ impl<'n> ServiceAuthentification<'n> {
         Self { noyau }
     }
 
+    async fn connexion(&self) -> Resultat<gesco_db::ConnexionEmpruntee> {
+        Ok(self
+            .noyau
+            .base()
+            .pool()
+            .acquire()
+            .await
+            .map_err(gesco_db::ErreurBase::from)?)
+    }
+
+    /// Vérifie le mot de passe d'un compte avant toute unité de travail : rend l'empreinte
+    /// vérifiée et le verdict. L'appelant relit l'empreinte sous le verrou d'écriture et
+    /// n'accepte le verdict que si elle n'a pas changé entre-temps.
+    async fn verifier_hors_verrou(
+        &self,
+        utilisateur_id: Id<Utilisateur>,
+        mot_de_passe: &MotDePasse<'_>,
+        contexte: &Contexte,
+    ) -> Resultat<(String, bool)> {
+        let secrets = {
+            let mut cnx = self.connexion().await?;
+            utilisateur::lire_secrets(&mut cnx, utilisateur_id, contexte).await?
+        };
+        let correspond =
+            mot_de_passe_correspond_a_part(mot_de_passe, &secrets.empreinte_mot_de_passe).await;
+        Ok((secrets.empreinte_mot_de_passe, correspond))
+    }
+
     /// Ouvre une session par identifiant et mot de passe.
     pub async fn connecter(
         &self,
@@ -50,18 +80,39 @@ impl<'n> ServiceAuthentification<'n> {
     ) -> Resultat<Session> {
         let contexte = self.noyau.contexte(etablissement_id, None);
         let maintenant = contexte.maintenant;
+        // Le compte se lit et le mot de passe se vérifie avant l'unité de travail : le verrou
+        // d'écriture n'est pas tenu pendant le calcul d'Argon2.
+        let (compte_id, verifiee, correspond) = {
+            let mut cnx = self.connexion().await?;
+            let Some(compte) =
+                utilisateur::par_identifiant(&mut cnx, identifiant, &contexte).await?
+            else {
+                return Err(ErreurService::Authentification(
+                    MotifRefus::IdentifiantsInvalides,
+                ));
+            };
+            if !compte.actif {
+                return Err(ErreurService::Authentification(MotifRefus::CompteInactif));
+            }
+            if !compte.peut_tenter_connexion(maintenant) {
+                let jusqua = compte.verrouille_jusqua.map_or(0, |h| h.millis_epoque());
+                return Err(ErreurService::Authentification(MotifRefus::Verrouille {
+                    jusqua,
+                }));
+            }
+            let secrets = utilisateur::lire_secrets(&mut cnx, compte.id, &contexte).await?;
+            drop(cnx);
+            let correspond =
+                mot_de_passe_correspond_a_part(&mot_de_passe, &secrets.empreinte_mot_de_passe)
+                    .await;
+            (compte.id, secrets.empreinte_mot_de_passe, correspond)
+        };
         let mut unite = self
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
-        let Some(mut compte) =
-            utilisateur::par_identifiant(unite.connexion(), identifiant, &contexte).await?
-        else {
-            unite.annuler().await?;
-            return Err(ErreurService::Authentification(
-                MotifRefus::IdentifiantsInvalides,
-            ));
-        };
+        // Relu sous le verrou : un autre poste a pu désactiver ou verrouiller le compte.
+        let mut compte = utilisateur::lire(unite.connexion(), compte_id, &contexte).await?;
         if !compte.actif {
             unite.annuler().await?;
             return Err(ErreurService::Authentification(MotifRefus::CompteInactif));
@@ -74,7 +125,7 @@ impl<'n> ServiceAuthentification<'n> {
             }));
         }
         let secrets = utilisateur::lire_secrets(unite.connexion(), compte.id, &contexte).await?;
-        if !mot_de_passe_correspond(&mot_de_passe, &secrets.empreinte_mot_de_passe) {
+        if !(correspond && secrets.empreinte_mot_de_passe == verifiee) {
             compte.echecs_consecutifs = compte.echecs_consecutifs.saturating_add(1);
             let seuil = seuil_verrouillage(unite.connexion(), &contexte).await?;
             compte.verrouille_jusqua =
@@ -162,7 +213,8 @@ impl<'n> ServiceAuthentification<'n> {
         let Some(empreinte) = secrets.empreinte_pin else {
             return Err(ErreurService::Authentification(MotifRefus::PinNonDefini));
         };
-        if !pin_correspond(&pin, &empreinte) {
+        drop(cnx);
+        if !pin_correspond_a_part(&pin, &empreinte).await {
             if self.noyau.sessions().noter_echec_pin(jeton) >= ESSAIS_PIN {
                 self.noyau.sessions().fermer(jeton);
                 return Err(ErreurService::Authentification(MotifRefus::PinEpuise));
@@ -192,6 +244,9 @@ impl<'n> ServiceAuthentification<'n> {
             .noyau
             .contexte(session.etablissement_id, Some(&session));
         let maintenant = contexte.maintenant;
+        let (verifiee, correspond) = self
+            .verifier_hors_verrou(session.utilisateur_id, &mot_de_passe, &contexte)
+            .await?;
         let mut unite = self
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
@@ -206,7 +261,7 @@ impl<'n> ServiceAuthentification<'n> {
             }));
         }
         let secrets = utilisateur::lire_secrets(unite.connexion(), compte.id, &contexte).await?;
-        if !mot_de_passe_correspond(&mot_de_passe, &secrets.empreinte_mot_de_passe) {
+        if !(correspond && secrets.empreinte_mot_de_passe == verifiee) {
             compte.echecs_consecutifs = compte.echecs_consecutifs.saturating_add(1);
             let seuil = seuil_verrouillage(unite.connexion(), &contexte).await?;
             compte.verrouille_jusqua =
@@ -243,13 +298,16 @@ impl<'n> ServiceAuthentification<'n> {
         pin: Pin<'_>,
     ) -> Resultat<()> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let (verifiee, correspond) = self
+            .verifier_hors_verrou(session.utilisateur_id, &mot_de_passe, &contexte)
+            .await?;
         let mut unite = self
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
         let secrets =
             utilisateur::lire_secrets(unite.connexion(), session.utilisateur_id, &contexte).await?;
-        if !mot_de_passe_correspond(&mot_de_passe, &secrets.empreinte_mot_de_passe) {
+        if !(correspond && secrets.empreinte_mot_de_passe == verifiee) {
             unite.annuler().await?;
             return Err(ErreurService::Authentification(
                 MotifRefus::IdentifiantsInvalides,
@@ -289,13 +347,16 @@ impl<'n> ServiceAuthentification<'n> {
         nouveau: MotDePasse<'_>,
     ) -> Resultat<()> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let (verifiee, correspond) = self
+            .verifier_hors_verrou(session.utilisateur_id, &ancien, &contexte)
+            .await?;
         let mut unite = self
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
         let secrets =
             utilisateur::lire_secrets(unite.connexion(), session.utilisateur_id, &contexte).await?;
-        if !mot_de_passe_correspond(&ancien, &secrets.empreinte_mot_de_passe) {
+        if !(correspond && secrets.empreinte_mot_de_passe == verifiee) {
             unite.annuler().await?;
             return Err(ErreurService::Authentification(
                 MotifRefus::IdentifiantsInvalides,

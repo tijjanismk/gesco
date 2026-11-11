@@ -418,7 +418,7 @@ impl<'n> ServiceConduite<'n> {
         // Les élèves qui ont suivi la période, dans l'ordre de la liste de classe.
         let eleves: Vec<(Id<Inscription>, String, String)> =
             ServiceInscriptions::nouveau(self.noyau)
-                .lister(session, classe.annee_id)
+                .de_la_classe(session, &classe)
                 .await?
                 .into_iter()
                 .filter(|l| {

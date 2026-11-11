@@ -67,7 +67,17 @@ pub struct Base {
     pool_critique: Pool<Sqlite>,
     pool_ordinaire: Pool<Sqlite>,
     chemin: Option<PathBuf>,
+    /// File d'attente des unités de travail : une seule écrit à la fois, dans l'ordre d'arrivée.
+    ecrivains: std::sync::Arc<tokio::sync::Mutex<()>>,
 }
+
+/// Attente la plus longue dans la file des écrivains. Passé ce délai, l'unité de travail
+/// demande le verrou à SQLite sans attendre son tour, comme avant la file : une file qui ne
+/// se viderait pas ne bloque donc jamais plus longtemps que cela.
+const ATTENTE_DU_TOUR: Duration = Duration::from_secs(30);
+
+/// Tour d'écriture d'une unité de travail ; le rendre fait passer la suivante.
+pub(crate) type TourDEcriture = Option<tokio::sync::OwnedMutexGuard<()>>;
 
 impl Base {
     /// Ouvre, règle, migre et synchronise le catalogue des permissions.
@@ -122,7 +132,20 @@ impl Base {
             pool_critique,
             pool_ordinaire,
             chemin: options.chemin,
+            ecrivains: std::sync::Arc::default(),
         })
+    }
+
+    /// Attend son tour d'écrire. SQLite n'admet qu'un écrivain et fait patienter les autres en
+    /// réessayant au hasard : à plusieurs postes, certains attendaient plus que le délai et
+    /// étaient refusés. Ici, chacun passe dans l'ordre où il est arrivé.
+    pub(crate) async fn tour_d_ecriture(&self) -> TourDEcriture {
+        tokio::time::timeout(
+            ATTENTE_DU_TOUR,
+            std::sync::Arc::clone(&self.ecrivains).lock_owned(),
+        )
+        .await
+        .ok()
     }
 
     /// Applique les migrations en attente et synchronise le catalogue des permissions.

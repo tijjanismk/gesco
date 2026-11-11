@@ -494,6 +494,40 @@ impl<'a> ServiceSauvegarde<'a> {
         Ok(())
     }
 
+    /// Vrai si rien ne s'est écrit depuis la dernière sauvegarde : la dernière ligne du journal
+    /// d'audit est celle de cette sauvegarde, elle a réussi, son archive est toujours là, et
+    /// elle date de moins que l'intervalle réglé. La sauvegarde de fermeture ne se refait pas
+    /// alors.
+    pub async fn a_jour(&self, etablissement_id: Id<Etablissement>) -> Resultat<bool> {
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let mut cnx = self.connexion().await?;
+        if gesco_db::depots::audit::derniere_origine(&mut cnx, &contexte)
+            .await?
+            .as_deref()
+            != Some("sauvegarde.creer")
+        {
+            return Ok(false);
+        }
+        let Some(derniere) = sauvegarde::lister(&mut cnx, 1, &contexte)
+            .await?
+            .into_iter()
+            .next()
+        else {
+            return Ok(false);
+        };
+        let Some(reussie) = sauvegarde::derniere_reussie(&mut cnx, &contexte).await? else {
+            return Ok(false);
+        };
+        let intervalle_min =
+            parametre::entier(&mut cnx, "sauvegarde.intervalle_min", 24 * 60, &contexte).await?;
+        Ok(reussie.horodatage == derniere.horodatage
+            && Path::new(&reussie.destination).is_file()
+            && reussie
+                .horodatage
+                .difference_millis(&contexte.maintenant)
+                .is_ok_and(|d| d < intervalle_min.saturating_mul(60_000)))
+    }
+
     /// Sauvegardes de l'établissement, la plus récente d'abord.
     pub async fn lister(
         &self,

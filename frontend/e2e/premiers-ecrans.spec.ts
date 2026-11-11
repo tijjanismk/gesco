@@ -1393,8 +1393,9 @@ test("phase 4 : UC-04 au 1er cycle, bulletins mensuels de la 3e A sur 10, chrono
   const notes: Record<string, string[]> = { "Aïcha Coulibaly": ["7,5", "6", "8", "9", "7"], "Bakary Keïta": ["5", "6", "4", "7", "6"] };
   await allerA("nav.notes");
   await page.locator("#notes-classe").selectOption({ label: "3e A · 3e année" });
+  // Le programme de la classe arrive par sa propre lecture : on attend ses matières.
+  await expect(page.locator("#notes-matiere option")).toHaveCount(19);
   const toutes = await page.locator("#notes-matiere option").allTextContents();
-  expect(toutes).toHaveLength(19);
   const domaines = toutes.slice(0, 5);
   for (const [d, domaine] of domaines.entries()) {
     await page.locator("#notes-matiere").selectOption({ label: domaine });

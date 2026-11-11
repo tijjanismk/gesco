@@ -67,8 +67,9 @@ export function Fournisseurs() {
             />
             {e.droits.saisir ? (
               <FicheFournisseur
-                key={`${choisi ?? "nouveau"}-${String(tour)}`}
+                key={`${choisi ?? "nouveau"}-${String(tour)}-${String(fournisseur?.modifiee_le ?? 0)}`}
                 f={fournisseur}
+                surRelire={() => void client.invalidateQueries({ queryKey: ["fournisseurs"] })}
                 surFait={(x) => {
                   setTour(tour + 1);
                   apres(x);
@@ -133,13 +134,27 @@ function ListeFactures({
   );
 }
 
-function FicheFournisseur({ f, surFait, surNouveau }: { f: FournisseurAffiche | undefined; surFait: (e: Etat) => void; surNouveau: () => void }) {
+/**
+ * Le formulaire se refait à neuf dès que la fiche change (sa clé porte l'instant de sa dernière
+ * modification) : l'instant renvoyé est donc toujours celui des valeurs affichées à l'ouverture.
+ */
+function FicheFournisseur({
+  f,
+  surFait,
+  surNouveau,
+  surRelire,
+}: {
+  f: FournisseurAffiche | undefined;
+  surFait: (e: Etat) => void;
+  surNouveau: () => void;
+  surRelire: () => void;
+}) {
   const [nom, setNom] = useState(f?.fournisseur.nom ?? "");
   const [telephone, setTelephone] = useState(f?.fournisseur.telephone ?? "");
   const [fourniture, setFourniture] = useState(f?.fournisseur.fourniture ?? "");
   const [actif, setActif] = useState(f?.fournisseur.actif ?? true);
   const enregistrer = useMutation({
-    mutationFn: () => appeler("fournisseur_enregistrer", { id: f?.fournisseur.id ?? null, nom, telephone, fourniture, actif }),
+    mutationFn: () => appeler("fournisseur_enregistrer", { id: f?.fournisseur.id ?? null, lue_le: f?.modifiee_le ?? null, nom, telephone, fourniture, actif }),
     onSuccess: surFait,
   });
   return (
@@ -159,7 +174,7 @@ function FicheFournisseur({ f, surFait, surNouveau }: { f: FournisseurAffiche | 
           </Bouton>
         )}
       </div>
-      <MessageErreur erreur={enregistrer.error} />
+      <MessageErreur erreur={enregistrer.error} surRelire={surRelire} />
     </Formulaire>
   );
 }

@@ -358,6 +358,72 @@ test("avant une opération qui demande d'être seul, le poste principal montre l
   await allerA(page, "nav.postes");
 });
 
+test("le poste relié inscrit un élève, encaisse son premier versement et imprime le reçu", async () => {
+  // Le poste principal prépare l'année : une classe et ses frais, mis en vigueur.
+  const direction = principal.page;
+  await allerA(direction, "nav.classes");
+  await direction.locator("#classe-niveau").selectOption({ label: "3e année" });
+  await direction.locator("#classe-libelle").fill("3e A");
+  await direction.getByRole("button", { name: texte("classes.creer") }).click();
+  await expect(direction.getByRole("cell", { name: "3e A", exact: true })).toBeVisible({ timeout: 20_000 });
+  await allerA(direction, "nav.frais");
+  await direction.getByRole("button", { name: texte("frais.nouvelle") }).click();
+  await direction.getByRole("button", { name: texte("frais.ajouter_ligne") }).click();
+  await direction.locator("#frais-ligne-0-niveau-3").check();
+  await direction.locator("#frais-ligne-0-montant").fill("150000");
+  await direction.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(direction.getByText(/Enregistré à/)).toBeVisible({ timeout: 20_000 });
+  await direction.getByRole("button", { name: texte("frais.mettre_en_vigueur") }).click();
+  await expect(direction.getByRole("heading", { name: `Frais 2026-2027 · ${texte("frais.etat.en_vigueur")}` })).toBeVisible({ timeout: 20_000 });
+
+  // Le poste relié ouvre sa caisse.
+  const page = relie.page;
+  await allerA(page, "nav.caisse");
+  await page.locator("#caisse-fonds").fill("25000");
+  await page.getByRole("button", { name: texte("caisse.ouvrir_bouton") }).click();
+  await expect(page.getByRole("heading", { name: /Caisse ouverte depuis le/ })).toBeVisible({ timeout: 20_000 });
+
+  // L'assistant d'inscription, de la fiche de l'élève au reçu, sans quitter le poste relié.
+  await allerA(page, "nav.inscriptions");
+  await page.getByRole("button", { name: texte("inscriptions.assistant") }).click();
+  await page.locator("#nouvel-eleve-nom").fill("Diallo");
+  await page.locator("#nouvel-eleve-prenoms").fill("Fatoumata");
+  await page.locator("#nouvel-eleve-sexe").selectOption("feminin");
+  await page.locator("#nouvel-eleve-naissance").fill("2018-06-03");
+  await page.locator("#nouvel-eleve-lieu_naissance").fill("Kati");
+  await page.getByRole("button", { name: texte("eleves.creer") }).click();
+  await page.locator("#ajout-lien").selectOption("mere");
+  await page.locator("#nouveau-responsable-nom").fill("Diallo");
+  await page.locator("#nouveau-responsable-prenoms").fill("Kadiatou");
+  await page.locator("#nouveau-responsable-telephone-0").fill("76 45 12 90");
+  await page.getByRole("button", { name: texte("responsables.creer_et_lier") }).click();
+  await expect(page.getByText("+223 76 45 12 90")).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: texte("commun.continuer") }).click();
+  await page.locator("#inscription-classe").selectOption({ label: "3e A · 3e année" });
+  await expect(page.locator("#inscription-plan")).toBeVisible();
+  await page.getByRole("button", { name: texte("inscriptions.inscrire_et_valider") }).click();
+  await expect(page.getByText(`2026-2027 · 3e A · ${texte("inscriptions.statut.validee")}`)).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: texte("commun.continuer") }).click();
+
+  // La facture, puis le premier versement : le reçu, composé sur le poste principal, s'affiche
+  // sur le poste relié.
+  await expect(page.getByText(/facture FAC-2026-/)).toBeVisible({ timeout: 20_000 });
+  await page.locator("#encaissement-montant").fill("10000");
+  await expect(page.locator("#encaissement-payeur")).toHaveValue(/.+/);
+  await page.locator("#encaissement-montant").press("Enter");
+  await expect(page.getByRole("status").filter({ hasText: /REC-2026-\d{6}/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Reçu REC-2026-\d{6}/)).toBeVisible();
+  await expect(page.locator("iframe").last()).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(4000);
+  await page.getByRole("heading", { name: texte("inscriptions.premier_versement") }).scrollIntoViewIfNeeded();
+  await capturer(page, "156-poste-relie-inscription-versement-recu");
+
+  // L'écriture porte le nom du poste relié, et le poste principal voit l'élève inscrit.
+  await allerA(direction, "nav.inscriptions");
+  await expect(direction.getByRole("cell", { name: /Diallo/ }).first()).toBeVisible({ timeout: 20_000 });
+  await allerA(direction, "nav.postes");
+});
+
 test("poste principal éteint : la saisie reste, puis le poste reprend seul", async () => {
   const page = relie.page;
   await allerA(page, "nav.compte");

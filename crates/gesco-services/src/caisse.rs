@@ -6,7 +6,7 @@ use gesco_core::commun::{Horodatage, Id, Montant};
 use gesco_core::core::{MachineAEtats, Operation, Permission, TypeEvenement, Utilisateur};
 use gesco_core::finance::caisse::{total_theorique, verifier_cloture, verifier_ouverture};
 use gesco_core::finance::{ModePaiement, MouvementCaisse, SessionCaisse, StatutSession};
-use gesco_db::depots::{caisse, role, utilisateur};
+use gesco_db::depots::{caisse, utilisateur};
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
 use serde::{Deserialize, Serialize};
@@ -362,7 +362,9 @@ impl<'n> ServiceCaisse<'n> {
     pub async fn regularisations_a_viser(&self, session: &Session) -> Resultat<bool> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
-        if !role::permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+        if !self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
             .await?
             .contains(&Permission::CASHBOX_RECONCILE)
         {
@@ -397,7 +399,9 @@ impl<'n> ServiceCaisse<'n> {
             let mut cnx = self.connexion().await?;
             let s = caisse::lire(&mut cnx, id, &contexte).await?;
             if s.caissier_id != session.utilisateur_id
-                && !role::permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+                && !self
+                    .noyau
+                    .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
                     .await?
                     .contains(&Permission::CASHBOX_RECONCILE)
             {

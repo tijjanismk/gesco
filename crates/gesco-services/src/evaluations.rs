@@ -173,7 +173,7 @@ impl<'n> ServiceEvaluations<'n> {
         classe: &Classe,
     ) -> Resultat<Vec<(Id<Inscription>, String, String, DateCivile)>> {
         Ok(ServiceInscriptions::nouveau(self.noyau)
-            .lister(session, classe.annee_id)
+            .de_la_classe(session, classe)
             .await?
             .into_iter()
             .filter(|l| {

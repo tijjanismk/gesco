@@ -140,6 +140,12 @@ pub const COMMANDES_DE_FICHE: &[&str] = &[
     "classe_modifier",
     "grille_modifier",
     "etablissement_modifier",
+    "utilisateur_modifier",
+    "role_modifier",
+    "annee_modifier",
+    "inscription_modifier",
+    "enseignant_enregistrer",
+    "fournisseur_enregistrer",
 ];
 
 /// Pourquoi une commande qui modifie ne vérifie pas l'instant de dernière modification.
@@ -155,20 +161,11 @@ pub enum SansControle {
     Argent,
     /// Donnée de référence, réglée par la direction : la dernière écriture gagne.
     Reference,
-    /// Fiche modifiée en bloc, pas encore protégée : à faire entrer dans
-    /// [`COMMANDES_DE_FICHE`].
-    FicheAProteger,
 }
 
 /// Les autres commandes dont le nom dit qu'elles modifient, chacune avec sa raison. Un essai
 /// refuse toute commande de ce genre qui ne serait ni ici ni dans [`COMMANDES_DE_FICHE`].
 pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
-    ("utilisateur_modifier", SansControle::FicheAProteger),
-    ("role_modifier", SansControle::FicheAProteger),
-    ("annee_modifier", SansControle::FicheAProteger),
-    ("inscription_modifier", SansControle::FicheAProteger),
-    ("enseignant_enregistrer", SansControle::FicheAProteger),
-    ("fournisseur_enregistrer", SansControle::FicheAProteger),
     ("passage_regler", SansControle::Grille),
     ("absences_releve_enregistrer", SansControle::Grille),
     ("absences_seances_enregistrer", SansControle::Grille),

@@ -14,7 +14,7 @@ use gesco_core::pedagogie::emploi_du_temps::{
 use gesco_core::pedagogie::{Enseignant, Matiere};
 use gesco_core::scolarite::{Classe, Cycle, Personne};
 use gesco_db::depots::{
-    academique, annee_scolaire, emploi_du_temps, enseignants, pedagogie, personnes, role,
+    academique, annee_scolaire, emploi_du_temps, enseignants, pedagogie, personnes,
 };
 use gesco_db::unite::Durabilite;
 use gesco_db::{Contexte, nouvel_id};
@@ -304,7 +304,9 @@ impl<'n> ServiceEmploiDuTemps<'n> {
     pub async fn lire(&self, session: &Session) -> Resultat<EmploiDuTemps> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
-        let gere = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+        let gere = self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
             .await?
             .contains(&Permission::TIMETABLE_MANAGE);
         let c = Self::contenu(&mut cnx, &contexte).await?;

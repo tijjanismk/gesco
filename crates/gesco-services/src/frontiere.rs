@@ -222,7 +222,7 @@ use crate::sauvegarde::{
     ApercuSauvegarde, Avertissement, Destination, PARAMETRE_CERTIFICAT, RapportTest,
     ServiceSauvegarde,
 };
-use crate::secrets::{MotDePasse, Pin, mot_de_passe_correspond};
+use crate::secrets::{MotDePasse, Pin, mot_de_passe_correspond_a_part};
 use crate::session::{Jeton, PolitiqueSession, Session};
 use crate::tableau::{ServiceTableau, TableauDeBord};
 use crate::tresorerie::{
@@ -506,6 +506,8 @@ pub struct DemandeModificationUtilisateur {
     pub nom_affiche: String,
     /// Compte actif.
     pub actif: bool,
+    /// Instant de dernière modification lu avec la fiche ; rien ne s'enregistre s'il a bougé.
+    pub lue_le: i64,
 }
 
 /// Attribution ou retrait d'un rôle.
@@ -573,6 +575,8 @@ pub struct DemandeModificationAnnee {
     pub debut: Horodatage,
     /// Dernier jour.
     pub fin: Horodatage,
+    /// Instant de dernière modification lu avec la fiche ; rien ne s'enregistre s'il a bougé.
+    pub lue_le: i64,
 }
 
 /// Année désignée par son identifiant.
@@ -600,6 +604,8 @@ pub struct DemandeModificationRole {
     pub libelle: String,
     /// Codes des permissions accordées.
     pub permissions: Vec<String>,
+    /// Instant de dernière modification lu avec la fiche ; rien ne s'enregistre s'il a bougé.
+    pub lue_le: i64,
 }
 
 /// Rôle désigné par son code.
@@ -823,8 +829,8 @@ pub struct Application {
 }
 
 impl SourceCanaux for Application {
-    fn simule(&self) -> &dyn gesco_sms::Canal {
-        self.canal_simule.as_ref()
+    fn simule(&self) -> Arc<dyn gesco_sms::Canal> {
+        Arc::clone(&self.canal_simule) as Arc<dyn gesco_sms::Canal>
     }
 
     fn modem(&self, port: &str) -> Option<Arc<gesco_sms::CanalModem>> {
@@ -1605,12 +1611,14 @@ impl Application {
         )
     }
 
-    /// Fermeture de l'application : sauvegarde (§11.1), puis fermeture de la base.
+    /// Fermeture de l'application : sauvegarde (§11.1), puis fermeture de la base. Quand rien
+    /// ne s'est écrit depuis la dernière sauvegarde, elle ne se refait pas.
     pub async fn fermer(&self) -> Resultat<()> {
         let ouverte = self.etat.read().await.clone();
         if let Some(o) = ouverte
             && let Some(fiche) = Self::installe(&o.noyau).await?
             && self.cles.enveloppe_secours()?.is_some()
+            && !self.sauvegardes(&o).a_jour(fiche.id).await?
         {
             self.sauvegardes(&o)
                 .creer(fiche.id, None, MotifSauvegarde::Fermeture)
@@ -1639,7 +1647,8 @@ impl Application {
         let Some(fiche) = Self::installe(&o.noyau).await? else {
             return Ok(BilanFile::default());
         };
-        ServiceFile::nouveau(&o.noyau).traiter(fiche.id, self).await
+        // Sur le tas : un passage de la file tient beaucoup d'état d'un échange à l'autre.
+        Box::pin(ServiceFile::nouveau(&o.noyau).traiter(fiche.id, self)).await
     }
 
     /// Tâches périodiques, appelées par le binaire chaque minute : sauvegarde à l'intervalle
@@ -2312,6 +2321,7 @@ impl Application {
                 entree.id,
                 &entree.nom_affiche,
                 entree.actif,
+                entree.lue_le,
             )
             .await
     }
@@ -2378,6 +2388,7 @@ impl Application {
                 &entree.code,
                 &entree.libelle,
                 &entree.permissions,
+                entree.lue_le,
             )
             .await
     }
@@ -2418,6 +2429,7 @@ impl Application {
                 &entree.libelle,
                 entree.debut,
                 entree.fin,
+                entree.lue_le,
             )
             .await
     }
@@ -2716,7 +2728,7 @@ impl Application {
         entree: DemandeModificationInscription,
     ) -> Resultat<ResultatInscription> {
         ServiceInscriptions::nouveau(&appel.ouverte()?.noyau)
-            .modifier(appel.session()?, entree.id, &entree.champs)
+            .modifier(appel.session()?, entree.id, &entree.champs, entree.lue_le)
             .await
     }
 
@@ -3011,10 +3023,13 @@ impl Application {
                 .map_err(gesco_db::ErreurBase::from)?;
             let secrets =
                 utilisateur::lire_secrets(&mut cnx, session.utilisateur_id, &contexte).await?;
-            if !mot_de_passe_correspond(
+            drop(cnx);
+            if !mot_de_passe_correspond_a_part(
                 &MotDePasse(&entree.mot_de_passe),
                 &secrets.empreinte_mot_de_passe,
-            ) {
+            )
+            .await
+            {
                 return Err(ErreurService::Authentification(
                     MotifRefus::IdentifiantsInvalides,
                 ));

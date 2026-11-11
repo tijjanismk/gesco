@@ -1,12 +1,15 @@
 //! Le noyau applicatif : base, horloge, identité du poste, sessions et exécuteur d'effets.
 //! Les services s'y adossent ; la frontière (`gesco-app`) le détient en état partagé.
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use gesco_core::commun::Id;
-use gesco_core::core::{Etablissement, Poste, Utilisateur};
+use gesco_core::core::{Etablissement, Permission, Poste, Utilisateur};
+use gesco_db::depots::role;
 use gesco_db::unite::Durabilite;
-use gesco_db::{Base, Contexte, UniteDeTravail, nouvel_id};
+use gesco_db::{Base, Connexion, Contexte, UniteDeTravail, nouvel_id};
 
 use crate::effets::{Effet, ExecuteurEffets, JournalEffets};
 use crate::erreur::Resultat;
@@ -58,6 +61,29 @@ pub struct Noyau {
     effets: Arc<dyn ExecuteurEffets>,
     sessions: Sessions,
     politique_session: std::sync::RwLock<PolitiqueSession>,
+    permissions: PermissionsGardees,
+}
+
+/// Permissions des utilisateurs, gardées en mémoire entre deux écritures. Toute unité de travail
+/// validée les oublie : un rôle modifié, retiré, un compte désactivé prennent effet à la commande
+/// suivante, comme quand elles étaient relues à chaque fois.
+#[derive(Default)]
+struct PermissionsGardees {
+    /// Compte des écritures validées : une lecture commencée avant une écriture n'est pas gardée.
+    ecritures: AtomicU64,
+    lues: Mutex<HashMap<CleDePermissions, Arc<Vec<Permission>>>>,
+}
+
+/// Établissement et utilisateur dont les permissions sont gardées.
+type CleDePermissions = (String, String);
+
+impl PermissionsGardees {
+    fn oublier(&self) {
+        self.ecritures.fetch_add(1, Ordering::SeqCst);
+        if let Ok(mut lues) = self.lues.lock() {
+            lues.clear();
+        }
+    }
 }
 
 impl Noyau {
@@ -71,7 +97,39 @@ impl Noyau {
             effets: options.effets,
             sessions: Sessions::default(),
             politique_session: std::sync::RwLock::new(options.politique_session),
+            permissions: PermissionsGardees::default(),
         }
+    }
+
+    /// Permissions d'un utilisateur dans l'établissement du contexte. Lues en base la première
+    /// fois, puis gardées jusqu'à la prochaine écriture validée, quelle qu'elle soit.
+    pub async fn permissions_de(
+        &self,
+        cnx: &mut Connexion,
+        utilisateur_id: Id<Utilisateur>,
+        contexte: &Contexte,
+    ) -> Resultat<Arc<Vec<Permission>>> {
+        let cle = (
+            contexte.etablissement_id.vers_chaine(),
+            utilisateur_id.vers_chaine(),
+        );
+        if let Some(gardees) = self
+            .permissions
+            .lues
+            .lock()
+            .ok()
+            .and_then(|lues| lues.get(&cle).cloned())
+        {
+            return Ok(gardees);
+        }
+        let avant = self.permissions.ecritures.load(Ordering::SeqCst);
+        let lues = Arc::new(role::permissions_de(cnx, utilisateur_id, contexte).await?);
+        if let Ok(mut gardees) = self.permissions.lues.lock()
+            && self.permissions.ecritures.load(Ordering::SeqCst) == avant
+        {
+            gardees.insert(cle, Arc::clone(&lues));
+        }
+        Ok(lues)
     }
 
     /// Base de données.
@@ -213,7 +271,11 @@ impl Noyau {
     /// Retourne le nombre d'effets exécutés sans erreur.
     pub async fn terminer(&self, unite: UniteDeTravail<Effet>) -> Resultat<usize> {
         let contexte = unite.contexte().clone();
-        let effets = unite.valider().await?;
+        let effets = unite.valider().await;
+        // Validée ou non, l'écriture a pu toucher un rôle ou un compte : les permissions gardées
+        // se relisent.
+        self.permissions.oublier();
+        let effets = effets?;
         let mut reussis = 0;
         for effet in effets {
             if self.effets.executer(&contexte, effet).is_ok() {

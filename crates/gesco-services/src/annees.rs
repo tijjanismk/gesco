@@ -91,6 +91,7 @@ impl<'n> ServiceAnnees<'n> {
             fin,
             statut: StatutAnnee::Preparation,
             est_courante: false,
+            modifiee_le: self.noyau.horloge().maintenant().millis_epoque(),
         };
         self.verifier(session, &annee).await?;
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
@@ -132,6 +133,7 @@ impl<'n> ServiceAnnees<'n> {
         libelle: &str,
         debut: Horodatage,
         fin: Horodatage,
+        lue_le: i64,
     ) -> Resultat<AnneeScolaire> {
         let avant = self.lire(session, id).await?;
         if avant.statut != StatutAnnee::Preparation {
@@ -145,10 +147,23 @@ impl<'n> ServiceAnnees<'n> {
         };
         self.verifier(session, &apres).await?;
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let apres = AnneeScolaire {
+            modifiee_le: contexte.maintenant.millis_epoque(),
+            ..apres
+        };
         let mut unite = self
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
+        crate::fraicheur::verifier(
+            unite.connexion(),
+            &[crate::fraicheur::Ligne::par_id(
+                "annee_scolaire",
+                id.vers_chaine(),
+            )],
+            lue_le,
+        )
+        .await?;
         annee_scolaire::modifier(unite.connexion(), &apres, &contexte).await?;
         unite.auditer(
             "annee_scolaire",

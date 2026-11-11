@@ -59,14 +59,33 @@ function FicheUtilisateurPanneau({ fiche, roles }: { fiche: FicheUtilisateur; ro
   const [nom, setNom] = useState(fiche.utilisateur.nom_affiche);
   const [actif, setActif] = useState(fiche.utilisateur.actif);
   const [enregistre, setEnregistre] = useState<number | null>(null);
+  // L'instant lu avec la fiche : il suit les écritures de ce poste, pas une relecture de fond,
+  // pour qu'une modification faite ailleurs pendant la saisie soit refusée et non écrasée.
+  const [lueLe, setLueLe] = useState(fiche.modifiee_le);
+  const relire = async (): Promise<FicheUtilisateur | undefined> => {
+    await client.invalidateQueries({ queryKey: ["utilisateurs"] });
+    const relue = client
+      .getQueryData<readonly FicheUtilisateur[]>(["utilisateurs"])
+      ?.find((f) => f.utilisateur.id === fiche.utilisateur.id);
+    if (relue !== undefined) setLueLe(relue.modifiee_le);
+    return relue;
+  };
   const rafraichir = () => {
     setEnregistre(Date.now());
-    void client.invalidateQueries({ queryKey: ["utilisateurs"] });
+    void relire();
   };
   const modification = useMutation({
-    mutationFn: () => appeler("utilisateur_modifier", { id: fiche.utilisateur.id, nom_affiche: nom, actif }),
+    mutationFn: () => appeler("utilisateur_modifier", { id: fiche.utilisateur.id, lue_le: lueLe, nom_affiche: nom, actif }),
     onSuccess: rafraichir,
   });
+  const relireLaFiche = () => {
+    void relire().then((relue) => {
+      if (relue === undefined) return;
+      setNom(relue.utilisateur.nom_affiche);
+      setActif(relue.utilisateur.actif);
+      modification.reset();
+    });
+  };
   const attribution = useMutation({
     mutationFn: (demande: { role: string; attribue: boolean }) =>
       appeler("role_attribuer", { utilisateur_id: fiche.utilisateur.id, ...demande }),
@@ -131,7 +150,7 @@ function FicheUtilisateurPanneau({ fiche, roles }: { fiche: FicheUtilisateur; ro
           surChangement={(attribue) => attribution.mutate({ role: r.role.code, attribue })}
         />
       ))}
-      <MessageErreur erreur={modification.error ?? attribution.error ?? reinitialisation.error ?? deverrouillage.error} />
+      <MessageErreur erreur={modification.error ?? attribution.error ?? reinitialisation.error ?? deverrouillage.error} surRelire={relireLaFiche} />
       <MessageEnregistre instant={enregistre} />
     </Section>
   );

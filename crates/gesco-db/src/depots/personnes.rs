@@ -1,7 +1,9 @@
 //! Personnes, élèves, responsables et liens (SPEC_PHASE_2 §4).
 
 use gesco_core::commun::{DateCivile, Id};
-use gesco_core::scolarite::{Eleve, Lien, NatureActe, Personne, Qualites, Responsable, Sexe};
+use gesco_core::scolarite::{
+    Classe, Eleve, Lien, NatureActe, Personne, Qualites, Responsable, Sexe,
+};
 use sqlx::FromRow;
 
 use crate::Connexion;
@@ -379,6 +381,28 @@ pub async fn eleves(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<Vec<(E
          ORDER BY p.nom, p.prenoms"
     ))
     .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(LigneEleve::vers_entite)
+    .collect()
+}
+
+/// Élèves inscrits dans une classe et leur identité, fiches absorbées exclues : la saisie d'une
+/// note, d'un appel ou d'un bulletin ne lit pas les fiches de toute l'école.
+pub async fn eleves_de_la_classe(
+    cnx: &mut Connexion,
+    classe_id: Id<Classe>,
+    contexte: &Contexte,
+) -> Resultat<Vec<(Eleve, Personne)>> {
+    sqlx::query_as::<_, LigneEleve>(selectionner_eleve!(
+        "WHERE e.etablissement_id = ?1 AND e.supprime_le IS NULL AND e.fusionne_dans IS NULL
+           AND e.id IN (SELECT eleve_id FROM inscription
+                        WHERE classe_id = ?2 AND etablissement_id = ?1)
+         ORDER BY p.nom, p.prenoms"
+    ))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(classe_id.vers_chaine())
     .fetch_all(cnx)
     .await?
     .into_iter()

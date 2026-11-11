@@ -71,6 +71,8 @@ pub struct FournisseurAffiche {
     pub du: Montant,
     /// Une de ses factures a passé son échéance.
     pub en_retard: bool,
+    /// Instant de dernière modification, à renvoyer avec la modification.
+    pub modifiee_le: i64,
 }
 
 /// Les fournisseurs et leurs factures.
@@ -107,6 +109,10 @@ pub struct DemandeFournisseur {
     pub fourniture: String,
     /// Faux pour le retirer.
     pub actif: bool,
+    /// Instant de dernière modification lu avec la fiche ; exigé pour modifier une fiche,
+    /// absent pour en créer une.
+    #[serde(default)]
+    pub lue_le: Option<i64>,
 }
 
 /// Facture reçue d'un fournisseur.
@@ -270,11 +276,20 @@ impl<'n> ServiceFournisseurs<'n> {
             total_du = total_du
                 .ajouter(du)
                 .map_err(|_| regle("depense.calcul_impossible"))?;
+            let modifiee_le = crate::fraicheur::instant(
+                &mut cnx,
+                &[crate::fraicheur::Ligne::par_id(
+                    "fournisseur",
+                    f.id.vers_chaine(),
+                )],
+            )
+            .await?;
             affiches.push(FournisseurAffiche {
                 factures_ouvertes: u32::try_from(ouvertes.len()).unwrap_or(u32::MAX),
                 en_retard: ouvertes.iter().any(|x| x.en_retard),
                 du,
                 fournisseur: f,
+                modifiee_le,
             });
         }
         let caisse_ouverte = caisse::ouverte_de(&mut cnx, session.utilisateur_id, &contexte)
@@ -335,6 +350,16 @@ impl<'n> ServiceFournisseurs<'n> {
             return Err(regle("fournisseur.nom_en_double"));
         }
         if avant.is_some() {
+            let lue_le = demande.lue_le.ok_or(regle("commande.entree_invalide"))?;
+            crate::fraicheur::verifier(
+                unite.connexion(),
+                &[crate::fraicheur::Ligne::par_id(
+                    "fournisseur",
+                    apres.id.vers_chaine(),
+                )],
+                lue_le,
+            )
+            .await?;
             fournisseurs::ecrire_fournisseur(unite.connexion(), &apres, &contexte).await?;
         } else {
             fournisseurs::inserer_fournisseur(unite.connexion(), &apres, &contexte).await?;

@@ -334,6 +334,7 @@ async fn une_annee_de_la_phase_3_recoit_son_referentiel_pedagogique() {
         fin: Horodatage::depuis_millis_epoque(1_816_992_000_000),
         statut: gesco_core::core::StatutAnnee::Active,
         est_courante: true,
+        modifiee_le: 0,
     };
     {
         let mut cnx = noyau.base().pool().acquire().await.unwrap();
@@ -438,6 +439,7 @@ async fn les_enseignants_d_avant_la_phase_6_entrent_au_registre_du_personnel() {
         fin: Horodatage::depuis_millis_epoque(1_816_992_000_000),
         statut: gesco_core::core::StatutAnnee::Active,
         est_courante: true,
+        modifiee_le: 0,
     };
     let mut ids = Vec::new();
     {

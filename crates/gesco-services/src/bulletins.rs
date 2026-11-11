@@ -4,6 +4,8 @@
 //! seul tenant, chaque bulletin avec son QR de vérification. Publié, un bulletin ne change plus :
 //! une correction en crée une nouvelle version. Les impayés ne bloquent rien (T-36).
 
+use std::sync::Arc;
+
 use gesco_core::commun::{DateCivile, Horodatage, Id};
 use gesco_core::core::{MachineAEtats, Operation, Permission, TypeEvenement};
 use gesco_core::pedagogie::assiduite::{TotauxAbsences, totaux};
@@ -22,8 +24,7 @@ use gesco_core::pedagogie::{
 use gesco_core::scolarite::{Classe, Cycle, DiplomeTerminal, Inscription, StatutInscription};
 use gesco_db::depots::bulletins::APPRECIATION_GENERALE;
 use gesco_db::depots::{
-    absences, academique, annee_scolaire, bulletins, enseignants, evaluations, parametre,
-    pedagogie, role,
+    absences, academique, annee_scolaire, bulletins, enseignants, evaluations, parametre, pedagogie,
 };
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
@@ -199,10 +200,12 @@ impl<'n> ServiceBulletins<'n> {
             .map_err(gesco_db::ErreurBase::from)?)
     }
 
-    async fn permissions(&self, session: &Session) -> Resultat<Vec<Permission>> {
+    async fn permissions(&self, session: &Session) -> Resultat<Arc<Vec<Permission>>> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
-        Ok(role::permissions_de(&mut cnx, session.utilisateur_id, &contexte).await?)
+        self.noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+            .await
     }
 
     /// Calcule le contenu des bulletins d'une classe, sans rien écrire.
@@ -262,7 +265,7 @@ impl<'n> ServiceBulletins<'n> {
         // Un élève arrivé après la fin de la période ne l'a pas suivie (Q-27) : pas de bulletin.
         let eleves: Vec<(Id<Inscription>, String, String, DateCivile)> =
             ServiceInscriptions::nouveau(self.noyau)
-                .lister(session, classe.annee_id)
+                .de_la_classe(session, &classe)
                 .await?
                 .into_iter()
                 .filter(|l| {

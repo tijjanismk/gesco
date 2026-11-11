@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { appeler } from "../api";
+import { ErreurApi, appeler } from "../api";
 import { MessageErreur } from "../composants/Messages";
 import { t } from "../i18n";
 import { ClesVerrouillees } from "../modules/accueil/ClesVerrouillees";
@@ -29,8 +29,13 @@ export function Application() {
   }, [verrouiller, fermer]);
 
   if (etat.isPending || poste.info === null) return <p className="p-6 text-muet">{t("commun.chargement")}</p>;
-  // Un poste relié qui n'obtient rien du poste principal le dit, garde son bandeau et réessaie.
-  if (etat.isError && poste.info.relie) {
+  // Une relecture qui échoue parce que la liaison est coupée laisse l'écran en place, avec ce
+  // qui y est saisi : le bandeau dit la coupure, et l'état se relit au retour de la liaison.
+  const coupee =
+    etat.data !== undefined && etat.error instanceof ErreurApi && etat.error.cle === "reseau.poste_principal_injoignable";
+  // Un poste relié qui n'obtient rien du poste principal, ou qu'il refuse, le dit, garde son
+  // bandeau et réessaie.
+  if (etat.isError && !coupee && poste.info.relie) {
     return (
       <>
         <BandeauPoste />
@@ -38,7 +43,7 @@ export function Application() {
       </>
     );
   }
-  if (etat.isError) return <div className="p-6"><MessageErreur erreur={etat.error} /></div>;
+  if ((etat.isError && !coupee) || etat.data === undefined) return <div className="p-6"><MessageErreur erreur={etat.error} /></div>;
   return (
     <>
       <Ecran

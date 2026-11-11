@@ -250,6 +250,11 @@ export type AnneeScolaire = {
 	statut: StatutAnnee,
 	/**  Une seule année courante par établissement, garantie en base. */
 	est_courante: boolean,
+	/**
+	 *  Instant de dernière modification, millisecondes depuis l'époque : l'écran le renvoie
+	 *  quand il modifie l'année.
+	 */
+	modifiee_le?: number,
 };
 
 /**  Année suivante en préparation : ses classes et les réinscriptions qu'elle a reçues. */
@@ -2785,6 +2790,11 @@ export type DemandeEnseignant = {
 	utilisateur_id: string | null,
 	/**  Faux pour un enseignant parti. */
 	actif: boolean,
+	/**
+	 *  Instant de dernière modification lu avec la fiche ; exigé pour modifier une fiche,
+	 *  absent pour en créer une.
+	 */
+	lue_le?: number | null,
 };
 
 /**  SMS d'essai vers un numéro saisi. */
@@ -2924,6 +2934,11 @@ export type DemandeFournisseur = {
 	fourniture: string,
 	/**  Faux pour le retirer. */
 	actif: boolean,
+	/**
+	 *  Instant de dernière modification lu avec la fiche ; exigé pour modifier une fiche,
+	 *  absent pour en créer une.
+	 */
+	lue_le?: number | null,
 };
 
 /**  Fiches désignées pour la fusion. */
@@ -3279,6 +3294,8 @@ export type DemandeModificationAnnee = {
 	debut: number,
 	/**  Dernier jour. */
 	fin: number,
+	/**  Instant de dernière modification lu avec la fiche ; rien ne s'enregistre s'il a bougé. */
+	lue_le: number,
 };
 
 /**  Nouveau libellé d'une classe. */
@@ -3321,6 +3338,8 @@ export type DemandeModificationInscription = {
 	id: string,
 	/**  Champs du brouillon. */
 	champs: DemandeInscription,
+	/**  Instant de dernière modification lu avec la fiche ; rien ne s'enregistre s'il a bougé. */
+	lue_le: number,
 };
 
 /**  Rectification d'un responsable et de son lien. */
@@ -3345,6 +3364,8 @@ export type DemandeModificationRole = {
 	libelle: string,
 	/**  Codes des permissions accordées. */
 	permissions: string[],
+	/**  Instant de dernière modification lu avec la fiche ; rien ne s'enregistre s'il a bougé. */
+	lue_le: number,
 };
 
 /**  Modification d'un utilisateur. */
@@ -3355,6 +3376,8 @@ export type DemandeModificationUtilisateur = {
 	nom_affiche: string,
 	/**  Compte actif. */
 	actif: boolean,
+	/**  Instant de dernière modification lu avec la fiche ; rien ne s'enregistre s'il a bougé. */
+	lue_le: number,
 };
 
 /**  Mois demandé. */
@@ -5102,6 +5125,11 @@ export type FicheEnseignant = {
 	telephones: string[],
 	/**  Nom affiché du compte lié. */
 	compte: string | null,
+	/**
+	 *  Instant de dernière modification de l'enseignant ou de son identité, à renvoyer avec
+	 *  la modification.
+	 */
+	modifiee_le: number,
 };
 
 /**  Fiche affichée par l'écran Établissement. */
@@ -5152,6 +5180,8 @@ export type FicheRole = {
 	role: Role,
 	/**  Permissions du rôle. */
 	permissions: string[],
+	/**  Instant de dernière modification, à renvoyer avec la modification. */
+	modifiee_le: number,
 };
 
 /**  Utilisateur et codes de ses rôles. */
@@ -5160,6 +5190,11 @@ export type FicheUtilisateur = {
 	utilisateur: Utilisateur,
 	/**  Codes des rôles attribués. */
 	roles: string[],
+	/**
+	 *  Instant de dernière modification du compte, à renvoyer avec la modification. Une
+	 *  connexion du compte le fait bouger aussi.
+	 */
+	modifiee_le: number,
 };
 
 /**  Classeur écrit. */
@@ -5296,6 +5331,8 @@ export type FournisseurAffiche = {
 	du: Montant,
 	/**  Une de ses factures a passé son échéance. */
 	en_retard: boolean,
+	/**  Instant de dernière modification, à renvoyer avec la modification. */
+	modifiee_le: number,
 };
 
 /**  Les fournisseurs et leurs factures. */
@@ -5467,6 +5504,8 @@ export type InscriptionAffichee = {
 	classe: string,
 	/**  Libellé de l'année. */
 	annee: string,
+	/**  Instant de dernière modification, à renvoyer avec la modification. */
+	modifiee_le: number,
 };
 
 /**  Ce qu'il est advenu d'un SMS reçu. */

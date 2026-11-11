@@ -1935,6 +1935,7 @@ name = "gesco-remplir"
 version = "1.2.7"
 dependencies = [
  "gesco-core",
+ "gesco-reseau",
  "gesco-services",
  "keyring-core",
  "serde_json",

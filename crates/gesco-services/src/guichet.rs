@@ -13,7 +13,7 @@ use gesco_core::pedagogie::assiduite::{DemiJournee, NatureAbsence};
 use gesco_core::scolarite::{Eleve, Inscription, Responsable, StatutInscription};
 use gesco_db::depots::{
     absences, academique, annee_scolaire, factures, file_sms, inscriptions, personnes,
-    remises_documents, role,
+    remises_documents,
 };
 use gesco_db::{Connexion, Contexte};
 use serde::{Deserialize, Serialize};
@@ -333,7 +333,10 @@ impl<'n> ServiceGuichet<'n> {
                 });
             }
         }
-        let p = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte).await?;
+        let p = self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+            .await?;
         let sms_actif = crate::file_sms::module_actif(&mut cnx, &contexte).await?;
         Ok(Guichet {
             sms_actif,

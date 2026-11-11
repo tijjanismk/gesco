@@ -115,6 +115,7 @@ fn annee(etablissement_id: Id<Etablissement>, libelle: &str, courante: bool) -> 
         fin: Horodatage::depuis_millis_epoque(2_000),
         statut: StatutAnnee::Preparation,
         est_courante: courante,
+        modifiee_le: 0,
     }
 }
 

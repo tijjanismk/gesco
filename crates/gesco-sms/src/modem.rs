@@ -126,6 +126,12 @@ impl CanalModem {
         resultat
     }
 
+    /// Vrai tant que la session est ouverte : le dernier échange avec la clé a abouti. Une
+    /// coupure la referme ; la file ne redemande alors à la clé si elle répond qu'après elle.
+    pub fn session_ouverte(&self) -> bool {
+        self.session.lock().is_ok_and(|s| s.is_some())
+    }
+
     /// Vérifie que la clé répond.
     ///
     /// # Errors

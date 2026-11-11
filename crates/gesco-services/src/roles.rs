@@ -125,9 +125,15 @@ impl<'n> ServiceRoles<'n> {
         contexte: &Contexte,
     ) -> Resultat<FicheRole> {
         let permissions = role::permissions_du_role(unite.connexion(), r.id, contexte).await?;
+        let modifiee_le = crate::fraicheur::instant(
+            unite.connexion(),
+            &[crate::fraicheur::Ligne::par_id("role", r.id.vers_chaine())],
+        )
+        .await?;
         Ok(FicheRole {
             role: r,
             permissions,
+            modifiee_le,
         })
     }
 
@@ -200,6 +206,7 @@ impl<'n> ServiceRoles<'n> {
         code: &str,
         libelle: &str,
         permissions: &[String],
+        lue_le: i64,
     ) -> Resultat<FicheRole> {
         let composition = lire_permissions(permissions)?;
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
@@ -213,6 +220,12 @@ impl<'n> ServiceRoles<'n> {
         if r.code == RoleSysteme::Administrateur.code() {
             return Err(regle("role.administrateur_intouchable"));
         }
+        crate::fraicheur::verifier(
+            unite.connexion(),
+            &[crate::fraicheur::Ligne::par_id("role", r.id.vers_chaine())],
+            lue_le,
+        )
+        .await?;
         let avant = role::permissions_du_role(unite.connexion(), r.id, &contexte).await?;
         let ajoutees: Vec<Permission> = composition
             .iter()
@@ -233,6 +246,9 @@ impl<'n> ServiceRoles<'n> {
             libelle.clone_into(&mut r.libelle);
         }
         role::definir_permissions(unite.connexion(), r.id, &composition, &contexte).await?;
+        // La composition vit dans une autre table : le rôle lui-même est marqué modifié, pour
+        // qu'une seconde modification partie de l'ancienne composition soit refusée.
+        role::renommer(unite.connexion(), r.id, &r.libelle, &contexte).await?;
         let id = r.id.vers_chaine();
         unite.auditer(
             "role",

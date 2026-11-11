@@ -62,6 +62,10 @@ pub struct AnneeScolaire {
     pub statut: StatutAnnee,
     /// Une seule année courante par établissement, garantie en base.
     pub est_courante: bool,
+    /// Instant de dernière modification, millisecondes depuis l'époque : l'écran le renvoie
+    /// quand il modifie l'année.
+    #[serde(default)]
+    pub modifiee_le: i64,
 }
 
 /// Durée maximale d'une année scolaire : quatorze mois, comptés en 427 jours.
@@ -125,6 +129,7 @@ mod tests {
             fin: Horodatage::depuis_millis_epoque(fin_jour * jour),
             statut: StatutAnnee::Preparation,
             est_courante: false,
+            modifiee_le: 0,
         }
     }
 

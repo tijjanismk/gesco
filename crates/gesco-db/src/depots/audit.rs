@@ -178,6 +178,20 @@ pub async fn derniere_de_l_origine(
     .await?)
 }
 
+/// Origine de la dernière ligne du journal (`sauvegarde.creer`…), s'il en a une : elle dit si
+/// quelque chose s'est écrit depuis.
+pub async fn derniere_origine(
+    cnx: &mut Connexion,
+    contexte: &Contexte,
+) -> Resultat<Option<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT contexte FROM journal_audit WHERE etablissement_id = ?1 ORDER BY rowid DESC LIMIT 1",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_optional(cnx)
+    .await?)
+}
+
 /// Les lignes du journal entre deux instants (le second exclu), dans l'ordre de la chaîne.
 pub async fn entre(
     cnx: &mut Connexion,

@@ -8,6 +8,10 @@
 //! gesco-remplir poste             base du poste (%APPDATA%\ml.gesco.poste), après le premier
 //!                                 démarrage fait à l'écran ; demande l'identifiant et le mot de
 //!                                 passe de l'administrateur
+//! gesco-remplir mesurer <dossier> [postes] [tours] [pause en ms]
+//!                                 mesure à plusieurs postes sur une école d'essai déjà remplie
+//!                                 (dix postes, quarante tours, 100 ms par défaut) ; l'école est
+//!                                 modifiée : mesurer une copie
 //! ```
 //!
 //! Tout passe par les commandes de l'application, comme l'écran : factures, échéances, bulletins,
@@ -38,12 +42,19 @@ use serde_json::{Value, json};
 
 #[path = "../../../crates/gesco-app/src/empreinte.rs"]
 mod empreinte;
+// Le fichier porte aussi le coffre de la liaison d'un poste relié, dont l'outil ne se sert pas.
+#[allow(
+    dead_code,
+    reason = "trousseau.rs de gesco-app est inclus en entier ; l'outil n'en utilise que le trousseau"
+)]
 #[path = "../../../crates/gesco-app/src/trousseau.rs"]
 mod trousseau;
 
+mod mesure;
+
 type R<T> = Result<T, String>;
 
-const USAGE: &str = "usage : gesco-remplir essai <dossier> | gesco-remplir poste";
+const USAGE: &str = "usage : gesco-remplir essai <dossier> | gesco-remplir poste | gesco-remplir mesurer <dossier> [postes] [tours] [pause en ms]";
 
 /// Mot de passe de l'administrateur d'une école d'essai : noté dans son `LISEZ-MOI.txt`.
 const MOT_DE_PASSE_ESSAI: &str = "demonstration-2026";
@@ -1070,6 +1081,19 @@ impl Ecole {
 async fn lancer() -> R<()> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     let mode = arguments.first().map(String::as_str);
+    if mode == Some("mesurer") {
+        let nombre = |rang: usize, defaut: u64| -> R<u64> {
+            arguments.get(rang).map_or(Ok(defaut), |texte| {
+                texte.parse().map_err(|_| USAGE.to_owned())
+            })
+        };
+        let reglages = mesure::Reglages {
+            postes: usize::try_from(nombre(2, 10)?).map_err(|_| USAGE)?,
+            tours: usize::try_from(nombre(3, 40)?).map_err(|_| USAGE)?,
+            pause_ms: nombre(4, 100)?,
+        };
+        return mesure::lancer(PathBuf::from(arguments.get(1).ok_or(USAGE)?), reglages).await;
+    }
     let (racine, trousseau, essai): (PathBuf, Arc<dyn Trousseau>, bool) = match mode {
         Some("essai") => {
             let dossier = PathBuf::from(arguments.get(1).ok_or(USAGE)?);

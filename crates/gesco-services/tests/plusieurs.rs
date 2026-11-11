@@ -430,3 +430,294 @@ async fn une_restauration_ferme_les_sessions_de_tous_les_postes() {
         .unwrap_err();
     assert_eq!(refus.cle, "session.invalide");
 }
+
+/// Joue le croisement sur une fiche : Awa enregistre avec l'instant lu, puis Fanta, restée sur
+/// l'instant d'avant, est refusée, relit et enregistre. `relire` rend l'instant de la fiche.
+async fn croiser<L, F>(
+    p: &Poste_,
+    awa: &Jeton,
+    fanta: &Jeton,
+    commande: &str,
+    entree: impl Fn(&'static str, &Value) -> Value,
+    lue: &Value,
+    relire: L,
+) -> Value
+where
+    L: Fn() -> F,
+    F: Future<Output = Value>,
+{
+    assert!(lue.as_i64().unwrap() > 0, "{commande} : instant absent");
+    p.horloge.avancer(1_000);
+    p.ok(commande, Some(awa), entree("Awa", lue)).await;
+    let apres = relire().await;
+    seconde_refusee_puis_acceptee(p, fanta, commande, |l| entree("Fanta", l), lue, &apres).await
+}
+
+#[tokio::test]
+async fn la_seconde_modification_d_un_compte_d_un_role_et_d_une_annee_est_refusee() {
+    let dossier = tempfile::tempdir().unwrap();
+    let (p, awa, fanta, _) = ecole(dossier.path()).await;
+
+    // Compte d'un utilisateur.
+    p.ok(
+        "utilisateur_creer",
+        Some(&awa),
+        json!({
+            "identifiant": "moussa", "nom_affiche": "Moussa Keïta",
+            "mot_de_passe_initial": "secretariat-2026-accueil", "roles": ["secretaire"],
+        }),
+    )
+    .await;
+    let compte = || async {
+        p.ok("utilisateurs_lister", Some(&awa), Value::Null)
+            .await
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["utilisateur"]["identifiant"] == "moussa")
+            .unwrap()
+            .clone()
+    };
+    let moussa = compte().await;
+    let id = moussa["utilisateur"]["id"].clone();
+    let par_fanta = croiser(
+        &p,
+        &awa,
+        &fanta,
+        "utilisateur_modifier",
+        |qui, lue_le| json!({ "id": id, "lue_le": lue_le, "nom_affiche": format!("Moussa ({qui})"), "actif": true }),
+        &moussa["modifiee_le"],
+        || async { compte().await["modifiee_le"].clone() },
+    )
+    .await;
+    assert_eq!(par_fanta["nom_affiche"], "Moussa (Fanta)");
+
+    // Rôle : sa composition vit dans une autre table, le rôle est marqué modifié avec elle.
+    let role = p
+        .ok(
+            "role_creer",
+            Some(&awa),
+            json!({ "libelle": "Accueil", "permissions": ["students:read"] }),
+        )
+        .await;
+    let code = role["role"]["code"].clone();
+    let lu = || async {
+        p.ok("roles_lister", Some(&awa), Value::Null)
+            .await
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["role"]["code"] == code)
+            .unwrap()["modifiee_le"]
+            .clone()
+    };
+    assert_eq!(lu().await, role["modifiee_le"]);
+    let par_fanta = croiser(
+        &p,
+        &awa,
+        &fanta,
+        "role_modifier",
+        |qui, lue_le| {
+            let permissions = if qui == "Awa" {
+                json!(["students:read", "documents:reprint"])
+            } else {
+                json!(["students:read", "attendance:create"])
+            };
+            json!({ "code": code, "lue_le": lue_le, "libelle": "Accueil", "permissions": permissions })
+        },
+        &role["modifiee_le"],
+        lu,
+    )
+    .await;
+    assert_eq!(par_fanta["permissions"].as_array().unwrap().len(), 2);
+    assert_eq!(lu().await, par_fanta["modifiee_le"]);
+
+    // Année en préparation.
+    let annee = p
+        .ok(
+            "annee_creer",
+            Some(&awa),
+            json!({ "libelle": "2027-2028", "debut": FIN_2027 + 86_400_000, "fin": FIN_2028 }),
+        )
+        .await;
+    let id = annee["id"].clone();
+    let lue = || async {
+        p.ok("annees_lister", Some(&awa), Value::Null)
+            .await
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["id"] == id)
+            .unwrap()["modifiee_le"]
+            .clone()
+    };
+    let depart = lue().await;
+    let par_fanta = croiser(
+        &p,
+        &awa,
+        &fanta,
+        "annee_modifier",
+        |qui, lue_le| {
+            let debut = FIN_2027 + if qui == "Awa" { 2 } else { 3 } * 86_400_000;
+            json!({ "id": id, "lue_le": lue_le, "libelle": "2027-2028", "debut": debut, "fin": FIN_2028 })
+        },
+        &depart,
+        lue,
+    )
+    .await;
+    assert_eq!(par_fanta["debut"], FIN_2027 + 3 * 86_400_000);
+    assert_eq!(lue().await, par_fanta["modifiee_le"]);
+}
+
+#[tokio::test]
+async fn la_seconde_modification_d_une_inscription_d_un_enseignant_et_d_un_fournisseur_est_refusee()
+{
+    let dossier = tempfile::tempdir().unwrap();
+    let (p, awa, fanta, annee) = ecole(dossier.path()).await;
+
+    // Inscription en brouillon : l'école d'origine se corrige.
+    let referentiel = p.ok("niveaux_lister", Some(&awa), Value::Null).await;
+    let sept = referentiel["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "7")
+        .unwrap()
+        .clone();
+    let classe = p
+        .ok(
+            "classe_creer",
+            Some(&awa),
+            json!({ "annee_id": annee["id"], "niveau_id": sept["id"], "serie_id": null, "libelle": "7e A" }),
+        )
+        .await;
+    let eleve = p
+        .ok(
+            "eleve_creer",
+            Some(&awa),
+            json!({
+                "identite": identite("Traoré", "Awa", json!([])), "matricule_interne": "",
+                "matricule_national": "", "acte_nature": "acte", "acte_numero": "", "acte_date": "",
+                "ecole_origine": "",
+            }),
+        )
+        .await;
+    let champs = |origine: &str| {
+        json!({
+            "eleve_id": eleve["eleve"]["id"], "classe_id": classe["id"], "date_inscription": "",
+            "redoublant": false, "etablissement_origine": origine,
+        })
+    };
+    let brouillon = p.ok("inscription_creer", Some(&awa), champs("")).await;
+    let id = brouillon["inscription"]["id"].clone();
+    let lue = || async {
+        p.ok(
+            "eleve_lire",
+            Some(&awa),
+            json!({ "id": eleve["eleve"]["id"] }),
+        )
+        .await["inscriptions"][0]["modifiee_le"]
+            .clone()
+    };
+    let depart = lue().await;
+    let par_fanta = croiser(
+        &p,
+        &awa,
+        &fanta,
+        "inscription_modifier",
+        |qui, lue_le| json!({ "id": id, "lue_le": lue_le, "champs": champs(&format!("École de {qui}")) }),
+        &depart,
+        lue,
+    )
+    .await;
+    assert_eq!(
+        par_fanta["inscription"]["etablissement_origine"],
+        "École de Fanta"
+    );
+
+    // Enseignant : créer ne demande pas d'instant, modifier l'exige.
+    let enseignant = |id: &Value, lue_le: &Value, prenoms: &str| {
+        json!({
+            "id": id, "lue_le": lue_le, "nom": "Sangaré", "prenoms": prenoms, "telephones": [],
+            "statut": "titulaire", "utilisateur_id": null, "actif": true,
+        })
+    };
+    let fiche = p
+        .ok(
+            "enseignant_enregistrer",
+            Some(&awa),
+            enseignant(&Value::Null, &Value::Null, "Oumar"),
+        )
+        .await;
+    let id = fiche["enseignant"]["id"].clone();
+    assert_eq!(
+        p.refus(
+            "enseignant_enregistrer",
+            Some(&awa),
+            enseignant(&id, &Value::Null, "Oumar")
+        )
+        .await
+        .cle,
+        "commande.entree_invalide"
+    );
+    let lue = || async {
+        p.ok("enseignants_lister", Some(&awa), Value::Null).await[0]["modifiee_le"].clone()
+    };
+    assert_eq!(lue().await, fiche["modifiee_le"]);
+    let par_fanta = croiser(
+        &p,
+        &awa,
+        &fanta,
+        "enseignant_enregistrer",
+        |qui, lue_le| enseignant(&id, lue_le, &format!("Oumar ({qui})")),
+        &fiche["modifiee_le"],
+        lue,
+    )
+    .await;
+    assert_eq!(par_fanta["prenoms"], "Oumar (Fanta)");
+    assert_eq!(lue().await, par_fanta["modifiee_le"]);
+
+    // Fournisseur.
+    let fournisseur = |id: &Value, lue_le: &Value, fourniture: &str| {
+        json!({
+            "id": id, "lue_le": lue_le, "nom": "Quincaillerie du marché", "telephone": "",
+            "fourniture": fourniture, "actif": true,
+        })
+    };
+    let etat = p
+        .ok(
+            "fournisseur_enregistrer",
+            Some(&awa),
+            fournisseur(&Value::Null, &Value::Null, "Ciment"),
+        )
+        .await;
+    let id = etat["fournisseurs"][0]["fournisseur"]["id"].clone();
+    assert_eq!(
+        p.refus(
+            "fournisseur_enregistrer",
+            Some(&awa),
+            fournisseur(&id, &Value::Null, "Ciment")
+        )
+        .await
+        .cle,
+        "commande.entree_invalide"
+    );
+    let lue = || async {
+        p.ok("fournisseurs_lire", Some(&awa), Value::Null).await["fournisseurs"][0]["modifiee_le"]
+            .clone()
+    };
+    let par_fanta = croiser(
+        &p,
+        &awa,
+        &fanta,
+        "fournisseur_enregistrer",
+        |qui, lue_le| fournisseur(&id, lue_le, &format!("Ciment ({qui})")),
+        &etat["fournisseurs"][0]["modifiee_le"],
+        lue,
+    )
+    .await;
+    assert_eq!(
+        par_fanta["fournisseurs"][0]["fournisseur"]["fourniture"],
+        "Ciment (Fanta)"
+    );
+}

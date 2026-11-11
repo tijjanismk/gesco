@@ -62,6 +62,25 @@ pub fn mot_de_passe_correspond(mot_de_passe: &MotDePasse<'_>, empreinte: &str) -
     verifier(mot_de_passe.0.as_bytes(), empreinte)
 }
 
+/// Vérifie un secret sur un fil à part : Argon2 occupe un cœur un quart de seconde, que les
+/// commandes des autres postes ne doivent pas attendre.
+async fn verifier_a_part(secret: &str, empreinte: &str) -> bool {
+    let secret = zeroize::Zeroizing::new(secret.as_bytes().to_vec());
+    let empreinte = empreinte.to_owned();
+    tokio::task::spawn_blocking(move || verifier(&secret, &empreinte))
+        .await
+        .unwrap_or(false)
+}
+
+/// Vérifie un mot de passe sur un fil à part. À appeler avant d'ouvrir l'unité de travail,
+/// jamais pendant que le verrou d'écriture est tenu.
+pub async fn mot_de_passe_correspond_a_part(
+    mot_de_passe: &MotDePasse<'_>,
+    empreinte: &str,
+) -> bool {
+    verifier_a_part(mot_de_passe.0, empreinte).await
+}
+
 /// Empreinte PHC d'un code PIN.
 pub fn empreinte_pin(pin: &Pin<'_>) -> Resultat<String> {
     if !pin.est_valide() {
@@ -75,6 +94,11 @@ pub fn empreinte_pin(pin: &Pin<'_>) -> Resultat<String> {
 /// Vérifie un PIN contre son empreinte PHC.
 pub fn pin_correspond(pin: &Pin<'_>, empreinte: &str) -> bool {
     verifier(pin.0.as_bytes(), empreinte)
+}
+
+/// Vérifie un PIN sur un fil à part, comme le mot de passe.
+pub async fn pin_correspond_a_part(pin: &Pin<'_>, empreinte: &str) -> bool {
+    verifier_a_part(pin.0, empreinte).await
 }
 
 /// Empreinte PHC d'un code d'accès de responsable (SPEC_PHASE_5 §9) : le code ne se garde pas.

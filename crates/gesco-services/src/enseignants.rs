@@ -13,7 +13,7 @@ use gesco_core::pedagogie::{
 use gesco_core::scolarite::telephone::normaliser_liste;
 use gesco_core::scolarite::{Classe, Personne};
 use gesco_db::depots::{
-    academique, annee_scolaire, enseignants, pedagogie, personnes, role, utilisateur,
+    academique, annee_scolaire, enseignants, pedagogie, personnes, utilisateur,
 };
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
@@ -40,6 +40,17 @@ pub struct FicheEnseignant {
     pub telephones: Vec<String>,
     /// Nom affiché du compte lié.
     pub compte: Option<String>,
+    /// Instant de dernière modification de l'enseignant ou de son identité, à renvoyer avec
+    /// la modification.
+    pub modifiee_le: i64,
+}
+
+/// Lignes dont dépend l'instant de dernière modification d'un enseignant.
+fn lignes_de_l_enseignant(enseignant: &Enseignant) -> [crate::fraicheur::Ligne; 2] {
+    [
+        crate::fraicheur::Ligne::par_id("enseignant", enseignant.id.vers_chaine()),
+        crate::fraicheur::Ligne::par_id("personne", enseignant.personne_id.vers_chaine()),
+    ]
 }
 
 /// Affectation affichée.
@@ -72,6 +83,10 @@ pub struct DemandeEnseignant {
     pub utilisateur_id: Option<Id<Utilisateur>>,
     /// Faux pour un enseignant parti.
     pub actif: bool,
+    /// Instant de dernière modification lu avec la fiche ; exigé pour modifier une fiche,
+    /// absent pour en créer une.
+    #[serde(default)]
+    pub lue_le: Option<i64>,
 }
 
 /// Affectation demandée.
@@ -136,12 +151,15 @@ impl<'n> ServiceEnseignants<'n> {
                     .map(|u| u.nom_affiche),
                 None => None,
             };
+            let modifiee_le =
+                crate::fraicheur::instant(&mut cnx, &lignes_de_l_enseignant(&e)).await?;
             fiches.push(FicheEnseignant {
                 enseignant: e,
                 nom: p.nom,
                 prenoms: p.prenoms,
                 telephones: p.telephones,
                 compte,
+                modifiee_le,
             });
         }
         fiches.sort_by(|a, b| a.nom.cmp(&b.nom).then_with(|| a.prenoms.cmp(&b.prenoms)));
@@ -191,6 +209,11 @@ impl<'n> ServiceEnseignants<'n> {
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
+        if let Some(a) = &avant {
+            let lue_le = demande.lue_le.ok_or(regle("commande.entree_invalide"))?;
+            crate::fraicheur::verifier(unite.connexion(), &lignes_de_l_enseignant(a), lue_le)
+                .await?;
+        }
         let personne = match &avant {
             Some(a) => {
                 let ancienne =
@@ -270,6 +293,7 @@ impl<'n> ServiceEnseignants<'n> {
             prenoms,
             telephones,
             compte,
+            modifiee_le: contexte.maintenant.millis_epoque(),
         })
     }
 
@@ -533,7 +557,9 @@ impl<'n> ServiceEnseignants<'n> {
     pub async fn portee_notes(&self, session: &Session) -> Resultat<PorteeNotes> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
-        let valide = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+        let valide = self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
             .await?
             .contains(&Permission::GRADES_VALIDATE);
         let affectations =

@@ -52,7 +52,19 @@ export function Enseignants() {
   );
 }
 
-const FICHE_VIDE = { id: null as string | null, nom: "", prenoms: "", telephone: "", statut: "titulaire" as StatutEnseignant, compte: AUCUN, actif: true };
+const FICHE_VIDE = { id: null as string | null, lueLe: null as number | null, nom: "", prenoms: "", telephone: "", statut: "titulaire" as StatutEnseignant, compte: AUCUN, actif: true };
+
+/** Le formulaire rempli de la fiche lue, avec l'instant de sa dernière modification. */
+const versFormulaire = (f: FicheEnseignant): typeof FICHE_VIDE => ({
+  id: f.enseignant.id,
+  lueLe: f.modifiee_le,
+  nom: f.nom,
+  prenoms: f.prenoms,
+  telephone: f.telephones[0] === undefined ? "" : telephoneLisible(f.telephones[0]),
+  statut: f.enseignant.statut,
+  compte: f.enseignant.utilisateur_id ?? AUCUN,
+  actif: f.enseignant.actif,
+});
 
 function ListeEnseignants({ fiches, voitComptes }: { fiches: readonly FicheEnseignant[]; voitComptes: boolean }) {
   const rafraichir = useRafraichir();
@@ -62,6 +74,7 @@ function ListeEnseignants({ fiches, voitComptes }: { fiches: readonly FicheEnsei
     mutationFn: () =>
       appeler("enseignant_enregistrer", {
         id: fiche.id,
+        lue_le: fiche.lueLe,
         nom: fiche.nom,
         prenoms: fiche.prenoms,
         telephones: fiche.telephone.trim() === "" ? [] : [fiche.telephone],
@@ -74,6 +87,15 @@ function ListeEnseignants({ fiches, voitComptes }: { fiches: readonly FicheEnsei
       rafraichir();
     },
   });
+  const relecture = useMutation({
+    mutationFn: () => appeler("enseignants_lister", null),
+    onSuccess: (relus) => {
+      const relue = relus.find((f) => f.enseignant.id === fiche.id);
+      setFiche(relue === undefined ? FICHE_VIDE : versFormulaire(relue));
+      enregistrer.reset();
+      rafraichir();
+    },
+  });
   return (
     <Section titre={t("enseignants.liste")}>
       <Tableau
@@ -81,17 +103,7 @@ function ListeEnseignants({ fiches, voitComptes }: { fiches: readonly FicheEnsei
         titre={t("enseignants.liste")}
         lignes={fiches}
         cle={(f) => f.enseignant.id}
-        surSelection={(f) =>
-          setFiche({
-            id: f.enseignant.id,
-            nom: f.nom,
-            prenoms: f.prenoms,
-            telephone: f.telephones[0] === undefined ? "" : telephoneLisible(f.telephones[0]),
-            statut: f.enseignant.statut,
-            compte: f.enseignant.utilisateur_id ?? AUCUN,
-            actif: f.enseignant.actif,
-          })
-        }
+        surSelection={(f) => setFiche(versFormulaire(f))}
         colonnes={[
           { titre: t("enseignants.prenoms"), valeur: (f) => f.prenoms },
           { titre: t("enseignants.nom"), valeur: (f) => f.nom },
@@ -119,7 +131,7 @@ function ListeEnseignants({ fiches, voitComptes }: { fiches: readonly FicheEnsei
         <CaseACocher id="enseignant-actif" libelle={t("enseignants.actif")} coche={fiche.actif} surChangement={(c) => setFiche({ ...fiche, actif: c })} />
       </div>
       <p className="text-sm text-muet">{t("enseignants.aide_compte")}</p>
-      <MessageErreur erreur={enregistrer.error} />
+      <MessageErreur erreur={relecture.error ?? enregistrer.error} surRelire={() => relecture.mutate()} />
       <div className="flex flex-wrap gap-2">
         <Bouton onClick={() => enregistrer.mutate()} disabled={enregistrer.isPending}>{t("commun.enregistrer")}</Bouton>
         {fiche.id === null ? null : <Bouton variante="secondaire" onClick={() => setFiche(FICHE_VIDE)}>{t("commun.annuler")}</Bouton>}

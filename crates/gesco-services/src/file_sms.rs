@@ -4,6 +4,8 @@
 //! préparés, annule ce qui ne doit pas partir, renvoie ce qui a échoué. L'utilisateur n'attend
 //! jamais : le traitement tourne à part, toutes les quelques secondes.
 
+use std::sync::Arc;
+
 use gesco_core::commun::{DateCivile, Horodatage, Id};
 use gesco_core::core::{Etablissement, Operation, Permission, TypeEvenement};
 use gesco_core::notification::canal::texte_alerte;
@@ -13,7 +15,7 @@ use gesco_core::notification::{
     reglages,
 };
 use gesco_core::scolarite::{Eleve, Responsable, telephone};
-use gesco_db::depots::{etablissement, file_sms, messages, parametre, personnes, role};
+use gesco_db::depots::{etablissement, file_sms, messages, parametre, personnes};
 use gesco_db::unite::Durabilite;
 use gesco_db::{Connexion, Contexte, nouvel_id};
 use gesco_sms::{Canal, CanalModem};
@@ -59,9 +61,17 @@ pub const PARAMETRE_NUMERO_ALERTE: &str = "sms.numero_alerte";
 /// Les canaux que le poste sait ouvrir : le canal simulé, et la clé modem d'un port.
 pub trait SourceCanaux: Sync {
     /// Le canal simulé.
-    fn simule(&self) -> &dyn Canal;
+    fn simule(&self) -> Arc<dyn Canal>;
     /// La clé modem de ce port ; aucune pour un port vide.
-    fn modem(&self, port: &str) -> Option<std::sync::Arc<CanalModem>>;
+    fn modem(&self, port: &str) -> Option<Arc<CanalModem>>;
+}
+
+/// Exécute un échange avec la clé sur un fil à part : la liaison série attend la réponse
+/// jusqu'à trente secondes, pendant lesquelles les commandes des postes doivent rester servies.
+async fn a_part<T: Send + 'static>(echange: impl FnOnce() -> T + Send + 'static) -> Resultat<T> {
+    tokio::task::spawn_blocking(echange)
+        .await
+        .map_err(|_| regle("sms.cle_muette"))
 }
 
 /// Port où brancher la clé.
@@ -481,7 +491,10 @@ impl<'n> ServiceFile<'n> {
         let (_, sms_du_mois) =
             file_sms::partis_depuis(&mut cnx, debut_du_mois(contexte.maintenant), &contexte)
                 .await?;
-        let p = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte).await?;
+        let p = self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+            .await?;
         Ok(FileMessages {
             messages: affiches,
             compteurs,
@@ -763,11 +776,12 @@ impl<'n> ServiceFile<'n> {
     /// Accusés de remise revenus : remis ou échoué, et la joignabilité du numéro.
     async fn recevoir_accuses(
         cnx: &mut Connexion,
-        canal: &dyn Canal,
+        canal: &Arc<dyn Canal>,
         bilan: &mut BilanFile,
         contexte: &Contexte,
     ) -> Resultat<()> {
-        for accuse in canal.accuses() {
+        let lu = Arc::clone(canal);
+        for accuse in a_part(move || lu.accuses()).await? {
             let Some(mut m) = file_sms::par_reference(cnx, &accuse.reference, contexte).await?
             else {
                 continue;
@@ -804,7 +818,7 @@ impl<'n> ServiceFile<'n> {
     /// quoi envoyer ; sans numéro d'alerte, l'avertissement du tableau de bord suffit.
     async fn alerter(
         cnx: &mut Connexion,
-        canal: &dyn Canal,
+        canal: &Arc<dyn Canal>,
         etat: &EtatCanal,
         contexte: &Contexte,
     ) -> Resultat<()> {
@@ -813,7 +827,9 @@ impl<'n> ServiceFile<'n> {
             return Ok(());
         };
         let ecole = signature(cnx, contexte).await?;
-        let _ = canal.envoyer(&numero, &texte_alerte(&ecole, raison, etat.credit));
+        let texte = texte_alerte(&ecole, raison, etat.credit);
+        let canal = Arc::clone(canal);
+        let _ = a_part(move || canal.envoyer(&numero, &texte)).await?;
         Ok(())
     }
 
@@ -821,7 +837,7 @@ impl<'n> ServiceFile<'n> {
     /// lecture a abouti.
     async fn lire_credit(
         cnx: &mut Connexion,
-        modem: &CanalModem,
+        modem: &Arc<CanalModem>,
         etat: EtatCanal,
         contexte: &Contexte,
     ) -> Resultat<(EtatCanal, bool)> {
@@ -829,22 +845,28 @@ impl<'n> ServiceFile<'n> {
         if code.trim().is_empty() {
             return Ok((etat, false));
         }
-        let Ok(lecture) = modem.lire_credit(code.trim()) else {
+        let cle = Arc::clone(modem);
+        let Ok(lecture) = a_part(move || cle.lire_credit(code.trim())).await? else {
             return Ok((etat, false));
         };
         let seuil = parametre::entier(cnx, PARAMETRE_SEUIL_CREDIT, 500, contexte).await?;
         let (etat, alerte) =
             etat.apres_lecture(lecture.montant, &lecture.texte, seuil, contexte.maintenant);
         if alerte {
-            Self::alerter(cnx, modem, &etat, contexte).await?;
+            let canal: Arc<dyn Canal> = Arc::clone(modem) as Arc<dyn Canal>;
+            Self::alerter(cnx, &canal, &etat, contexte).await?;
         }
         Ok((etat, true))
     }
 
     /// Un passage de la file pour un établissement : expire ce qui a trop attendu ; avec la clé,
-    /// vérifie qu'elle répond et relit le crédit chaque heure ; reçoit les accusés ; envoie ce dont
-    /// le tour est venu, dans les heures d'envoi, au débit et sous le plafond réglés, sauf si la
-    /// file est arrêtée faute de crédit. Sans canal (réglage « aucun »), rien ne part.
+    /// relit le crédit chaque heure ; reçoit les accusés ; envoie ce dont le tour est venu, dans
+    /// les heures d'envoi, au débit et sous le plafond réglés, sauf si la file est arrêtée faute
+    /// de crédit. Sans canal (réglage « aucun »), rien ne part.
+    ///
+    /// Les échanges avec la clé se font sur un fil à part, et aucune connexion à la base n'est
+    /// tenue pendant un envoi. La clé n'est interrogée (« répond-elle ? ») qu'après une coupure :
+    /// tant que le dernier échange a abouti, la relève des accusés tient lieu de vérification.
     pub async fn traiter(
         &self,
         etablissement_id: Id<Etablissement>,
@@ -868,13 +890,20 @@ impl<'n> ServiceFile<'n> {
         }
         let modem = if nom_canal == "modem" {
             let port = parametre::texte(&mut cnx, PARAMETRE_PORT, "", &contexte).await?;
-            source.modem(&port).filter(|m| m.verifier().is_ok())
+            match source.modem(&port) {
+                Some(m) if m.session_ouverte() => Some(m),
+                Some(m) => {
+                    let cle = Arc::clone(&m);
+                    a_part(move || cle.verifier().is_ok()).await?.then_some(m)
+                }
+                None => None,
+            }
         } else {
             None
         };
-        let canal: &dyn Canal = match (nom_canal.as_str(), &modem) {
+        let canal: Arc<dyn Canal> = match (nom_canal.as_str(), &modem) {
             ("simule", _) => source.simule(),
-            ("modem", Some(m)) => m.as_ref(),
+            ("modem", Some(m)) => Arc::clone(m) as Arc<dyn Canal>,
             ("modem", None) => {
                 // Clé débranchée ou muette : la file attend, sans rien perdre.
                 etat.cle_absente = true;
@@ -892,9 +921,19 @@ impl<'n> ServiceFile<'n> {
         {
             etat = Self::lire_credit(&mut cnx, m, etat, &contexte).await?.0;
         }
-        Self::recevoir_accuses(&mut cnx, canal, &mut bilan, &contexte).await?;
+        Self::recevoir_accuses(&mut cnx, &canal, &mut bilan, &contexte).await?;
+        if modem.as_ref().is_some_and(|m| !m.session_ouverte()) {
+            // La relève des accusés n'a pas abouti : clé débranchée ou muette, la file attend.
+            etat.cle_absente = true;
+            bilan.cle_absente = true;
+            if etat != initial {
+                file_sms::enregistrer_etat_canal(&mut cnx, &etat, &contexte).await?;
+            }
+            return Ok(bilan);
+        }
         // Les SMS des parents : chacun au journal, sa réponse en file (SPEC_PHASE_5 §9).
-        for entrant in canal.recus() {
+        let releve = Arc::clone(&canal);
+        for entrant in a_part(move || releve.recus()).await? {
             // Sur le tas : la réponse se calcule loin dans les dépôts.
             Box::pin(crate::consultation::recevoir(
                 self.noyau, &entrant, &contexte,
@@ -959,7 +998,15 @@ impl<'n> ServiceFile<'n> {
                 continue;
             }
             m.essais = m.essais.saturating_add(1);
-            match canal.envoyer(&m.numero, &m.texte) {
+            // La connexion est rendue le temps de l'envoi : il peut durer trente secondes.
+            drop(cnx);
+            let envoi = {
+                let (canal, numero, texte) =
+                    (Arc::clone(&canal), m.numero.clone(), m.texte.clone());
+                a_part(move || canal.envoyer(&numero, &texte)).await
+            };
+            cnx = self.connexion().await?;
+            match envoi? {
                 Ok(reference) => {
                     m.etat = EtatMessage::Envoye;
                     m.reference = Some(reference);
@@ -987,7 +1034,7 @@ impl<'n> ServiceFile<'n> {
                         let (suivant, alerte) = etat.apres_erreur_credit();
                         etat = suivant;
                         if alerte {
-                            Self::alerter(&mut cnx, canal, &etat, &contexte).await?;
+                            Self::alerter(&mut cnx, &canal, &etat, &contexte).await?;
                         }
                     }
                 }
@@ -997,7 +1044,7 @@ impl<'n> ServiceFile<'n> {
                 break;
             }
         }
-        Self::recevoir_accuses(&mut cnx, canal, &mut bilan, &contexte).await?;
+        Self::recevoir_accuses(&mut cnx, &canal, &mut bilan, &contexte).await?;
         bilan.arretee = etat.arretee;
         if etat != initial {
             file_sms::enregistrer_etat_canal(&mut cnx, &etat, &contexte).await?;
@@ -1014,17 +1061,24 @@ impl<'n> ServiceFile<'n> {
         source: &dyn SourceCanaux,
     ) -> Resultat<EssaiCle> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
-        let mut cnx = self.connexion().await?;
         let modem = source
             .modem(demande.port.trim())
             .ok_or(regle("sms.port_absent"))?;
-        let info = modem.identifier().map_err(|_| regle("sms.cle_muette"))?;
-        let code = parametre::texte(&mut cnx, PARAMETRE_USSD, "", &contexte).await?;
-        let credit = if code.trim().is_empty() {
-            None
-        } else {
-            modem.lire_credit(code.trim()).ok()
+        let code = {
+            let mut cnx = self.connexion().await?;
+            parametre::texte(&mut cnx, PARAMETRE_USSD, "", &contexte).await?
         };
+        let (info, credit) = a_part(move || {
+            let info = modem.identifier()?;
+            let credit = if code.trim().is_empty() {
+                None
+            } else {
+                modem.lire_credit(code.trim()).ok()
+            };
+            Ok::<_, gesco_sms::at::ErreurAt>((info, credit))
+        })
+        .await?
+        .map_err(|_| regle("sms.cle_muette"))?;
         Ok(EssaiCle {
             fabricant: info.fabricant,
             modele: info.modele,

@@ -13,7 +13,7 @@ use gesco_core::scolarite::convocation::{
 use gesco_core::scolarite::discipline::{NatureSanction, Sanction};
 use gesco_core::scolarite::{Inscription, Responsable};
 use gesco_db::depots::{
-    academique, discipline, file_sms, inscriptions, personnes, remises_documents, role, utilisateur,
+    academique, discipline, file_sms, inscriptions, personnes, remises_documents, utilisateur,
 };
 use gesco_db::unite::Durabilite;
 use gesco_db::{Connexion, Contexte, nouvel_id};
@@ -202,7 +202,10 @@ impl<'n> ServiceConvocations<'n> {
                 liste.push(afficher(&mut cnx, c, &contexte).await?);
             }
         }
-        let p = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte).await?;
+        let p = self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+            .await?;
         Ok(Convocations {
             liste,
             droits: DroitsConvocations {

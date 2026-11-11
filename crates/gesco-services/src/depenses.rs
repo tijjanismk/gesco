@@ -15,7 +15,7 @@ use gesco_core::tresorerie::fournisseur::FactureFournisseur;
 use gesco_core::tresorerie::{
     CategorieTresorerie, CompteTresorerie, Depense, NatureCompte, Sens, StatutDepense,
 };
-use gesco_db::depots::{caisse, depenses, role, tresorerie, utilisateur};
+use gesco_db::depots::{caisse, depenses, tresorerie, utilisateur};
 use gesco_db::unite::Durabilite;
 use gesco_db::{Contexte, UniteDeTravail, nouvel_id};
 use serde::{Deserialize, Serialize};
@@ -197,7 +197,10 @@ impl<'n> ServiceDepenses<'n> {
     async fn droits(&self, session: &Session) -> Resultat<DroitsDepenses> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
-        let p = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte).await?;
+        let p = self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+            .await?;
         Ok(DroitsDepenses {
             saisir: p.contains(&Permission::EXPENSES_CREATE),
             approuver: p.contains(&Permission::EXPENSES_APPROVE),
@@ -214,7 +217,9 @@ impl<'n> ServiceDepenses<'n> {
         let lit = droits.saisir
             || droits.approuver
             || droits.payer
-            || role::permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+            || self
+                .noyau
+                .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
                 .await?
                 .contains(&Permission::TREASURY_READ);
         if !lit {

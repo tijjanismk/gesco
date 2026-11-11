@@ -23,6 +23,9 @@ pub struct FicheUtilisateur {
     pub utilisateur: Utilisateur,
     /// Codes des rôles attribués.
     pub roles: Vec<String>,
+    /// Instant de dernière modification du compte, à renvoyer avec la modification. Une
+    /// connexion du compte le fait bouger aussi.
+    pub modifiee_le: i64,
 }
 
 /// Rôle et permissions accordées.
@@ -32,6 +35,8 @@ pub struct FicheRole {
     pub role: Role,
     /// Permissions du rôle.
     pub permissions: Vec<Permission>,
+    /// Instant de dernière modification, à renvoyer avec la modification.
+    pub modifiee_le: i64,
 }
 
 /// Lignes par page du journal (SPEC_PHASE_1 §8).
@@ -117,9 +122,18 @@ impl<'n> ServiceAdministration<'n> {
                 .into_iter()
                 .map(|r| r.code)
                 .collect();
+            let modifiee_le = crate::fraicheur::instant(
+                &mut cnx,
+                &[crate::fraicheur::Ligne::par_id(
+                    "utilisateur",
+                    compte.id.vers_chaine(),
+                )],
+            )
+            .await?;
             fiches.push(FicheUtilisateur {
                 utilisateur: compte,
                 roles,
+                modifiee_le,
             });
         }
         Ok(fiches)
@@ -133,6 +147,7 @@ impl<'n> ServiceAdministration<'n> {
         id: Id<Utilisateur>,
         nom_affiche: &str,
         actif: bool,
+        lue_le: i64,
     ) -> Resultat<Utilisateur> {
         if nom_affiche.trim().is_empty() {
             return Err(ErreurService::Regle {
@@ -150,6 +165,15 @@ impl<'n> ServiceAdministration<'n> {
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
         let avant = utilisateur::lire(unite.connexion(), id, &contexte).await?;
+        crate::fraicheur::verifier(
+            unite.connexion(),
+            &[crate::fraicheur::Ligne::par_id(
+                "utilisateur",
+                id.vers_chaine(),
+            )],
+            lue_le,
+        )
+        .await?;
         if avant.actif && !actif {
             proteger_dernier_administrateur(unite.connexion(), id, &contexte).await?;
         }
@@ -198,9 +222,15 @@ impl<'n> ServiceAdministration<'n> {
         let mut fiches = Vec::new();
         for r in role::lister(&mut cnx, &contexte).await? {
             let permissions = role::permissions_du_role(&mut cnx, r.id, &contexte).await?;
+            let modifiee_le = crate::fraicheur::instant(
+                &mut cnx,
+                &[crate::fraicheur::Ligne::par_id("role", r.id.vers_chaine())],
+            )
+            .await?;
             fiches.push(FicheRole {
                 role: r,
                 permissions,
+                modifiee_le,
             });
         }
         Ok(fiches)

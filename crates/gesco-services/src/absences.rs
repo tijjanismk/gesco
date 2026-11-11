@@ -7,7 +7,7 @@ use gesco_core::core::{Operation, Permission, TypeEvenement};
 use gesco_core::pedagogie::assiduite::{lire_saisie_absence, totaux, verifier_jour};
 use gesco_core::pedagogie::{Absence, DemiJournee, Periode, PorteeAbsences, TotauxAbsences};
 use gesco_core::scolarite::{Classe, Inscription, StatutInscription};
-use gesco_db::depots::{absences, academique, enseignants, pedagogie, role};
+use gesco_db::depots::{absences, academique, enseignants, pedagogie};
 use gesco_db::unite::Durabilite;
 use serde::{Deserialize, Serialize};
 
@@ -202,7 +202,9 @@ impl<'n> ServiceAbsences<'n> {
     pub async fn portee(&self, session: &Session) -> Resultat<PorteeAbsences> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
-        let justifie = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+        let justifie = self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
             .await?
             .contains(&Permission::ATTENDANCE_JUSTIFY);
         let affectations =
@@ -229,7 +231,7 @@ impl<'n> ServiceAbsences<'n> {
     /// Élèves validés de la classe, dans l'ordre de la liste.
     async fn eleves(&self, session: &Session, classe: &Classe) -> Resultat<Vec<EleveDeClasse>> {
         Ok(ServiceInscriptions::nouveau(self.noyau)
-            .lister(session, classe.annee_id)
+            .de_la_classe(session, classe)
             .await?
             .into_iter()
             .filter(|l| {
@@ -363,7 +365,8 @@ impl<'n> ServiceAbsences<'n> {
             (
                 absences::de_la_classe(&mut cnx, classe.id, demande.date, demande.date, &contexte)
                     .await?,
-                role::permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+                self.noyau
+                    .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
                     .await?
                     .contains(&Permission::ATTENDANCE_JUSTIFY),
             )

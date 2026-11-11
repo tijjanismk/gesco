@@ -1,6 +1,8 @@
 //! Inscriptions (SPEC_PHASE_2 §5) : brouillon, validation, abandon, changement de classe.
 //! La facture rejoindra la transaction de validation en phase 3 (§0.3).
 
+use std::collections::HashMap;
+
 use gesco_core::commun::{DateCivile, Id};
 use gesco_core::core::{
     AnneeScolaire, MachineAEtats, Operation, Permission, StatutAnnee, TypeEvenement,
@@ -11,7 +13,7 @@ use gesco_core::scolarite::{
     Classe, DecisionFinAnnee, Eleve, Inscription, Lien, NatureActe, Sexe, StatutInscription,
     TypeInscription,
 };
-use gesco_db::depots::{academique, annee_scolaire, inscriptions, parametre, personnes, role};
+use gesco_db::depots::{academique, annee_scolaire, inscriptions, parametre, personnes};
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
 use serde::{Deserialize, Serialize};
@@ -51,6 +53,8 @@ pub struct DemandeModificationInscription {
     pub id: Id<Inscription>,
     /// Champs du brouillon.
     pub champs: DemandeInscription,
+    /// Instant de dernière modification lu avec la fiche ; rien ne s'enregistre s'il a bougé.
+    pub lue_le: i64,
 }
 
 /// Inscription désignée.
@@ -146,6 +150,8 @@ pub struct InscriptionAffichee {
     pub classe: String,
     /// Libellé de l'année.
     pub annee: String,
+    /// Instant de dernière modification, à renvoyer avec la modification.
+    pub modifiee_le: i64,
 }
 
 pub(crate) fn jour(instant: gesco_core::commun::Horodatage) -> Resultat<DateCivile> {
@@ -192,25 +198,75 @@ impl<'n> ServiceInscriptions<'n> {
     ) -> Resultat<Vec<LigneInscription>> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
-        let eleves = personnes::eleves(&mut cnx, &contexte).await?;
-        let classes = academique::classes(&mut cnx, annee_id, &contexte).await?;
+        let eleves: HashMap<String, (String, String)> = personnes::eleves(&mut cnx, &contexte)
+            .await?
+            .into_iter()
+            .map(|(e, identite)| {
+                (
+                    e.id.vers_chaine(),
+                    (e.matricule_interne, identite.nom_complet()),
+                )
+            })
+            .collect();
+        let classes: HashMap<String, String> = academique::classes(&mut cnx, annee_id, &contexte)
+            .await?
+            .into_iter()
+            .map(|c| (c.id.vers_chaine(), c.libelle))
+            .collect();
         let mut lignes: Vec<LigneInscription> =
             inscriptions::de_l_annee(&mut cnx, annee_id, &contexte)
                 .await?
                 .into_iter()
                 .filter_map(|inscription| {
-                    let (eleve, identite) =
-                        eleves.iter().find(|(e, _)| e.id == inscription.eleve_id)?;
-                    let classe = classes.iter().find(|c| c.id == inscription.classe_id)?;
+                    let (matricule, eleve) = eleves.get(&inscription.eleve_id.vers_chaine())?;
+                    let classe = classes.get(&inscription.classe_id.vers_chaine())?;
                     Some(LigneInscription {
-                        matricule: eleve.matricule_interne.clone(),
-                        eleve: identite.nom_complet(),
-                        classe: classe.libelle.clone(),
+                        matricule: matricule.clone(),
+                        eleve: eleve.clone(),
+                        classe: classe.clone(),
                         inscription,
                     })
                 })
                 .collect();
         lignes.sort_by(|a, b| a.classe.cmp(&b.classe).then_with(|| a.eleve.cmp(&b.eleve)));
+        Ok(lignes)
+    }
+
+    /// Inscriptions d'une classe, de tout état, par nom : les mêmes lignes que [`Self::lister`]
+    /// en donne pour cette classe, sans lire les fiches ni les inscriptions du reste de l'école.
+    pub async fn de_la_classe(
+        &self,
+        session: &Session,
+        classe: &Classe,
+    ) -> Resultat<Vec<LigneInscription>> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut cnx = self.connexion().await?;
+        let eleves: HashMap<String, (String, String)> =
+            personnes::eleves_de_la_classe(&mut cnx, classe.id, &contexte)
+                .await?
+                .into_iter()
+                .map(|(e, identite)| {
+                    (
+                        e.id.vers_chaine(),
+                        (e.matricule_interne, identite.nom_complet()),
+                    )
+                })
+                .collect();
+        let mut lignes: Vec<LigneInscription> =
+            inscriptions::de_la_classe(&mut cnx, classe.id, &contexte)
+                .await?
+                .into_iter()
+                .filter_map(|inscription| {
+                    let (matricule, eleve) = eleves.get(&inscription.eleve_id.vers_chaine())?;
+                    Some(LigneInscription {
+                        matricule: matricule.clone(),
+                        eleve: eleve.clone(),
+                        classe: classe.libelle.clone(),
+                        inscription,
+                    })
+                })
+                .collect();
+        lignes.sort_by(|a, b| a.eleve.cmp(&b.eleve));
         Ok(lignes)
     }
 
@@ -226,10 +282,19 @@ impl<'n> ServiceInscriptions<'n> {
         for inscription in inscriptions::de_l_eleve(&mut cnx, eleve_id, &contexte).await? {
             let classe = academique::classe(&mut cnx, inscription.classe_id, &contexte).await?;
             let annee = annee_scolaire::lire(&mut cnx, inscription.annee_id, &contexte).await?;
+            let modifiee_le = crate::fraicheur::instant(
+                &mut cnx,
+                &[crate::fraicheur::Ligne::par_id(
+                    "inscription",
+                    inscription.id.vers_chaine(),
+                )],
+            )
+            .await?;
             affichees.push(InscriptionAffichee {
                 inscription,
                 classe: classe.libelle,
                 annee: annee.libelle,
+                modifiee_le,
             });
         }
         Ok(affichees)
@@ -491,6 +556,7 @@ impl<'n> ServiceInscriptions<'n> {
         session: &Session,
         id: Id<Inscription>,
         demande: &DemandeInscription,
+        lue_le: i64,
     ) -> Resultat<ResultatInscription> {
         let avant = self.lire(session, id).await?;
         if avant.statut != StatutInscription::Brouillon {
@@ -518,6 +584,15 @@ impl<'n> ServiceInscriptions<'n> {
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
+        crate::fraicheur::verifier(
+            unite.connexion(),
+            &[crate::fraicheur::Ligne::par_id(
+                "inscription",
+                id.vers_chaine(),
+            )],
+            lue_le,
+        )
+        .await?;
         inscriptions::modifier_brouillon(unite.connexion(), &apres, &contexte).await?;
         unite.auditer(
             "inscription",
@@ -578,7 +653,7 @@ impl<'n> ServiceInscriptions<'n> {
             academique::classe(&mut cnx, classe_id, &contexte).await?
         };
         let brouillons: Vec<LigneInscription> = self
-            .lister(session, classe.annee_id)
+            .de_la_classe(session, &classe)
             .await?
             .into_iter()
             .filter(|l| {
@@ -779,7 +854,9 @@ impl<'n> ServiceInscriptions<'n> {
             let mut cnx = self.connexion().await?;
             let ancienne = academique::classe(&mut cnx, avant.classe_id, &contexte).await?;
             let nouvelle = academique::classe(&mut cnx, classe_id, &contexte).await?;
-            let direction = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+            let direction = self
+                .noyau
+                .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
                 .await?
                 .contains(&Permission::ENROLLMENTS_VALIDATE);
             verifier_changement(&ancienne, &nouvelle, direction, motif).map_err(regle)?;

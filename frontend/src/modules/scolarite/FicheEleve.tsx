@@ -68,12 +68,15 @@ export function ChampsEleve({ prefixe, valeur, surChangement }: { prefixe: strin
 /** Fiche d'un élève : identité, photo, responsables. */
 export function FicheEleveEcran({ id, permissions, surOuvrir }: { id: string; permissions: readonly string[]; surOuvrir: (id: string) => void }) {
   const fiche = useQuery({ queryKey: ["eleve", id], queryFn: () => appeler("eleve_lire", { id }) });
-  if (fiche.isError) return <MessageErreur erreur={fiche.error} />;
-  if (fiche.data === undefined) return <p className="text-sm text-muet">{t("commun.chargement")}</p>;
+  // Une relecture qui échoue (liaison coupée) ne remplace pas la fiche affichée ni sa saisie.
+  if (fiche.data === undefined) {
+    return fiche.isError ? <MessageErreur erreur={fiche.error} /> : <p className="text-sm text-muet">{t("commun.chargement")}</p>;
+  }
   const { identite, eleve } = fiche.data;
   const modifiable = commandeAutorisee("eleve_modifier", permissions) && eleve.fusionne_dans === null;
   return (
     <div className="flex flex-col gap-4">
+      <MessageErreur erreur={fiche.error} />
       {eleve.fusionne_dans === null ? null : <FicheAbsorbee conservee={eleve.fusionne_dans} surOuvrir={surOuvrir} />}
       <Section titre={`${identite.prenoms} ${identite.nom}`}>
         <div className="flex flex-wrap items-start gap-4">

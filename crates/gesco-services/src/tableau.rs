@@ -5,7 +5,7 @@
 use gesco_core::commun::{DateCivile, Montant};
 use gesco_core::core::Permission;
 use gesco_core::rh::{Mois, NatureAbsencePersonnel, NatureEngagement, StatutConge, StatutHeures};
-use gesco_db::depots::{academique, annee_scolaire, personnel, role, tableau};
+use gesco_db::depots::{academique, annee_scolaire, personnel, tableau};
 use serde::Serialize;
 
 use crate::conges::ServiceConges;
@@ -208,7 +208,10 @@ impl<'n> ServiceTableau<'n> {
             .acquire()
             .await
             .map_err(gesco_db::ErreurBase::from)?;
-        let permissions = role::permissions_de(&mut cnx, session.utilisateur_id, &contexte).await?;
+        let permissions = self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+            .await?;
         let a = |p: Permission| permissions.contains(&p);
         // Un module éteint n'a pas de bloc.
         let modules = crate::modules::actifs(&mut cnx, &contexte).await?;

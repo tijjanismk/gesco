@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use gesco_core::commun::Id;
 use gesco_core::core::Utilisateur;
-use gesco_db::depots::role;
 
 use crate::commandes::{Acces, Commande};
 use crate::erreur::{ErreurService, MotifRefus, Resultat};
@@ -73,8 +72,11 @@ impl<'n> Garde<'n> {
                     .acquire()
                     .await
                     .map_err(gesco_db::ErreurBase::from)?;
-                let permissions =
-                    role::permissions_de(&mut cnx, session.utilisateur_id, &contexte).await?;
+                let permissions = self
+                    .noyau
+                    .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+                    .await?;
+                drop(cnx);
                 if !permissions.contains(&permission) {
                     return Err(ErreurService::permission(permission));
                 }
