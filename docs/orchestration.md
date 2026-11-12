@@ -84,8 +84,10 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
 1. Étape 5 : saisie des notes par les maîtres, éteinte à la livraison ; avec, en reprise, les
    suites à donner de l'étape 4.
-2. Étape 6 : livraison (pare-feu, installeur, guide, essai sur deux machines). Attend que le
-   porteur fournisse deux ordinateurs Windows.
+2. Étape 6 : livraison (pare-feu, installeur, guide). Le porteur n'a qu'un ordinateur
+   (2026-11-12) : tout faire et vérifier sur une seule machine, écrire la marche à suivre de
+   l'essai sur deux machines dans les essais à la main, et laisser cet essai au porteur, qui
+   vérifiera après. Ne pas attendre.
 3. Lot B : livret du jardin.
 4. Phase 9 : spécification, puis étapes.
 5. Phase 12 dans l'application, selon `docs/plan-phase-12.md`.
@@ -98,7 +100,7 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
 ## Ce que seul le porteur peut fournir
 
-- Deux ordinateurs Windows pour l'essai de l'étape 6.
+- L'essai de l'étape 6 sur deux machines, quand il aura un second ordinateur (il vérifie après).
 - Le questionnaire CPS du fondamental (phase 9), les prix.
 - Les réponses aux questions de terrain en attente dans `docs/plan-phase-12.md`.
 - Un enseignant pour relire les leçons.
@@ -113,3 +115,4 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 - 2026-11-12 : chimie C-01 à C-05 faite (22 sur 26). Chimie C-06 à C-09 lancée ; étape 5 en cours.
 - 2026-11-12 : chimie C-06 à C-09 faite ; physique-chimie finie (26 sur 26). Mathématiques
   (ETAT.md et premier lot) lancées ; étape 5 en cours (Rust et Playwright restent à passer).
+- 2026-11-12 : le porteur n'a qu'un ordinateur ; l'étape 6 se code sans attendre, il vérifie après.
