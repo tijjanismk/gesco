@@ -285,3 +285,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   Les leçons déjà écrites sont en texte simple : chaque session de leçons convertit d'abord sa
   matière avant son lot suivant ; matières finies (9e sciences, TSE de l'autre compte) : sessions
   de conversion à prévoir. 9e français 15 sur 46 fait.
+- 2026-11-12, 22 h 45 : 9e anglais 5 sur 41 (découpage à confirmer) et 7e biologie 10 sur 15 faits.
+  Fenêtre de 5 heures à 71 % : rien de neuf avant 1 h 20 (règle 10). À 1 h 20, relancer par
+  message, en commençant par la conversion LaTeX de la matière s'il y a des formules : 7e
+  mathématiques, 7e physique-chimie, 7e biologie (11 à 15), 9e français, 9e histoire-géographie,
+  9e anglais. Le lot B, étape 1, tourne toujours.
