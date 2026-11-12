@@ -256,3 +256,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (`local_3ded24e5-b56e-41ac-8863-373b7b35a63a`) ; 7e physique-chimie P-06 à P-10
   (`local_94df1157-2125-4e02-9695-0dd5a5151b60`). En attente d'une place : 7e biologie 6 à
   10, anglais et ECM de 9e.
+- 2026-11-12, 22 h : spécification du lot B faite (`fe450be`, quatre étapes), session archivée.
+  Questions T-109 à T-115 posées au porteur ; l'étape 1 du lot B les attend.
+- L'autre compte travaille dans une copie de la bibliothèque,
+  `Documents\gesco-bibliotheque\gesco-bibliotheque` (mathématiques de TSE à 15 sur 38, physique
+  de 8e P-06 à P-10, physique-chimie de terminale en découpage). Rien n'en est encore dans la
+  bibliothèque ; la fusion se décidera avec le porteur. Son estimation : `estimation.txt` dans
+  cette copie.
