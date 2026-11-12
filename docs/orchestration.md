@@ -61,7 +61,7 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
 |---|---|---|---|
 | Biologie | 22 leçons sur 22 | rien | `biologie\ETAT.md` |
 | Physique-chimie | 26 leçons sur 26 | rien | `physique-chimie\ETAT.md` |
-| Mathématiques | 17 fichiers sur 31 prévues | une leçon de géométrie coupée en rédaction, puis la suite | aucun : découpage dans `LISEZMOI.md`, « Où en est la rédaction » |
+| Mathématiques | 20 leçons sur 31 | G-11 à G-21 | `mathematiques\ETAT.md` |
 
 Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
@@ -94,9 +94,35 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
 ## File des contenus (dans l'ordre, lots de cinq ou six leçons)
 
-1. Mathématiques : écrire `mathematiques\ETAT.md` d'après `LISEZMOI.md` et les fichiers présents,
-   puis un premier lot de cinq leçons.
-2. Mathématiques : lots suivants jusqu'à 31.
+1. Mathématiques : G-11 à G-15 (lancé le 2026-11-12, session « Mathématiques 9e : G-11 à G-15 »).
+2. Mathématiques : G-16 à G-21.
+
+## Ce que l'usage a appris (12 novembre 2026)
+
+- L'application ne laisse l'orchestrateur démarrer une session que dans le tour qui suit un
+  message du porteur. Sur un compte rendu de session ou un réveil programmé, le démarrage est
+  refusé : déposer la carte (`own_initiative`) et la démarrer par son `proposal_id` au prochain
+  message du porteur (« on continue » suffit).
+- Les sessions de leçons démarrent dans le dépôt `gesco` : leur brief donne les chemins absolus
+  de `gesco-bibliotheque`.
+- Une session de code peut rester à l'arrêt en attendant une commande d'arrière-plan qui ne la
+  réveille pas (étape 5 : 1 h 45 perdue). Écrire dans le brief « ne termine pas ton tour en
+  attendant une commande d'arrière-plan » ; si `list_sessions` la montre arrêtée sans commit
+  depuis longtemps, lui écrire de reprendre.
+- `ETAT_AVANCEMENT.md` a des lignes très longues : ne jamais le lire avec un `grep` large.
+- Coût observé : une étape de code et un lot de cinq leçons en parallèle prennent environ 50 %
+  d'une fenêtre de 5 heures.
+- L'archivage passe au second appel, avec l'entrée que le premier refus renvoie.
+
+## Sessions en cours au passage de relais (12 novembre 2026, vers 2 h 45)
+
+- Étape 5 : session `local_372feff7-8ccd-4284-a67e-4596267608b8`, relancée à 2 h 35, pas encore
+  commitée. Elle doit aussi reporter les décisions du porteur dans `ETAT_AVANCEMENT.md`. Finie
+  quand `git log` montre son commit ; alors l'archiver et lancer l'étape 6.
+- Mathématiques G-11 à G-15 : session lancée par l'ancien orchestrateur ; finie quand
+  `mathematiques\ETAT.md` dit 25 sur 31.
+- Ces deux sessions rendent compte à l'ancien orchestrateur, pas au nouveau : le nouveau vérifie
+  dans les fichiers, ou s'abonne à leur fin (`SendMessage` avec `notify_when_idle`, sans message).
 
 ## Ce que seul le porteur peut fournir
 
@@ -116,3 +142,5 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 - 2026-11-12 : chimie C-06 à C-09 faite ; physique-chimie finie (26 sur 26). Mathématiques
   (ETAT.md et premier lot) lancées ; étape 5 en cours (Rust et Playwright restent à passer).
 - 2026-11-12 : le porteur n'a qu'un ordinateur ; l'étape 6 se code sans attendre, il vérifie après.
+- 2026-11-12 : mathématiques, `ETAT.md` écrit et lot 1 fait (20 sur 31) ; G-11 à G-15 lancées.
+  Étape 5 relancée après 1 h 45 d'arrêt. Orchestrateur à 153 000 jetons : relais passé à un neuf.
