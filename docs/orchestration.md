@@ -273,3 +273,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   qui finissent ne sont pas archivées ; à la remise à zéro de la fenêtre (1 h 20), l'orchestrateur
   leur écrit « lot suivant » (l'application refuse de démarrer une session sans message du
   porteur). À 9 h, retour à la règle : sessions neuves, Fable effort moyen pour les leçons.
+- 2026-11-12, 22 h 15 : 9e histoire-géographie 7 sur 20 et 7e mathématiques 10 sur 32 faits ;
+  leurs sessions gardées pour la nuit (`local_8b7b8254-c570-436d-bfa5-d4ca0b13002b`,
+  `local_3ded24e5-b56e-41ac-8863-373b7b35a63a`). Lancées : 7e biologie 6 à 10
+  (`local_ee5810b6-50b5-4e33-ad28-ecbcb9fae3f1`), 9e anglais découpage et lot 1
+  (`local_d59bae7a-5ddf-410f-88af-ee280360e48d`). Reste à ouvrir : ECM de 9e.
