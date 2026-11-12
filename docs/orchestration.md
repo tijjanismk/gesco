@@ -221,3 +221,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-12 (soir), correction : l'autre compte se charge du lycée et de la 8e année ; ce
   compte-ci des autres matières de 9e. Rien de ce qui est écrit n'est effacé ; la fusion des
   deux travaux se décidera plus tard avec le porteur.
+- 2026-11-12 (soir) : « les premiers » = la 7e année, matières scientifiques, pour ce compte-ci,
+  avec les autres matières de 9e. À lancer après la remise à zéro de la semaine (13 novembre,
+  9 h UTC) : 7e mathématiques, physique-chimie, biologie (découpage et lot 1 chacune).
