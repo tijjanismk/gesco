@@ -263,3 +263,13 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   de 8e P-06 à P-10, physique-chimie de terminale en découpage). Rien n'en est encore dans la
   bibliothèque ; la fusion se décidera avec le porteur. Son estimation : `estimation.txt` dans
   cette copie.
+- 2026-11-12, 22 h 05 : le porteur valide T-109 à T-115 (recommandations) et le travail de nuit.
+  7e physique-chimie 10 sur 28 et 9e français 10 sur 46 faits, sessions archivées. Lancées sur
+  Opus : lot B étape 1 (`local_2003de89-17c8-40dc-a198-0dcb95a46dce`), 7e physique-chimie P-11 à
+  P-15 (`local_88c37389-53bd-458c-97c5-7e6fab916b3a`), 9e français 11 à 15
+  (`local_5609fa5e-e0ce-414b-a62f-0edc35be9159`). En cours : 9e histoire-géographie, 7e
+  mathématiques A-06 à A-10.
+- Nuit du 12 au 13 seulement (exception à la règle 1, accord du porteur) : les sessions de leçons
+  qui finissent ne sont pas archivées ; à la remise à zéro de la fenêtre (1 h 20), l'orchestrateur
+  leur écrit « lot suivant » (l'application refuse de démarrer une session sans message du
+  porteur). À 9 h, retour à la règle : sessions neuves, Fable effort moyen pour les leçons.
