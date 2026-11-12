@@ -4,7 +4,7 @@
 // le poste principal s'éteint et reprend seul quand il revient ; puis il est révoqué et quitte le
 // poste principal. En mode d'essai, le serveur n'écoute que la machine elle-même.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -169,8 +169,27 @@ test("la direction allume le réseau de l'école", async () => {
   // Tant que le réseau est éteint, personne ne répond sur le port.
   expect(await portOuvert()).toBe(false);
 
+  // Activer ouvre d'abord le pare-feu de Windows. Le pare-feu des essais refuse la première
+  // demande, comme une personne qui répond « Non » à Windows : le réseau s'allume, l'écran dit
+  // que les autres ordinateurs n'entreront pas et offre de recommencer.
+  await expect(page.getByText(texte("postes.activer_aide"))).toBeVisible();
   await page.getByRole("button", { name: texte("postes.activer") }).click();
   await expect(page.getByText(texte("postes.reseau.allume"))).toBeVisible();
+  await expect(page.getByText(texte("postes.pare_feu.ferme"))).toBeVisible();
+  await capturer(page, "162-postes-pare-feu-ferme");
+  // Un réseau que Windows range parmi les réseaux publics : l'écran dit quoi régler.
+  const reseauPublic = join(principal.donnees, "essai-reseau-public");
+  writeFileSync(reseauPublic, "");
+  await page.getByRole("button", { name: texte("postes.pare_feu.ouvrir") }).click();
+  await expect(page.getByText(texte("postes.pare_feu.reseau_public"))).toBeVisible();
+  await expect(page.getByText(texte("postes.pare_feu.ouvert"))).toBeVisible();
+  await capturer(page, "163-postes-reseau-public");
+  // Le réseau déclaré privé dans Windows : l'écran le constate à la demande.
+  rmSync(reseauPublic);
+  await page.getByRole("button", { name: texte("postes.pare_feu.verifier") }).click();
+  await expect(page.getByText(texte("postes.pare_feu.reseau_public"))).toBeHidden();
+  await expect(page.getByText(texte("postes.pare_feu.ouvert"))).toBeVisible();
+  await expect(page.getByText(texte("postes.pare_feu.ferme"))).toBeHidden();
   // Le serveur fabrique le certificat à la première activation : son empreinte paraît à la
   // relecture suivante de l'écran.
   await expect(page.getByText(texte("postes.empreinte_attente"))).toBeHidden({ timeout: 20_000 });

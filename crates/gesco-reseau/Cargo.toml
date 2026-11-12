@@ -11,6 +11,7 @@ publish.workspace = true
 gesco-core.workspace = true
 gesco-services.workspace = true
 axum.workspace = true
+base64.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
 http-body-util.workspace = true

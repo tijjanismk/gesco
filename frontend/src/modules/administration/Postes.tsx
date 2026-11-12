@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { type EtatPareFeu, lirePareFeu, ouvrirPareFeu } from "../../api/poste";
 import { Bouton } from "../../composants/Bouton";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, date, dateHeure, heure, t } from "../../i18n";
@@ -38,11 +39,29 @@ export function Postes() {
     onSettled: () => setAConfirmer(null),
   });
   const reseau = etat.data;
+  const port = reseau?.port;
+  // Le pare-feu de Windows ne se lit que réseau allumé, à l'ouverture de l'écran et après chaque
+  // geste, pas toutes les dix secondes : la lecture lance des programmes de Windows.
+  const pareFeu = useQuery({
+    queryKey: ["pare-feu", port],
+    queryFn: () => lirePareFeu(port ?? 0),
+    enabled: port !== undefined && reseau?.actif === true,
+    staleTime: Infinity,
+  });
+  const ouverture = useMutation({
+    mutationFn: (p: number) => ouvrirPareFeu(p),
+    onSuccess: (nouvel, p) => client.setQueryData(["pare-feu", p], nouvel),
+  });
+  // Le pare-feu s'ouvre avant que GESCO n'écoute : Windows n'a pas à poser sa propre question.
+  const activer = async (p: number) => {
+    await ouverture.mutateAsync(p);
+    return appeler("reseau_activer", null);
+  };
   return (
     <div className="flex max-w-4xl flex-col gap-4">
       <h1 className="text-xl font-semibold text-encre">{t("postes.titre")}</h1>
       <p className="text-sm text-muet">{t("postes.presentation")}</p>
-      <MessageErreur erreur={etat.error ?? action.error} />
+      <MessageErreur erreur={etat.error ?? action.error ?? ouverture.error ?? pareFeu.error} />
       {reseau === undefined ? null : (
         <>
           <Section titre={t("postes.reseau")}>
@@ -50,9 +69,17 @@ export function Postes() {
               {t(reseau.actif ? "postes.reseau.allume" : "postes.reseau.eteint")}
             </p>
             {reseau.actif ? <Reperes reseau={reseau} /> : null}
+            {reseau.actif && pareFeu.data !== undefined ? (
+              <PareFeu
+                etat={pareFeu.data}
+                enCours={ouverture.isPending || pareFeu.isFetching}
+                surOuvrir={() => ouverture.mutate(reseau.port)}
+                surVerifier={() => void pareFeu.refetch()}
+              />
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
               {!reseau.actif ? (
-                <Bouton disabled={action.isPending} onClick={() => action.mutate(() => appeler("reseau_activer", null))}>
+                <Bouton disabled={action.isPending} onClick={() => action.mutate(() => activer(reseau.port))}>
                   {t("postes.activer")}
                 </Bouton>
               ) : aConfirmer === "eteindre" ? (
@@ -66,7 +93,7 @@ export function Postes() {
                 <Bouton variante="secondaire" onClick={() => setAConfirmer("eteindre")}>{t("postes.eteindre")}</Bouton>
               )}
             </div>
-            {reseau.actif ? <p className="text-sm text-muet">{t("postes.eteindre_aide")}</p> : null}
+            <p className="text-sm text-muet">{t(reseau.actif ? "postes.eteindre_aide" : "postes.activer_aide")}</p>
           </Section>
 
           {reseau.actif ? (
@@ -154,6 +181,33 @@ function Reperes({ reseau }: { reseau: EtatReseau }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/** Pare-feu de Windows : ouvert aux postes reliés ou non, et ce qu'il reste à faire. */
+function PareFeu({ etat, enCours, surOuvrir, surVerifier }: {
+  etat: EtatPareFeu;
+  enCours: boolean;
+  surOuvrir: () => void;
+  surVerifier: () => void;
+}) {
+  return (
+    <>
+      {etat.ouvert ? (
+        <p className="text-sm text-encre">{t("postes.pare_feu.ouvert")}</p>
+      ) : (
+        <div role="alert" className="flex flex-col items-start gap-2 rounded border border-ocre p-3 text-sm text-ocre">
+          <p>{t("postes.pare_feu.ferme")}</p>
+          <Bouton disabled={enCours} onClick={surOuvrir}>{t("postes.pare_feu.ouvrir")}</Bouton>
+        </div>
+      )}
+      {etat.reseau_public ? (
+        <div className="flex flex-col items-start gap-2 rounded border border-ocre p-3 text-sm text-ocre">
+          <p>{t("postes.pare_feu.reseau_public")}</p>
+          <Bouton variante="secondaire" disabled={enCours} onClick={surVerifier}>{t("postes.pare_feu.verifier")}</Bouton>
+        </div>
+      ) : null}
+    </>
   );
 }
 

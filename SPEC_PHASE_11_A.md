@@ -421,6 +421,26 @@ posée à l'activation du réseau. Mise à jour : le poste principal d'abord, pu
 Guide d'installation à plusieurs postes, avec le conseil d'un portable comme poste principal et
 d'un petit routeur ; manuel ; notes de version. Liste d'essais à la main sur deux vraies machines.
 
+Réalisé à l'étape 6 :
+
+- **Pare-feu** : GESCO s'installe sans droits d'administrateur ; c'est donc GESCO, et non
+  l'installeur, qui pose la règle, juste avant d'allumer le réseau. Windows demande alors son
+  accord à la personne. La règle « GESCO postes relies » laisse entrer vers GESCO seulement, en
+  TCP sur le port du réseau, sur les réseaux privés seulement. Si la personne refuse, le réseau
+  s'allume et l'écran « Postes de l'école » dit que les autres ordinateurs n'entreront pas, avec
+  un bouton pour recommencer. L'écran dit aussi quand Windows range le réseau parmi les réseaux
+  publics, et quel réglage de Windows changer ; GESCO ne le change pas lui-même. La règle reste
+  en place quand le réseau s'éteint et après une désinstallation.
+- **Installeur** : toujours un seul, pour le poste principal comme pour les postes reliés. La
+  case « Supprimer les données de l'application » de la désinstallation est ignorée quand le
+  poste garde la base d'une école, et l'installeur le dit.
+- **Version** : 2.0.0.
+- **Guide** : `docs/installation-plusieurs-postes.md`. **Essais à la main** :
+  `docs/essais-a-la-main-2.0.md` ; l'essai sur deux machines y est écrit pas à pas et reste à
+  jouer par le porteur du projet, qui n'a qu'un ordinateur le 12 novembre 2026.
+- Restent : le manuel d'utilisation de la 2.0, l'école d'essai en 2.0, la mesure sur un vrai
+  réseau.
+
 ## 11. Ordre de réalisation
 
 1. Le noyau répond par une route, sur la machine elle-même : crate `gesco-reseau`, origine de
@@ -460,3 +480,4 @@ porteur. Une seule compilation complète par étape, `target` élagué avant.
 | v1.5 | 2026-11-11 | Étape 4, première partie. §6.1 : liste des six fiches protégées, classement des autres commandes de modification, six fiches notées « à protéger ». §6.2 : relecture à l'ouverture, trente secondes pour les données de référence, pas de relecture au retour à la fenêtre. §6.3 : opérations retenues, imports limités à ceux qui touchent toute l'école, import lancé d'un poste relié — choix à confirmer par le porteur du projet. §6.4 et §6.5 (lenteurs, mesure) restent à faire |
 | v1.6 | 2026-11-11 | Étape 4, seconde partie. §6.1 : douze fiches protégées (compte d'un utilisateur, rôle, année, inscription, enseignant, fournisseur ajoutés). §6.4 : ce qui a été fait pour chacune des cinq lenteurs. §6.5 : la mesure à dix postes, la cible fixée (une commande par seconde et par poste, 95 % sous la seconde), les écrivains mis en file dans l'ordre d'arrivée, la connexion par commande gardée — cible et file à confirmer par le porteur du projet |
 | v1.7 | 2026-11-12 | Étape 5 réalisée. §7 : le réglage `notes.saisie_maitres`, la définition du compte de maître (le seul rôle livré Enseignant), la session fermée quand le réglage s'éteint, la liste des commandes d'un maître, ses classes et ses élèves — définition du compte de maître et contenu de la liste à confirmer par le porteur du projet |
+| v1.8 | 2026-11-12 | Étape 6 réalisée, sauf l'essai sur deux machines. §10 : la règle du pare-feu est posée par GESCO avec l'accord de Windows, sur les réseaux privés seulement, pour le seul programme GESCO ; l'écran dit le pare-feu fermé ou le réseau public ; la case de suppression des données est ignorée à la désinstallation d'un poste qui garde une école ; version 2.0.0 — choix à confirmer par le porteur du projet |

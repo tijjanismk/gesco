@@ -2,12 +2,13 @@
 //! appel du frontend à la frontière de `gesco-services` — sur place, ou par le poste principal
 //! quand ce poste est relié (SPEC_PHASE_11_A §5). La garde de permission y est appliquée côté
 //! Rust (R-21). S'y ajoutent les commandes du rôle du poste (rejoindre ou quitter le poste
-//! principal, état de la liaison), qui ne touchent à aucune donnée de l'école, et le dialogue
-//! d'ouverture de fichier, qui ne lit rien et rend seulement un chemin.
+//! principal, état de la liaison, pare-feu de Windows), qui ne touchent à aucune donnée de
+//! l'école, et le dialogue d'ouverture de fichier, qui ne lit rien et rend seulement un chemin.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod empreinte;
+mod pare_feu;
 mod poste;
 mod trousseau;
 
@@ -18,6 +19,7 @@ use gesco_services::cles::Trousseau;
 use gesco_services::{ErreurCommande, Horloge, HorlogeDecalee, HorlogeSysteme};
 use tauri::{Emitter, Manager};
 
+use crate::pare_feu::{EtatPareFeu, PareFeu};
 use crate::poste::{ApercuAffiche, Demarrage, EtatPoste, InfoPoste};
 use crate::trousseau::CoffreLiaison;
 
@@ -75,6 +77,25 @@ async fn liaison_verifier(poste: tauri::State<'_, Arc<EtatPoste>>) -> Result<(),
     poste.verifier_liaison().await
 }
 
+/// État du pare-feu de Windows pour le port du réseau de l'école, lu sans aucun droit.
+#[tauri::command]
+async fn pare_feu_lire(
+    poste: tauri::State<'_, Arc<EtatPoste>>,
+    port: u16,
+) -> Result<EtatPareFeu, ErreurCommande> {
+    poste.pare_feu_lire(port).await
+}
+
+/// Ouvre le pare-feu de Windows aux postes reliés, sur les réseaux privés : Windows demande son
+/// accord à la personne, GESCO n'ayant pas les droits d'administrateur.
+#[tauri::command]
+async fn pare_feu_ouvrir(
+    poste: tauri::State<'_, Arc<EtatPoste>>,
+    port: u16,
+) -> Result<EtatPareFeu, ErreurCommande> {
+    poste.pare_feu_ouvrir(port).await
+}
+
 /// Ferme le poste principal malgré les postes connectés : la personne vient de le confirmer.
 #[tauri::command]
 fn fermer_quand_meme(fenetre: tauri::Window, poste: tauri::State<'_, Arc<EtatPoste>>) {
@@ -125,6 +146,7 @@ fn main() -> tauri::Result<()> {
         .setup(|app| {
             let essai = dossier_essai();
             let en_essai = essai.is_some();
+            let pare_feu = Arc::new(PareFeu::du_poste(essai.clone()));
             let (racine, trousseau, coffre): (PathBuf, Arc<dyn Trousseau>, Arc<dyn CoffreLiaison>) =
                 match essai {
                     Some(dossier) => {
@@ -163,6 +185,7 @@ fn main() -> tauri::Result<()> {
                 coffre,
                 horloge: horloge(),
                 cle_licence: gesco_services::licence::cle_publique_editeur()?,
+                pare_feu,
             };
             let poste = Arc::new(tauri::async_runtime::block_on(EtatPoste::demarrer(
                 demarrage,
@@ -189,6 +212,8 @@ fn main() -> tauri::Result<()> {
             poste_rejoindre,
             poste_quitter,
             liaison_verifier,
+            pare_feu_lire,
+            pare_feu_ouvrir,
             fermer_quand_meme
         ])
         .build(tauri::generate_context!())?;

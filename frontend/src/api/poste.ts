@@ -25,6 +25,14 @@ export interface ApercuPrincipal {
   meme_version: boolean;
 }
 
+/** Ce que le poste sait du pare-feu de Windows, pour le port du réseau de l'école. */
+export interface EtatPareFeu {
+  /** La règle laisse entrer les postes reliés vers GESCO. */
+  ouvert: boolean;
+  /** Windows range un réseau de l'ordinateur parmi les réseaux publics : la règle n'y vaut pas. */
+  reseau_public: boolean;
+}
+
 async function demander<T>(commande: string, entree?: Record<string, unknown>): Promise<T> {
   try {
     return await invoke<T>(commande, entree);
@@ -45,6 +53,13 @@ export const quitterPrincipal = (): Promise<InfoPoste> => demander("poste_quitte
 
 /** Vérifie que le poste principal répond ; rejette avec l'erreur de la liaison sinon. */
 export const verifierLiaison = (): Promise<null> => demander("liaison_verifier");
+
+/** Lit l'état du pare-feu de Windows pour ce port, sans rien demander à Windows. */
+export const lirePareFeu = (port: number): Promise<EtatPareFeu> => demander("pare_feu_lire", { port });
+
+/** Ouvre le pare-feu de Windows aux postes reliés, s'il ne l'est pas : Windows demande alors son
+ *  accord à la personne. Rend l'état relu ensuite, qu'elle ait accepté ou non. */
+export const ouvrirPareFeu = (port: number): Promise<EtatPareFeu> => demander("pare_feu_ouvrir", { port });
 
 /** Ferme GESCO sur le poste principal malgré les postes connectés. */
 export const fermerQuandMeme = (): Promise<null> => demander("fermer_quand_meme");

@@ -8,6 +8,7 @@
 //! arrête l'écoute quand la direction allume ou éteint le réseau.
 
 pub mod chiffrement;
+pub mod pare_feu;
 pub mod relais;
 
 use std::collections::HashMap;

@@ -1850,7 +1850,7 @@ dependencies = [
 
 [[package]]
 name = "gesco-app"
-version = "1.2.7"
+version = "2.0.0"
 dependencies = [
  "gesco-core",
  "gesco-reseau",
@@ -1868,7 +1868,7 @@ dependencies = [
 
 [[package]]
 name = "gesco-core"
-version = "1.2.7"
+version = "2.0.0"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -1886,7 +1886,7 @@ dependencies = [
 
 [[package]]
 name = "gesco-db"
-version = "1.2.7"
+version = "2.0.0"
 dependencies = [
  "gesco-core",
  "hex",
@@ -1903,7 +1903,7 @@ dependencies = [
 
 [[package]]
 name = "gesco-docs"
-version = "1.2.7"
+version = "2.0.0"
 dependencies = [
  "calamine",
  "hex",
@@ -1922,7 +1922,7 @@ dependencies = [
 
 [[package]]
 name = "gesco-licence"
-version = "1.2.7"
+version = "2.0.0"
 dependencies = [
  "gesco-core",
  "getrandom 0.4.3",
@@ -1932,7 +1932,7 @@ dependencies = [
 
 [[package]]
 name = "gesco-remplir"
-version = "1.2.7"
+version = "2.0.0"
 dependencies = [
  "gesco-core",
  "gesco-reseau",
@@ -1946,9 +1946,10 @@ dependencies = [
 
 [[package]]
 name = "gesco-reseau"
-version = "1.2.7"
+version = "2.0.0"
 dependencies = [
  "axum",
+ "base64 0.23.1",
  "gesco-core",
  "gesco-services",
  "http-body-util",
@@ -1966,7 +1967,7 @@ dependencies = [
 
 [[package]]
 name = "gesco-services"
-version = "1.2.7"
+version = "2.0.0"
 dependencies = [
  "argon2",
  "base64 0.23.1",
@@ -1993,7 +1994,7 @@ dependencies = [
 
 [[package]]
 name = "gesco-sms"
-version = "1.2.7"
+version = "2.0.0"
 dependencies = [
  "gesco-core",
  "serialport",

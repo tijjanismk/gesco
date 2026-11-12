@@ -25,6 +25,7 @@ use serde_json::Value;
 use tauri::async_runtime::JoinHandle;
 use tokio::sync::RwLock;
 
+use crate::pare_feu::{EtatPareFeu, PareFeu};
 use crate::trousseau::CoffreLiaison;
 
 /// Réglage du poste, à la racine de son espace de données.
@@ -90,6 +91,7 @@ pub(crate) struct Demarrage {
     pub(crate) coffre: Arc<dyn CoffreLiaison>,
     pub(crate) horloge: Arc<dyn Horloge>,
     pub(crate) cle_licence: [u8; 32],
+    pub(crate) pare_feu: Arc<PareFeu>,
 }
 
 enum Mode {
@@ -482,6 +484,29 @@ impl EtatPoste {
             self.demarrage.noter("poste relie : liaison quittee");
         }
         Ok(self.info_de(&mode))
+    }
+
+    /// État du pare-feu de Windows pour le port du réseau de l'école. La lecture lance des
+    /// programmes de Windows : elle se fait sur un fil à part.
+    pub(crate) async fn pare_feu_lire(&self, port: u16) -> Result<EtatPareFeu, ErreurCommande> {
+        let pare_feu = Arc::clone(&self.demarrage.pare_feu);
+        tauri::async_runtime::spawn_blocking(move || pare_feu.lire(port))
+            .await
+            .map_err(|_| erreur("erreur.interne"))
+    }
+
+    /// Ouvre le pare-feu de Windows aux postes reliés, si ce n'est déjà fait : Windows demande
+    /// son accord à la personne. Rend l'état relu ensuite ; le journal technique garde l'issue.
+    pub(crate) async fn pare_feu_ouvrir(&self, port: u16) -> Result<EtatPareFeu, ErreurCommande> {
+        let pare_feu = Arc::clone(&self.demarrage.pare_feu);
+        let etat = tauri::async_runtime::spawn_blocking(move || pare_feu.ouvrir(port))
+            .await
+            .map_err(|_| erreur("erreur.interne"))?;
+        self.demarrage.noter(&format!(
+            "pare-feu ouverture demandee port={port} ouvert={} reseau_public={}",
+            etat.ouvert, etat.reseau_public
+        ));
+        Ok(etat)
     }
 
     /// Postes reliés qui ont une session ouverte sur ce poste principal ; zéro tant que la

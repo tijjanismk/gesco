@@ -102,6 +102,14 @@ Paramètres de Windows → Applications → GESCO → Désinstaller. Les donnée
 effacées : elles restent dans le dossier `%APPDATA%\ml.gesco.poste`. Avant de changer
 d'ordinateur, faites une dernière sauvegarde sur la clé USB.
 
+La fenêtre de désinstallation porte une case « Supprimer les données de l'application ».
+**Jusqu'à la version 1.2.7, ne la cochez jamais** : elle efface l'école. À partir de la
+version 2.0, elle est sans effet sur un ordinateur qui garde les données d'une école, et
+l'installeur le dit.
+
+Pour plusieurs ordinateurs dans la même école (version 2.0), voir
+`installation-plusieurs-postes.md`.
+
 ## 10. Changer d'ordinateur, ou après une panne
 
 1. Installez GESCO sur le nouvel ordinateur (§3).
