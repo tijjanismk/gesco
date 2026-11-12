@@ -213,3 +213,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-12 : 8e, biologie 10 sur 15 et mathématiques 10 sur 44 ; sessions archivées. Étape 6
   arrêtée par une coupure d'Internet, message de reprise mis en file. Semaine Fable à 87 % :
   rien de neuf avant le 13 novembre à 9 h UTC, le reste va à l'étape 6.
+- 2026-11-12 (soir) : le porteur arrête la 8e sur ce compte (10 sur 44 en mathématiques, 10 sur 15
+  en biologie, 5 sur 23 en physique-chimie, en pause) ; l'autre compte ne fait que la terminale.
+  Il demande ensuite les autres matières de 9e (français, histoire-géographie, anglais, ECM…)
+  et « les premiers » (à lui faire préciser). Étape 6 : deux coupures d'Internet, relancée
+  deux fois, pas encore commitée. `gesco-bibliotheque/contenus/REPARTITION.md` dit qui fait quoi.
