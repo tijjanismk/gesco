@@ -82,6 +82,11 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
   (certaines ne lui feront pas confiance) n'est bloquée nulle part, et rien ne le lui fait
   remarquer. À vérifier dans l'existant et à écrire dans `ETAT_AVANCEMENT.md`.
 
+- 2026-11-12, précision du porteur : « la paie » voulait dire aussi le paiement des frais de
+  l'année. Une école qui n'enregistre pas les frais de scolarité dans l'application (ni
+  factures suivies, ni encaissements) n'est bloquée nulle part — inscription, bulletins,
+  passage, rapports — et rien ne le lui fait remarquer (pas d'alerte d'impayés imposée).
+
 ## File du code (dans l'ordre)
 
 1. Étape 5 : saisie des notes par les maîtres, éteinte à la livraison ; avec, en reprise, les
