@@ -187,3 +187,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   8e, lot 1 fait. Lancées : étape 6 et biologie de 8e, leçons 6 à 10. Sessions archivées.
 - 2026-11-12 : 8e, lots 1 de mathématiques (5 sur 44) et de physique-chimie (5 sur 23) faits ;
   terminale ouverte (mathématiques TSE). Semaine Fable à 71 %, fenêtre de 5 heures à 52 %.
+- 2026-11-12 : le porteur met la 8e année en pause. Sessions arrêtées en cours de tour, non
+  archivées : biologie leçons 6 à 10 (`local_2cd5374a-2e07-451b-9ba1-0f44ea5eed9d`) et
+  mathématiques A-06 à A-10 (`local_9f1d8743-cc93-4236-857b-99cd43fce5e8`) ; une leçon peut être
+  restée à moitié écrite dans chacune. Ne rien lancer en 8e sans un mot du porteur. Continuent :
+  étape 6 et mathématiques de TSE.
