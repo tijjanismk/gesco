@@ -224,3 +224,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-12 (soir) : « les premiers » = la 7e année, matières scientifiques, pour ce compte-ci,
   avec les autres matières de 9e. À lancer après la remise à zéro de la semaine (13 novembre,
   9 h UTC) : 7e mathématiques, physique-chimie, biologie (découpage et lot 1 chacune).
+- 2026-11-12 (soir) : le porteur demande de continuer sur Claude Opus quand la semaine Fable est
+  épuisée. Lancées sur Opus 5.5, effort très élevé : 7e mathématiques
+  (`local_1490ba64-36a0-4369-a1e4-bbea9f50595f`), 7e physique-chimie
+  (`local_a4103519-9f2a-407c-8e2e-ec4bf16dbdd6`), 7e biologie
+  (`local_feaa0bbc-c3b6-4f99-bddb-9ea63bb145f3`) ; découpage et lot 1 chacune. À suivre : autres
+  matières de 9e (français, histoire-géographie, anglais, ECM).
