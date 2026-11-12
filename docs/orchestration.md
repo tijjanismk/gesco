@@ -120,11 +120,14 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 `contenus\8e-annee\<matière>` (découpage à confirmer sur le programme officiel s'il manque).
 
 1. 9e année : entièrement rédigée (biologie 22, physique-chimie 26, mathématiques 31).
-2. 8e, mathématiques : découpage et lot 1 (en cours, `local_aa0fb224-b2aa-4395-91be-29ae3951af5f`), puis lots suivants.
-3. 8e, physique-chimie : découpage et lot 1 (en cours, `local_de20961a-ae79-4e37-95a3-994469f1c431`), puis lots suivants.
+2. 8e, mathématiques : 5 sur 44 ; A-06 à A-10 en cours (`local_9f1d8743-cc93-4236-857b-99cd43fce5e8`), puis la suite par lots de cinq.
+3. 8e, physique-chimie : 5 sur 23 (P-01 à P-05) ; lot 2 (P-06 à P-10) à lancer dès qu'une place se libère.
 4. 8e, biologie : 5 sur 15 ; leçons 6 à 10 en cours (`local_2cd5374a-2e07-451b-9ba1-0f44ea5eed9d`), puis 11 à 15.
-5. 7e année, mêmes matières, puis les autres classes. Le porteur a évoqué la terminale le
-   12 novembre : séries et matières à lui faire préciser avant de lancer.
+5. Terminale (ordre accepté par le porteur le 12 novembre) : sciences de TSE et TSExp d'abord
+   (mathématiques, physique-chimie, biologie), puis philosophie et séries littéraires.
+   Mathématiques de TSE : découpage et lot 1 en cours (`local_2093a28c-6701-4d69-9cc6-a0be25b2f98b`),
+   dans `contenus/terminale`.
+6. 7e année, mêmes matières, puis les autres classes.
 
 ## Ce que l'usage a appris (12 novembre 2026)
 
@@ -182,3 +185,5 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-12 : 8e année lancée (mathématiques et physique-chimie) ; biologie de 8e à suivre.
 - 2026-11-12 : étape 5 faite (`160bc4f`) ; mathématiques de 9e finies (31 sur 31) ; biologie de
   8e, lot 1 fait. Lancées : étape 6 et biologie de 8e, leçons 6 à 10. Sessions archivées.
+- 2026-11-12 : 8e, lots 1 de mathématiques (5 sur 44) et de physique-chimie (5 sur 23) faits ;
+  terminale ouverte (mathématiques TSE). Semaine Fable à 71 %, fenêtre de 5 heures à 52 %.
