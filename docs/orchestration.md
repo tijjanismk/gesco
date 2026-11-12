@@ -65,7 +65,7 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
 |---|---|---|---|
 | Biologie | 22 leçons sur 22 | rien | `biologie\ETAT.md` |
 | Physique-chimie | 26 leçons sur 26 | rien | `physique-chimie\ETAT.md` |
-| Mathématiques | 27 sur 31 : G-01 à G-17 faites | G-18 à G-21, en cours (session `local_81da8b5d-2a01-48e0-82b0-37037f4fd296`) | `mathematiques/ETAT.md` |
+| Mathématiques | 31 leçons sur 31 (paragraphe « Écart à lever » de `ETAT.md` à relire) | rien | `mathematiques/ETAT.md` |
 
 Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
@@ -102,9 +102,10 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
 ## File du code (dans l'ordre)
 
-1. Étape 5 : saisie des notes par les maîtres, éteinte à la livraison ; avec, en reprise, les
-   suites à donner de l'étape 4.
-2. Étape 6 : livraison (pare-feu, installeur, guide). Le porteur n'a qu'un ordinateur
+1. Étape 5 : faite (`160bc4f`, tout vert). Quatre choix à confirmer par le porteur : compte de
+   maître = seul rôle Enseignant ; liste sans discipline ni finances ; session fermée à
+   l'extinction ; réglage allumé si un maître a déjà saisi.
+2. Étape 6 (en cours, `local_01afc8c1-06f6-45dc-9206-fd73d93a32e6`) : livraison (pare-feu, installeur, guide). Le porteur n'a qu'un ordinateur
    (2026-11-12) : tout faire et vérifier sur une seule machine, écrire la marche à suivre de
    l'essai sur deux machines dans les essais à la main, et laisser cet essai au porteur, qui
    vérifiera après. Ne pas attendre.
@@ -118,11 +119,12 @@ Décision du porteur du 12 novembre 2026 : après la 9e, la 8e année, puis les 
 vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETAT.md` dans
 `contenus\8e-annee\<matière>` (découpage à confirmer sur le programme officiel s'il manque).
 
-1. 9e, mathématiques : G-16 à G-21 (en cours).
+1. 9e année : entièrement rédigée (biologie 22, physique-chimie 26, mathématiques 31).
 2. 8e, mathématiques : découpage et lot 1 (en cours, `local_aa0fb224-b2aa-4395-91be-29ae3951af5f`), puis lots suivants.
 3. 8e, physique-chimie : découpage et lot 1 (en cours, `local_de20961a-ae79-4e37-95a3-994469f1c431`), puis lots suivants.
-4. 8e, biologie : découpage et lot 1, à lancer dès qu'une place se libère (quatre sessions au plus).
-5. 7e année, mêmes matières, puis les autres classes.
+4. 8e, biologie : 5 sur 15 ; leçons 6 à 10 en cours (`local_2cd5374a-2e07-451b-9ba1-0f44ea5eed9d`), puis 11 à 15.
+5. 7e année, mêmes matières, puis les autres classes. Le porteur a évoqué la terminale le
+   12 novembre : séries et matières à lui faire préciser avant de lancer.
 
 ## Ce que l'usage a appris (12 novembre 2026)
 
@@ -178,3 +180,5 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   posées au porteur.
 - 2026-11-12 : mathématiques G-11 à G-15 faites, session archivée ; T-98 à T-108 validées.
 - 2026-11-12 : 8e année lancée (mathématiques et physique-chimie) ; biologie de 8e à suivre.
+- 2026-11-12 : étape 5 faite (`160bc4f`) ; mathématiques de 9e finies (31 sur 31) ; biologie de
+  8e, lot 1 fait. Lancées : étape 6 et biologie de 8e, leçons 6 à 10. Sessions archivées.
