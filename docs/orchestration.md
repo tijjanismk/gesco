@@ -75,6 +75,11 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
   ni les rapports de la phase 9. À vérifier dans le personnel existant et à tenir dans la
   spécification de la phase 9 ; à écrire dans `ETAT_AVANCEMENT.md`.
 
+- 2026-11-12, même principe (« ne pas bloquer, ne pas le mentionner ») : les frais impayés ne
+  bloquent jamais l'inscription ; une école qui ne se sert pas de la paie de l'application
+  (certaines ne lui feront pas confiance) n'est bloquée nulle part, et rien ne le lui fait
+  remarquer. À vérifier dans l'existant et à écrire dans `ETAT_AVANCEMENT.md`.
+
 ## File du code (dans l'ordre)
 
 1. Étape 5 : saisie des notes par les maîtres, éteinte à la livraison ; avec, en reprise, les
