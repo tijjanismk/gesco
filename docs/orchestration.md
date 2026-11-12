@@ -121,7 +121,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 
 1. 9e année : entièrement rédigée (biologie 22, physique-chimie 26, mathématiques 31).
 2. 8e, mathématiques : 5 sur 44 ; A-06 à A-10 en cours (`local_9f1d8743-cc93-4236-857b-99cd43fce5e8`), puis la suite par lots de cinq.
-3. 8e, physique-chimie : 5 sur 23 (P-01 à P-05) ; lot 2 (P-06 à P-10) à lancer dès qu'une place se libère.
+3. 8e, physique-chimie : 5 sur 23 (P-01 à P-05) ; la suite (P-06 et après) est confiée à
+   l'autre compte du porteur (12 novembre 2026). Ne rien y lancer d'ici.
 4. 8e, biologie : 5 sur 15 ; leçons 6 à 10 en cours (`local_2cd5374a-2e07-451b-9ba1-0f44ea5eed9d`), puis 11 à 15.
 5. Terminale : confiée à l'autre compte du porteur (décision du 12 novembre 2026), qui
    travaille dans `gesco-bibliotheque\contenus	erminale` avec le prompt donné par le relais.
@@ -195,3 +196,4 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-12 : pause de la 8e levée par le porteur ; les deux sessions arrêtées reprennent
   (biologie 6 à 10, mathématiques A-06 à A-10). Terminale confiée à l'autre compte ; lot 1 des
   mathématiques de TSE fait (5 sur 38), session archivée. Semaine Fable à 79 %.
+- 2026-11-12 : physique-chimie de 8e confiée à l'autre compte, comme la terminale.
