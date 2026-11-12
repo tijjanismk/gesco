@@ -65,6 +65,16 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
 
 Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
+### Décisions du porteur à reporter par la prochaine session de code
+
+- 2026-11-12 : étape 4 validée, avec ses trois choix (cible de la mesure, file d'attente des
+  écritures, connexion par commande gardée). À écrire dans `ETAT_AVANCEMENT.md`.
+- 2026-11-12 : des enseignants refusent parfois de remettre leur dossier à l'école.
+  L'application n'en parle pas (ni mention, ni case « refus »), et un dossier absent ou
+  incomplet ne bloque jamais rien : ni la création de la fiche, ni l'affectation, ni la paie,
+  ni les rapports de la phase 9. À vérifier dans le personnel existant et à tenir dans la
+  spécification de la phase 9 ; à écrire dans `ETAT_AVANCEMENT.md`.
+
 ## File du code (dans l'ordre)
 
 1. Étape 5 : saisie des notes par les maîtres, éteinte à la livraison ; avec, en reprise, les
@@ -85,7 +95,6 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
 ## Ce que seul le porteur peut fournir
 
-- La validation de l'étape 4 et ses trois choix à confirmer (voir « État »).
 - Deux ordinateurs Windows pour l'essai de l'étape 6.
 - Le questionnaire CPS du fondamental (phase 9), les prix.
 - Les réponses aux questions de terrain en attente dans `docs/plan-phase-12.md`.
@@ -96,3 +105,5 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 - 2026-11-11 : tableau créé. Dix anciennes sessions archivées. Rien en cours.
 - 2026-11-11 : étape 4, seconde partie, faite et poussée (`0a9f3c4`, `eb7f598`) ; physique P-13 à
   P-17 faite (17 sur 26). Les deux sessions ont coûté environ 50 % de la fenêtre de 5 heures.
+- 2026-11-12 : le porteur valide l'étape 4 et ses trois choix ; décision sur les dossiers des
+  enseignants. Étape 5 et chimie C-01 à C-05 lancées.
