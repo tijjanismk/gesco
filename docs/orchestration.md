@@ -248,3 +248,11 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   9e histoire-géographie : 2 sur 20 seulement (G-01, G-02) ; trois leçons sur la Révolution
   française écrites puis supprimées sur décision du porteur. Sessions archivées. À lancer au
   prochain message du porteur : lots 2 de ces cinq matières, anglais et ECM de 9e.
+- 2026-11-12 (nuit) : semaine Fable à 96 % ; tout passe sur Opus 5.5 (élevé pour le code,
+  très élevé pour les leçons). Lancées : spécification du lot B, `SPEC_PHASE_11_B.md`
+  (`local_7713524b-4f6e-4076-811e-66a142c6129c`) ; 9e histoire-géographie lot suivant
+  (`local_8b7b8254-c570-436d-bfa5-d4ca0b13002b`) ; 9e français 6 à 10
+  (`local_a91abf7f-f6db-4e42-aa90-c3394ec24fac`) ; 7e mathématiques A-06 à A-10
+  (`local_3ded24e5-b56e-41ac-8863-373b7b35a63a`) ; 7e physique-chimie P-06 à P-10
+  (`local_94df1157-2125-4e02-9695-0dd5a5151b60`). En attente d'une place : 7e biologie 6 à
+  10, anglais et ECM de 9e.
