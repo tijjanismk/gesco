@@ -52,8 +52,10 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
   scolaire n'est ouverte » resté sur un poste relié ; versement lent à dix postes (1,7 s au
   95e centile) ; deux essais fragiles (`gesco-reseau`, SMS d'essai Playwright).
 - Disque : `target/release` pèse 10 Go ; élaguer avec `-Release` avant l'étape 5.
-- Phase 9 : décisions du 11 novembre dans `ETAT_AVANCEMENT.md` ; elle vient après le lot A,
-  spécification d'abord.
+- Phase 9 : `SPEC_PHASE_9.md` v1.0 commitée (`cf17dca`), huit étapes d'une session. Onze
+  questions au porteur, T-98 à T-108, chacune avec une recommandation, posées le 12 novembre ;
+  seule T-99 est nécessaire, avant l'étape 6 de la phase 9. Trois PDF scannés et la fin du
+  rapport de fermeture n'ont pas pu être lus (tableaux à vérifier à l'étape 7 de la phase 9).
 - Phase 12 : plan dans `docs/plan-phase-12.md`, encore hors du dépôt (non suivi).
 - Hors du dépôt, à ne jamais commiter : `docs/classeurs-notes/`, `outils/classeurs-notes/`.
 
@@ -87,6 +89,11 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
   factures suivies, ni encaissements) n'est bloquée nulle part — inscription, bulletins,
   passage, rapports — et rien ne le lui fait remarquer (pas d'alerte d'impayés imposée).
 
+- 2026-11-12, réponse du porteur sur les frais non suivis : « on suit notre logique depuis le
+  début ». Compris ainsi : comme la cantine ou la paie, le suivi des frais est un choix de
+  l'école en réglage (module qu'elle allume ou éteint) ; éteint, il quitte les écrans et le
+  tableau de bord, ses données restent, et aucune facture ne se crée à l'inscription.
+
 ## File du code (dans l'ordre)
 
 1. Étape 5 : saisie des notes par les maîtres, éteinte à la livraison ; avec, en reprise, les
@@ -96,7 +103,7 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
    l'essai sur deux machines dans les essais à la main, et laisser cet essai au porteur, qui
    vérifiera après. Ne pas attendre.
 3. Lot B : livret du jardin.
-4. Phase 9 : spécification, puis étapes.
+4. Phase 9 : étapes 1 à 8 de `SPEC_PHASE_9.md`.
 5. Phase 12 dans l'application, selon `docs/plan-phase-12.md`.
 
 ## File des contenus (dans l'ordre, lots de cinq ou six leçons)
@@ -154,3 +161,5 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 - 2026-11-12 : le porteur veut aller très vite. Lancées en plus de l'étape 5 et de G-11 à G-15 :
   mathématiques G-16 à G-21 (`local_81da8b5d-2a01-48e0-82b0-37037f4fd296`) et la spécification
   de la phase 9, `SPEC_PHASE_9.md` (`local_75a1b1aa-2460-448f-837b-08f08e09d725`).
+- 2026-11-12 : spécification de la phase 9 faite (`cf17dca`), session archivée ; T-98 à T-108
+  posées au porteur.
