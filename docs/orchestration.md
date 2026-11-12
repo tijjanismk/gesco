@@ -8,8 +8,10 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
 1. **Une étape, une session neuve.** Chaque étape de code ou lot de leçons part d'une session
    neuve, avec un brief court qui renvoie aux fichiers. La session finit son étape, met son
    fichier d'état à jour et s'arrête. On ne prolonge jamais une session au-delà de son étape.
-2. **Deux files au plus, une session par file** : le code (dépôt `gesco`) et les contenus
-   (`C:\Users\USER\Documents\gesco-bibliotheque`). Elles ne touchent pas aux mêmes fichiers.
+2. **Aller vite, en parallèle** (décision du porteur du 12 novembre 2026, qui remplace « deux
+   files au plus ») : lancer ensemble tout ce qui ne touche pas aux mêmes fichiers. Bornes :
+   une seule session qui compile à la fois (même checkout, disque presque plein) ; quatre
+   sessions au plus, car deux consomment déjà la moitié d'une fenêtre de 5 heures.
 3. **Ouvrir les sessions sans demander** au porteur, et lui dire en une ligne ce qui est lancé.
    Les sessions rendent compte à l'orchestrateur, qui enchaîne sans poser de question au porteur,
    sauf pour un choix qui engage le produit ou ce que lui seul peut fournir.
@@ -144,3 +146,6 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 - 2026-11-12 : le porteur n'a qu'un ordinateur ; l'étape 6 se code sans attendre, il vérifie après.
 - 2026-11-12 : mathématiques, `ETAT.md` écrit et lot 1 fait (20 sur 31) ; G-11 à G-15 lancées.
   Étape 5 relancée après 1 h 45 d'arrêt. Orchestrateur à 153 000 jetons : relais passé à un neuf.
+- 2026-11-12 : le porteur veut aller très vite. Lancées en plus de l'étape 5 et de G-11 à G-15 :
+  mathématiques G-16 à G-21 (`local_81da8b5d-2a01-48e0-82b0-37037f4fd296`) et la spécification
+  de la phase 9, `SPEC_PHASE_9.md` (`local_75a1b1aa-2460-448f-837b-08f08e09d725`).
