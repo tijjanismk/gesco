@@ -278,3 +278,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   `local_3ded24e5-b56e-41ac-8863-373b7b35a63a`). Lancées : 7e biologie 6 à 10
   (`local_ee5810b6-50b5-4e33-ad28-ecbcb9fae3f1`), 9e anglais découpage et lot 1
   (`local_d59bae7a-5ddf-410f-88af-ee280360e48d`). Reste à ouvrir : ECM de 9e.
+- 2026-11-12, 22 h 30 : le porteur choisit LaTeX pour les formules des leçons, affichées par KaTeX
+  dans l'application (phase 12 : dépendance à ajouter avec un ADR). Règles changées dans
+  `LISEZMOI.md`, `outils/consigne-lecon.md` et `DECISIONS.md` de la bibliothèque et de la copie de
+  l'autre compte ; notations maliennes confirmées (x, y ; (uₙ) ; k ∈ ℤ ; paramètre m ; a ≡ b [n]).
+  Les leçons déjà écrites sont en texte simple : chaque session de leçons convertit d'abord sa
+  matière avant son lot suivant ; matières finies (9e sciences, TSE de l'autre compte) : sessions
+  de conversion à prévoir. 9e français 15 sur 46 fait.
