@@ -100,6 +100,12 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
   reporter dans `SPEC_PHASE_9.md` (v1.1) et `ETAT_AVANCEMENT.md` par la première session de la
   phase 9.
 
+- 2026-11-12, demande du porteur pour la phase 12 (e-learning) : pouvoir ajouter des vidéos aux
+  leçons. À inscrire dans `docs/plan-phase-12.md` et dans la spécification de la phase 12 ;
+  proposition de l'orchestrateur, non encore confirmée : vidéos ajoutées par l'école en
+  fichiers locaux (MP4), rangées hors de la base, lues sans Internet et depuis les postes
+  reliés ; aucune vidéo livrée dans l'installeur ; lien vers une vidéo en ligne en option.
+
 ## File du code (dans l'ordre)
 
 1. Étape 5 : faite (`160bc4f`, tout vert). Quatre choix à confirmer par le porteur : compte de
