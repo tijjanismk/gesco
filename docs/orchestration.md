@@ -237,3 +237,14 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   physique-chimie, 7e biologie et 9e français arrêtées par des erreurs de connexion, messages de
   reprise envoyés. L'application ne laisse tourner que cinq sessions à la fois. Commits du
   tableau non poussés tant que GitHub ne répond pas.
+- 2026-11-12 (nuit) : étape 6 faite et poussée (`017b1d3`), version 2.0.0, installeur d'essai dans
+  `Documents\GESCO-2.0.0-essai`. Lot A de la phase 11 fini côté code. Restent au porteur : la
+  règle du pare-feu posée pour de vrai, l'essai sur deux machines, sept choix à confirmer (dans
+  `ETAT_AVANCEMENT.md`, « Choix de l'étape 6 »), et les quatre choix de l'étape 5.
+  Suite du code : lot B (livret du jardin), puis phase 9, étape 1 ; avant, une étape « ne pas
+  bloquer » (dossier d'enseignant, frais éteignables, paie) est à spécifier.
+- Leçons, lots 1 faits : 7e biologie 5 sur 15, 7e physique-chimie 5 sur 28, 7e mathématiques 5
+  sur 32, 9e français 5 sur 46 (leçons trop longues, 331 à 412 lignes ; découpage à confirmer).
+  9e histoire-géographie : 2 sur 20 seulement (G-01, G-02) ; trois leçons sur la Révolution
+  française écrites puis supprimées sur décision du porteur. Sessions archivées. À lancer au
+  prochain message du porteur : lots 2 de ces cinq matières, anglais et ECM de 9e.
