@@ -230,3 +230,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (`local_a4103519-9f2a-407c-8e2e-ec4bf16dbdd6`), 7e biologie
   (`local_feaa0bbc-c3b6-4f99-bddb-9ea63bb145f3`) ; découpage et lot 1 chacune. À suivre : autres
   matières de 9e (français, histoire-géographie, anglais, ECM).
+- 2026-11-12 (nuit) : 7e mathématiques, lot 1 fait (5 sur 32, reprendre à A-06). Lancées : 9e
+  français (`local_fb302456-5e7e-472b-97f3-80d44aa9a599`) et 9e histoire-géographie
+  (`local_fd5bed0a-0775-4393-8018-05abdf4cf78c`), celle-ci sans la Révolution française (décision
+  du porteur). Anglais et ECM de 9e à lancer ensuite. Pannes d'Internet répétées : étape 6, 7e
+  physique-chimie, 7e biologie et 9e français arrêtées par des erreurs de connexion, messages de
+  reprise envoyés. L'application ne laisse tourner que cinq sessions à la fois. Commits du
+  tableau non poussés tant que GitHub ne répond pas.
