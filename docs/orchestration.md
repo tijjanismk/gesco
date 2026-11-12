@@ -106,6 +106,12 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
   Internet et depuis les postes reliés) ; elles ne font jamais partie de la sauvegarde ;
   GESCO ne fournit aucune vidéo pour le moment ; l'application et sa documentation donnent
   des guides pour que l'école fasse et ajoute ses vidéos et que les maîtres s'en servent.
+  Précisions acceptées par le porteur le même jour : (1) un bouton pour copier les vidéos
+  vers une clé et les reprendre, pour changer d'ordinateur, annoncé à l'ajout de la première
+  vidéo ; (2) une vidéo absente ne bloque rien, la leçon s'ouvre sans elle ; (3) un seul
+  format accepté (MP4), avec un avertissement sans refus au-delà d'une taille conseillée ;
+  (4) deux guides courts dans l'application : filmer une leçon avec un téléphone, ajouter la
+  vidéo à une leçon et la montrer en classe.
 
 ## File du code (dans l'ordre)
 
