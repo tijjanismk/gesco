@@ -65,7 +65,7 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
 |---|---|---|---|
 | Biologie | 22 leçons sur 22 | rien | `biologie\ETAT.md` |
 | Physique-chimie | 26 leçons sur 26 | rien | `physique-chimie\ETAT.md` |
-| Mathématiques | 20 leçons sur 31 | G-11 à G-21 | `mathematiques\ETAT.md` |
+| Mathématiques | 27 sur 31 : G-01 à G-17 faites | G-18 à G-21, en cours (session `local_81da8b5d-2a01-48e0-82b0-37037f4fd296`) | `mathematiques/ETAT.md` |
 
 Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
@@ -94,6 +94,12 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
   l'école en réglage (module qu'elle allume ou éteint) ; éteint, il quitte les écrans et le
   tableau de bord, ses données restent, et aucune facture ne se crée à l'inscription.
 
+- 2026-11-12 : le porteur valide toutes les recommandations de T-98 à T-108
+  (`SPEC_PHASE_9.md`), avec une réserve sur T-103 : l'inventaire n'est pas forcément tenu par
+  le secrétaire — toute personne que l'école en charge (droit à part, pas lié au rôle). À
+  reporter dans `SPEC_PHASE_9.md` (v1.1) et `ETAT_AVANCEMENT.md` par la première session de la
+  phase 9.
+
 ## File du code (dans l'ordre)
 
 1. Étape 5 : saisie des notes par les maîtres, éteinte à la livraison ; avec, en reprise, les
@@ -108,8 +114,8 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
 ## File des contenus (dans l'ordre, lots de cinq ou six leçons)
 
-1. Mathématiques : G-11 à G-15 (lancé le 2026-11-12, session « Mathématiques 9e : G-11 à G-15 »).
-2. Mathématiques : G-16 à G-21.
+1. Mathématiques : G-16 à G-21 (en cours). Ensuite la 9e année est entièrement rédigée ; la
+   suite des contenus (autres classes) est à demander au porteur.
 
 ## Ce que l'usage a appris (12 novembre 2026)
 
@@ -163,3 +169,4 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
   de la phase 9, `SPEC_PHASE_9.md` (`local_75a1b1aa-2460-448f-837b-08f08e09d725`).
 - 2026-11-12 : spécification de la phase 9 faite (`cf17dca`), session archivée ; T-98 à T-108
   posées au porteur.
+- 2026-11-12 : mathématiques G-11 à G-15 faites, session archivée ; T-98 à T-108 validées.
