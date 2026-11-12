@@ -218,3 +218,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   Il demande ensuite les autres matières de 9e (français, histoire-géographie, anglais, ECM…)
   et « les premiers » (à lui faire préciser). Étape 6 : deux coupures d'Internet, relancée
   deux fois, pas encore commitée. `gesco-bibliotheque/contenus/REPARTITION.md` dit qui fait quoi.
+- 2026-11-12 (soir), correction : l'autre compte se charge du lycée et de la 8e année ; ce
+  compte-ci des autres matières de 9e. Rien de ce qui est écrit n'est effacé ; la fusion des
+  deux travaux se décidera plus tard avec le porteur.
