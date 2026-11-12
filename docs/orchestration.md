@@ -114,8 +114,15 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
 ## File des contenus (dans l'ordre, lots de cinq ou six leçons)
 
-1. Mathématiques : G-16 à G-21 (en cours). Ensuite la 9e année est entièrement rédigée ; la
-   suite des contenus (autres classes) est à demander au porteur.
+Décision du porteur du 12 novembre 2026 : après la 9e, la 8e année, puis les autres classes,
+vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETAT.md` dans
+`contenus\8e-annee\<matière>` (découpage à confirmer sur le programme officiel s'il manque).
+
+1. 9e, mathématiques : G-16 à G-21 (en cours).
+2. 8e, mathématiques : découpage et lot 1 (en cours, `local_aa0fb224-b2aa-4395-91be-29ae3951af5f`), puis lots suivants.
+3. 8e, physique-chimie : découpage et lot 1 (en cours, `local_de20961a-ae79-4e37-95a3-994469f1c431`), puis lots suivants.
+4. 8e, biologie : découpage et lot 1, à lancer dès qu'une place se libère (quatre sessions au plus).
+5. 7e année, mêmes matières, puis les autres classes.
 
 ## Ce que l'usage a appris (12 novembre 2026)
 
@@ -170,3 +177,4 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 - 2026-11-12 : spécification de la phase 9 faite (`cf17dca`), session archivée ; T-98 à T-108
   posées au porteur.
 - 2026-11-12 : mathématiques G-11 à G-15 faites, session archivée ; T-98 à T-108 validées.
+- 2026-11-12 : 8e année lancée (mathématiques et physique-chimie) ; biologie de 8e à suivre.
