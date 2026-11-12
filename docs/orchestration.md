@@ -60,7 +60,7 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
 | Matière | Fait | Reste | Fichier d'état |
 |---|---|---|---|
 | Biologie | 22 leçons sur 22 | rien | `biologie\ETAT.md` |
-| Physique-chimie | 22 sur 26 (physique finie ; chimie C-01 à C-05 faites) | C-06 à C-09 | `physique-chimie\ETAT.md` |
+| Physique-chimie | 26 leçons sur 26 | rien | `physique-chimie\ETAT.md` |
 | Mathématiques | 17 fichiers sur 31 prévues | une leçon de géométrie coupée en rédaction, puis la suite | aucun : découpage dans `LISEZMOI.md`, « Où en est la rédaction » |
 
 Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
@@ -92,10 +92,9 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 
 ## File des contenus (dans l'ordre, lots de cinq ou six leçons)
 
-1. Chimie : C-06 à C-09.
-2. Mathématiques : écrire `mathematiques\ETAT.md` d'après `LISEZMOI.md` et les fichiers présents,
+1. Mathématiques : écrire `mathematiques\ETAT.md` d'après `LISEZMOI.md` et les fichiers présents,
    puis un premier lot de cinq leçons.
-3. Mathématiques : lots suivants jusqu'à 31.
+2. Mathématiques : lots suivants jusqu'à 31.
 
 ## Ce que seul le porteur peut fournir
 
@@ -112,3 +111,5 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
 - 2026-11-12 : le porteur valide l'étape 4 et ses trois choix ; décision sur les dossiers des
   enseignants. Étape 5 et chimie C-01 à C-05 lancées.
 - 2026-11-12 : chimie C-01 à C-05 faite (22 sur 26). Chimie C-06 à C-09 lancée ; étape 5 en cours.
+- 2026-11-12 : chimie C-06 à C-09 faite ; physique-chimie finie (26 sur 26). Mathématiques
+  (ETAT.md et premier lot) lancées ; étape 5 en cours (Rust et Playwright restent à passer).
