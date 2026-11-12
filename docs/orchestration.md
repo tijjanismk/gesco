@@ -123,10 +123,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 2. 8e, mathématiques : 5 sur 44 ; A-06 à A-10 en cours (`local_9f1d8743-cc93-4236-857b-99cd43fce5e8`), puis la suite par lots de cinq.
 3. 8e, physique-chimie : 5 sur 23 (P-01 à P-05) ; lot 2 (P-06 à P-10) à lancer dès qu'une place se libère.
 4. 8e, biologie : 5 sur 15 ; leçons 6 à 10 en cours (`local_2cd5374a-2e07-451b-9ba1-0f44ea5eed9d`), puis 11 à 15.
-5. Terminale (ordre accepté par le porteur le 12 novembre) : sciences de TSE et TSExp d'abord
-   (mathématiques, physique-chimie, biologie), puis philosophie et séries littéraires.
-   Mathématiques de TSE : découpage et lot 1 en cours (`local_2093a28c-6701-4d69-9cc6-a0be25b2f98b`),
-   dans `contenus/terminale`.
+5. Terminale : confiée à l'autre compte du porteur (décision du 12 novembre 2026), qui
+   travaille dans `gesco-bibliotheque\contenus	erminale` avec le prompt donné par le relais.
+   Ce compte-ci n'écrit plus de leçons de terminale. État laissé : mathématiques de TSE 5 sur
+   38, physique-chimie et biologie pas commencées.
 6. 7e année, mêmes matières, puis les autres classes.
 
 ## Ce que l'usage a appris (12 novembre 2026)
@@ -192,3 +192,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   mathématiques A-06 à A-10 (`local_9f1d8743-cc93-4236-857b-99cd43fce5e8`) ; une leçon peut être
   restée à moitié écrite dans chacune. Ne rien lancer en 8e sans un mot du porteur. Continuent :
   étape 6 et mathématiques de TSE.
+- 2026-11-12 : pause de la 8e levée par le porteur ; les deux sessions arrêtées reprennent
+  (biologie 6 à 10, mathématiques A-06 à A-10). Terminale confiée à l'autre compte ; lot 1 des
+  mathématiques de TSE fait (5 sur 38), session archivée. Semaine Fable à 79 %.
