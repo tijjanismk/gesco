@@ -100,11 +100,12 @@ Aucune leçon n'a été relue par un enseignant ; chaque leçon le dit.
   reporter dans `SPEC_PHASE_9.md` (v1.1) et `ETAT_AVANCEMENT.md` par la première session de la
   phase 9.
 
-- 2026-11-12, demande du porteur pour la phase 12 (e-learning) : pouvoir ajouter des vidéos aux
-  leçons. À inscrire dans `docs/plan-phase-12.md` et dans la spécification de la phase 12 ;
-  proposition de l'orchestrateur, non encore confirmée : vidéos ajoutées par l'école en
-  fichiers locaux (MP4), rangées hors de la base, lues sans Internet et depuis les postes
-  reliés ; aucune vidéo livrée dans l'installeur ; lien vers une vidéo en ligne en option.
+- 2026-11-12, décisions du porteur pour la phase 12 (e-learning), à inscrire dans
+  `docs/plan-phase-12.md` et dans la spécification de la phase 12 : les leçons peuvent recevoir
+  des vidéos. Elles sont ajoutées par l'école (fichiers locaux, hors de la base, lues sans
+  Internet et depuis les postes reliés) ; elles ne font jamais partie de la sauvegarde ;
+  GESCO ne fournit aucune vidéo pour le moment ; l'application et sa documentation donnent
+  des guides pour que l'école fasse et ajoute ses vidéos et que les maîtres s'en servent.
 
 ## File du code (dans l'ordre)
 
