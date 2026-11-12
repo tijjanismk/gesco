@@ -162,6 +162,10 @@ use crate::inscriptions::{
     DemandeListeInscriptions, DemandeModificationInscription, DemandeValidation, LigneInscription,
     ResultatInscription, ServiceInscriptions,
 };
+use crate::jardin::{
+    CompetencesJardin, DemandeCompetence, DemandeDeplacementCompetence, DemandeDeplacementDomaine,
+    DemandeDomaine, DemandeRecopie, ServiceJardin,
+};
 use crate::journal_tresorerie::{
     Budget, DemandeBudget, DemandeJournalTresorerie, DemandeLigneBudget, JournalTresorerie,
     ServiceJournal,
@@ -870,6 +874,31 @@ macro_rules! contrat {
             pub sortie: S,
         }
 
+        /// Futur d'une commande, posé sur le tas.
+        type FuturCommande<'a> = std::pin::Pin<
+            Box<dyn std::future::Future<Output = Resultat<serde_json::Value>> + Send + 'a>,
+        >;
+
+        /// Lit l'entrée d'une commande et pose son futur sur le tas. Jamais incorporée à
+        /// l'aiguillage : en profil de développement, chaque bras y laisserait ses variables sur
+        /// la pile.
+        #[inline(never)]
+        fn preparer<'a, E, S, F, Fut>(
+            entree: serde_json::Value,
+            commande: F,
+        ) -> Resultat<FuturCommande<'a>>
+        where
+            E: serde::de::DeserializeOwned,
+            S: Serialize,
+            F: FnOnce(E) -> Fut,
+            Fut: std::future::Future<Output = Resultat<S>> + Send + 'a,
+        {
+            let entree: E = serde_json::from_value(entree)
+                .map_err(|_| ErreurService::Regle { cle: "commande.entree_invalide" })?;
+            let futur = commande(entree);
+            Ok(Box::pin(async move { Ok(serde_json::to_value(futur.await?)?) }))
+        }
+
         /// Contrat de la frontière, une entrée par commande. Jamais instancié : il sert à
         /// générer les types TypeScript du frontend (R-37).
         #[derive(specta::Type)]
@@ -893,15 +922,13 @@ macro_rules! contrat {
             ) -> Resultat<serde_json::Value> {
                 match nom {
                     $(
+                        // Chaque commande sur le tas, préparée hors de l'aiguillage : il ne porte
+                        // qu'un pointeur par commande, et sa taille ne grandit ni avec la plus
+                        // grosse commande (débordement de pile constaté le 13 octobre 2026) ni
+                        // avec leur nombre (le 12 novembre 2026).
                         stringify!($nom) => {
-                            let entree: $entree = serde_json::from_value(entree).map_err(|_| {
-                                ErreurService::Regle { cle: "commande.entree_invalide" }
-                            })?;
-                            // Chaque commande sur le tas : l'aiguillage ne porte qu'un pointeur, et sa
-                            // taille ne grandit pas avec la plus grosse commande (débordement de pile
-                            // constaté le 13 octobre 2026).
-                            let sortie: $sortie = Box::pin(self.$nom(appel, entree)).await?;
-                            Ok(serde_json::to_value(sortie)?)
+                            preparer::<$entree, $sortie, _, _>(entree, |e| self.$nom(appel, e))?
+                                .await
                         }
                     )+
                     _ => Err(ErreurService::Regle { cle: "commande.inconnue" }),
@@ -1039,6 +1066,12 @@ contrat! {
     periodes_definir(DemandeNombrePeriodes) -> Vec<gesco_core::pedagogie::Periode>;
     calendrier_modifier(DemandeCalendrier) -> Vec<gesco_core::pedagogie::Periode>;
     regle_enregistrer(DemandeRegle) -> gesco_core::pedagogie::RegleEvaluation;
+    jardin_lire(()) -> CompetencesJardin;
+    domaine_competence_enregistrer(DemandeDomaine) -> gesco_core::pedagogie::DomaineCompetence;
+    domaine_competence_deplacer(DemandeDeplacementDomaine) -> Vec<gesco_core::pedagogie::DomaineCompetence>;
+    competence_enregistrer(DemandeCompetence) -> gesco_core::pedagogie::Competence;
+    competence_deplacer(DemandeDeplacementCompetence) -> Vec<gesco_core::pedagogie::Competence>;
+    competences_recopier(DemandeRecopie) -> u32;
     enseignants_lister(()) -> Vec<FicheEnseignant>;
     enseignant_enregistrer(DemandeEnseignant) -> FicheEnseignant;
     affectations_lister(DemandeIdAnnee) -> Vec<AffectationAffichee>;
@@ -3484,6 +3517,58 @@ impl Application {
     ) -> Resultat<gesco_core::pedagogie::RegleEvaluation> {
         ServicePedagogie::nouveau(&appel.ouverte()?.noyau)
             .enregistrer_regle(appel.session()?, &entree)
+            .await
+    }
+
+    async fn jardin_lire(&self, appel: Appel, _entree: ()) -> Resultat<CompetencesJardin> {
+        ServiceJardin::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?)
+            .await
+    }
+
+    async fn domaine_competence_enregistrer(
+        &self,
+        appel: Appel,
+        entree: DemandeDomaine,
+    ) -> Resultat<gesco_core::pedagogie::DomaineCompetence> {
+        ServiceJardin::nouveau(&appel.ouverte()?.noyau)
+            .enregistrer_domaine(appel.session()?, &entree)
+            .await
+    }
+
+    async fn domaine_competence_deplacer(
+        &self,
+        appel: Appel,
+        entree: DemandeDeplacementDomaine,
+    ) -> Resultat<Vec<gesco_core::pedagogie::DomaineCompetence>> {
+        ServiceJardin::nouveau(&appel.ouverte()?.noyau)
+            .deplacer_domaine(appel.session()?, &entree)
+            .await
+    }
+
+    async fn competence_enregistrer(
+        &self,
+        appel: Appel,
+        entree: DemandeCompetence,
+    ) -> Resultat<gesco_core::pedagogie::Competence> {
+        ServiceJardin::nouveau(&appel.ouverte()?.noyau)
+            .enregistrer_competence(appel.session()?, &entree)
+            .await
+    }
+
+    async fn competence_deplacer(
+        &self,
+        appel: Appel,
+        entree: DemandeDeplacementCompetence,
+    ) -> Resultat<Vec<gesco_core::pedagogie::Competence>> {
+        ServiceJardin::nouveau(&appel.ouverte()?.noyau)
+            .deplacer_competence(appel.session()?, &entree)
+            .await
+    }
+
+    async fn competences_recopier(&self, appel: Appel, entree: DemandeRecopie) -> Resultat<u32> {
+        ServiceJardin::nouveau(&appel.ouverte()?.noyau)
+            .recopier(appel.session()?, &entree)
             .await
     }
 

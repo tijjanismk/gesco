@@ -9,6 +9,7 @@ import { type Cle, libelleParametre, t } from "../../i18n";
 import type { ModuleEcole, Parametre, ValeurParametre } from "../../types/gesco";
 import { commandeAutorisee } from "../../app/navigation";
 import { DocumentEssai } from "../accueil/Accueil";
+import { CompetencesJardin } from "./CompetencesJardin";
 import { FicheEtablissement } from "./FicheEtablissement";
 import { ImportProgramme } from "./ImportProgramme";
 import { ImportReferentiel } from "./ImportReferentiel";
@@ -79,6 +80,7 @@ export function Parametres() {
   const titres: Cle[] = [...THEMES.map((th) => th.titre), "parametres.theme.autres"];
   const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
   const peutImporterProgramme = commandeAutorisee("programme_import_appliquer", session.data?.permissions ?? []);
+  const peutTenirJardin = commandeAutorisee("competence_enregistrer", session.data?.permissions ?? []);
   // Les messages aux familles éteints, seule leur case d'activation reste.
   const sms = (parametres.data ?? []).find((p) => p.cle === "sms.actif")?.valeur;
   const smsActif = sms?.type === "booleen" && sms.valeur;
@@ -89,9 +91,9 @@ export function Parametres() {
       <MessageErreur erreur={parametres.error} />
       <ModulesEcole parametres={parametres.data ?? []} />
       {titres.map((titre) => {
-        // Les réglages du bulletin, par cycle, et la largeur des colonnes imprimées ont leur
-        // bloc à eux.
-        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("colonnes.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && !p.cle.startsWith("module.") && p.cle !== "sms.actif" && (smsActif || !p.cle.startsWith("sms.")) && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
+        // Les réglages du bulletin, par cycle, la largeur des colonnes imprimées et l'échelle du
+        // jardin ont leur bloc à eux.
+        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("colonnes.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && !p.cle.startsWith("module.") && !p.cle.startsWith("jardin.") && p.cle !== "sms.actif" && (smsActif || !p.cle.startsWith("sms.")) && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
         return lignes.length === 0 ? null : (
           <Section key={titre} titre={t(titre)}>
             {lignes.map((p) => (
@@ -102,6 +104,7 @@ export function Parametres() {
         );
       })}
       <ReglagesBulletin />
+      {peutTenirJardin ? <CompetencesJardin /> : null}
       <LargeursColonnes />
       {peutImporterProgramme ? <ImportReferentiel /> : null}
       {peutImporterProgramme ? <ImportProgramme /> : null}

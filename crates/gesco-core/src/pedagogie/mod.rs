@@ -8,6 +8,7 @@ pub mod conduite;
 pub mod emploi_du_temps;
 pub mod enseignant;
 pub mod evaluation;
+pub mod jardin;
 pub mod matiere;
 pub mod periode;
 pub mod programme;
@@ -21,6 +22,7 @@ pub use bulletin::{
 };
 pub use enseignant::{AffectationEnseignement, Enseignant, PorteeNotes, StatutEnseignant};
 pub use evaluation::{Evaluation, NoteEleve, SaisieNote, StatutEvaluation};
+pub use jardin::{Competence, DomaineCompetence, NiveauAcquisition};
 pub use matiere::{GroupeMatiere, Matiere};
 pub use periode::{Periode, TypePeriode};
 pub use programme::{LigneProgramme, SaisieProgramme};

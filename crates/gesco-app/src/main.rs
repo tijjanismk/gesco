@@ -125,7 +125,9 @@ fn dossier_essai() -> Option<PathBuf> {
 
 /// Jour d'essai des compilations de développement : `GESCO_DATE_ESSAI` (`AAAA-MM-JJ`) fait vivre
 /// GESCO ce jour-là, l'heure avançant normalement, pour que les essais de bout en bout ne
-/// dépendent pas du jour réel. Une compilation de publication l'ignore.
+/// dépendent pas du jour réel ; `GESCO_HEURE_ESSAI` (de 0 à 23) fixe en plus l'heure de départ,
+/// pour qu'ils ne dépendent pas non plus de l'heure réelle. Une compilation de publication les
+/// ignore.
 fn horloge() -> Arc<dyn Horloge> {
     let jour = if cfg!(debug_assertions) {
         std::env::var("GESCO_DATE_ESSAI")
@@ -134,9 +136,14 @@ fn horloge() -> Arc<dyn Horloge> {
     } else {
         None
     };
-    match jour {
-        Some(jour) => Arc::new(HorlogeDecalee::au_jour(jour)),
-        None => Arc::new(HorlogeSysteme),
+    let heure = std::env::var("GESCO_HEURE_ESSAI")
+        .ok()
+        .and_then(|t| t.parse::<u8>().ok())
+        .filter(|h| *h < 24);
+    match (jour, heure) {
+        (Some(jour), Some(heure)) => Arc::new(HorlogeDecalee::au_jour_a(jour, heure)),
+        (Some(jour), None) => Arc::new(HorlogeDecalee::au_jour(jour)),
+        (None, _) => Arc::new(HorlogeSysteme),
     }
 }
 

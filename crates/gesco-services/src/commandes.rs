@@ -190,6 +190,8 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("periodes_definir", SansControle::Reference),
     ("calendrier_modifier", SansControle::Reference),
     ("regle_enregistrer", SansControle::Reference),
+    ("domaine_competence_enregistrer", SansControle::Reference),
+    ("competence_enregistrer", SansControle::Reference),
     ("categorie_personnel_enregistrer", SansControle::Reference),
     ("fonction_personnel_enregistrer", SansControle::Reference),
     ("type_conge_enregistrer", SansControle::Reference),
@@ -498,6 +500,20 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("periodes_definir", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::permise("calendrier_modifier", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::permise("regle_enregistrer", Permission::ACADEMIC_YEAR_MANAGE),
+    // Compétences du jardin (SPEC_PHASE_11_B §7) : lues par tout utilisateur connecté, tenues par
+    // la direction comme le programme des matières.
+    Commande::connectee("jardin_lire"),
+    Commande::permise(
+        "domaine_competence_enregistrer",
+        Permission::ACADEMIC_YEAR_MANAGE,
+    ),
+    Commande::permise(
+        "domaine_competence_deplacer",
+        Permission::ACADEMIC_YEAR_MANAGE,
+    ),
+    Commande::permise("competence_enregistrer", Permission::ACADEMIC_YEAR_MANAGE),
+    Commande::permise("competence_deplacer", Permission::ACADEMIC_YEAR_MANAGE),
+    Commande::permise("competences_recopier", Permission::ACADEMIC_YEAR_MANAGE),
     // Enseignants et affectations (SPEC_PHASE_4 §3) : lus par tous, tenus par la direction ; la
     // portée de saisie de chacun se lit sans permission.
     Commande::connectee("enseignants_lister"),

@@ -135,18 +135,18 @@ pub const fn decoupage_par_defaut(cycle: Cycle) -> (TypePeriode, u8) {
     }
 }
 
-/// Vérifie le découpage qu'une école choisit pour un niveau : trois ou deux trimestres au 2e
-/// cycle et au lycée ; deux semestres, trois ou deux trimestres dans l'enseignement technique ;
-/// rien à choisir au jardin ni au 1er cycle. L'erreur est la clé du message.
+/// Vérifie le découpage qu'une école choisit pour un niveau : trois ou deux trimestres au jardin
+/// (SPEC_PHASE_11_B §3.3), au 2e cycle et au lycée ; deux semestres, trois ou deux trimestres
+/// dans l'enseignement technique ; rien à choisir au 1er cycle. L'erreur est la clé du message.
 pub fn verifier_decoupage(
     cycle: Cycle,
     nature: TypePeriode,
     nombre: u8,
 ) -> Result<(), &'static str> {
     match (cycle, nature, nombre) {
-        (Cycle::Jardin | Cycle::PremierCycle, _, _) => Err("periode.nombre_fixe"),
+        (Cycle::PremierCycle, _, _) => Err("periode.nombre_fixe"),
         (_, TypePeriode::Trimestre, 2 | 3) | (Cycle::Technique, TypePeriode::Semestre, 2) => Ok(()),
-        (Cycle::SecondCycle | Cycle::Lycee, TypePeriode::Semestre, _) => {
+        (Cycle::Jardin | Cycle::SecondCycle | Cycle::Lycee, TypePeriode::Semestre, _) => {
             Err("periode.semestre_technique")
         }
         _ => Err("periode.nombre_invalide"),
@@ -156,7 +156,8 @@ pub fn verifier_decoupage(
 /// Calendrier par défaut d'un cycle pour l'année qui commence en `rentree` (2026 pour 2026-2027) :
 /// au 1er cycle neuf mois d'octobre à juin ; ensuite trois trimestres, ou deux périodes
 /// (octobre-janvier, février-juin) si l'école n'en fait que deux (`nombre` = 2), trimestres ou
-/// semestres selon `nature`. Rien pour le jardin (Q-03).
+/// semestres selon `nature`. Le jardin suit le calendrier du 2e cycle (SPEC_PHASE_11_B §3.3,
+/// T-112).
 pub fn calendrier_par_defaut(
     cycle: Cycle,
     rentree: i32,
@@ -165,7 +166,6 @@ pub fn calendrier_par_defaut(
 ) -> Option<(TypePeriode, Vec<(DateCivile, DateCivile)>)> {
     let suivante = rentree + 1;
     match cycle {
-        Cycle::Jardin => None,
         Cycle::PremierCycle => {
             let debuts = [
                 (rentree, 10),
@@ -183,7 +183,7 @@ pub fn calendrier_par_defaut(
                 mois_entiers(&debuts, (suivante, 7))?,
             ))
         }
-        Cycle::SecondCycle | Cycle::Lycee | Cycle::Technique => {
+        Cycle::Jardin | Cycle::SecondCycle | Cycle::Lycee | Cycle::Technique => {
             if nombre == 2 {
                 let debuts = [(rentree, 10), (suivante, 2)];
                 Some((nature, mois_entiers(&debuts, (suivante, 7))?))
@@ -262,7 +262,15 @@ mod tests {
                 (d("2028-02-01"), d("2028-06-30"))
             ]
         );
-        assert!(calendrier_par_defaut(Cycle::Jardin, 2026, TypePeriode::Trimestre, 3).is_none());
+        // Le jardin suit le calendrier du 2e cycle (SPEC_PHASE_11_B §3.3).
+        assert_eq!(
+            calendrier_par_defaut(Cycle::Jardin, 2026, TypePeriode::Trimestre, 3),
+            Some((TypePeriode::Trimestre, t))
+        );
+        assert_eq!(
+            calendrier_par_defaut(Cycle::Jardin, 2027, TypePeriode::Trimestre, 2),
+            Some((TypePeriode::Trimestre, s))
+        );
     }
 
     #[test]
@@ -308,6 +316,17 @@ mod tests {
         assert_eq!(
             verifier_decoupage(Cycle::PremierCycle, Trimestre, 3),
             Err("periode.nombre_fixe")
+        );
+        // Au jardin : trois ou deux trimestres, rien d'autre.
+        assert_eq!(verifier_decoupage(Cycle::Jardin, Trimestre, 3), Ok(()));
+        assert_eq!(verifier_decoupage(Cycle::Jardin, Trimestre, 2), Ok(()));
+        assert_eq!(
+            verifier_decoupage(Cycle::Jardin, Semestre, 2),
+            Err("periode.semestre_technique")
+        );
+        assert_eq!(
+            verifier_decoupage(Cycle::Jardin, Mensuelle, 9),
+            Err("periode.nombre_invalide")
         );
     }
 

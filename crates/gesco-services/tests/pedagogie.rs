@@ -80,7 +80,8 @@ async fn le_referentiel_pedagogique_se_pose_puis_se_corrige() {
     let trimestres = periodes_du(&ped, &septieme);
     assert_eq!(trimestres.len(), 3);
     assert_eq!(trimestres[0]["libelle"], "1er trimestre");
-    assert!(periodes_du(&ped, &ps).is_empty());
+    // Le jardin a ses trois trimestres (SPEC_PHASE_11_B §3.3).
+    assert_eq!(periodes_du(&ped, &ps).len(), 3);
     // 1re année : les douze matières de son emploi du temps, dans son ordre, sans coefficient
     // (réponse du 13 octobre 2026).
     let matieres_1re = programme_du(&ped, &premiere, &Value::Null);

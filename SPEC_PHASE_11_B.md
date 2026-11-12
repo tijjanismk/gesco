@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 11, lot B — domaines et compétences du jardin, observations, livret imprimé, publié et remis ; dans la version 2.0.0 s'il est prêt à temps
-**Statut** : v1.0 — proposée le 12 novembre 2026, à soumettre au porteur du projet avec les questions T-109 à T-115 (§12) ; rien n'est codé
+**Statut** : v1.1 — proposée le 12 novembre 2026 ; le porteur du projet a validé le 12 novembre 2026 toutes les recommandations de T-109 à T-115 (§12) ; étape 1 engagée
 **Documents parents** : `docs/plan-phase-11.md` (§2.3, T-84 répondue le 10 novembre 2026, décision 10 du §4), `PROJECT_BLUEPRINT.md` (ADR-013, §8.4 B, révision du 7 octobre 2026), `SPEC_PHASE_4.md` (bulletins, appréciations), `SPEC_PHASE_5.md` (remise des bulletins, avis par SMS, consultation), `SPEC_PHASE_11_A.md` §7 (saisie des notes par les maîtres), `ETAT_AVANCEMENT.md` (décisions du porteur du 12 novembre 2026 : ne jamais bloquer, ne pas faire remarquer ce qui manque)
 **Date** : 12 novembre 2026
 
@@ -397,8 +397,8 @@ montrées, accord du porteur. Une seule compilation complète par étape, `targe
 
 ## 11. Ce qu'il faut du porteur du projet
 
-- Les réponses à T-109 à T-115 (§12), avant l'étape 1 ; T-110 et T-111 décident du modèle
-  imprimé de l'étape 3.
+- Les réponses à T-109 à T-115 (§12) : reçues le 12 novembre 2026, toutes les recommandations
+  validées.
 - Si possible, un livret de jardin réellement remis par une école (nom de l'enfant masqué),
   pour comparer la mise en page ; la spécification ne l'attend pas.
 
@@ -406,7 +406,8 @@ montrées, accord du porteur. Une seule compilation complète par étape, `targe
 
 ## 12. Questions de terrain au porteur du projet
 
-À la suite de T-108. Réponses courtes attendues ; aucune ne demande de document.
+À la suite de T-108. Réponses courtes attendues ; aucune ne demande de document. **Réponse du
+porteur du projet, 12 novembre 2026 : toutes les recommandations sont validées.**
 
 ### T-109 — La liste livrée des compétences
 
@@ -476,55 +477,60 @@ s'attend à remettre un livret comme elle remet un bulletin.
 | Version | Date | Modification |
 |---|---|---|
 | v1.0 | 2026-11-12 | Création d'après T-84 (réponse du 10 novembre 2026), le §2.3 du plan de la phase 11 et les décisions du porteur du projet du 12 novembre 2026 (ne jamais bloquer, ne pas faire remarquer ce qui manque) ; questions T-109 à T-115 |
+| v1.1 | 2026-11-12 | Le porteur du projet valide toutes les recommandations de T-109 à T-115 : une vingtaine de compétences livrées par section (T-109) ; trois niveaux fixes aux libellés modifiables, croix et pictogramme noir sur blanc au livret (T-110) ; livret qui suit l'année, une colonne par période passée (T-111) ; trois trimestres par défaut, deux au choix (T-112) ; même règle que les notes pour qui observe (T-113) ; photo, absences, décision, commentaire par domaine et trois signatures, chacun quand il existe (T-114) ; livret dans toute licence, sans module (T-115). Étape 1 engagée ; annexe A relue d'après le programme des CDPE (17 compétences changées) ; ADR `docs/adr/2026-11-12-competences-du-jardin.md` |
 
 ---
 
 ## Annexe A — Liste livrée proposée
 
-Rédigée à neuf, à relire à l'étape 1 d'après le programme des jardins d'enfants ; l'école la
-modifie librement. Quatre compétences par domaine et par section.
+Rédigée à neuf ; relue à l'étape 1 (12 novembre 2026) d'après le programme pédagogique des CDPE,
+qui distingue les trois sections : 17 cases sur 60 changées (compétences trop faciles ou trop
+difficiles pour la section, ou absentes du programme ; le civisme et les saisons ajoutés en
+grande section), sans rien recopier du programme. L'école la modifie librement. Quatre
+compétences par domaine et par section ; c'est la liste livrée par `gesco-core`
+(`pedagogie/jardin.rs`).
 
 **Langage**
 
 | Petite section | Moyenne section | Grande section |
 |---|---|---|
-| Comprend une consigne simple qu'on lui dit | Comprend une consigne donnée au groupe | Raconte dans l'ordre une histoire entendue |
+| Comprend une consigne simple qu'on lui dit | Décrit une image ou un objet avec ses propres mots | Raconte dans l'ordre une histoire entendue |
 | Se fait comprendre par des mots ou de courtes phrases | Raconte en quelques phrases ce qu'il a fait | Entend et sépare les syllabes d'un mot |
 | Dit une comptine apprise en classe | Pose des questions et répond à celles qu'on lui pose | Reconnaît des lettres et écrit son prénom |
-| Nomme les objets de la classe et les parties du corps | Reconnaît son prénom écrit | Copie un mot court en capitales |
+| Nomme les objets de la classe et les parties du corps | Reconnaît son prénom écrit | Donne en français le nom de quelques objets et animaux de la maison |
 
 **Motricité**
 
 | Petite section | Moyenne section | Grande section |
 |---|---|---|
 | Marche, court et s'arrête au signal | Saute à pieds joints | Saute à cloche-pied |
-| Lance et attrape un gros ballon | Se déplace en équilibre sur une ligne | Joue à un jeu collectif en respectant la règle |
-| Tient un crayon pour tracer librement | Découpe en suivant un trait droit | Découpe en suivant une courbe |
-| Enfile de grosses perles | Trace des lignes, des ronds et des ponts | Tient bien son crayon et forme les lettres |
+| Lance un ballon sans viser et court le rattraper | Se déplace en équilibre sur une ligne | Joue à un jeu collectif en respectant la règle |
+| Tient un crayon et trace des traits et des ronds | Découpe en suivant un trait droit | Découpe des formes variées et les colle pour composer une image |
+| Enfile de grosses perles | Vise une cible en lançant et rattrape un ballon à deux mains | Tient bien son crayon et forme les lettres |
 
 **Vivre ensemble**
 
 | Petite section | Moyenne section | Grande section |
 |---|---|---|
-| Accepte la séparation d'avec sa famille le matin | Attend son tour | Aide un camarade |
+| Dit bonjour et au revoir aux adultes et aux camarades | Attend son tour | Aide un camarade |
 | Joue à côté des autres enfants | Partage le matériel | Dit son désaccord par la parole |
-| Range le matériel avec de l'aide | Salue et remercie | Prend une responsabilité dans la classe |
-| Se lave les mains et va aux toilettes avec de l'aide | Respecte une règle de la classe | Termine une tâche commencée |
+| Range le matériel avec de l'aide | Dit merci et pardon quand il le faut | Prend une responsabilité dans la classe |
+| Lave ses mains avant le repas et prévient quand il a besoin des toilettes | Respecte une règle de la classe | Connaît l'hymne national, le chante debout et respecte le drapeau |
 
 **Découverte du monde**
 
 | Petite section | Moyenne section | Grande section |
 |---|---|---|
 | Reconnaît les couleurs principales | Dénombre une petite collection jusqu'à cinq | Dénombre jusqu'à dix et associe le chiffre |
-| Trie des objets selon leur taille | Reconnaît le rond, le carré et le triangle | Compare deux quantités |
-| Récite les nombres jusqu'à trois | Situe un objet : dessus, dessous, devant, derrière | Range des objets du plus petit au plus grand |
-| Reconnaît les moments de la journée de classe | Nomme des animaux et des plantes de son milieu | Connaît les gestes d'hygiène : mains lavées, eau propre |
+| Trie des objets selon leur taille | Reconnaît le rond, le carré, le triangle et le rectangle | Compare deux quantités |
+| Compte une petite collection jusqu'à trois | Situe un objet : dessus, dessous, devant, derrière | Range des objets du plus petit au plus grand |
+| Distingue le matin, le midi, le soir et la nuit | Nomme des animaux et des plantes de son milieu | Dit en quelle saison on est et quel temps il fait |
 
 **Arts**
 
 | Petite section | Moyenne section | Grande section |
 |---|---|---|
 | Chante avec le groupe | Colorie en restant dans la forme | Dessine un bonhomme complet |
-| Peint et colorie librement | Danse en suivant le rythme | Reproduit un rythme frappé |
+| Peint et colorie librement | Danse en suivant le rythme | Enchaîne quelques pas d'une danse de son milieu |
 | Modèle avec de la pâte ou de l'argile | Dessine un bonhomme | Fabrique un objet en suivant des étapes |
-| Frappe un rythme simple | Mime une action ou un animal | Dit un conte, une devinette ou une comptine devant la classe |
+| Bouge et danse quand on joue du tam-tam ou du balafon | Mime une action ou un animal | Joue un personnage d'un conte ou d'une saynète devant les autres |

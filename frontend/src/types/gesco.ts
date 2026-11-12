@@ -998,6 +998,43 @@ export type CodeRemis = {
 	etat: EtatCodeResponsable,
 };
 
+/**  Compétence d'une section du jardin. */
+export type Competence = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Domaine. */
+	domaine_id: string,
+	/**  Section : petite, moyenne ou grande. */
+	niveau_id: string,
+	/**  Ce que l'enfant sait faire, en une phrase. */
+	libelle: string,
+	/**  Ordre dans le domaine. */
+	ordre: number,
+	/**  Vrai pour une compétence de la liste livrée. */
+	livree: boolean,
+	/**  Instant du retrait ; vide tant que la compétence sert. */
+	retiree_le: number | null,
+};
+
+/**
+ *  Compétences du jardin et réglages de l'échelle, pour l'écran de la direction et les écrans de
+ *  saisie.
+ */
+export type CompetencesJardin = {
+	/**  Sections que l'école a ouvertes ; vide pour une école sans jardin. */
+	sections: Niveau[],
+	/**  Domaines, retirés compris, dans leur ordre. */
+	domaines: DomaineCompetence[],
+	/**  Compétences, retirées comprises, dans l'ordre de leur domaine. */
+	competences: Competence[],
+	/**  Libellés des trois niveaux : acquis, en cours, non acquis. */
+	echelle: string[],
+	/**  Vrai si la ligne de commentaire par domaine se montre. */
+	commentaire_domaine: boolean,
+};
+
 /**  Nombre de messages d'un état. */
 export type CompteEtat = {
 	/**  État. */
@@ -1485,6 +1522,18 @@ export type Contrat = {
 	calendrier_modifier: Signature<DemandeCalendrier, Periode[]>,
 	/**  Signature de la commande du même nom. */
 	regle_enregistrer: Signature<DemandeRegle, RegleEvaluation>,
+	/**  Signature de la commande du même nom. */
+	jardin_lire: Signature<null, CompetencesJardin>,
+	/**  Signature de la commande du même nom. */
+	domaine_competence_enregistrer: Signature<DemandeDomaine, DomaineCompetence>,
+	/**  Signature de la commande du même nom. */
+	domaine_competence_deplacer: Signature<DemandeDeplacementDomaine, DomaineCompetence[]>,
+	/**  Signature de la commande du même nom. */
+	competence_enregistrer: Signature<DemandeCompetence, Competence>,
+	/**  Signature de la commande du même nom. */
+	competence_deplacer: Signature<DemandeDeplacementCompetence, Competence[]>,
+	/**  Signature de la commande du même nom. */
+	competences_recopier: Signature<DemandeRecopie, number>,
 	/**  Signature de la commande du même nom. */
 	enseignants_lister: Signature<null, FicheEnseignant[]>,
 	/**  Signature de la commande du même nom. */
@@ -2381,6 +2430,20 @@ export type DemandeCodeAcces = {
 	responsable_id: string,
 };
 
+/**  Compétence saisie par la direction ; sans `id`, une création. */
+export type DemandeCompetence = {
+	/**  Compétence modifiée ; absente pour une création. */
+	id: string | null,
+	/**  Domaine. */
+	domaine_id: string,
+	/**  Section ; celle d'une compétence existante ne change pas. */
+	niveau_id: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Vrai pour la retirer, faux pour la garder ou la remettre. */
+	retiree: boolean,
+};
+
 /**  Compte choisi pour un mode. */
 export type DemandeCompteDuMode = {
 	/**  Mode hors espèces. */
@@ -2609,6 +2672,22 @@ export type DemandeDepense = {
 	facture_id?: string | null,
 };
 
+/**  Compétence montée ou descendue d'un rang dans son domaine. */
+export type DemandeDeplacementCompetence = {
+	/**  Compétence. */
+	id: string,
+	/**  Vrai pour monter, faux pour descendre. */
+	monter: boolean,
+};
+
+/**  Domaine monté ou descendu d'un rang. */
+export type DemandeDeplacementDomaine = {
+	/**  Domaine. */
+	id: string,
+	/**  Vrai pour monter, faux pour descendre. */
+	monter: boolean,
+};
+
 /**  Lien désigné. */
 export type DemandeDetachement = {
 	/**  Élève. */
@@ -2639,6 +2718,16 @@ export type DemandeDeverrouillageMotDePasse = {
 	jeton: Jeton,
 	/**  Mot de passe de son utilisateur. */
 	mot_de_passe: string,
+};
+
+/**  Domaine saisi par la direction ; sans `id`, une création. */
+export type DemandeDomaine = {
+	/**  Domaine modifié ; absent pour une création. */
+	id: string | null,
+	/**  Libellé. */
+	libelle: string,
+	/**  Vrai pour le retirer, faux pour le garder ou le remettre. */
+	retire: boolean,
 };
 
 /**  Dossier d'un élève à lire. */
@@ -3695,6 +3784,14 @@ export type DemandeRecherche = {
 	texte: string,
 };
 
+/**  Compétences d'une section recopiées dans une autre, pour partir d'elles. */
+export type DemandeRecopie = {
+	/**  Section dont on prend les compétences. */
+	source_id: string,
+	/**  Section qui les reçoit. */
+	cible_id: string,
+};
+
 /**  Régénération de la phrase de secours, mot de passe redemandé (§6.3). */
 export type DemandeRegeneration = {
 	/**  Mot de passe de l'administrateur connecté. */
@@ -4240,6 +4337,27 @@ export type DocumentAffiche = {
 	document: Document,
 	/**  PDF en base64. */
 	pdf: string,
+};
+
+/**  Domaine du jardin, commun aux trois sections. */
+export type DomaineCompetence = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**
+	 *  Code stable d'un domaine livré (`langage`), qui le retrouve même renommé ; vide pour un
+	 *  domaine ajouté par l'école.
+	 */
+	code: string | null,
+	/**  « Langage », « Motricité ». */
+	libelle: string,
+	/**  Ordre d'affichage et d'impression. */
+	ordre: number,
+	/**  Vrai pour un domaine de la liste livrée. */
+	livre: boolean,
+	/**  Instant du retrait ; vide tant que le domaine sert. */
+	retire_le: number | null,
 };
 
 /**  Le dossier de discipline d'un élève pour son inscription. */

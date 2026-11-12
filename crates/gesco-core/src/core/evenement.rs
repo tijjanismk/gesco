@@ -240,6 +240,9 @@ pub enum TypeEvenement {
     NoteConduiteEnregistree,
     /// La note de conduite saisie d'un élève est retirée, avec un motif.
     NoteConduiteRetiree,
+    /// Un domaine ou une compétence du jardin est créé, modifié, déplacé, retiré ou remis
+    /// (SPEC_PHASE_11_B §3.6).
+    CompetenceModifiee,
     /// Le journal d'audit d'une année est archivé dans un fichier signé (blueprint §12.4).
     JournalArchive,
     /// Le relevé par séance d'une classe est enregistré pour un jour (SPEC_VERSION_1_1 §1, T-71).
@@ -416,6 +419,7 @@ impl TypeEvenement {
         Self::SanctionAnnulee,
         Self::NoteConduiteEnregistree,
         Self::NoteConduiteRetiree,
+        Self::CompetenceModifiee,
         Self::JournalArchive,
         Self::ReleveParSeanceEnregistre,
         Self::ReleveImporte,
@@ -563,6 +567,7 @@ impl TypeEvenement {
             Self::SanctionAnnulee => "SanctionAnnulee",
             Self::NoteConduiteEnregistree => "NoteConduiteEnregistree",
             Self::NoteConduiteRetiree => "NoteConduiteRetiree",
+            Self::CompetenceModifiee => "CompetenceModifiee",
             Self::JournalArchive => "JournalArchive",
             Self::ReleveParSeanceEnregistre => "ReleveParSeanceEnregistre",
             Self::ReleveImporte => "ReleveImporte",
@@ -712,6 +717,7 @@ impl TypeEvenement {
             | Self::SanctionAnnulee
             | Self::NoteConduiteEnregistree
             | Self::NoteConduiteRetiree
+            | Self::CompetenceModifiee
             | Self::JournalArchive
             | Self::ReleveParSeanceEnregistre
             | Self::ReleveImporte

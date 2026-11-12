@@ -248,7 +248,8 @@ function Programme({ anneeId, donnees }: { anneeId: string; donnees: DonneesPeda
 
 function Periodes({ anneeId, donnees }: { anneeId: string; donnees: DonneesPedagogie }) {
   const rafraichir = useRafraichir();
-  const niveaux = niveauxNotes(donnees);
+  // Le jardin a ses trimestres, pour ses livrets (SPEC_PHASE_11_B §3.3).
+  const niveaux = donnees.niveaux.filter((n) => n.actif);
   const [niveauId, setNiveauId] = useState(niveaux[0]?.id ?? "");
   const niveau = niveaux.find((n) => n.id === niveauId);
   const periodes = donnees.periodes.filter((p) => p.periode.niveau_id === niveauId);
@@ -275,7 +276,9 @@ function Periodes({ anneeId, donnees }: { anneeId: string; donnees: DonneesPedag
     mutationFn: ({ nature, nombre }: { nature: TypePeriode; nombre: number }) => appeler("periodes_definir", { annee_id: anneeId, niveau_id: niveauId, nature, nombre }),
     onSuccess: rafraichir,
   });
-  const aide: Cle = niveau?.cycle === "premier_cycle" ? "periodes.aide_premier_cycle" : niveau?.cycle === "technique" ? "periodes.aide_technique" : "periodes.aide";
+  const aide: Cle = niveau?.cycle === "premier_cycle" ? "periodes.aide_premier_cycle" : niveau?.cycle === "technique" ? "periodes.aide_technique" : niveau?.cycle === "jardin" ? "periodes.aide_jardin" : "periodes.aide";
+  // Au jardin, ni moyenne ni poids : les dates seulement.
+  const avecPoids = niveau?.cycle !== "jardin";
   return (
     <Section titre={t("pedagogie.onglet.periodes")}>
       <div className="flex flex-wrap items-end gap-3">
@@ -297,9 +300,11 @@ function Periodes({ anneeId, donnees }: { anneeId: string; donnees: DonneesPedag
             <span className="w-32 text-sm font-medium text-encre">{p.libelle}</span>
             <Champ id={`periode-${p.periode.rang}-debut`} type="date" libelle={t("periodes.debut")} value={lignes[i]?.debut ?? ""} onChange={(e) => changer(i, { debut: e.target.value })} />
             <Champ id={`periode-${p.periode.rang}-fin`} type="date" libelle={t("periodes.fin")} value={lignes[i]?.fin ?? ""} onChange={(e) => changer(i, { fin: e.target.value })} />
-            <div className="w-24">
-              <Champ id={`periode-${p.periode.rang}-poids`} inputMode="numeric" libelle={t("periodes.poids")} value={lignes[i]?.ponderation ?? ""} onChange={(e) => changer(i, { ponderation: e.target.value.replace(/\D/g, "") })} />
-            </div>
+            {avecPoids ? (
+              <div className="w-24">
+                <Champ id={`periode-${p.periode.rang}-poids`} inputMode="numeric" libelle={t("periodes.poids")} value={lignes[i]?.ponderation ?? ""} onChange={(e) => changer(i, { ponderation: e.target.value.replace(/\D/g, "") })} />
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>

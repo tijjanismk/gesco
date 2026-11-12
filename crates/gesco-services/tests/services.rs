@@ -32,6 +32,7 @@ mod heures;
 mod import_eleves;
 mod import_programme;
 mod import_referentiel;
+mod jardin;
 mod journal_technique;
 mod livres;
 mod maitres;

@@ -82,6 +82,18 @@ async fn permissions(
         .unwrap()
 }
 
+/// Base d'avant la phase 11, lot B : ni domaines ni compétences du jardin.
+async fn effacer_competences(noyau: &Noyau) {
+    for sql in [
+        "DROP TRIGGER competence_sans_suppression",
+        "DROP TRIGGER domaine_competence_sans_suppression",
+        "DELETE FROM competence",
+        "DELETE FROM domaine_competence",
+    ] {
+        executer(noyau, sql).await;
+    }
+}
+
 async fn executer(noyau: &Noyau, sql: &str) {
     sqlx::query(sqlx::AssertSqlSafe(sql.to_owned()))
         .execute(noyau.base().pool_critique())
@@ -282,7 +294,8 @@ async fn une_base_de_la_phase_1_recoit_les_niveaux_et_series() {
         0
     );
     // Base de la phase 1 : la migration 0006 a créé des tables vides ; une base qui aurait déjà
-    // des niveaux garde ses libellés.
+    // des niveaux garde ses libellés. Elle n'avait pas non plus de compétences du jardin.
+    effacer_competences(&noyau).await;
     executer(&noyau, "DELETE FROM serie").await;
     executer(&noyau, "DELETE FROM niveau WHERE code <> '7'").await;
     executer(
@@ -294,7 +307,7 @@ async fn une_base_de_la_phase_1_recoit_les_niveaux_et_series() {
         mise_a_niveau::completer_referentiel(&noyau, etablissement_id)
             .await
             .unwrap(),
-        20 + 8
+        20 + 8 + 5 + 3 * 20
     );
     let contexte = noyau.contexte(etablissement_id, None);
     let mut cnx = noyau.base().pool().acquire().await.unwrap();
@@ -355,14 +368,14 @@ async fn une_annee_de_la_phase_3_recoit_son_referentiel_pedagogique() {
             .len(),
         44
     );
-    // 6 niveaux du 1er cycle × 9 mois + 6 niveaux × 3 trimestres + 6 années du CAP et du BT × 2
-    // semestres.
+    // 6 niveaux du 1er cycle × 9 mois + 3 sections du jardin et 6 niveaux × 3 trimestres + 6
+    // années du CAP et du BT × 2 semestres.
     assert_eq!(
         pedagogie::periodes(&mut cnx, annee.id, &contexte)
             .await
             .unwrap()
             .len(),
-        6 * 9 + 6 * 3 + 6 * 2
+        6 * 9 + 9 * 3 + 6 * 2
     );
     assert_eq!(
         pedagogie::regles_en_vigueur(&mut cnx, annee.id, &contexte)
@@ -718,4 +731,36 @@ async fn une_base_de_la_composition_9_recoit_les_droits_des_messages_aux_famille
     assert!(!lecteur.contains(&P::NOTIFICATIONS_SEND));
     let caissier = permissions(&noyau, etablissement_id, RoleSysteme::Caissier).await;
     assert!(!caissier.contains(&P::GUARDIANS_ACCESS_CODE));
+}
+
+#[tokio::test]
+async fn une_base_de_la_2_0_0_recoit_la_liste_livree_du_jardin() {
+    let (noyau, etablissement_id, _dossier) = installer().await;
+    effacer_competences(&noyau).await;
+    // Cinq domaines, puis vingt compétences pour chacune des trois sections ouvertes.
+    assert_eq!(
+        mise_a_niveau::completer_referentiel(&noyau, etablissement_id)
+            .await
+            .unwrap(),
+        5 + 3 * 20
+    );
+    assert_eq!(
+        mise_a_niveau::completer_referentiel(&noyau, etablissement_id)
+            .await
+            .unwrap(),
+        0
+    );
+    let contexte = noyau.contexte(etablissement_id, None);
+    let mut cnx = noyau.base().pool().acquire().await.unwrap();
+    let competences = gesco_db::depots::jardin::competences(&mut cnx, &contexte)
+        .await
+        .unwrap();
+    assert!(
+        competences
+            .iter()
+            .all(|c| c.livree && c.retiree_le.is_none())
+    );
+    audit::verifier_chaine(&mut cnx, None, &contexte)
+        .await
+        .unwrap();
 }

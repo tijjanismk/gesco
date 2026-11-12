@@ -103,6 +103,10 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
         (cle, ValeurParametre::Entier(n)) if cle.starts_with(PREFIXE_COLONNES) => {
             !(0..=LARGEUR_COLONNE_MAX).contains(n)
         }
+        // Jardin : chaque libellé de l'échelle, ni vide ni trop long (SPEC_PHASE_11_B §3.5).
+        (cle, ValeurParametre::Texte(t)) if cle.starts_with("jardin.echelle_") => {
+            crate::pedagogie::jardin::echelle_hors_bornes(cle, t).unwrap_or(true)
+        }
         ("montant.multiple_arrondi", ValeurParametre::Entier(n)) => {
             ![1, 5, 10, 25, 50, 100].contains(n)
         }
@@ -472,6 +476,20 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
             p("sms.modele_sanction", modele(N::Sanction), true),
         ]);
     }
+    // Jardin (SPEC_PHASE_11_B §3.5, T-110) : trois niveaux toujours, leurs libellés se règlent ;
+    // le commentaire par domaine se montre tant que l'école ne l'éteint pas.
+    for niveau in crate::pedagogie::jardin::NiveauAcquisition::TOUS {
+        parametres.push(p(
+            niveau.parametre(),
+            ValeurParametre::Texte(niveau.libelle_livre().to_owned()),
+            true,
+        ));
+    }
+    parametres.push(p(
+        crate::pedagogie::jardin::parametres::COMMENTAIRE_DOMAINE,
+        ValeurParametre::Booleen(true),
+        true,
+    ));
     for (cle, defaut) in crate::pedagogie::conduite::RETRAITS_PAR_DEFAUT {
         parametres.push(p(cle, ValeurParametre::Texte(defaut.to_owned()), true));
     }

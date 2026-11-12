@@ -48,6 +48,7 @@ async function lancer(nom: string, portDebogage: number): Promise<Instance> {
       ...process.env,
       GESCO_DOSSIER_ESSAI: donnees,
       GESCO_DATE_ESSAI: "2026-10-14",
+      GESCO_HEURE_ESSAI: "10",
       WEBVIEW2_USER_DATA_FOLDER: join(dossier, nom, "webview"),
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${String(portDebogage)}`,
     },

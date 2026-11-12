@@ -102,9 +102,9 @@ pub(crate) fn series_de(niveau: &Niveau, series: &[Serie]) -> Vec<Option<Serie>>
     }
 }
 
-/// Pose, pour une année, ce qui lui manque : périodes par défaut de chaque niveau noté,
-/// programme par défaut de chaque niveau et série, règle livrée de chaque cycle. Rien
-/// d'existant n'est modifié. Rend le nombre de lignes ajoutées.
+/// Pose, pour une année, ce qui lui manque : périodes par défaut de chaque niveau, jardin compris
+/// (SPEC_PHASE_11_B §3.3), programme par défaut de chaque niveau noté et série, règle livrée de
+/// chaque cycle noté. Rien d'existant n'est modifié. Rend le nombre de lignes ajoutées.
 pub(crate) async fn poser_annee(
     unite: &mut UniteDeTravail<Effet>,
     annee: &AnneeScolaire,
@@ -118,7 +118,7 @@ pub(crate) async fn poser_annee(
     let programme = pedagogie::programme(unite.connexion(), annee.id, &contexte).await?;
     let regles = pedagogie::regles_en_vigueur(unite.connexion(), annee.id, &contexte).await?;
     let mut ajoutes = 0;
-    for niveau in niveaux.iter().filter(|n| n.cycle != Cycle::Jardin) {
+    for niveau in &niveaux {
         let (nature, nombre) = decoupage_par_defaut(niveau.cycle);
         if !periodes.iter().any(|p| p.niveau_id == niveau.id)
             && let Some((nature, calendrier)) =
@@ -142,6 +142,10 @@ pub(crate) async fn poser_annee(
                     ajoutes += 1;
                 }
             }
+        }
+        // Le jardin n'a ni matière ni programme : ses compétences sont à part.
+        if niveau.cycle == Cycle::Jardin {
+            continue;
         }
         for serie in series_de(niveau, &series) {
             let serie_id = serie.as_ref().map(|s| s.id);

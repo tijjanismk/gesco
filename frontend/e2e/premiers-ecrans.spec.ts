@@ -83,6 +83,8 @@ test.beforeAll(async () => {
       // Les scénarios vivent le 14 octobre 2026, quel que soit le jour réel : échéances, impayés et
       // relevés y sont datés.
       GESCO_DATE_ESSAI: JOUR_ESSAI,
+      // À 10 heures, dans la fenêtre d'envoi des SMS, quelle que soit l'heure réelle.
+      GESCO_HEURE_ESSAI: "10",
       WEBVIEW2_USER_DATA_FOLDER: join(dossier, "webview"),
       // Une caméra simulée, acceptée sans question : la photo à la webcam s'essaie sans caméra.
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT_DEBOGAGE} --use-fake-device-for-media-stream --use-fake-ui-for-media-stream`,
@@ -2675,4 +2677,46 @@ test("version 1.2.5 : Ctrl + R garde la session ; l'école élargit la colonne d
   await page.waitForTimeout(4000);
   await page.locator("iframe").scrollIntoViewIfNeeded();
   await capturer("138-bulletin-colonnes-et-signatures");
+});
+
+test("phase 11, lot B : la direction tient la liste des compétences du jardin ; le jardin a ses trimestres", async () => {
+  await allerA("nav.parametres");
+  const bloc = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("jardin.titre"), exact: true }) });
+  await expect(bloc.getByRole("tab", { name: "Petite section" })).toBeVisible();
+  // La liste livrée de la petite section, rangée par domaine.
+  await expect(bloc.getByText("Comprend une consigne simple qu'on lui dit", { exact: true })).toBeVisible();
+  const langage = bloc.locator("div").filter({ has: page.getByRole("heading", { name: "Langage", exact: true }) }).filter({ has: page.getByLabel(texte("jardin.nouvelle_competence")) });
+  await langage.getByLabel(texte("jardin.nouvelle_competence")).fill("Dit son prénom et celui de sa maîtresse");
+  await langage.getByRole("button", { name: texte("jardin.ajouter"), exact: true }).click();
+  await expect(langage.getByText("Dit son prénom et celui de sa maîtresse", { exact: true })).toBeVisible();
+  await langage.getByRole("button", { name: "Monter « Dit son prénom et celui de sa maîtresse »" }).click();
+  await expect(langage.getByRole("button", { name: "Monter « Dit son prénom et celui de sa maîtresse »" })).toBeEnabled();
+  // Les libellés de l'échelle se règlent ; les trois niveaux restent.
+  await bloc.locator('[id="param-jardin.echelle_en_cours"]').fill("En voie d'acquisition");
+  await bloc.getByRole("button", { name: texte("commun.enregistrer") }).first().click();
+  await expect(bloc.getByText(/Enregistré/)).toBeVisible();
+  await bloc.scrollIntoViewIfNeeded();
+  await capturer("164-competences-du-jardin");
+
+  // Retirée, la compétence quitte la liste et se remet telle quelle.
+  await langage.getByRole("button", { name: "Retirer « Dit son prénom et celui de sa maîtresse »" }).click();
+  await expect(langage.getByText("Dit son prénom et celui de sa maîtresse", { exact: true })).toHaveCount(0);
+  await bloc.locator("#jardin-retirees").check();
+  await expect(langage.getByRole("button", { name: "Remettre « Dit son prénom et celui de sa maîtresse »" })).toBeVisible();
+  await capturer("165-competences-retirees");
+  await langage.getByRole("button", { name: "Remettre « Dit son prénom et celui de sa maîtresse »" }).click();
+  await expect(langage.getByRole("button", { name: "Retirer « Dit son prénom et celui de sa maîtresse »" })).toBeVisible();
+
+  // La grande section a sa propre liste.
+  await bloc.getByRole("tab", { name: "Grande section" }).click();
+  await expect(bloc.getByText("Raconte dans l'ordre une histoire entendue", { exact: true })).toBeVisible();
+
+  // Le jardin a ses trois trimestres, sans poids : il n'a pas de moyenne.
+  await allerA("nav.pedagogie");
+  await page.getByRole("button", { name: texte("pedagogie.onglet.periodes") }).click();
+  await page.locator("#periodes-niveau").selectOption({ label: `Petite section · ${texte("niveaux.cycle.jardin")}` });
+  await expect(page.getByText("3e trimestre")).toBeVisible();
+  await expect(page.locator("#periode-1-poids")).toHaveCount(0);
+  await expect(page.getByText(texte("periodes.aide_jardin"))).toBeVisible();
+  await capturer("166-periodes-du-jardin");
 });

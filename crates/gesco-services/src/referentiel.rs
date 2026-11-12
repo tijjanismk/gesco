@@ -125,6 +125,9 @@ pub async fn poser_referentiel(
     }
     // Les matières livrées suivent les niveaux (SPEC_PHASE_4 §2.1).
     ajoutes += crate::pedagogie::poser_matieres(unite, etablissement_id, origine).await?;
+    // Et la liste livrée des compétences, pour les sections du jardin ouvertes
+    // (SPEC_PHASE_11_B §8).
+    ajoutes += crate::jardin::poser_competences(unite, etablissement_id, origine).await?;
     // Les catégories et fonctions du personnel aussi (SPEC_PHASE_6 §2).
     ajoutes += crate::personnel::poser_personnel(unite, etablissement_id, origine).await?;
     // Et les éléments de paie livrés (SPEC_PHASE_7 §3).
@@ -228,6 +231,15 @@ impl<'n> ServiceReferentiel<'n> {
             );
             changes += 1;
         }
+        // Un jardin ouvert reçoit la liste livrée des compétences de ses sections.
+        if changes > 0 {
+            crate::jardin::poser_competences(
+                &mut unite,
+                session.etablissement_id,
+                "referentiel.definir_cycles",
+            )
+            .await?;
+        }
         if changes == 0 {
             unite.annuler().await?;
         } else {
@@ -267,6 +279,14 @@ impl<'n> ServiceReferentiel<'n> {
             Some(serde_json::to_value(&apres)?),
             "referentiel.modifier_niveau",
         );
+        if apres.actif && !avant.actif {
+            crate::jardin::poser_competences(
+                &mut unite,
+                session.etablissement_id,
+                "referentiel.modifier_niveau",
+            )
+            .await?;
+        }
         self.noyau.terminer(unite).await?;
         Ok(apres)
     }
