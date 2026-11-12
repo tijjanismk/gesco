@@ -23,6 +23,8 @@ pub enum MotifRefus {
     PinNonDefini,
     /// Trop de PIN faux : la session est fermée, le mot de passe est exigé.
     PinEpuise,
+    /// L'école n'a pas ouvert la saisie aux maîtres : un compte de maître n'entre pas.
+    MaitresNonAdmis,
     /// Session inconnue ou expirée.
     SessionInvalide,
     /// La session est verrouillée : un code PIN est attendu.
@@ -122,6 +124,7 @@ impl ErreurService {
                 MotifRefus::PinInvalide => "session.pin_invalide",
                 MotifRefus::PinNonDefini => "session.pin_non_defini",
                 MotifRefus::PinEpuise => "session.pin_epuise",
+                MotifRefus::MaitresNonAdmis => "connexion.maitres_non_admis",
                 MotifRefus::SessionInvalide => "session.invalide",
                 MotifRefus::SessionVerrouillee => "session.verrouillee",
                 MotifRefus::PhraseVerrouillee { .. } => "cles.phrase_verrouillee",

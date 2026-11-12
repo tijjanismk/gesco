@@ -230,13 +230,13 @@ async fn une_depense_se_saisit_s_accorde_se_paie_et_s_annule() {
         "depense.piece_format"
     );
 
-    // Un enseignant n'a aucun droit sur les dépenses : il ne les lit pas.
+    // Un surveillant n'a aucun droit sur les dépenses : il ne les lit pas.
     let mot_de_passe = "ecole-2026-47514";
     p.ok(
         "utilisateur_creer",
         Some(&admin),
-        json!({ "identifiant": "maitre", "nom_affiche": "Maître de la 3e",
-            "mot_de_passe_initial": mot_de_passe, "roles": ["enseignant"] }),
+        json!({ "identifiant": "maitre", "nom_affiche": "Surveillant de la 3e",
+            "mot_de_passe_initial": mot_de_passe, "roles": ["surveillant"] }),
     )
     .await;
     let maitre = p.connecter("maitre", mot_de_passe).await;

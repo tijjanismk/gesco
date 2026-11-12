@@ -1,5 +1,5 @@
 import type { Cle } from "../i18n";
-import { ACCES, COMMANDES_POSTE_PRINCIPAL, type NomCommande } from "../types/acces";
+import { ACCES, COMMANDES_DU_MAITRE, COMMANDES_POSTE_PRINCIPAL, type NomCommande } from "../types/acces";
 import type { ModuleEcole } from "../types/gesco";
 
 export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes";
@@ -67,19 +67,20 @@ const SECTIONS: readonly Section[] = [
 export const GROUPES_REPLIES: readonly Cle[] = ["nav.groupe.parametres", "nav.groupe.outils"];
 
 /** Vrai si la session détient l'accès qu'exige la commande : un confort d'affichage, la garde Rust
- *  décide (R-21). */
-export function commandeAutorisee(commande: NomCommande | null, permissions: readonly string[]): boolean {
+ *  décide (R-21). Un compte de maître n'a que les commandes de sa liste. */
+export function commandeAutorisee(commande: NomCommande | null, permissions: readonly string[], maitre = false): boolean {
   if (commande === null) return true;
+  if (maitre && !COMMANDES_DU_MAITRE.includes(commande)) return false;
   const acces: { type: string; permission?: string } = ACCES[commande];
   return acces.type !== "permission" || (acces.permission !== undefined && permissions.includes(acces.permission));
 }
 
 /** Sections affichées. Sur un poste relié, celles de ce qui ne se fait que sur le poste principal
  *  (sauvegardes, postes de l'école) ne paraissent pas. */
-export function sectionsAutorisees(permissions: readonly string[], modules: readonly ModuleEcole[], relie = false): Section[] {
+export function sectionsAutorisees(permissions: readonly string[], modules: readonly ModuleEcole[], relie = false, maitre = false): Section[] {
   return SECTIONS.filter(
     (s) =>
-      commandeAutorisee(s.commande, permissions) &&
+      commandeAutorisee(s.commande, permissions, maitre) &&
       (s.module === undefined || modules.includes(s.module)) &&
       !(relie && s.commande !== null && COMMANDES_POSTE_PRINCIPAL.includes(s.commande)),
   );

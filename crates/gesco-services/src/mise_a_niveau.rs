@@ -115,6 +115,18 @@ pub async fn completer_parametres(
         {
             p.valeur = ValeurParametre::Texte(matricule::SEPARATEUR_ANCIEN.to_owned());
         }
+        // Une école où un compte de maître a déjà saisi garde cette possibilité : le réglage,
+        // éteint à la livraison, y arrive allumé (SPEC_PHASE_11_A §7).
+        if p.cle == crate::maitres::PARAMETRE_SAISIE
+            && role::porteur_exclusif_a_saisi(
+                unite.connexion(),
+                RoleSysteme::Enseignant.code(),
+                &contexte,
+            )
+            .await?
+        {
+            p.valeur = ValeurParametre::Booleen(true);
+        }
         parametre::definir(unite.connexion(), &p, &contexte).await?;
         unite.auditer(
             "parametre",

@@ -8228,6 +8228,8 @@ export type SessionCourante = {
 	 *  sur le poste principal seulement.
 	 */
 	role_poste: RolePoste,
+	/**  Compte de maître : l'écran ne montre que ce que sa liste de commandes lui ouvre. */
+	maitre: boolean,
 };
 
 /**  Sexe d'une personne. */

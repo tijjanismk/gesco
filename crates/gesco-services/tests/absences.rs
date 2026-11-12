@@ -267,6 +267,7 @@ async fn une_journee_se_releve_puis_se_justifie() {
             "enseignant_id": sekou["enseignant"]["id"] }),
     )
     .await;
+    p.admettre_les_maitres(&admin).await;
     let jeton = p.connecter("sekou", "enseignant-2026").await;
     let portee = p
         .ok("portee_absences_lire", Some(&jeton), json!(null))
@@ -306,7 +307,7 @@ async fn une_journee_se_releve_puis_se_justifie() {
         )
         .await
         .cle,
-        "erreur.permission_refusee"
+        "maitre.commande_refusee"
     );
 }
 

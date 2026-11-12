@@ -64,8 +64,8 @@ function resume(q: Qualites): string {
 
 /** Responsables d'un élève (SPEC_PHASE_2 §4.3) : un responsable déjà connu se retrouve par son
  *  téléphone ou son nom, et se lie sans ressaisie (§25.5). */
-export function ResponsablesEleve({ fiche, modifiable }: { fiche: FicheEleve; modifiable: boolean }) {
-  const smsActif = useSmsActif();
+export function ResponsablesEleve({ fiche, modifiable, messages }: { fiche: FicheEleve; modifiable: boolean; messages: boolean }) {
+  const smsActif = useSmsActif() && messages;
   const [edite, setEdite] = useState<string | null>(null);
   return (
     <Section titre={t("responsables.titre")}>

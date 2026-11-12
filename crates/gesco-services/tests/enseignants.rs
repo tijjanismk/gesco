@@ -186,6 +186,7 @@ async fn les_enseignants_s_affectent_et_ne_saisissent_que_dans_leurs_classes() {
     );
 
     // Portée : Sékou dans ses deux couples, la direction partout.
+    p.admettre_les_maitres(&admin).await;
     let sekou_jeton = p.connecter("sekou", "enseignant-2026").await;
     let portee = p
         .ok("portee_notes_lire", Some(&sekou_jeton), Value::Null)
@@ -241,7 +242,7 @@ async fn les_enseignants_s_affectent_et_ne_saisissent_que_dans_leurs_classes() {
         )
         .await
         .cle,
-        "erreur.permission_refusee"
+        "maitre.commande_refusee"
     );
     let fiches = p
         .ok("enseignants_lister", Some(&sekou_jeton), Value::Null)

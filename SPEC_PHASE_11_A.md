@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 11, lot A — un poste principal et des postes reliés sur le réseau local de l'école ; version 2.0.0
-**Statut** : v1.6 — acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; étape 1 validée le 11 novembre 2026, étape 2 validée le 11 novembre 2026, étape 3 réalisée le 11 novembre 2026 et présentée pour validation ; étape 4 (même fiche, écrans qui se relisent, opérations qui demandent d'être seul, lenteurs, mesure à dix postes) réalisée le 11 novembre 2026 et présentée pour validation
+**Statut** : v1.7 — acceptée par le porteur du projet le 10 novembre 2026, avec les trois choix du §12 et le nombre de postes porté par la licence (§4.4) ; étape 1 validée le 11 novembre 2026, étape 2 validée le 11 novembre 2026, étape 3 réalisée le 11 novembre 2026 et présentée pour validation ; étape 4 (même fiche, écrans qui se relisent, opérations qui demandent d'être seul, lenteurs, mesure à dix postes) réalisée le 11 novembre 2026 et présentée pour validation
 **Documents parents** : `docs/plan-phase-11.md` (T-80 à T-86, répondues le 10 novembre 2026), les quatre ADR du 10 novembre 2026 dans `docs/adr/` (serveur du réseau local, poste relié, sécurité du réseau local, modification simultanée), `PROJECT_BLUEPRINT.md` (ADR-014, §15.1, §17.4, §26.2), `docs/adr/2026-10-04-frontiere-commande-unique.md`, `SPEC_PHASE_4.md` (comptes des enseignants, portée des notes), `docs/optimisations-2026-10-31.md`
 **Date** : 10 novembre 2026
 
@@ -367,6 +367,33 @@ ajoute :
 - Un essai joue chaque commande du contrat avec un compte de maître : la liste de ce qu'il peut
   faire est écrite, tout le reste est refusé.
 
+Réalisé à l'étape 5 :
+
+- Le réglage est le paramètre `notes.saisie_maitres`, dans Paramètres, éteint dans une école
+  neuve. À l'ouverture d'une base qui ne l'a pas encore, il arrive allumé si un compte qui ne
+  porte que le rôle Enseignant a déjà saisi une note, créé une évaluation ou relevé une absence.
+- **Compte de maître** : un compte qui porte le rôle livré Enseignant et aucun autre. Un compte
+  qui porte aussi un autre rôle suit ses autres droits, et un rôle créé par l'école n'est pas
+  concerné.
+- Éteint : le mot de passe juste est refusé avec un message qui renvoie à la direction ; le refus
+  est noté au journal d'audit. Un mot de passe faux reçoit le message habituel. Si la direction
+  éteint le réglage pendant qu'un maître travaille, sa session se ferme à sa commande suivante.
+- Allumé : la garde ne laisse à un compte de maître que les commandes de la liste
+  `COMMANDES_DU_MAITRE` (`gesco-services/src/commandes.rs`), quelles que soient les permissions
+  que l'école a données au rôle Enseignant : sa session et son compte, le tableau de bord, sa
+  propre fiche et ses bulletins de paie, ce qui décrit l'école et l'année (années, niveaux,
+  classes, programme, enseignants et affectations, emploi du temps), la recherche et la fiche des
+  élèves, ses évaluations, ses notes, les bulletins et ses appréciations, les absences. Tout le
+  reste est refusé : situation financière, relevé de compte, grilles de frais, guichet,
+  inscriptions, discipline, convocations, remise des bulletins, recherche des responsables.
+- **Ses classes** sont celles de ses affectations. Il ne trouve et n'ouvre que les élèves qui y
+  ont été inscrits (hors brouillon) ; il ne lit que les bulletins et les absences de ses classes,
+  et ne note que dans ses matières. L'écran ne lui montre que les menus de sa liste, et la fiche
+  d'un élève sans le bloc des frais ni l'état des numéros des responsables.
+- L'essai `maitres` (`gesco-services/tests/maitres.rs`) joue chaque commande du contrat avec un
+  compte de maître et compare ce qui lui est ouvert à la liste écrite, puis vérifie classe par
+  classe les lectures et les écritures.
+
 ## 8. Droits
 
 Nouveau : `workstations:manage` (activer le réseau, relier, révoquer, renouveler la clé), donné au
@@ -432,3 +459,4 @@ porteur. Une seule compilation complète par étape, `target` élagué avant.
 | v1.4 | 2026-11-11 | Étape 3 réalisée. §2 : le réglage du poste ne dit que « relié » ; entre seul et principal, c'est la base qui tranche (réseau allumé ou non), pour qu'une sauvegarde restaurée garde son rôle — écart à confirmer par le porteur du projet. §3.3 : le contenu d'un fichier voyage en base64 dans l'entrée (commande qui lit) ou avec la sortie (commande qui écrit), vingt mégaoctets au plus. §5 : le poste relié dit sa version à chaque appel et le poste principal refuse une version différente avec la version attendue ; « Quitter le poste principal » est offert sans session. §9 : l'avertissement avant une opération qui demande d'être seul passe à l'étape 4 |
 | v1.5 | 2026-11-11 | Étape 4, première partie. §6.1 : liste des six fiches protégées, classement des autres commandes de modification, six fiches notées « à protéger ». §6.2 : relecture à l'ouverture, trente secondes pour les données de référence, pas de relecture au retour à la fenêtre. §6.3 : opérations retenues, imports limités à ceux qui touchent toute l'école, import lancé d'un poste relié — choix à confirmer par le porteur du projet. §6.4 et §6.5 (lenteurs, mesure) restent à faire |
 | v1.6 | 2026-11-11 | Étape 4, seconde partie. §6.1 : douze fiches protégées (compte d'un utilisateur, rôle, année, inscription, enseignant, fournisseur ajoutés). §6.4 : ce qui a été fait pour chacune des cinq lenteurs. §6.5 : la mesure à dix postes, la cible fixée (une commande par seconde et par poste, 95 % sous la seconde), les écrivains mis en file dans l'ordre d'arrivée, la connexion par commande gardée — cible et file à confirmer par le porteur du projet |
+| v1.7 | 2026-11-12 | Étape 5 réalisée. §7 : le réglage `notes.saisie_maitres`, la définition du compte de maître (le seul rôle livré Enseignant), la session fermée quand le réglage s'éteint, la liste des commandes d'un maître, ses classes et ses élèves — définition du compte de maître et contenu de la liste à confirmer par le porteur du projet |

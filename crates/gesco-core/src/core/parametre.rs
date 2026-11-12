@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 use super::etablissement::Etablissement;
 use crate::commun::Id;
 
+/// Clé du réglage « Les maîtres saisissent leurs notes » : éteint, un compte qui n'a que le rôle
+/// Enseignant n'ouvre pas de session.
+pub const SAISIE_DES_MAITRES: &str = "notes.saisie_maitres";
+
 /// Valeur typée d'un paramètre.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "type", content = "valeur", rename_all = "snake_case")]
@@ -321,6 +325,9 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         p("cantine.active", ValeurParametre::Booleen(false), true),
         // T-71 : la demi-journée reste la règle ; l'école active le relevé par séance.
         p("absence.par_seance", ValeurParametre::Booleen(false), true),
+        // Les maîtres saisissent leurs notes avec leur compte : éteint à la livraison, la
+        // direction saisit tout.
+        p(SAISIE_DES_MAITRES, ValeurParametre::Booleen(false), true),
         p(
             "cantine.repas_comptes",
             ValeurParametre::Booleen(false),

@@ -66,7 +66,7 @@ export function ChampsEleve({ prefixe, valeur, surChangement }: { prefixe: strin
 }
 
 /** Fiche d'un élève : identité, photo, responsables. */
-export function FicheEleveEcran({ id, permissions, surOuvrir }: { id: string; permissions: readonly string[]; surOuvrir: (id: string) => void }) {
+export function FicheEleveEcran({ id, permissions, maitre, surOuvrir }: { id: string; permissions: readonly string[]; maitre: boolean; surOuvrir: (id: string) => void }) {
   const fiche = useQuery({ queryKey: ["eleve", id], queryFn: () => appeler("eleve_lire", { id }) });
   // Une relecture qui échoue (liaison coupée) ne remplace pas la fiche affichée ni sa saisie.
   if (fiche.data === undefined) {
@@ -95,9 +95,10 @@ export function FicheEleveEcran({ id, permissions, surOuvrir }: { id: string; pe
         </div>
       </Section>
       {modifiable ? <EditionEleve key={JSON.stringify(fiche.data.eleve) + JSON.stringify(identite)} fiche={fiche.data} /> : null}
-      <ResponsablesEleve fiche={fiche.data} modifiable={modifiable} />
-      {eleve.fusionne_dans === null ? <InscriptionsEleve fiche={fiche.data} permissions={permissions} /> : null}
-      <FraisEleve eleveId={eleve.id} permissions={permissions} />
+      <ResponsablesEleve fiche={fiche.data} modifiable={modifiable} messages={commandeAutorisee("responsable_messages_lire", permissions, maitre)} />
+      {eleve.fusionne_dans === null ? <InscriptionsEleve fiche={fiche.data} permissions={permissions} maitre={maitre} /> : null}
+      {/* Un compte de maître lit la fiche des élèves de ses classes, sans leur situation financière. */}
+      {commandeAutorisee("situation_financiere", permissions, maitre) ? <FraisEleve eleveId={eleve.id} permissions={permissions} /> : null}
       {modifiable && commandeAutorisee("eleves_fusionner", permissions) ? <FusionEleve fiche={fiche.data} surOuvrir={surOuvrir} /> : null}
     </div>
   );

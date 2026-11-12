@@ -21,6 +21,9 @@ const NOM = "Awa Traoré";
 const MOT_DE_PASSE = "essai-premier-demarrage";
 const NOUVEAU_MOT_DE_PASSE = "essai-mot-de-passe-change";
 const POSTE = "Caisse";
+const MAITRE = "moussa";
+const NOM_MAITRE = "Moussa Diarra";
+const MOT_DE_PASSE_MAITRE = "maitre-2026-initial";
 const EMPREINTE = /^[0-9A-F]{4}(-[0-9A-F]{4}){3}$/;
 
 const texte = (cle: Cle, valeurs: Record<string, string> = {}) =>
@@ -231,6 +234,8 @@ test("le poste relié travaille sous son nom, sans les écrans du poste principa
   const navigation = page.getByRole("navigation");
   await expect(navigation.getByRole("button", { name: texte("nav.accueil"), exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(texte("bandeau.utilisateur", { nom: NOM }))).toBeVisible();
+  // Aucune année n'est encore ouverte : le poste relié le dit, comme le poste principal.
+  await expect(page.getByText(texte("avertissement.annee_absente"))).toBeVisible();
 
   // Ce qui dépend du disque du poste principal n'y paraît pas : sauvegardes, postes de l'école.
   await allerA(page, "nav.utilisateurs");
@@ -379,6 +384,9 @@ test("le poste relié inscrit un élève, encaisse son premier versement et impr
   // Le poste relié ouvre sa caisse.
   const page = relie.page;
   await allerA(page, "nav.caisse");
+  // Le poste principal a ouvert l'année : au premier écran ouvert, l'avertissement du poste
+  // relié s'en va, sans qu'il ait à se reconnecter.
+  await expect(page.getByText(texte("avertissement.annee_absente"))).toHaveCount(0);
   await page.locator("#caisse-fonds").fill("25000");
   await page.getByRole("button", { name: texte("caisse.ouvrir_bouton") }).click();
   await expect(page.getByRole("heading", { name: /Caisse ouverte depuis le/ })).toBeVisible({ timeout: 20_000 });
@@ -421,6 +429,127 @@ test("le poste relié inscrit un élève, encaisse son premier versement et impr
   // L'écriture porte le nom du poste relié, et le poste principal voit l'élève inscrit.
   await allerA(direction, "nav.inscriptions");
   await expect(direction.getByRole("cell", { name: /Diallo/ }).first()).toBeVisible({ timeout: 20_000 });
+  await allerA(direction, "nav.postes");
+});
+
+test("saisie des notes par les maîtres : éteinte, le compte n'entre pas ; allumée, le maître ne voit que sa classe", async () => {
+  // À la livraison, le réglage est éteint : la direction saisit tout.
+  const direction = principal.page;
+  await allerA(direction, "nav.parametres");
+  const reglage = direction.locator('[id="param-notes.saisie_maitres"]');
+  const ligne = reglage.locator("xpath=ancestor::div[contains(@class,'py-2')][1]");
+  await expect(reglage).not.toBeChecked();
+  await ligne.scrollIntoViewIfNeeded();
+  await capturer(direction, "157-parametres-saisie-des-maitres-eteinte");
+
+  // Le compte du maître, sa fiche d'enseignant et sa classe.
+  await allerA(direction, "nav.utilisateurs");
+  await direction.locator("#nouvel-identifiant").fill(MAITRE);
+  await direction.locator("#nouveau-nom").fill(NOM_MAITRE);
+  await direction.locator("#nouveau-mdp-initial").fill(MOT_DE_PASSE_MAITRE);
+  await direction.locator("#nouveau-role-enseignant").check();
+  await direction.getByRole("button", { name: texte("utilisateurs.creer") }).click();
+  await expect(direction.getByRole("cell", { name: NOM_MAITRE })).toBeVisible({ timeout: 20_000 });
+  await allerA(direction, "nav.enseignants");
+  await direction.locator("#enseignant-prenoms").fill("Moussa");
+  await direction.locator("#enseignant-nom").fill("Diarra");
+  await direction.locator("#enseignant-telephone").fill("76 11 22 33");
+  await direction.locator("#enseignant-statut").selectOption("titulaire");
+  await direction.locator("#enseignant-compte").selectOption({ label: NOM_MAITRE });
+  await direction.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(direction.getByRole("cell", { name: "Moussa", exact: true })).toBeVisible({ timeout: 20_000 });
+  await direction.locator("#affectations-classe").selectOption({ label: "3e A · 3e année" });
+  await direction.locator("#affectations-maitre").selectOption({ label: NOM_MAITRE });
+  await direction.getByRole("button", { name: texte("enseignants.toute_la_classe") }).click();
+  await expect(direction.getByRole("status").filter({ hasText: /matières confiées/ })).toBeVisible({ timeout: 20_000 });
+  // Une élève qui n'est pas de sa classe : sa fiche existe, sans inscription.
+  await allerA(direction, "nav.eleves");
+  await direction.getByRole("button", { name: texte("eleves.nouveau") }).click();
+  await direction.locator("#nouvel-eleve-nom").fill("Keita");
+  await direction.locator("#nouvel-eleve-prenoms").fill("Aïssata");
+  await direction.locator("#nouvel-eleve-sexe").selectOption("feminin");
+  await direction.locator("#nouvel-eleve-naissance").fill("2017-02-11");
+  await direction.locator("#nouvel-eleve-lieu_naissance").fill("Bamako");
+  await direction.getByRole("button", { name: texte("eleves.creer") }).click();
+  await expect(direction.getByRole("heading", { name: "Aïssata Keita" })).toBeVisible({ timeout: 20_000 });
+  // La direction, elle, lit la situation financière sur la fiche d'une élève.
+  await direction.locator("#eleves-recherche").fill("Fatoumata");
+  await direction.getByRole("cell", { name: "Fatoumata", exact: true }).click();
+  await expect(direction.getByRole("heading", { name: "Fatoumata Diallo" })).toBeVisible({ timeout: 20_000 });
+  await expect(direction.getByRole("heading", { name: texte("facture.titre"), exact: true })).toBeVisible({ timeout: 20_000 });
+
+  // Sur le poste relié, le maître donne son mot de passe : il n'entre pas, le message renvoie à
+  // la direction.
+  const page = relie.page;
+  await page.getByRole("button", { name: texte("bandeau.deconnexion") }).click();
+  await page.getByLabel(texte("connexion.identifiant")).fill(MAITRE);
+  await page.getByLabel(texte("connexion.mot_de_passe")).fill(MOT_DE_PASSE_MAITRE);
+  await page.getByRole("button", { name: texte("connexion.valider") }).click();
+  await expect(page.getByRole("alert")).toContainText(texte("connexion.maitres_non_admis"), { timeout: 20_000 });
+  await capturer(page, "158-maitre-refuse-saisie-eteinte");
+
+  // La direction allume le réglage.
+  await allerA(direction, "nav.parametres");
+  await reglage.check();
+  await ligne.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(ligne.getByText(/Enregistré/)).toBeVisible({ timeout: 20_000 });
+  await ligne.scrollIntoViewIfNeeded();
+  await capturer(direction, "159-parametres-saisie-des-maitres-allumee");
+
+  // Le maître entre, change son mot de passe, et ne voit que ce qui le concerne.
+  await page.getByLabel(texte("connexion.identifiant")).fill(MAITRE);
+  await page.getByLabel(texte("connexion.mot_de_passe")).fill(MOT_DE_PASSE_MAITRE);
+  await page.getByRole("button", { name: texte("connexion.valider") }).click();
+  const changement = page.locator("form").first();
+  await changement.getByLabel(texte("compte.mot_de_passe_actuel")).fill(MOT_DE_PASSE_MAITRE);
+  await changement.getByLabel(texte("compte.nouveau_mot_de_passe")).fill("maitre-mot-de-passe-change");
+  await changement.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(page.getByText(texte("compte.pin_absent"))).toBeVisible({ timeout: 20_000 });
+  const navigation = page.getByRole("navigation");
+  await allerA(page, "nav.classes");
+  for (const cle of ["nav.eleves", "nav.notes", "nav.absences", "nav.bulletins", "nav.classes", "nav.compte"] as const) {
+    await expect(navigation.getByRole("button", { name: texte(cle), exact: true })).toBeVisible();
+  }
+  for (const cle of ["nav.guichet", "nav.inscriptions", "nav.caisse", "nav.frais", "nav.convocations", "nav.remises", "nav.utilisateurs", "nav.parametres", "nav.journal"] as const) {
+    await expect(navigation.getByRole("button", { name: texte(cle), exact: true })).toHaveCount(0);
+  }
+  // Les élèves : ceux de sa classe, leur fiche sans la situation financière.
+  await allerA(page, "nav.eleves");
+  await expect(page.getByRole("cell", { name: "Fatoumata", exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("cell", { name: "Aïssata", exact: true })).toHaveCount(0);
+  await page.locator("#eleves-recherche").fill("Keita");
+  await expect(page.getByRole("cell", { name: "Fatoumata", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("cell", { name: "Aïssata", exact: true })).toHaveCount(0);
+  await page.locator("#eleves-recherche").fill("");
+  await page.getByRole("cell", { name: "Fatoumata", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Fatoumata Diallo" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: texte("responsables.titre") })).toBeVisible();
+  await expect(page.getByText("+223 76 45 12 90")).toBeVisible();
+  await expect(page.getByRole("heading", { name: texte("facture.titre"), exact: true })).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await capturer(page, "160-maitre-eleves-de-sa-classe");
+  // Ses notes : l'écran s'ouvre sur sa classe.
+  await allerA(page, "nav.notes");
+  await expect(page.getByRole("heading", { name: texte("notes.titre") })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await capturer(page, "161-maitre-notes");
+
+  // La direction éteint le réglage : la session du maître se ferme à son geste suivant.
+  await ligne.scrollIntoViewIfNeeded();
+  await reglage.uncheck();
+  await ligne.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(reglage).not.toBeChecked();
+  await expect(async () => {
+    await navigation.getByRole("button", { name: texte("nav.accueil"), exact: true }).click({ timeout: 2_000 });
+    await expect(page.getByRole("button", { name: texte("connexion.valider") })).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+
+  // La directrice reprend le poste relié, pour la suite.
+  await page.getByLabel(texte("connexion.identifiant")).fill(IDENTIFIANT);
+  await page.getByLabel(texte("connexion.mot_de_passe")).fill(NOUVEAU_MOT_DE_PASSE);
+  await page.getByRole("button", { name: texte("connexion.valider") }).click();
+  await expect(navigation.getByRole("button", { name: texte("nav.accueil"), exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(texte("bandeau.utilisateur", { nom: NOM }))).toBeVisible();
   await allerA(direction, "nav.postes");
 });
 

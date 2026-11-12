@@ -447,9 +447,12 @@ impl<'n> ServiceEleves<'n> {
             .filter(|(eleve, _)| porte(eleve))
             .filter_map(|(eleve, _)| eleve.fusionne_dans)
             .collect();
+        // Un compte de maître ne trouve que les élèves de ses classes (SPEC_PHASE_11_A §7).
+        let permis = crate::maitres::eleves(self.noyau, session, &mut cnx, &contexte).await?;
         let mut trouves: Vec<((u8, u32), Eleve, Personne)> = personnes::eleves(&mut cnx, &contexte)
             .await?
             .into_iter()
+            .filter(|(eleve, _)| permis.as_ref().is_none_or(|p| p.contains(&eleve.id)))
             .filter_map(|(eleve, identite)| {
                 let par_matricule = porte(&eleve) || conservees.contains(&eleve.id);
                 let rang = if par_matricule {

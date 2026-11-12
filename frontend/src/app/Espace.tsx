@@ -78,10 +78,15 @@ function useVerrouillageInactivite(delai: number | undefined, verrouiller: () =>
   }, [delai, verrouiller]);
 }
 
+/** Délai entre deux relectures des avertissements du bandeau sur un écran qui ne change pas. */
+const DELAI_AVERTISSEMENTS = 60_000;
+
 export function Espace({ etablissement }: { etablissement: string }) {
   const session = useSession();
   const courante = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
-  const avertissements = useQuery({ queryKey: ["avertissements"], queryFn: () => appeler("avertissements", null) });
+  // Un autre poste a pu changer l'état de l'école (ouvrir l'année, installer la licence) : les
+  // avertissements se relisent à chaque écran ouvert, et de temps en temps sur un écran qui reste.
+  const avertissements = useQuery({ queryKey: ["avertissements"], queryFn: () => appeler("avertissements", null), refetchInterval: DELAI_AVERTISSEMENTS });
   const [section, setSection] = useState<IdSection>("accueil");
   const [deplies, setDeplies] = useState<readonly string[]>([]);
   const [eleveOuvert, setEleveOuvert] = useState<string | null>(null);
@@ -89,6 +94,10 @@ export function Espace({ etablissement }: { etablissement: string }) {
   // notes ouverte revient à la liste des évaluations).
   const [visite, setVisite] = useState(0);
   const [recherche, setRecherche] = useState(false);
+  const relireAvertissements = avertissements.refetch;
+  useEffect(() => {
+    void relireAvertissements({ cancelRefetch: false });
+  }, [section, visite, relireAvertissements]);
   useEffect(() => {
     const raccourci = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -109,9 +118,9 @@ export function Espace({ etablissement }: { etablissement: string }) {
   // Une relecture ratée (poste principal injoignable) garde la session déjà lue : l'écran et la
   // saisie en cours restent en place, le bandeau du poste dit la coupure.
   if (courante.data === undefined) return <div className="p-6"><MessageErreur erreur={courante.error} /></div>;
-  const { session: ouverte, permissions, doit_changer_mot_de_passe, modules, role_poste } = courante.data;
-  const sections = sectionsAutorisees(permissions, modules, role_poste === "relie");
-  const peutChercher = commandeAutorisee("eleves_rechercher", permissions) && !doit_changer_mot_de_passe;
+  const { session: ouverte, permissions, doit_changer_mot_de_passe, modules, role_poste, maitre } = courante.data;
+  const sections = sectionsAutorisees(permissions, modules, role_poste === "relie", maitre);
+  const peutChercher = commandeAutorisee("eleves_rechercher", permissions, maitre) && !doit_changer_mot_de_passe;
   const groupes = [...new Set(sections.map((s) => s.groupe))];
 
   return (
@@ -219,6 +228,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
         </main>
         {recherche && peutChercher ? (
           <RechercheGlobale
+            responsables={commandeAutorisee("responsables_rechercher", permissions, maitre)}
             surFermer={() => setRecherche(false)}
             surOuvrir={(id) => {
               setRecherche(false);

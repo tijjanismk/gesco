@@ -482,6 +482,8 @@ pub struct SessionCourante {
     /// Rôle du poste d'où vient l'appel : l'écran d'un poste relié ne montre pas ce qui se fait
     /// sur le poste principal seulement.
     pub role_poste: RolePoste,
+    /// Compte de maître : l'écran ne montre que ce que sa liste de commandes lui ouvre.
+    pub maitre: bool,
 }
 
 /// Création d'un utilisateur.
@@ -1540,12 +1542,15 @@ impl Application {
         noyau.base().migrer().await?;
         noyau.base().verifier_integrite().await?;
         for fiche in Self::installes(&noyau).await? {
-            crate::mise_a_niveau::completer_roles(&noyau, fiche.id).await?;
-            crate::mise_a_niveau::completer_parametres(&noyau, fiche.id).await?;
+            Box::pin(crate::mise_a_niveau::completer_roles(&noyau, fiche.id)).await?;
+            Box::pin(crate::mise_a_niveau::completer_parametres(&noyau, fiche.id)).await?;
             noyau.charger_politique_session(fiche.id).await?;
-            crate::mise_a_niveau::completer_referentiel(&noyau, fiche.id).await?;
-            crate::mise_a_niveau::completer_pedagogie(&noyau, fiche.id).await?;
-            crate::mise_a_niveau::completer_personnel(&noyau, fiche.id).await?;
+            Box::pin(crate::mise_a_niveau::completer_referentiel(
+                &noyau, fiche.id,
+            ))
+            .await?;
+            Box::pin(crate::mise_a_niveau::completer_pedagogie(&noyau, fiche.id)).await?;
+            Box::pin(crate::mise_a_niveau::completer_personnel(&noyau, fiche.id)).await?;
         }
         for fiche in Self::installes(&noyau).await? {
             // §5.2 : les cent dernières lignes de la chaîne sont vérifiées à chaque démarrage.
@@ -2130,6 +2135,9 @@ impl Application {
             .await?
             .map(|a| a.libelle);
         let modules = crate::modules::actifs(&mut cnx, &contexte).await?;
+        let maitre = crate::maitres::est_maitre(
+            &role::roles_de(&mut cnx, session.utilisateur_id, &contexte).await?,
+        );
         drop(cnx);
         let role_poste = if crate::origine::courante().est_reliee() {
             RolePoste::Relie
@@ -2141,6 +2149,7 @@ impl Application {
         Ok(SessionCourante {
             role_poste,
             modules,
+            maitre,
             session,
             permissions,
             doit_changer_mot_de_passe: compte.doit_changer_mot_de_passe,
@@ -2657,6 +2666,8 @@ impl Application {
     }
 
     async fn eleve_lire(&self, appel: Appel, entree: DemandeEleve) -> Resultat<FicheEleve> {
+        crate::maitres::verifier_eleve(&appel.ouverte()?.noyau, appel.session()?, entree.id)
+            .await?;
         ServiceEleves::nouveau(&appel.ouverte()?.noyau)
             .fiche(appel.session()?, entree.id)
             .await
@@ -3548,6 +3559,13 @@ impl Application {
         appel: Appel,
         entree: DemandeBulletins,
     ) -> Resultat<BulletinsClasse> {
+        // Un compte de maître ne lit que les bulletins de ses classes (SPEC_PHASE_11_A §7).
+        crate::maitres::verifier_classe(
+            &appel.ouverte()?.noyau,
+            appel.session()?,
+            entree.classe_id,
+        )
+        .await?;
         ServiceBulletins::nouveau(&appel.ouverte()?.noyau)
             .lire(appel.session()?, &entree)
             .await

@@ -5,7 +5,7 @@
 use gesco_core::commun::Id;
 use gesco_core::core::{Etablissement, Operation, TypeEvenement, Utilisateur};
 use gesco_db::depots::utilisateur::Secrets;
-use gesco_db::depots::{role, utilisateur};
+use gesco_db::depots::{parametre, role, utilisateur};
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
 use gesco_db::{Contexte, UniteDeTravail};
@@ -138,11 +138,26 @@ impl<'n> ServiceAuthentification<'n> {
                 MotifRefus::IdentifiantsInvalides,
             ));
         }
+        let roles = role::roles_de(unite.connexion(), compte.id, &contexte).await?;
+        // Mot de passe juste, mais l'école n'a pas ouvert la saisie aux maîtres : le compte
+        // n'entre pas, et le message renvoie à la direction (SPEC_PHASE_11_A §7).
+        if crate::maitres::est_maitre(&roles)
+            && !parametre::booleen_param(
+                unite.connexion(),
+                crate::maitres::PARAMETRE_SAISIE,
+                false,
+                &contexte,
+            )
+            .await?
+        {
+            Self::auditer_session(&mut unite, &compte, "connexion_refusee_maitre");
+            self.noyau.terminer(unite).await?;
+            return Err(ErreurService::Authentification(MotifRefus::MaitresNonAdmis));
+        }
         compte.echecs_consecutifs = 0;
         compte.verrouille_jusqua = None;
         compte.derniere_connexion = Some(maintenant);
         utilisateur::ecrire_etat_connexion(unite.connexion(), &compte, &contexte).await?;
-        let roles = role::roles_de(unite.connexion(), compte.id, &contexte).await?;
         Self::auditer_session(&mut unite, &compte, "connexion");
         self.noyau.terminer(unite).await?;
 

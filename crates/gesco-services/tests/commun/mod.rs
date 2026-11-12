@@ -164,6 +164,16 @@ impl Poste_ {
     }
 
     /// Sauvegarde manuelle ; rend une copie de l'archive locale, à l'abri de la rotation.
+    /// Allume le réglage « Les maîtres saisissent leurs notes », éteint à la livraison.
+    pub async fn admettre_les_maitres(&self, admin: &Jeton) {
+        self.ok(
+            "parametre_definir",
+            Some(admin),
+            json!({ "cle": "notes.saisie_maitres", "valeur": { "type": "booleen", "valeur": true } }),
+        )
+        .await;
+    }
+
     pub async fn sauvegarder(&self, jeton: &Jeton, copie: &Path) -> PathBuf {
         self.horloge.avancer(60_000);
         let lignes = self.ok("sauvegarde_creer", Some(jeton), Value::Null).await;

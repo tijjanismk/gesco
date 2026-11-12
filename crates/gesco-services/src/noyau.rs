@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use gesco_core::commun::Id;
 use gesco_core::core::{Etablissement, Permission, Poste, Utilisateur};
-use gesco_db::depots::role;
+use gesco_db::depots::{parametre, role};
 use gesco_db::unite::Durabilite;
 use gesco_db::{Base, Connexion, Contexte, UniteDeTravail, nouvel_id};
 
@@ -71,7 +71,18 @@ pub struct Noyau {
 struct PermissionsGardees {
     /// Compte des écritures validées : une lecture commencée avant une écriture n'est pas gardée.
     ecritures: AtomicU64,
-    lues: Mutex<HashMap<CleDePermissions, Arc<Vec<Permission>>>>,
+    lues: Mutex<HashMap<CleDePermissions, DroitsDuCompte>>,
+}
+
+/// Ce que la garde retient d'un compte entre deux écritures.
+#[derive(Debug, Clone)]
+pub struct DroitsDuCompte {
+    /// Permissions du compte.
+    pub permissions: Arc<Vec<Permission>>,
+    /// Compte de maître : il ne porte que le rôle Enseignant (SPEC_PHASE_11_A §7).
+    pub maitre: bool,
+    /// L'école a ouvert la saisie des notes aux maîtres.
+    pub maitres_admis: bool,
 }
 
 /// Établissement et utilisateur dont les permissions sont gardées.
@@ -109,27 +120,79 @@ impl Noyau {
         utilisateur_id: Id<Utilisateur>,
         contexte: &Contexte,
     ) -> Resultat<Arc<Vec<Permission>>> {
+        Ok(self
+            .droits_lus(Some(cnx), utilisateur_id, contexte)
+            .await?
+            .permissions)
+    }
+
+    /// Droits d'un compte : ses permissions, et s'il est un compte de maître que l'école admet
+    /// ou non. Gardés comme les permissions ; la base n'est lue qu'à la première demande.
+    pub async fn droits_de(
+        &self,
+        utilisateur_id: Id<Utilisateur>,
+        contexte: &Contexte,
+    ) -> Resultat<DroitsDuCompte> {
+        self.droits_lus(None, utilisateur_id, contexte).await
+    }
+
+    async fn droits_lus(
+        &self,
+        cnx: Option<&mut Connexion>,
+        utilisateur_id: Id<Utilisateur>,
+        contexte: &Contexte,
+    ) -> Resultat<DroitsDuCompte> {
         let cle = (
             contexte.etablissement_id.vers_chaine(),
             utilisateur_id.vers_chaine(),
         );
-        if let Some(gardees) = self
+        if let Some(gardes) = self
             .permissions
             .lues
             .lock()
             .ok()
             .and_then(|lues| lues.get(&cle).cloned())
         {
-            return Ok(gardees);
+            return Ok(gardes);
         }
         let avant = self.permissions.ecritures.load(Ordering::SeqCst);
-        let lues = Arc::new(role::permissions_de(cnx, utilisateur_id, contexte).await?);
-        if let Ok(mut gardees) = self.permissions.lues.lock()
+        let lus = match cnx {
+            Some(cnx) => Self::lire_droits(cnx, utilisateur_id, contexte).await?,
+            None => {
+                let mut cnx = self
+                    .base
+                    .pool()
+                    .acquire()
+                    .await
+                    .map_err(gesco_db::ErreurBase::from)?;
+                Self::lire_droits(&mut cnx, utilisateur_id, contexte).await?
+            }
+        };
+        if let Ok(mut gardes) = self.permissions.lues.lock()
             && self.permissions.ecritures.load(Ordering::SeqCst) == avant
         {
-            gardees.insert(cle, Arc::clone(&lues));
+            gardes.insert(cle, lus.clone());
         }
-        Ok(lues)
+        Ok(lus)
+    }
+
+    async fn lire_droits(
+        cnx: &mut Connexion,
+        utilisateur_id: Id<Utilisateur>,
+        contexte: &Contexte,
+    ) -> Resultat<DroitsDuCompte> {
+        let permissions = Arc::new(role::permissions_de(cnx, utilisateur_id, contexte).await?);
+        let maitre =
+            crate::maitres::est_maitre(&role::roles_de(cnx, utilisateur_id, contexte).await?);
+        // Le réglage ne se lit que pour un compte de maître : lui seul en dépend.
+        let maitres_admis = maitre
+            && parametre::booleen_param(cnx, crate::maitres::PARAMETRE_SAISIE, false, contexte)
+                .await?;
+        Ok(DroitsDuCompte {
+            permissions,
+            maitre,
+            maitres_admis,
+        })
     }
 
     /// Base de données.

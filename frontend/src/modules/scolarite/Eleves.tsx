@@ -86,7 +86,7 @@ export function Eleves({ ouvert }: { ouvert: string | null }) {
               }}
             />
           ) : null}
-          {choisi === null ? null : <FicheEleveEcran key={choisi} id={choisi} permissions={session.data?.permissions ?? []} surOuvrir={setChoisi} />}
+          {choisi === null ? null : <FicheEleveEcran key={choisi} id={choisi} permissions={session.data?.permissions ?? []} maitre={session.data?.maitre ?? false} surOuvrir={setChoisi} />}
         </aside>
       </div>
     </div>

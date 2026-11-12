@@ -14,12 +14,12 @@ interface Resultat {
 
 /** Recherche globale (§19.3), ouverte par Ctrl+K : élèves et responsables, tolérante aux fautes,
  *  entièrement au clavier (R-42). Un responsable ouvre la fiche de son premier enfant. */
-export function RechercheGlobale({ surOuvrir, surFermer }: { surOuvrir: (eleveId: string) => void; surFermer: () => void }) {
+export function RechercheGlobale({ responsables: parResponsable, surOuvrir, surFermer }: { responsables: boolean; surOuvrir: (eleveId: string) => void; surFermer: () => void }) {
   const [texte, setTexte] = useState("");
   const [actif, setActif] = useState(0);
   const cherche = texte.trim().length >= 2;
   const eleves = useQuery({ queryKey: ["recherche-eleves", texte], queryFn: () => appeler("eleves_rechercher", { texte }), enabled: cherche });
-  const responsables = useQuery({ queryKey: ["recherche-responsables", texte], queryFn: () => appeler("responsables_rechercher", { texte }), enabled: cherche });
+  const responsables = useQuery({ queryKey: ["recherche-responsables", texte], queryFn: () => appeler("responsables_rechercher", { texte }), enabled: cherche && parResponsable });
   const resultats: Resultat[] = cherche
     ? [
         ...(eleves.data ?? []).slice(0, 8).map((e) => ({

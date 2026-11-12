@@ -338,6 +338,31 @@ pub async fn roles_de(
     .collect()
 }
 
+/// Vrai si un compte qui ne porte que le rôle donné a déjà saisi une note, créé une évaluation
+/// ou relevé une absence : à la mise à niveau, l'école garde alors la saisie par les maîtres.
+pub async fn porteur_exclusif_a_saisi(
+    cnx: &mut Connexion,
+    code: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    Ok(sqlx::query_scalar(
+        "SELECT EXISTS (
+            SELECT 1 FROM utilisateur u
+            WHERE u.etablissement_id = ?1 AND u.supprime_le IS NULL
+              AND EXISTS (SELECT 1 FROM utilisateur_role ur JOIN role r ON r.id = ur.role_id
+                          WHERE ur.utilisateur_id = u.id AND r.supprime_le IS NULL AND r.code = ?2)
+              AND NOT EXISTS (SELECT 1 FROM utilisateur_role ur JOIN role r ON r.id = ur.role_id
+                              WHERE ur.utilisateur_id = u.id AND r.supprime_le IS NULL AND r.code <> ?2)
+              AND (EXISTS (SELECT 1 FROM note n WHERE n.saisie_par = u.id)
+                   OR EXISTS (SELECT 1 FROM evaluation e WHERE e.cree_par = u.id)
+                   OR EXISTS (SELECT 1 FROM absence a WHERE a.saisie_par = u.id)))",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(code)
+    .fetch_one(cnx)
+    .await?)
+}
+
 /// Permissions effectives d'un utilisateur : union des permissions de ses rôles, dans
 /// l'établissement courant uniquement (portée établissement, §11.3).
 pub async fn permissions_de(

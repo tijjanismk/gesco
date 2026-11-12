@@ -75,7 +75,7 @@ function AfficherRetour({ retour }: { retour: Retour }) {
 
 /** Inscriptions d'un élève (SPEC_PHASE_2 §5) : historique, brouillon, validation, abandon,
  *  changement de classe. Les règles sont celles du noyau ; l'écran affiche ses refus. */
-export function InscriptionsEleve({ fiche, permissions }: { fiche: FicheEleve; permissions: readonly string[] }) {
+export function InscriptionsEleve({ fiche, permissions, maitre = false }: { fiche: FicheEleve; permissions: readonly string[]; maitre?: boolean }) {
   const { courante } = useClassesCourantes();
   const [retour, setRetour] = useState<Retour>(SANS_RETOUR);
   const rafraichir = useRafraichir(fiche.eleve.id);
@@ -101,7 +101,7 @@ export function InscriptionsEleve({ fiche, permissions }: { fiche: FicheEleve; p
             )}
             {i.inscription.statut === "validee" ? <FicheImprimee inscriptionId={i.inscription.id} /> : null}
             {i.inscription.statut === "transferee" ? <DocumentsDepart inscriptionId={i.inscription.id} permissions={permissions} /> : null}
-            {i.inscription.statut === "validee" || i.inscription.statut === "radiee" ? (
+            {(i.inscription.statut === "validee" || i.inscription.statut === "radiee") && commandeAutorisee("exclusions_lister", permissions, maitre) ? (
               <ExclusionsEleve inscriptionId={i.inscription.id} permissions={permissions} surChange={rafraichir} />
             ) : null}
             {i === vivante ? (

@@ -66,6 +66,11 @@ impl Commande {
             .map(|(_, cle)| *cle)
     }
 
+    /// Vrai si un compte de maître peut demander la commande (SPEC_PHASE_11_A §7).
+    pub fn du_maitre(&self) -> bool {
+        self.acces == Acces::Public || COMMANDES_DU_MAITRE.contains(&self.nom)
+    }
+
     /// Fichier que la commande lit ou écrit, si elle en manie un.
     pub fn fichier(&self) -> Option<Fichier> {
         COMMANDES_A_FICHIER
@@ -249,6 +254,56 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("depense_piece_enregistrer_sous", Fichier::Ecrit("chemin")),
     ("releve_apercu", Fichier::Lu("chemin")),
     ("releve_importer", Fichier::Lu("chemin")),
+];
+
+/// Ce qu'un compte de maître peut demander (SPEC_PHASE_11_A §7) : la liste est écrite ici, tout
+/// le reste lui est refusé par la garde, quelles que soient les permissions de son rôle. Les
+/// commandes qui visent une classe, une évaluation ou un élève restent bornées à ses classes par
+/// leur service ; la situation financière d'un élève n'y figure pas.
+pub const COMMANDES_DU_MAITRE: &[&str] = &[
+    // Sa session et son compte.
+    "deconnexion",
+    "verrouiller",
+    "definir_pin",
+    "changer_mot_de_passe",
+    "session_courante",
+    "avertissements",
+    "tableau_de_bord_lire",
+    "ma_fiche_lire",
+    "mes_bulletins_paie_lire",
+    "mon_bulletin_paie_produire",
+    // Ce qui décrit l'école et l'année, sans rien dire d'un élève.
+    "annees_lister",
+    "niveaux_lister",
+    "classes_lister",
+    "scolarite_reglages",
+    "etablissement_lire",
+    "pedagogie_lire",
+    "enseignants_lister",
+    "affectations_lister",
+    "portee_notes_lire",
+    "portee_absences_lire",
+    "emploi_du_temps_lire",
+    "emploi_classe_produire",
+    "emploi_enseignant_produire",
+    "exporter_xlsx",
+    // Les élèves de ses classes.
+    "eleves_rechercher",
+    "eleve_lire",
+    // Ses notes et ses appréciations.
+    "evaluations_lister",
+    "evaluation_creer",
+    "notes_grille",
+    "note_saisir",
+    "bulletins_lire",
+    "appreciation_saisir",
+    "appreciations_remplir",
+    // Les absences de ses classes.
+    "absences_releve_lire",
+    "absences_releve_enregistrer",
+    "absences_periode_lire",
+    "absences_seances_lire",
+    "absences_seances_enregistrer",
 ];
 
 /// Commandes publiques, énumérées une seule fois : le test d'exhaustivité refuse toute commande
@@ -795,6 +850,33 @@ mod tests {
             Commande::par_nom("eleve_lire").and_then(Commande::seule),
             None
         );
+    }
+
+    #[test]
+    fn les_commandes_du_maitre_existent_une_fois_dans_les_droits_du_role() {
+        let mut vues = HashSet::new();
+        for nom in COMMANDES_DU_MAITRE {
+            let commande = Commande::par_nom(nom);
+            assert!(commande.is_some(), "{nom} hors catalogue");
+            assert!(vues.insert(*nom), "{nom} déclarée deux fois");
+            // Hors des permissions livrées au rôle Enseignant, rien ne lui est ouvert.
+            if let Some(Acces::Permission(p)) = commande.map(|c| c.acces) {
+                assert!(
+                    gesco_core::core::RoleSysteme::Enseignant
+                        .permissions_initiales()
+                        .contains(&p),
+                    "{nom} demande {}",
+                    p.code()
+                );
+            }
+        }
+        for interdite in [
+            "situation_financiere",
+            "releve_compte_produire",
+            "guichet_lire",
+        ] {
+            assert!(!COMMANDES_DU_MAITRE.contains(&interdite));
+        }
     }
 
     #[test]

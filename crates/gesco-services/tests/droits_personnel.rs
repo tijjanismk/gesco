@@ -23,6 +23,9 @@ async fn compte(p: &Poste_, admin: &Jeton, identifiant: &str, role: &str) -> (Va
                 "mot_de_passe_initial": mot_de_passe, "roles": [role] }),
         )
         .await;
+    if role == "enseignant" {
+        p.admettre_les_maitres(admin).await;
+    }
     (
         u["id"].clone(),
         p.connecter(identifiant, &mot_de_passe).await,
@@ -245,7 +248,7 @@ async fn les_montants_suivent_contracts_read_et_chacun_lit_sa_fiche() {
         p.refus("membre_lire", Some(&prof), json!({ "id": vacataire["id"] }))
             .await
             .cle,
-        "erreur.permission_refusee"
+        "maitre.commande_refusee"
     );
     let ma_fiche = p.ok("ma_fiche_lire", Some(&prof), Value::Null).await;
     assert_eq!(ma_fiche["fiche"]["membre"]["id"], vacataire["id"]);

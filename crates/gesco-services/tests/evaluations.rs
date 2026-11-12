@@ -253,6 +253,7 @@ async fn une_classe_se_note_au_clavier_puis_se_valide() {
         json!({ "classe_id": classe, "matiere_id": math, "enseignant_id": sekou["enseignant"]["id"] }),
     )
     .await;
+    p.admettre_les_maitres(&admin).await;
     let jeton = p.connecter("sekou", "enseignant-2026").await;
     p.ok("note_saisir", Some(&jeton), saisir(1, "14")).await;
     let francais = id_par(&ped["matieres"], "code", "FR");
@@ -289,7 +290,7 @@ async fn une_classe_se_note_au_clavier_puis_se_valide() {
         )
         .await
         .cle,
-        "erreur.permission_refusee"
+        "maitre.commande_refusee"
     );
     let toutes = p
         .ok(

@@ -34,6 +34,7 @@ mod import_programme;
 mod import_referentiel;
 mod journal_technique;
 mod livres;
+mod maitres;
 mod matrice_permissions;
 mod messages;
 mod messages_auto;

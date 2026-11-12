@@ -61,23 +61,28 @@ impl<'n> Garde<'n> {
             let jeton =
                 jeton.ok_or(ErreurService::Authentification(MotifRefus::SessionInvalide))?;
             let session = self.session_active(jeton)?;
+            let contexte = self
+                .noyau
+                .contexte(session.etablissement_id, Some(&session));
+            let droits = self
+                .noyau
+                .droits_de(session.utilisateur_id, &contexte)
+                .await?;
+            if droits.maitre {
+                // Le réglage éteint ferme la session d'un maître à sa commande suivante ; allumé,
+                // il ne demande que ce que la liste lui ouvre (SPEC_PHASE_11_A §7).
+                if !droits.maitres_admis {
+                    self.noyau.sessions().fermer(jeton);
+                    return Err(ErreurService::Authentification(MotifRefus::SessionInvalide));
+                }
+                if !commande.du_maitre() {
+                    return Err(ErreurService::Regle {
+                        cle: crate::maitres::REFUS_COMMANDE,
+                    });
+                }
+            }
             if let Acces::Permission(permission) = commande.acces {
-                let contexte = self
-                    .noyau
-                    .contexte(session.etablissement_id, Some(&session));
-                let mut cnx = self
-                    .noyau
-                    .base()
-                    .pool()
-                    .acquire()
-                    .await
-                    .map_err(gesco_db::ErreurBase::from)?;
-                let permissions = self
-                    .noyau
-                    .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
-                    .await?;
-                drop(cnx);
-                if !permissions.contains(&permission) {
+                if !droits.permissions.contains(&permission) {
                     return Err(ErreurService::permission(permission));
                 }
                 if let Some(ressource) = ressource

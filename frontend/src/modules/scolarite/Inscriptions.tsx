@@ -126,7 +126,7 @@ function AssistantInscription({ permissions, surTermine }: { permissions: readon
           <NouvelEleve surCree={choisir} />
         </>
       ) : null}
-      {etape === 1 && fiche.data !== undefined ? <ResponsablesEleve fiche={fiche.data} modifiable={commandeAutorisee("responsable_rattacher", permissions)} /> : null}
+      {etape === 1 && fiche.data !== undefined ? <ResponsablesEleve messages fiche={fiche.data} modifiable={commandeAutorisee("responsable_rattacher", permissions)} /> : null}
       {etape === 2 && fiche.data !== undefined ? <InscriptionsEleve fiche={fiche.data} permissions={permissions} /> : null}
       {etape === 3 && eleveId !== null ? <EtapeFrais eleveId={eleveId} permissions={permissions} /> : null}
       <div className="flex flex-wrap gap-2">
