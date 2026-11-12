@@ -32,8 +32,8 @@ conversation passée n'est nécessaire. Dernière mise à jour : 11 novembre 202
    d'écran restent montrées au porteur.
 9. **Disque** : environ 11 Go libres, `target` pèse 25 Go. Avant une étape de code, lancer
    `outils/elaguer-target.ps1` ; compiler avec `-j 4`.
-10. **Limites d'usage** : avant de lancer une session, lire les limites. Au-dessus de 70 % de la
-    fenêtre de 5 heures, ne rien lancer de neuf et le dire au porteur.
+10. **Limites d'usage** : ne plus les regarder avant de lancer (décision du porteur du
+    12 novembre 2026) ; si une limite arrête les sessions, on attend sa remise à zéro et on les relance.
 11. Répondre en français. Périmètre de la 2.0 entier : ne pas proposer de le réduire.
 
 ## État au 11 novembre 2026
@@ -290,3 +290,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   message, en commençant par la conversion LaTeX de la matière s'il y a des formules : 7e
   mathématiques, 7e physique-chimie, 7e biologie (11 à 15), 9e français, 9e histoire-géographie,
   9e anglais. Le lot B, étape 1, tourne toujours.
+- 2026-11-12, 22 h 50 : lancées sur Opus : 7e mathématiques (LaTeX puis lot,
+  `local_f74990e8-7f88-4471-8e3b-c162caebb2fb`), 7e physique-chimie (LaTeX puis lot,
+  `local_7d388cff-eda8-4f8e-9fb4-f3b1a6d71de8`), 7e biologie 11 à 15
+  (`local_e5d7dfb2-a7a1-4f9b-8adc-586c2b0162dd`), 9e français 16 à 20
+  (`local_99de4515-56b0-4388-86f3-bdf3b2f3fdc6`) ; relancées par message : 9e histoire-géographie
+  et 9e anglais. Lot B, étape 1, toujours en cours.
