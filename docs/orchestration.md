@@ -304,3 +304,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   7e mathématiques avec figures (`local_3a73bf9f-c510-4e32-8502-d6591d9fb0bc`), 7e physique-chimie
   jusqu'à 28 (`local_0030694b-b0cb-464e-b759-32611741377c`) ; relancées par message : 9e ECM 06 à
   10, 9e histoire-géographie à partir de G-05. En cours : 9e français 23 à 25, 9e anglais 18 à 20.
+- 2026-11-13 : le porteur valide les six choix de l'étape 1 du lot B (transmis à la session de
+  l'étape 2). Changement de classe en cours d'année, y compris vers un niveau inférieur, jamais
+  nommé « redoublement » ni « rétrogradation » : la facture reste telle quelle, la direction peut
+  l'ajuster ; les notes restent dans l'historique, le bulletin de la nouvelle classe ne compte que
+  les siennes. Session proposée en carte (cinq sessions tournent déjà) ; phase 1 en lecture seule, phase 2 après
+  le commit de l'étape 2 du lot B. 9e français et anglais relancés par message.
