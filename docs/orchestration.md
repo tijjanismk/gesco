@@ -355,3 +355,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   physique-chimie 15 ; lots suivants relancés par message. Lot B étape 3 confiée par message à
   la session de l'étape 2 (`local_f6f8d8f3-0fc5-4742-8ae3-c5d51c4d0494`). Disque : 18 Go libres
   après suppression par le porteur des cours ivoiriens (10_CI_Lycee) et des fichiers d'essai.
+- 2026-11-13 : choix du changement de classe validés ; 5 et 6 changés : le plan de paiement peut
+  encore changer après un ajustement (recalcul, jamais de refus) ; la moyenne annuelle ne compte
+  que les périodes de la nouvelle classe. Transmis à `local_6cd59c7c-46f0-4b13-bf99-ee7e8a76db88`,
+  qui code après le commit de l'étape 3 du lot B (à lui réécrire alors).
