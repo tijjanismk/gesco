@@ -330,3 +330,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   dossier temporaire de l'orchestrateur. 25 vérifications ajoutées : toutes justes. Les
   leçons de TSE sont en texte simple (conversion LaTeX à faire). Physique-chimie de terminale :
   découpage de 59 leçons qui attend l'accord du porteur.
+- 2026-11-13 : 9e anglais fini (41 sur 41), 7e mathématiques 25 sur 32 (dernier lot lancé).
+  Le porteur n'utilise plus l'autre compte : toutes ses matières reviennent ici (`REPARTITION.md`).
+  Lancées sur Sonnet, effort élevé : TSE mathématiques, LaTeX puis GE-04 à
+  (`local_1fcdb84c-00f7-4a5d-8a37-c4fe4d65d3c7`) ; 8e mathématiques, LaTeX puis A-11
+  (`local_a4cc7d1e-71f2-4293-a145-80082e3b37ed`). À suivre : 8e biologie 11 à 15, 8e
+  physique-chimie, terminale physique-chimie (découpage à faire valider), terminale biologie.
