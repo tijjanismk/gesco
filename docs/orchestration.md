@@ -323,3 +323,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   7e mathématiques 20 sur 32 (41 figures SVG), 9e français 35 sur 46, anglais 30 sur 41, ECM
   15 sur 22 : lots suivants relancés par message. Liste des images : 399, dont 102 en priorité
   haute, dans `contenus/IMAGES-A-CHERCHER.md`. Lot B étape 2 : tour fini sans commit, relancée.
+- 2026-11-13, 13 h : fusion de la sortie de l'autre compte (`gesco-bibliotheque/2`) dans la
+  bibliothèque : 32 fichiers ajoutés (8e physique P-06 à P-10, TSE 10 leçons, physique-chimie de
+  terminale : découpage et consigne), 3 remplacés (anciens gardés), nos règles gardées ;
+  versions écartées dans `contenus/_fusion-2026-11-13`. Sauvegarde avant fusion dans le
+  dossier temporaire de l'orchestrateur. 25 vérifications ajoutées : toutes justes. Les
+  leçons de TSE sont en texte simple (conversion LaTeX à faire). Physique-chimie de terminale :
+  découpage de 59 leçons qui attend l'accord du porteur.
