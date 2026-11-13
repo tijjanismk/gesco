@@ -296,3 +296,11 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (`local_e5d7dfb2-a7a1-4f9b-8adc-586c2b0162dd`), 9e français 16 à 20
   (`local_99de4515-56b0-4388-86f3-bdf3b2f3fdc6`) ; relancées par message : 9e histoire-géographie
   et 9e anglais. Lot B, étape 1, toujours en cours.
+- 2026-11-13, 1 h 40 : lot B étape 1 faite (`633be9a`) ; six choix à confirmer (dans
+  `ETAT_AVANCEMENT.md`), dont l'ADR `docs/adr/2026-11-12-competences-du-jardin.md`. 9e ECM 5 sur 22.
+  Décision du porteur : seules les formes géométriques sont dessinées, en SVG par un `.fig.py`
+  (règle dans les deux `DECISIONS.md`). Le porteur a refusé l'archivage des sessions finies : ne
+  plus archiver sans son accord. Lancées : lot B étape 2 (`local_f6f8d8f3-0fc5-4742-8ae3-c5d51c4d0494`),
+  7e mathématiques avec figures (`local_3a73bf9f-c510-4e32-8502-d6591d9fb0bc`), 7e physique-chimie
+  jusqu'à 28 (`local_0030694b-b0cb-464e-b759-32611741377c`) ; relancées par message : 9e ECM 06 à
+  10, 9e histoire-géographie à partir de G-05. En cours : 9e français 23 à 25, 9e anglais 18 à 20.
