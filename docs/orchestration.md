@@ -310,3 +310,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   l'ajuster ; les notes restent dans l'historique, le bulletin de la nouvelle classe ne compte que
   les siennes. Session proposée en carte (cinq sessions tournent déjà) ; phase 1 en lecture seule, phase 2 après
   le commit de l'étape 2 du lot B. 9e français et anglais relancés par message.
+- 2026-11-13, précision du porteur : au changement de classe, la direction choisit de garder les
+  frais actuels (par défaut) ou d'appliquer ceux de la nouvelle classe, écart montré avant. Le
+  chiffre d'affaires ne doit pas être faussé : ligne d'ajustement datée et tracée, jamais de
+  facture réécrite, paiements inchangés, trop-perçu en avoir. Transmis à la session du changement
+  de classe (`local_6cd59c7c-46f0-4b13-bf99-ee7e8a76db88`, démarrée par le porteur).
