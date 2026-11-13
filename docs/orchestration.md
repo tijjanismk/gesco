@@ -336,3 +336,11 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (`local_1fcdb84c-00f7-4a5d-8a37-c4fe4d65d3c7`) ; 8e mathématiques, LaTeX puis A-11
   (`local_a4cc7d1e-71f2-4293-a145-80082e3b37ed`). À suivre : 8e biologie 11 à 15, 8e
   physique-chimie, terminale physique-chimie (découpage à faire valider), terminale biologie.
+- 2026-11-13 : lot B étape 2 faite (`bccebbe`), six choix à confirmer ; changement de classe passé
+  en phase 2. 9e français fini (46 sur 46) : toute la 9e est rédigée (208 leçons). Règle du
+  porteur : rédiger toute matière qui a un programme dans la bibliothèque, même non confirmé ;
+  laisser les autres (dans `DECISIONS.md`). Terminale physique-chimie lancée
+  (`local_21baffd7-608a-48ca-bcf7-55cd09a46658`). File des leçons : 8e biologie et
+  physique-chimie, terminale SVT, philosophie, français, histoire, géographie, ECM, langues
+  et autres matières du squelette ; 9e dessin, EPS, économie familiale. Code ensuite : lot B
+  étape 3, après le commit du changement de classe.
