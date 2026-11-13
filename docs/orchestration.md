@@ -350,3 +350,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-13 : 8e biologie finie (15 sur 15) ; 8e mathématiques 15 sur 44. Décision du porteur :
   matières scientifiques sur Opus 5.5, les autres sur Sonnet. TSE et 8e mathématiques passées
   sur Opus ; 8e mathématiques relancée (A-16 à A-20) ; 8e physique-chimie lancée sur Opus.
+- 2026-11-13 : changement de classe fait (`2c4595e`, tout vert), sept choix à confirmer. Leçons :
+  TSE 25 sur 38, terminale physique-chimie 15 sur 59, 8e mathématiques 25 sur 44, 8e
+  physique-chimie 15 ; lots suivants relancés par message. Lot B étape 3 confiée par message à
+  la session de l'étape 2 (`local_f6f8d8f3-0fc5-4742-8ae3-c5d51c4d0494`). Disque : 18 Go libres
+  après suppression par le porteur des cours ivoiriens (10_CI_Lycee) et des fichiers d'essai.
