@@ -344,3 +344,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   physique-chimie, terminale SVT, philosophie, français, histoire, géographie, ECM, langues
   et autres matières du squelette ; 9e dessin, EPS, économie familiale. Code ensuite : lot B
   étape 3, après le commit du changement de classe.
+- 2026-11-13 : 7e mathématiques finies (32 sur 32, 121 figures SVG) : toute la 7e scientifique est
+  rédigée. Le porteur a passé la physique-chimie de terminale sur Opus 5.5. Lancée : 8e biologie
+  11 à 15 (Sonnet).
