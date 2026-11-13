@@ -319,3 +319,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   les sessions de leçons passent sur Sonnet 5.5, le code de la phase 11 reste sur Opus 5.5. Six
   sessions de leçons basculées et relancées, lot B étape 2 relancé. Images à chercher : règle
   dans `DECISIONS.md`, liste en cours dans `contenus/IMAGES-A-CHERCHER.md` (sous-agent).
+- 2026-11-13 : finies, 7e physique-chimie (28 sur 28) et 9e histoire-géographie (20 sur 20).
+  7e mathématiques 20 sur 32 (41 figures SVG), 9e français 35 sur 46, anglais 30 sur 41, ECM
+  15 sur 22 : lots suivants relancés par message. Liste des images : 399, dont 102 en priorité
+  haute, dans `contenus/IMAGES-A-CHERCHER.md`. Lot B étape 2 : tour fini sans commit, relancée.
