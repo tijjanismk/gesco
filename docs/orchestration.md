@@ -315,3 +315,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   chiffre d'affaires ne doit pas être faussé : ligne d'ajustement datée et tracée, jamais de
   facture réécrite, paiements inchangés, trop-perçu en avoir. Transmis à la session du changement
   de classe (`local_6cd59c7c-46f0-4b13-bf99-ee7e8a76db88`, démarrée par le porteur).
+- 2026-11-13 : toutes les sessions arrêtées par une erreur 403 (Cloudflare). Décision du porteur :
+  les sessions de leçons passent sur Sonnet 5.5, le code de la phase 11 reste sur Opus 5.5. Six
+  sessions de leçons basculées et relancées, lot B étape 2 relancé. Images à chercher : règle
+  dans `DECISIONS.md`, liste en cours dans `contenus/IMAGES-A-CHERCHER.md` (sous-agent).
