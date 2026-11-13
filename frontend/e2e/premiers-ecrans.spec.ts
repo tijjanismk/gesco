@@ -2720,3 +2720,134 @@ test("phase 11, lot B : la direction tient la liste des compétences du jardin ;
   await expect(page.getByText(texte("periodes.aide_jardin"))).toBeVisible();
   await capturer("166-periodes-du-jardin");
 });
+
+/** Appelle des commandes de l'application depuis la page, avec la session ouverte : `api.appeler`
+ *  dans `script`, qui rend sa valeur. Sert à préparer des données nombreuses sans les saisir. */
+async function parCommandes<T>(script: string): Promise<T> {
+  const jeton = "gesco.jeton";
+  return (await page.evaluate(
+    `(async () => { const api = await import("/src/api/index.ts"); api.definirJeton(window.sessionStorage.getItem("${jeton}")); ${script} })()`,
+  )) as T;
+}
+
+test("phase 11, lot B : quarante enfants observés au clavier en moins de trois minutes, la maîtresse affectée au jardin", async () => {
+  // Trente-neuf enfants rejoignent Bakary en petite section, préparés par les commandes : la
+  // saisie seule est chronométrée.
+  const photo = readFileSync(join(import.meta.dirname, "logo-essai.png")).toString("base64");
+  const bilan = await parCommandes<{ validees: number }>(`
+    const annee = (await api.appeler("annees_lister", null)).find((a) => a.est_courante);
+    const ps = (await api.appeler("classes_lister", { annee_id: annee.id })).find((c) => c.classe.libelle === "PS");
+    const prenoms = ["Aminata", "Moussa", "Fatoumata", "Seydou", "Kadiatou", "Oumar", "Mariam", "Ibrahim", "Awa", "Adama", "Salimata", "Boubacar", "Hawa"];
+    const noms = ["Diarra", "Traoré", "Coulibaly"];
+    for (let i = 0; i < 39; i += 1) {
+      const nom = noms[i % 3];
+      const fiche = await api.appeler("eleve_creer", { identite: { nom, prenoms: prenoms[i % 13] + " " + (i + 1), sexe: i % 2 === 0 ? "feminin" : "masculin",
+        date_naissance: "2023-03-02", date_naissance_estimee: false, lieu_naissance: "Bamako", nationalite: "Malienne", adresse: "", telephones: [] },
+        matricule_interne: "J/2023/" + String(101 + i), matricule_national: "", acte_nature: "acte", acte_numero: "", acte_date: "", ecole_origine: "" });
+      await api.appeler("responsable_rattacher", { eleve_id: fiche.eleve.id, responsable_id: null,
+        saisie: { identite: { nom, prenoms: "Parent " + (i + 1), sexe: "feminin", date_naissance: "", date_naissance_estimee: false, lieu_naissance: "",
+          nationalite: "", adresse: "", telephones: ["76 30 " + String(10 + i).padStart(2, "0") + " 00"] }, profession: "", employeur: "" },
+        qualites: { lien: "mere", est_responsable_legal: true, est_payeur: true, recoit_notifications: true, vient_chercher: true, ordre_priorite: 1 } });
+      await api.appeler("eleve_photo_definir", { id: fiche.eleve.id, contenu_base64: "${photo}" });
+      await api.appeler("inscription_creer", { eleve_id: fiche.eleve.id, classe_id: ps.classe.id, date_inscription: "", redoublant: false, etablissement_origine: "" });
+    }
+    return api.appeler("inscriptions_valider_classe", { id: ps.classe.id });
+  `);
+  expect(bilan.validees).toBe(39);
+
+  // L'écran des notes, ouvert sur la petite section, devient « Observations ».
+  await allerA("nav.notes");
+  await page.locator("#notes-classe").selectOption({ label: "PS · Petite section" });
+  await expect(page.getByRole("heading", { name: texte("observations.titre"), exact: true })).toBeVisible();
+  await expect(page.locator("#notes-matiere")).toHaveCount(0);
+  // La motricité de la petite section a quatre compétences (le langage en a reçu une cinquième).
+  await page.locator("#observations-domaine").selectOption({ label: "Motricité" });
+  await expect(page.locator("#obs-40-4")).toBeVisible();
+
+  // Critère 4 : « Toute la colonne » sur les quatre compétences de la motricité, puis dix corrections
+  // au clavier, chronométrées.
+  const debut = Date.now();
+  const colonnes = page.locator("thead select");
+  await expect(colonnes).toHaveCount(4);
+  for (let i = 0; i < 4; i += 1) {
+    await colonnes.nth(i).selectOption("acquis");
+    await expect(page.locator(`#obs-40-${i + 1}`)).toHaveText(/Acquis/);
+  }
+  const corrections: [number, number, string, RegExp][] = [
+    [3, 1, "e", /En voie d'acquisition/],
+    [7, 1, "n", /Non acquis/],
+    [12, 2, "e", /En voie d'acquisition/],
+    [15, 2, "2", /En voie d'acquisition/],
+    [20, 3, "n", /Non acquis/],
+    [21, 3, "e", /En voie d'acquisition/],
+    [25, 4, "3", /Non acquis/],
+    [30, 4, "e", /En voie d'acquisition/],
+    [33, 1, "e", /En voie d'acquisition/],
+    [38, 2, "n", /Non acquis/],
+  ];
+  for (const [ligne, colonne, touche] of corrections) {
+    await page.locator(`#obs-${ligne}-${colonne}`).focus();
+    await page.keyboard.press(touche);
+    // Le curseur passe à l'enfant suivant.
+    await expect(page.locator(`#obs-${ligne + 1}-${colonne}`)).toBeFocused();
+  }
+  for (const [ligne, colonne, , attendu] of corrections) await expect(page.locator(`#obs-${ligne}-${colonne}`)).toHaveText(attendu);
+  const duree = Date.now() - debut;
+  writeFileSync(
+    join(CAPTURES, "observations-40-chronometre.txt"),
+    `Observations : ${duree} ms pour 40 enfants et 4 compétences, « Toute la colonne » quatre fois puis 10 corrections au clavier, piloté par Playwright (borne basse ; cible : moins de 3 minutes).\n`,
+    "utf8",
+  );
+  expect(duree).toBeLessThan(180_000);
+  // Relue, la grille garde chaque case.
+  await allerA("nav.accueil");
+  await allerA("nav.notes");
+  await page.locator("#notes-classe").selectOption({ label: "PS · Petite section" });
+  await page.locator("#observations-domaine").selectOption({ label: "Motricité" });
+  await expect(page.locator("#obs-7-1")).toHaveText(/Non acquis/);
+  await expect(page.locator("#obs-8-1")).toHaveText(/Acquis/);
+
+  // Vidée, la case est simplement vide : ni compteur ni alerte.
+  await page.locator("#obs-2-1").focus();
+  await page.keyboard.press("Delete");
+  await expect(page.locator("#obs-2-1")).toHaveText("");
+
+  // Commentaire du domaine et appréciation générale de l'enfant sélectionné.
+  await page.locator("#obs-3-1").focus();
+  await page.locator("#observation-commentaire").fill("Comprend les consignes ; commence à parler devant le groupe.");
+  await page.locator("#observation-appreciation").fill("Un bon trimestre, curieux de tout.");
+  await page.locator("#observation-commentaire").focus();
+  await expect(page.getByRole("status").filter({ hasText: /Enregistré/ }).first()).toBeVisible();
+  await page.locator("#obs-3-1").focus();
+  await capturer("167-observations-du-jardin");
+
+  // Un autre poste écrit la même case entre-temps : la saisie est refusée, avec la valeur de
+  // l'autre en clair, et rien n'est écrasé.
+  await parCommandes<unknown>(`
+    const annee = (await api.appeler("annees_lister", null)).find((a) => a.est_courante);
+    const ps = (await api.appeler("classes_lister", { annee_id: annee.id })).find((c) => c.classe.libelle === "PS");
+    const periodes = (await api.appeler("pedagogie_lire", { id: annee.id })).periodes.filter((p) => p.periode.niveau_id === ps.classe.niveau_id);
+    const g = await api.appeler("observations_grille", { classe_id: ps.classe.id, periode_id: periodes[0].periode.id });
+    const enfant = g.enfants[4].inscription_id;
+    const motricite = g.domaines.find((d) => d.libelle === "Motricité");
+    const competence = g.competences.find((c) => c.domaine_id === motricite.id).id;
+    const avant = g.observations.find((o) => o.inscription_id === enfant && o.competence_id === competence);
+    return api.appeler("observation_saisir", { classe_id: ps.classe.id, periode_id: periodes[0].periode.id, competence_id: competence,
+      inscription_id: enfant, niveau: "non_acquis", lue_le: avant.modifiee_le });
+  `);
+  await page.locator("#obs-5-1").focus();
+  await page.keyboard.press("e");
+  await expect(page.getByRole("alert").filter({ hasText: /vaut maintenant « Non acquis »/ })).toBeVisible();
+  await expect(page.locator("#obs-5-1")).toHaveText(/Non acquis/);
+  await capturer("168-observation-modifiee-ailleurs");
+
+  // Le jardin n'a pas de matière : la maîtresse reçoit la classe entière.
+  await allerA("nav.enseignants");
+  await page.locator("#affectations-classe").selectOption({ label: "PS · Petite section" });
+  await expect(page.getByText(texte("enseignants.aide_jardin"))).toBeVisible();
+  await page.locator("#affectations-maitre").selectOption({ label: "Aminata Koné" });
+  await page.getByRole("button", { name: texte("enseignants.confier_classe") }).click();
+  await expect(page.getByRole("status").filter({ hasText: texte("enseignants.classe_confiee") })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Aminata Koné" })).toBeVisible();
+  await capturer("169-maitresse-du-jardin");
+});

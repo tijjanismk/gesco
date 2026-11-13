@@ -41,6 +41,7 @@ mod messages;
 mod messages_auto;
 mod mise_a_niveau;
 mod modem;
+mod observations;
 mod paie;
 mod paie_mois;
 mod pedagogie;

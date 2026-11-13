@@ -9,6 +9,7 @@ import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, dateCivile, t, texteDeCle } from "../../i18n";
 import type { ApercuImportNotes, EtatImportNote, LigneGrille, NoteEleve, TypeEvaluation } from "../../types/gesco";
+import { Observations } from "./Observations";
 import { lirePoints, points } from "./saisies";
 import { aujourdHui } from "../../app/aujourdhui";
 
@@ -48,10 +49,18 @@ export function Notes() {
   const permissions = session.data?.permissions ?? [];
   const autorise = (classe: string, matiere: string) =>
     portee.data === undefined || portee.data.type === "etablissement" || portee.data.couples.some(([c, m]) => c === classe && m === matiere);
-  const visibles = (classes.data ?? []).filter((c) => portee.data === undefined || portee.data.type === "etablissement" || portee.data.couples.some(([cl]) => cl === c.classe.id));
+  const visibles = (classes.data ?? []).filter(
+    (c) =>
+      portee.data === undefined ||
+      portee.data.type === "etablissement" ||
+      portee.data.couples.some(([cl]) => cl === c.classe.id) ||
+      (portee.data.classes_jardin ?? []).includes(c.classe.id),
+  );
   const classe = visibles.find((c) => c.classe.id === classeChoisie) ?? visibles[0];
   const periodes = (pedagogie.data?.periodes ?? []).filter((p) => classe !== undefined && p.periode.niveau_id === classe.classe.niveau_id);
   const periode = periodes.find((p) => p.periode.id === periodeChoisie) ?? periodes[0];
+  // Une classe du jardin s'observe par compétences : l'écran devient « Observations » (SPEC_PHASE_11_B §4.2).
+  const duJardin = classe !== undefined && pedagogie.data?.niveaux.find((n) => n.id === classe.classe.niveau_id)?.mode_evaluation === "competences";
   const programme = (pedagogie.data?.programme ?? []).filter(
     (l) => classe !== undefined && l.niveau_id === classe.classe.niveau_id && l.serie_id === classe.classe.serie_id && autorise(classe.classe.id, l.matiere_id),
   );
@@ -60,7 +69,7 @@ export function Notes() {
   if (ouverte !== null) return <Grille evaluationId={ouverte} permissions={permissions} surFermer={() => setOuverte(null)} />;
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold text-encre">{t("notes.titre")}</h1>
+      <h1 className="text-xl font-semibold text-encre">{t(duJardin ? "observations.titre" : "notes.titre")}</h1>
       <MessageErreur erreur={classes.error ?? pedagogie.error ?? portee.error} />
       {classe === undefined ? (
         <p className="text-sm text-muet">{t("notes.aucune_classe")}</p>
@@ -69,9 +78,12 @@ export function Notes() {
           <div className="flex flex-wrap items-end gap-3">
             <Selection id="notes-classe" libelle={t("enseignants.classe")} valeur={classe.classe.id} surChangement={setClasseChoisie} options={visibles.map((c) => ({ valeur: c.classe.id, libelle: `${c.classe.libelle} · ${c.niveau}` }))} />
             <Selection id="notes-periode" libelle={t("notes.periode")} valeur={periode?.periode.id ?? ""} surChangement={setPeriodeChoisie} options={periodes.map((p) => ({ valeur: p.periode.id, libelle: p.libelle }))} />
-            <Selection id="notes-matiere" libelle={t("programme.matiere")} valeur={matiere?.id ?? ""} surChangement={setMatiereChoisie} options={matieres.map((m) => ({ valeur: m.id, libelle: m.libelle }))} />
+            {duJardin ? null : (
+              <Selection id="notes-matiere" libelle={t("programme.matiere")} valeur={matiere?.id ?? ""} surChangement={setMatiereChoisie} options={matieres.map((m) => ({ valeur: m.id, libelle: m.libelle }))} />
+            )}
           </div>
-          {periode === undefined || matiere === undefined ? null : (
+          {duJardin && periode !== undefined ? <Observations classeId={classe.classe.id} periodeId={periode.periode.id} /> : null}
+          {duJardin || periode === undefined || matiere === undefined ? null : (
             <Evaluations
               classeId={classe.classe.id}
               periodeId={periode.periode.id}

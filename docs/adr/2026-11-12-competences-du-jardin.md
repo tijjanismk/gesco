@@ -1,7 +1,7 @@
 # Les compétences du jardin : trois tables, une échelle fixe, le livret porté par le bulletin
 
 **Date** : 12 novembre 2026
-**Statut** : proposé le 12 novembre 2026 avec l'étape 1 du lot B, d'après `SPEC_PHASE_11_B.md` v1.1 dont le porteur du projet a validé les recommandations (T-109 à T-115) le 12 novembre 2026 ; à accepter par le porteur du projet — décision 10 de `docs/plan-phase-11.md`, étape B1
+**Statut** : accepté le 13 novembre 2026 par le porteur du projet ; proposé le 12 novembre 2026 avec l'étape 1 du lot B, d'après `SPEC_PHASE_11_B.md` v1.1 dont le porteur du projet a validé les recommandations (T-109 à T-115) le 12 novembre 2026 — décision 10 de `docs/plan-phase-11.md`, étape B1
 
 ## Contexte
 

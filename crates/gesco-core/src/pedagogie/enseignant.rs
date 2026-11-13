@@ -83,6 +83,10 @@ pub enum PorteeNotes {
     Couples {
         /// Couples autorisés.
         couples: Vec<(Id<Classe>, Id<Matiere>)>,
+        /// Classes du jardin où il est maître : il y observe les enfants, sans matière
+        /// (SPEC_PHASE_11_B §7).
+        #[serde(default)]
+        classes_jardin: Vec<Id<Classe>>,
     },
 }
 
@@ -98,7 +102,20 @@ impl PorteeNotes {
                     .iter()
                     .map(|a| (a.classe_id, a.matiere_id))
                     .collect(),
+                classes_jardin: Vec::new(),
             }
+        }
+    }
+
+    /// La même portée, avec les classes du jardin dont l'utilisateur est maître.
+    #[must_use]
+    pub fn avec_jardin(self, classes: Vec<Id<Classe>>) -> Self {
+        match self {
+            Self::Etablissement => Self::Etablissement,
+            Self::Couples { couples, .. } => Self::Couples {
+                couples,
+                classes_jardin: classes,
+            },
         }
     }
 
@@ -106,7 +123,15 @@ impl PorteeNotes {
     pub fn autorise(&self, classe: Id<Classe>, matiere: Id<Matiere>) -> bool {
         match self {
             Self::Etablissement => true,
-            Self::Couples { couples } => couples.contains(&(classe, matiere)),
+            Self::Couples { couples, .. } => couples.contains(&(classe, matiere)),
+        }
+    }
+
+    /// Vrai si l'utilisateur peut observer les enfants de cette classe du jardin.
+    pub fn observe(&self, classe: Id<Classe>) -> bool {
+        match self {
+            Self::Etablissement => true,
+            Self::Couples { classes_jardin, .. } => classes_jardin.contains(&classe),
         }
     }
 }
@@ -152,6 +177,20 @@ mod tests {
         assert!(!enseignant.autorise(id(12), id(20)));
         assert!(PorteeNotes::de(true, &[]).autorise(id(12), id(21)));
         assert!(!PorteeNotes::de(false, &[]).autorise(id(10), id(20)));
+    }
+
+    #[test]
+    fn le_maitre_du_jardin_observe_ses_seules_classes() {
+        let maitre = PorteeNotes::de(false, &[affectation(10, 20, 7)]).avec_jardin(vec![id(30)]);
+        assert!(maitre.observe(id(30)));
+        assert!(!maitre.observe(id(31)));
+        assert!(!maitre.observe(id(10)));
+        assert!(maitre.autorise(id(10), id(20)));
+        assert!(
+            PorteeNotes::de(true, &[])
+                .avec_jardin(Vec::new())
+                .observe(id(31))
+        );
     }
 
     #[test]

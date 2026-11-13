@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use gesco_core::commun::Id;
 use gesco_core::core::{Role, RoleSysteme};
 use gesco_core::scolarite::{Classe, Eleve, StatutInscription};
-use gesco_db::depots::{enseignants, inscriptions};
+use gesco_db::depots::{enseignants, inscriptions, jardin};
 use gesco_db::{Connexion, Contexte};
 
 use crate::erreur::{ErreurService, Resultat};
@@ -29,8 +29,9 @@ pub fn est_maitre(roles: &[Role]) -> bool {
             .all(|r| r.systeme && r.code == RoleSysteme::Enseignant.code())
 }
 
-/// Classes d'un compte de maître, toutes années : celles de ses affectations. `None` pour tout
-/// autre compte, que rien ne borne ici.
+/// Classes d'un compte de maître, toutes années : celles de ses affectations, et les classes du
+/// jardin dont il est maître (SPEC_PHASE_11_B §7). `None` pour tout autre compte, que rien ne
+/// borne ici.
 pub async fn classes(noyau: &Noyau, session: &Session) -> Resultat<Option<Vec<Id<Classe>>>> {
     let contexte = noyau.contexte(session.etablissement_id, Some(session));
     if !noyau
@@ -50,9 +51,15 @@ pub async fn classes(noyau: &Noyau, session: &Session) -> Resultat<Option<Vec<Id
     if let Some(e) =
         enseignants::enseignant_du_compte(&mut cnx, session.utilisateur_id, &contexte).await?
     {
-        for a in enseignants::affectations_de(&mut cnx, e.id, &contexte).await? {
-            if !classes.contains(&a.classe_id) {
-                classes.push(a.classe_id);
+        let du_jardin = jardin::classes_du_maitre(&mut cnx, e.id, &contexte).await?;
+        for classe in enseignants::affectations_de(&mut cnx, e.id, &contexte)
+            .await?
+            .into_iter()
+            .map(|a| a.classe_id)
+            .chain(du_jardin)
+        {
+            if !classes.contains(&classe) {
+                classes.push(classe);
             }
         }
     }

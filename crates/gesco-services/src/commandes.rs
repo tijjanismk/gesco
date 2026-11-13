@@ -151,6 +151,8 @@ pub const COMMANDES_DE_FICHE: &[&str] = &[
     "inscription_modifier",
     "enseignant_enregistrer",
     "fournisseur_enregistrer",
+    "observation_saisir",
+    "observations_colonne",
 ];
 
 /// Pourquoi une commande qui modifie ne vérifie pas l'instant de dernière modification.
@@ -300,6 +302,12 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "bulletins_lire",
     "appreciation_saisir",
     "appreciations_remplir",
+    // Ses observations, s'il est maître d'une classe du jardin.
+    "jardin_lire",
+    "observations_grille",
+    "observation_saisir",
+    "observations_colonne",
+    "observation_apprecier",
     // Les absences de ses classes.
     "absences_releve_lire",
     "absences_releve_enregistrer",
@@ -523,7 +531,15 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("affectation_confier", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::permise("affectation_retirer", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::permise("maitre_affecter", Permission::ACADEMIC_YEAR_MANAGE),
+    Commande::connectee("maitres_jardin_lister"),
+    Commande::permise("maitre_jardin_retirer", Permission::ACADEMIC_YEAR_MANAGE),
     Commande::connectee("portee_notes_lire"),
+    // Observations du jardin (SPEC_PHASE_11_B §7) : comme les notes, la portée par classe est
+    // vérifiée par le service ; aucun droit nouveau.
+    Commande::permise("observations_grille", Permission::GRADES_CREATE),
+    Commande::permise("observation_saisir", Permission::GRADES_CREATE),
+    Commande::permise("observations_colonne", Permission::GRADES_CREATE),
+    Commande::permise("observation_apprecier", Permission::GRADES_CREATE),
     // Évaluations et notes (SPEC_PHASE_4 §4) : la portée par classe et matière est vérifiée par
     // le service (§11.3).
     Commande::permise("evaluations_lister", Permission::GRADES_CREATE),

@@ -73,6 +73,8 @@ const ENTITES: Record<string, Cle> = {
   categorie_personnel: "entite.categorie_personnel",
   categorie_tresorerie: "entite.categorie_tresorerie",
   competence: "entite.competence",
+  maitre_jardin: "entite.maitre_jardin",
+  observation: "entite.observation",
   compte_du_mode: "entite.compte_du_mode",
   compte_tresorerie: "entite.compte_tresorerie",
   conge: "entite.conge",

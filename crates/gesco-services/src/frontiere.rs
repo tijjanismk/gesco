@@ -102,7 +102,7 @@ use crate::engagements::{
 };
 use crate::enseignants::{
     AffectationAffichee, DemandeAffectation, DemandeEnseignant, DemandeIdAffectation,
-    DemandeMaitre, FicheEnseignant, ServiceEnseignants,
+    DemandeIdMaitreJardin, DemandeMaitre, FicheEnseignant, MaitreJardinAffiche, ServiceEnseignants,
 };
 use crate::erreur::{ErreurService, MotifRefus, Resultat};
 use crate::espace::EspaceDonnees;
@@ -181,6 +181,10 @@ use crate::messages::{
     ServiceMessages,
 };
 use crate::noyau::{Noyau, OptionsNoyau};
+use crate::observations::{
+    DemandeAppreciationJardin, DemandeColonne, DemandeGrilleObservations, DemandeObservation,
+    GrilleObservations, ServiceObservations,
+};
 use crate::origine::Origine;
 use crate::paie::{
     DemandeAttribution, DemandeElement, DemandeVersion, ElementsPaie, ReglagesPaie, ServicePaie,
@@ -1079,7 +1083,13 @@ contrat! {
     affectation_confier(DemandeAffectation) -> gesco_core::pedagogie::AffectationEnseignement;
     affectation_retirer(DemandeIdAffectation) -> ();
     maitre_affecter(DemandeMaitre) -> u32;
+    maitres_jardin_lister(DemandeIdAnnee) -> Vec<MaitreJardinAffiche>;
+    maitre_jardin_retirer(DemandeIdMaitreJardin) -> ();
     portee_notes_lire(()) -> gesco_core::pedagogie::PorteeNotes;
+    observations_grille(DemandeGrilleObservations) -> GrilleObservations;
+    observation_saisir(DemandeObservation) -> gesco_core::pedagogie::Observation;
+    observations_colonne(DemandeColonne) -> Vec<gesco_core::pedagogie::Observation>;
+    observation_apprecier(DemandeAppreciationJardin) -> String;
     evaluations_lister(DemandeEvaluations) -> Vec<EvaluationAffichee>;
     evaluation_creer(DemandeEvaluation) -> gesco_core::pedagogie::Evaluation;
     notes_grille(DemandeIdEvaluation) -> GrilleNotes;
@@ -3637,6 +3647,66 @@ impl Application {
             .affecter_maitre(appel.session()?, &entree)
             .await?;
         Ok(u32::try_from(n).unwrap_or(u32::MAX))
+    }
+
+    async fn maitres_jardin_lister(
+        &self,
+        appel: Appel,
+        entree: DemandeIdAnnee,
+    ) -> Resultat<Vec<MaitreJardinAffiche>> {
+        ServiceEnseignants::nouveau(&appel.ouverte()?.noyau)
+            .maitres_jardin(appel.session()?, entree.id)
+            .await
+    }
+
+    async fn maitre_jardin_retirer(
+        &self,
+        appel: Appel,
+        entree: DemandeIdMaitreJardin,
+    ) -> Resultat<()> {
+        ServiceEnseignants::nouveau(&appel.ouverte()?.noyau)
+            .retirer_maitre_jardin(appel.session()?, entree.id)
+            .await
+    }
+
+    async fn observations_grille(
+        &self,
+        appel: Appel,
+        entree: DemandeGrilleObservations,
+    ) -> Resultat<GrilleObservations> {
+        ServiceObservations::nouveau(&appel.ouverte()?.noyau)
+            .grille(appel.session()?, &entree)
+            .await
+    }
+
+    async fn observation_saisir(
+        &self,
+        appel: Appel,
+        entree: DemandeObservation,
+    ) -> Resultat<gesco_core::pedagogie::Observation> {
+        ServiceObservations::nouveau(&appel.ouverte()?.noyau)
+            .saisir(appel.session()?, &entree)
+            .await
+    }
+
+    async fn observations_colonne(
+        &self,
+        appel: Appel,
+        entree: DemandeColonne,
+    ) -> Resultat<Vec<gesco_core::pedagogie::Observation>> {
+        ServiceObservations::nouveau(&appel.ouverte()?.noyau)
+            .colonne(appel.session()?, &entree)
+            .await
+    }
+
+    async fn observation_apprecier(
+        &self,
+        appel: Appel,
+        entree: DemandeAppreciationJardin,
+    ) -> Resultat<String> {
+        ServiceObservations::nouveau(&appel.ouverte()?.noyau)
+            .apprecier(appel.session()?, &entree)
+            .await
     }
 
     async fn bulletins_lire(

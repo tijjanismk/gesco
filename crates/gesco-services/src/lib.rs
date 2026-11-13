@@ -70,6 +70,7 @@ pub mod mise_a_niveau;
 pub mod modules;
 pub mod noyau;
 pub mod numerotation;
+pub mod observations;
 pub mod origine;
 pub mod paie;
 pub mod paie_mois;

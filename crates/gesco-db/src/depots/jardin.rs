@@ -1,8 +1,14 @@
-//! Domaines et compétences du jardin d'enfants (SPEC_PHASE_11_B §3.1). Rien ne se supprime : un
-//! domaine ou une compétence se retire (`retire_le`, `retiree_le`) et se remet.
+//! Domaines, compétences et observations du jardin d'enfants (SPEC_PHASE_11_B §3.1, §3.2), et
+//! maîtres de ses classes (§7). Rien ne se supprime : un domaine ou une compétence se retire
+//! (`retire_le`, `retiree_le`) et se remet ; une observation se vide.
 
 use gesco_core::commun::Id;
-use gesco_core::pedagogie::{Competence, DomaineCompetence};
+use gesco_core::core::AnneeScolaire;
+use gesco_core::pedagogie::{
+    Competence, DomaineCompetence, Enseignant, MaitreJardin, NiveauAcquisition, Observation,
+    Periode,
+};
+use gesco_core::scolarite::{Classe, Inscription};
 use sqlx::FromRow;
 
 use crate::Connexion;
@@ -240,5 +246,206 @@ pub async fn ecrire_competence(
     .bind(contexte.etablissement_id.vers_chaine())
     .execute(cnx)
     .await?;
+    Ok(())
+}
+
+// --- Observations ---------------------------------------------------------------------------
+
+#[derive(FromRow)]
+struct LigneObservation {
+    inscription_id: String,
+    competence_id: String,
+    periode_id: String,
+    niveau: Option<String>,
+    mis_a_jour_le: i64,
+}
+
+impl LigneObservation {
+    fn vers_entite(self) -> Resultat<Observation> {
+        let t = "observation";
+        Ok(Observation {
+            inscription_id: lire_id(t, "inscription_id", &self.inscription_id)?,
+            competence_id: lire_id(t, "competence_id", &self.competence_id)?,
+            periode_id: lire_id(t, "periode_id", &self.periode_id)?,
+            // La colonne n'admet que les trois noms : un autre ne peut venir que d'une base
+            // altérée, et se lit comme une observation vidée.
+            niveau: self
+                .niveau
+                .as_deref()
+                .and_then(NiveauAcquisition::depuis_nom),
+            modifiee_le: self.mis_a_jour_le,
+        })
+    }
+}
+
+/// Observations d'une période, vidées comprises.
+pub async fn observations_de_la_periode(
+    cnx: &mut Connexion,
+    periode_id: Id<Periode>,
+    contexte: &Contexte,
+) -> Resultat<Vec<Observation>> {
+    sqlx::query_as::<_, LigneObservation>(
+        "SELECT inscription_id, competence_id, periode_id, niveau, mis_a_jour_le FROM observation
+         WHERE periode_id = ?1 AND etablissement_id = ?2",
+    )
+    .bind(periode_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(LigneObservation::vers_entite)
+    .collect()
+}
+
+/// Observation désignée par son enfant, sa compétence et sa période.
+#[derive(Debug, Clone, Copy)]
+pub struct CleObservation {
+    /// Inscription de l'enfant.
+    pub inscription_id: Id<Inscription>,
+    /// Compétence.
+    pub competence_id: Id<Competence>,
+    /// Période.
+    pub periode_id: Id<Periode>,
+}
+
+/// Pose, remplace ou vide (`None`) une observation ; la ligne existante est récrite, jamais
+/// supprimée (RB-5). `id` ne sert qu'à une première observation.
+pub async fn ecrire_observation(
+    cnx: &mut Connexion,
+    id: &str,
+    cle: CleObservation,
+    niveau: Option<NiveauAcquisition>,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "INSERT INTO observation (id, etablissement_id, inscription_id, competence_id, periode_id,
+            niveau, saisie_le, saisie_par, cree_le, cree_par, mis_a_jour_le, mis_a_jour_par,
+            identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?7, ?9, ?7, ?9, ?10)
+         ON CONFLICT (inscription_id, competence_id, periode_id) DO UPDATE SET
+            niveau = excluded.niveau, saisie_le = excluded.saisie_le,
+            saisie_par = excluded.saisie_par, mis_a_jour_le = excluded.mis_a_jour_le,
+            mis_a_jour_par = excluded.mis_a_jour_par,
+            identifiant_poste = excluded.identifiant_poste",
+    )
+    .bind(id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(cle.inscription_id.vers_chaine())
+    .bind(cle.competence_id.vers_chaine())
+    .bind(cle.periode_id.vers_chaine())
+    .bind(niveau.map(|n| n.nom()))
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.utilisateur_id.map(|u| u.vers_chaine()))
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}
+
+// --- Maîtres des classes du jardin ----------------------------------------------------------
+
+#[derive(FromRow)]
+struct LigneMaitre {
+    id: String,
+    etablissement_id: String,
+    annee_id: String,
+    classe_id: String,
+    enseignant_id: String,
+}
+
+impl LigneMaitre {
+    fn vers_entite(self) -> Resultat<MaitreJardin> {
+        let t = "maitre_jardin";
+        Ok(MaitreJardin {
+            id: lire_id(t, "id", &self.id)?,
+            etablissement_id: lire_id(t, "etablissement_id", &self.etablissement_id)?,
+            annee_id: lire_id(t, "annee_id", &self.annee_id)?,
+            classe_id: lire_id(t, "classe_id", &self.classe_id)?,
+            enseignant_id: lire_id(t, "enseignant_id", &self.enseignant_id)?,
+        })
+    }
+}
+
+/// Maîtres des classes du jardin d'une année.
+pub async fn maitres(
+    cnx: &mut Connexion,
+    annee_id: Id<AnneeScolaire>,
+    contexte: &Contexte,
+) -> Resultat<Vec<MaitreJardin>> {
+    sqlx::query_as::<_, LigneMaitre>(
+        "SELECT id, etablissement_id, annee_id, classe_id, enseignant_id FROM maitre_jardin
+         WHERE annee_id = ?1 AND etablissement_id = ?2 ORDER BY cree_le",
+    )
+    .bind(annee_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(LigneMaitre::vers_entite)
+    .collect()
+}
+
+/// Classes du jardin d'un enseignant, toutes années.
+pub async fn classes_du_maitre(
+    cnx: &mut Connexion,
+    enseignant_id: Id<Enseignant>,
+    contexte: &Contexte,
+) -> Resultat<Vec<Id<Classe>>> {
+    let lignes: Vec<String> = sqlx::query_scalar(
+        "SELECT classe_id FROM maitre_jardin WHERE enseignant_id = ?1 AND etablissement_id = ?2
+         ORDER BY cree_le",
+    )
+    .bind(enseignant_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?;
+    lignes
+        .iter()
+        .map(|c| lire_id("maitre_jardin", "classe_id", c))
+        .collect()
+}
+
+/// Enregistre le maître d'une classe du jardin.
+pub async fn inserer_maitre(
+    cnx: &mut Connexion,
+    m: &MaitreJardin,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    cloisonner(
+        "maitre_jardin",
+        m.id.vers_chaine(),
+        contexte,
+        m.etablissement_id.vers_chaine(),
+    )?;
+    sqlx::query(
+        "INSERT INTO maitre_jardin (id, etablissement_id, annee_id, classe_id, enseignant_id,
+            cree_le, cree_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+    )
+    .bind(m.id.vers_chaine())
+    .bind(m.etablissement_id.vers_chaine())
+    .bind(m.annee_id.vers_chaine())
+    .bind(m.classe_id.vers_chaine())
+    .bind(m.enseignant_id.vers_chaine())
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}
+
+/// Retire le maître d'une classe du jardin.
+pub async fn retirer_maitre(
+    cnx: &mut Connexion,
+    id: Id<MaitreJardin>,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query("DELETE FROM maitre_jardin WHERE id = ?1 AND etablissement_id = ?2")
+        .bind(id.vers_chaine())
+        .bind(contexte.etablissement_id.vers_chaine())
+        .execute(cnx)
+        .await?;
     Ok(())
 }

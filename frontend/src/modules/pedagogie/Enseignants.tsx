@@ -21,7 +21,7 @@ const AUCUN = "";
 function useRafraichir() {
   const client = useQueryClient();
   return () => {
-    for (const cle of ["enseignants", "affectations"]) void client.invalidateQueries({ queryKey: [cle] });
+    for (const cle of ["enseignants", "affectations", "maitres-jardin"]) void client.invalidateQueries({ queryKey: [cle] });
   };
 }
 
@@ -145,6 +145,7 @@ function Affectations({ anneeId, fiches }: { anneeId: string; fiches: readonly F
   const classes = useQuery({ queryKey: ["classes", anneeId], queryFn: () => appeler("classes_lister", { annee_id: anneeId }) });
   const pedagogie = useQuery({ queryKey: ["pedagogie", anneeId], queryFn: () => appeler("pedagogie_lire", { id: anneeId }) });
   const affectations = useQuery({ queryKey: ["affectations", anneeId], queryFn: () => appeler("affectations_lister", { id: anneeId }) });
+  const maitresJardin = useQuery({ queryKey: ["maitres-jardin", anneeId], queryFn: () => appeler("maitres_jardin_lister", { id: anneeId }) });
   const [classeChoisie, setClasseChoisie] = useState<string | null>(null);
   const classe = (classes.data ?? []).find((c) => c.classe.id === classeChoisie) ?? classes.data?.[0];
   const [choix, setChoix] = useState<Record<string, string>>({});
@@ -156,6 +157,7 @@ function Affectations({ anneeId, fiches }: { anneeId: string; fiches: readonly F
     onSuccess: rafraichir,
   });
   const retirer = useMutation({ mutationFn: (id: string) => appeler("affectation_retirer", { id }), onSuccess: rafraichir });
+  const retirerMaitre = useMutation({ mutationFn: (id: string) => appeler("maitre_jardin_retirer", { id }), onSuccess: rafraichir });
   const toutConfier = useMutation({
     mutationFn: () => appeler("maitre_affecter", { classe_id: classe?.classe.id ?? "", enseignant_id: maitre }),
     onSuccess: rafraichir,
@@ -163,6 +165,9 @@ function Affectations({ anneeId, fiches }: { anneeId: string; fiches: readonly F
   if (classe === undefined) return <p className="text-sm text-muet">{t("enseignants.aucune_classe")}</p>;
   const programme = (pedagogie.data?.programme ?? []).filter((l) => l.niveau_id === classe.classe.niveau_id && l.serie_id === classe.classe.serie_id);
   const deLaClasse = (affectations.data ?? []).filter((a) => a.affectation.classe_id === classe.classe.id);
+  // Le jardin n'a pas de matière : le maître y reçoit la classe entière (SPEC_PHASE_11_B §7).
+  const duJardin = pedagogie.data?.niveaux.find((n) => n.id === classe.classe.niveau_id)?.mode_evaluation === "competences";
+  const maitresDeLaClasse = (maitresJardin.data ?? []).filter((m) => m.maitre.classe_id === classe.classe.id);
   return (
     <Section titre={t("enseignants.affectations")}>
       <div className="flex flex-wrap items-end gap-3">
@@ -174,11 +179,31 @@ function Affectations({ anneeId, fiches }: { anneeId: string; fiches: readonly F
           options={(classes.data ?? []).map((c) => ({ valeur: c.classe.id, libelle: `${c.classe.libelle} · ${c.niveau}` }))}
         />
         <Selection id="affectations-maitre" libelle={t("enseignants.maitre")} valeur={maitre} surChangement={setMaitre} options={options} />
-        <Bouton variante="secondaire" onClick={() => toutConfier.mutate()} disabled={maitre === AUCUN || toutConfier.isPending}>{t("enseignants.toute_la_classe")}</Bouton>
+        <Bouton variante="secondaire" onClick={() => toutConfier.mutate()} disabled={maitre === AUCUN || toutConfier.isPending}>
+          {t(duJardin ? "enseignants.confier_classe" : "enseignants.toute_la_classe")}
+        </Bouton>
       </div>
-      <p className="text-sm text-muet">{t("enseignants.aide_affectations")}</p>
-      {toutConfier.data === undefined ? null : <p role="status" className="text-sm text-vert">{t("enseignants.matieres_recues", { nombre: String(toutConfier.data) })}</p>}
-      <table className="w-full text-left text-sm">
+      <p className="text-sm text-muet">{t(duJardin ? "enseignants.aide_jardin" : "enseignants.aide_affectations")}</p>
+      {toutConfier.data === undefined ? null : (
+        <p role="status" className="text-sm text-vert">{duJardin ? t("enseignants.classe_confiee") : t("enseignants.matieres_recues", { nombre: String(toutConfier.data) })}</p>
+      )}
+      {duJardin ? (
+        <div className="flex flex-col gap-1 text-sm">
+          <span className="text-muet">{t("enseignants.maitres_jardin")}</span>
+          {maitresDeLaClasse.length === 0 ? <span className="text-ocre">{t("enseignants.personne")}</span> : null}
+          <ul className="flex flex-col gap-1">
+            {maitresDeLaClasse.map((m) => (
+              <li key={m.maitre.id} className="flex items-center gap-2 text-encre">
+                <span>{m.enseignant}</span>
+                <button type="button" className="text-xs text-primaire underline" onClick={() => retirerMaitre.mutate(m.maitre.id)}>
+                  {t("commun.retirer")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <table className={duJardin ? "hidden" : "w-full text-left text-sm"}>
         <thead>
           <tr className="text-muet">
             <th className="px-2 py-1 font-normal">{t("programme.matiere")}</th>
@@ -228,7 +253,7 @@ function Affectations({ anneeId, fiches }: { anneeId: string; fiches: readonly F
           })}
         </tbody>
       </table>
-      <MessageErreur erreur={affecter.error ?? retirer.error ?? toutConfier.error} />
+      <MessageErreur erreur={affecter.error ?? retirer.error ?? toutConfier.error ?? retirerMaitre.error ?? maitresJardin.error} />
     </Section>
   );
 }

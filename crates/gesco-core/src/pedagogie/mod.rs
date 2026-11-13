@@ -22,7 +22,7 @@ pub use bulletin::{
 };
 pub use enseignant::{AffectationEnseignement, Enseignant, PorteeNotes, StatutEnseignant};
 pub use evaluation::{Evaluation, NoteEleve, SaisieNote, StatutEvaluation};
-pub use jardin::{Competence, DomaineCompetence, NiveauAcquisition};
+pub use jardin::{Competence, DomaineCompetence, MaitreJardin, NiveauAcquisition, Observation};
 pub use matiere::{GroupeMatiere, Matiere};
 pub use periode::{Periode, TypePeriode};
 pub use programme::{LigneProgramme, SaisieProgramme};

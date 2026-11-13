@@ -376,6 +376,16 @@ export type AppairageAffiche = {
 	expire_le: number,
 };
 
+/**  Appréciation générale (`domaine_id` vide) ou commentaire d'un domaine, pour un enfant. */
+export type AppreciationJardin = {
+	/**  Inscription de l'enfant. */
+	inscription_id: string,
+	/**  Domaine commenté ; vide pour l'appréciation générale. */
+	domaine_id: string | null,
+	/**  Texte. */
+	texte: string,
+};
+
 /**
  *  Ce qu'on facture à un élève arrivé en cours d'année (Q-26, paramètre
  *  `facturation.arrivee_en_cours`) ; chaque école choisit sa règle, et une autre peut être
@@ -1549,7 +1559,19 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	maitre_affecter: Signature<DemandeMaitre, number>,
 	/**  Signature de la commande du même nom. */
+	maitres_jardin_lister: Signature<DemandeIdAnnee, MaitreJardinAffiche[]>,
+	/**  Signature de la commande du même nom. */
+	maitre_jardin_retirer: Signature<DemandeIdMaitreJardin, null>,
+	/**  Signature de la commande du même nom. */
 	portee_notes_lire: Signature<null, PorteeNotes>,
+	/**  Signature de la commande du même nom. */
+	observations_grille: Signature<DemandeGrilleObservations, GrilleObservations>,
+	/**  Signature de la commande du même nom. */
+	observation_saisir: Signature<DemandeObservation, Observation>,
+	/**  Signature de la commande du même nom. */
+	observations_colonne: Signature<DemandeColonne, Observation[]>,
+	/**  Signature de la commande du même nom. */
+	observation_apprecier: Signature<DemandeAppreciationJardin, string>,
 	/**  Signature de la commande du même nom. */
 	evaluations_lister: Signature<DemandeEvaluations, EvaluationAffichee[]>,
 	/**  Signature de la commande du même nom. */
@@ -2244,6 +2266,20 @@ export type DemandeAppreciation = {
 	texte: string,
 };
 
+/**  Appréciation générale ou commentaire d'un domaine écrit pour un enfant. */
+export type DemandeAppreciationJardin = {
+	/**  Classe du jardin. */
+	classe_id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Enfant. */
+	inscription_id: string,
+	/**  Domaine commenté ; vide pour l'appréciation générale. */
+	domaine_id: string | null,
+	/**  Texte, 300 caractères au plus ; vide pour l'effacer. */
+	texte: string,
+};
+
 /**  Archive désignée par son chemin. */
 export type DemandeArchive = {
 	/**  Chemin du fichier. */
@@ -2428,6 +2464,23 @@ export type DemandeClotureEngagement = {
 export type DemandeCodeAcces = {
 	/**  Responsable. */
 	responsable_id: string,
+};
+
+/**  « Toute la colonne » : un niveau posé à tous les enfants pour une compétence. */
+export type DemandeColonne = {
+	/**  Classe du jardin. */
+	classe_id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Compétence. */
+	competence_id: string,
+	/**  Niveau posé. */
+	niveau: NiveauAcquisition,
+	/**
+	 *  Instant le plus récent des cases de la colonne lu avec la grille ; zéro si aucune n'avait
+	 *  d'observation.
+	 */
+	lue_le: number,
 };
 
 /**  Compétence saisie par la direction ; sans `id`, une création. */
@@ -3044,6 +3097,14 @@ export type DemandeGrille = {
 	id: string,
 };
 
+/**  Grille d'une classe du jardin dans une période. */
+export type DemandeGrilleObservations = {
+	/**  Classe du jardin. */
+	classe_id: string,
+	/**  Période. */
+	periode_id: string,
+};
+
 /**  Année dont on veut les grilles. */
 export type DemandeGrillesAnnee = {
 	/**  Année scolaire. */
@@ -3095,6 +3156,12 @@ export type DemandeIdEvaluation = {
 /**  Inscription désignée. */
 export type DemandeIdInscription = {
 	/**  Inscription. */
+	id: string,
+};
+
+/**  Maître d'une classe du jardin désigné. */
+export type DemandeIdMaitreJardin = {
+	/**  Affectation à la classe. */
 	id: string,
 };
 
@@ -3570,6 +3637,22 @@ export type DemandeNoteConduite = {
 	note: string,
 	/**  Motif : obligatoire pour corriger une note calculée. */
 	motif: string,
+};
+
+/**  Saisie d'une case : le niveau d'une compétence pour un enfant. */
+export type DemandeObservation = {
+	/**  Classe du jardin. */
+	classe_id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Compétence. */
+	competence_id: string,
+	/**  Enfant. */
+	inscription_id: string,
+	/**  Niveau ; vide pour vider la case. */
+	niveau: NiveauAcquisition | null,
+	/**  Instant de la case lu avec la grille ; zéro si elle n'avait pas d'observation. */
+	lue_le: number,
 };
 
 /**  Ouverture d'une session. */
@@ -4685,6 +4768,18 @@ export type EnfantLie = {
 	nom: string,
 };
 
+/**  Enfant d'une grille d'observations. */
+export type EnfantObserve = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Prénoms et nom. */
+	eleve: string,
+	/**  Matricule. */
+	matricule: string,
+	/**  Photo en adresse de données, si la fiche en a une. */
+	photo: string | null,
+};
+
 /**  Engagement d'un membre du personnel. */
 export type Engagement = {
 	/**  Identifiant technique. */
@@ -5515,6 +5610,32 @@ export type GrilleNotes = {
 	moyenne: number | null,
 };
 
+/**  Grille de saisie des observations d'une classe du jardin pour une période. */
+export type GrilleObservations = {
+	/**  Libellé de la classe. */
+	classe: string,
+	/**  Libellé de la section. */
+	section: string,
+	/**  Période. */
+	periode: Periode,
+	/**  Vrai si la période et l'année se modifient encore. */
+	modifiable: boolean,
+	/**  Domaines qui servent et ont au moins une compétence de la section, dans leur ordre. */
+	domaines: DomaineCompetence[],
+	/**  Compétences de la section qui servent, dans l'ordre de leur domaine. */
+	competences: Competence[],
+	/**  Enfants de la classe inscrits pendant la période, dans l'ordre de la liste. */
+	enfants: EnfantObserve[],
+	/**  Observations de ces enfants pour ces compétences, vidées comprises. */
+	observations: Observation[],
+	/**  Appréciations générales et commentaires de domaine de ces enfants. */
+	appreciations: AppreciationJardin[],
+	/**  Libellés des trois niveaux : acquis, en cours, non acquis. */
+	echelle: string[],
+	/**  Vrai si la ligne de commentaire par domaine se montre. */
+	commentaire_domaine: boolean,
+};
+
 /**  Groupe d'une matière, pour l'ordre et les regroupements du bulletin. */
 export type GroupeMatiere = 
 /**  Lettres, langues, sciences humaines. */
@@ -6290,6 +6411,34 @@ export type MaFiche = {
 	engagements: EngagementAffiche[],
 };
 
+/**
+ *  Maître d'une classe du jardin (SPEC_PHASE_11_B §7) : une affectation sans matière, puisque
+ *  le jardin n'en a pas. Elle décide quels enfants il observe quand l'école ouvre la saisie aux
+ *  maîtres.
+ */
+export type MaitreJardin = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Année. */
+	annee_id: string,
+	/**  Classe du jardin. */
+	classe_id: string,
+	/**  Enseignant. */
+	enseignant_id: string,
+};
+
+/**  Maître d'une classe du jardin, affiché. */
+export type MaitreJardinAffiche = {
+	/**  Affectation à la classe. */
+	maitre: MaitreJardin,
+	/**  Libellé de la classe. */
+	classe: string,
+	/**  Prénoms et nom de l'enseignant. */
+	enseignant: string,
+};
+
 /**  Matière enseignée dans l'établissement. */
 export type Matiere = {
 	/**  Identifiant technique. */
@@ -6814,6 +6963,18 @@ export type Niveau = {
 };
 
 /**
+ *  Niveau d'acquisition d'une compétence : trois, toujours (RB-4) ; une observation vidée n'en
+ *  est pas un quatrième.
+ */
+export type NiveauAcquisition = 
+/**  La compétence est acquise. */
+"acquis" | 
+/**  L'enfant y travaille. */
+"en_cours" | 
+/**  Pas encore acquise. */
+"non_acquis";
+
+/**
  *  Note de conduite saisie pour un élève et une période : la note du mode manuel, ou la
  *  correction d'une note calculée.
  */
@@ -6860,6 +7021,26 @@ export type ObjetPaiement =
 "salaire" | 
 /**  Une avance accordée. */
 "avance";
+
+/**
+ *  Observation d'une compétence pour un enfant dans une période (SPEC_PHASE_11_B §3.2) : une
+ *  seule par enfant, compétence et période (RB-5). Vidée, elle garde sa ligne sans niveau.
+ */
+export type Observation = {
+	/**  Inscription de l'enfant. */
+	inscription_id: string,
+	/**  Compétence observée. */
+	competence_id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Niveau ; vide pour une observation vidée. */
+	niveau: NiveauAcquisition | null,
+	/**
+	 *  Instant de la dernière écriture, en millisecondes : celui que renvoie la saisie suivante
+	 *  pour ne pas écraser en silence ce qu'un autre poste a écrit entre-temps.
+	 */
+	modifiee_le: number,
+};
 
 /**  Nature de la mutation auditée. */
 export type Operation = 
@@ -7266,7 +7447,12 @@ export type PorteeNotes =
 /**  Dans ses seuls couples classe et matière : un enseignant avec son compte. */
 { type: "couples"; 
 /**  Couples autorisés. */
-couples: ([string, string])[] };
+couples: ([string, string])[]; 
+/**
+ *  Classes du jardin où il est maître : il y observe les enfants, sans matière
+ *  (SPEC_PHASE_11_B §7).
+ */
+classes_jardin?: string[] };
 
 /**  Poste physique identifié ; porté par chaque ligne synchronisable (R-13). */
 export type Poste = string;

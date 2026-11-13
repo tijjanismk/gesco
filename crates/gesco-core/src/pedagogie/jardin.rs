@@ -7,8 +7,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::commun::{Horodatage, Id};
-use crate::core::Etablissement;
-use crate::scolarite::Niveau;
+use crate::core::{AnneeScolaire, Etablissement};
+use crate::pedagogie::{Enseignant, Periode};
+use crate::scolarite::{Classe, Inscription, Niveau};
 
 /// Réglages du jardin, dans les paramètres de l'école.
 pub mod parametres {
@@ -129,6 +130,49 @@ pub struct Competence {
     pub livree: bool,
     /// Instant du retrait ; vide tant que la compétence sert.
     pub retiree_le: Option<Horodatage>,
+}
+
+/// Observation d'une compétence pour un enfant dans une période (SPEC_PHASE_11_B §3.2) : une
+/// seule par enfant, compétence et période (RB-5). Vidée, elle garde sa ligne sans niveau.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct Observation {
+    /// Inscription de l'enfant.
+    pub inscription_id: Id<Inscription>,
+    /// Compétence observée.
+    pub competence_id: Id<Competence>,
+    /// Période.
+    pub periode_id: Id<Periode>,
+    /// Niveau ; vide pour une observation vidée.
+    pub niveau: Option<NiveauAcquisition>,
+    /// Instant de la dernière écriture, en millisecondes : celui que renvoie la saisie suivante
+    /// pour ne pas écraser en silence ce qu'un autre poste a écrit entre-temps.
+    pub modifiee_le: i64,
+}
+
+/// Maître d'une classe du jardin (SPEC_PHASE_11_B §7) : une affectation sans matière, puisque
+/// le jardin n'en a pas. Elle décide quels enfants il observe quand l'école ouvre la saisie aux
+/// maîtres.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct MaitreJardin {
+    /// Identifiant technique.
+    pub id: Id<MaitreJardin>,
+    /// Établissement.
+    pub etablissement_id: Id<Etablissement>,
+    /// Année.
+    pub annee_id: Id<AnneeScolaire>,
+    /// Classe du jardin.
+    pub classe_id: Id<Classe>,
+    /// Enseignant.
+    pub enseignant_id: Id<Enseignant>,
+}
+
+/// Longueur maximale d'une appréciation ou d'un commentaire de domaine.
+pub const APPRECIATION_MAX: usize = 300;
+
+/// Clé, dans la table des appréciations, du commentaire d'un domaine pour un enfant ; à côté de
+/// `generale`, celle de l'appréciation générale.
+pub fn cle_commentaire_domaine(domaine: Id<DomaineCompetence>) -> String {
+    format!("domaine:{domaine}")
 }
 
 /// Rend le libellé nettoyé d'un domaine, ou la clé du refus.

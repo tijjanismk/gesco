@@ -243,6 +243,9 @@ pub enum TypeEvenement {
     /// Un domaine ou une compétence du jardin est créé, modifié, déplacé, retiré ou remis
     /// (SPEC_PHASE_11_B §3.6).
     CompetenceModifiee,
+    /// Des observations du jardin sont saisies : un événement par enfant et par domaine
+    /// (SPEC_PHASE_11_B §3.6).
+    ObservationSaisie,
     /// Le journal d'audit d'une année est archivé dans un fichier signé (blueprint §12.4).
     JournalArchive,
     /// Le relevé par séance d'une classe est enregistré pour un jour (SPEC_VERSION_1_1 §1, T-71).
@@ -420,6 +423,7 @@ impl TypeEvenement {
         Self::NoteConduiteEnregistree,
         Self::NoteConduiteRetiree,
         Self::CompetenceModifiee,
+        Self::ObservationSaisie,
         Self::JournalArchive,
         Self::ReleveParSeanceEnregistre,
         Self::ReleveImporte,
@@ -568,6 +572,7 @@ impl TypeEvenement {
             Self::NoteConduiteEnregistree => "NoteConduiteEnregistree",
             Self::NoteConduiteRetiree => "NoteConduiteRetiree",
             Self::CompetenceModifiee => "CompetenceModifiee",
+            Self::ObservationSaisie => "ObservationSaisie",
             Self::JournalArchive => "JournalArchive",
             Self::ReleveParSeanceEnregistre => "ReleveParSeanceEnregistre",
             Self::ReleveImporte => "ReleveImporte",
@@ -718,6 +723,7 @@ impl TypeEvenement {
             | Self::NoteConduiteEnregistree
             | Self::NoteConduiteRetiree
             | Self::CompetenceModifiee
+            | Self::ObservationSaisie
             | Self::JournalArchive
             | Self::ReleveParSeanceEnregistre
             | Self::ReleveImporte

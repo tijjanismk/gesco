@@ -1,6 +1,7 @@
 //! Enseignants et affectations (SPEC_PHASE_4 §3) : la direction enregistre les enseignants et
 //! les affecte aux matières des classes ; la portée de saisie des notes en découle (§11.3 du
-//! blueprint).
+//! blueprint). Le jardin n'a pas de matière : un maître y est affecté à la classe entière
+//! (SPEC_PHASE_11_B §7), et il en observe les enfants.
 
 use gesco_core::commun::Id;
 use gesco_core::core::{
@@ -8,12 +9,12 @@ use gesco_core::core::{
 };
 use gesco_core::pedagogie::enseignant::matieres_a_confier;
 use gesco_core::pedagogie::{
-    AffectationEnseignement, Enseignant, Matiere, PorteeNotes, StatutEnseignant,
+    AffectationEnseignement, Enseignant, MaitreJardin, Matiere, PorteeNotes, StatutEnseignant,
 };
 use gesco_core::scolarite::telephone::normaliser_liste;
-use gesco_core::scolarite::{Classe, Personne};
+use gesco_core::scolarite::{Classe, Cycle, Personne};
 use gesco_db::depots::{
-    academique, annee_scolaire, enseignants, pedagogie, personnes, utilisateur,
+    academique, annee_scolaire, enseignants, jardin, pedagogie, personnes, utilisateur,
 };
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
@@ -64,6 +65,24 @@ pub struct AffectationAffichee {
     pub matiere: String,
     /// Prénoms et nom de l'enseignant.
     pub enseignant: String,
+}
+
+/// Maître d'une classe du jardin, affiché.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct MaitreJardinAffiche {
+    /// Affectation à la classe.
+    pub maitre: MaitreJardin,
+    /// Libellé de la classe.
+    pub classe: String,
+    /// Prénoms et nom de l'enseignant.
+    pub enseignant: String,
+}
+
+/// Maître d'une classe du jardin désigné.
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+pub struct DemandeIdMaitreJardin {
+    /// Affectation à la classe.
+    pub id: Id<MaitreJardin>,
 }
 
 /// Enseignant saisi par la direction ; sans `id`, une création.
@@ -511,6 +530,11 @@ impl<'n> ServiceEnseignants<'n> {
         {
             return Err(regle("affectation.enseignant_inactif"));
         }
+        if self.du_jardin(session, &classe).await? {
+            return self
+                .affecter_maitre_jardin(session, &classe, demande.enseignant_id)
+                .await;
+        }
         let a_confier = matieres_a_confier(&programme, &existantes);
         if a_confier.is_empty() {
             return Err(regle("affectation.rien_a_confier"));
@@ -553,7 +577,8 @@ impl<'n> ServiceEnseignants<'n> {
     }
 
     /// Portée de saisie des notes de l'utilisateur (§11.3) : la direction, qui valide les notes,
-    /// partout ; un compte lié à un enseignant, dans ses affectations ; sinon nulle part.
+    /// partout ; un compte lié à un enseignant, dans ses affectations et les classes du jardin
+    /// dont il est maître ; sinon nulle part.
     pub async fn portee_notes(&self, session: &Session) -> Resultat<PorteeNotes> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
@@ -562,13 +587,153 @@ impl<'n> ServiceEnseignants<'n> {
             .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
             .await?
             .contains(&Permission::GRADES_VALIDATE);
-        let affectations =
+        let (affectations, classes_jardin) =
             match enseignants::enseignant_du_compte(&mut cnx, session.utilisateur_id, &contexte)
                 .await?
             {
-                Some(e) => enseignants::affectations_de(&mut cnx, e.id, &contexte).await?,
-                None => Vec::new(),
+                Some(e) => (
+                    enseignants::affectations_de(&mut cnx, e.id, &contexte).await?,
+                    jardin::classes_du_maitre(&mut cnx, e.id, &contexte).await?,
+                ),
+                None => (Vec::new(), Vec::new()),
             };
-        Ok(PorteeNotes::de(valide, &affectations))
+        Ok(PorteeNotes::de(valide, &affectations).avec_jardin(classes_jardin))
+    }
+
+    /// Vrai si la classe est du jardin d'enfants.
+    async fn du_jardin(&self, session: &Session, classe: &Classe) -> Resultat<bool> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut cnx = self.connexion().await?;
+        Ok(academique::niveau(&mut cnx, classe.niveau_id, &contexte)
+            .await?
+            .cycle
+            == Cycle::Jardin)
+    }
+
+    /// Affecte un maître à une classe du jardin, sans matière. Rend 1, ou refuse s'il l'est déjà.
+    async fn affecter_maitre_jardin(
+        &self,
+        session: &Session,
+        classe: &Classe,
+        enseignant_id: Id<Enseignant>,
+    ) -> Resultat<usize> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let deja = {
+            let mut cnx = self.connexion().await?;
+            jardin::maitres(&mut cnx, classe.annee_id, &contexte)
+                .await?
+                .iter()
+                .any(|m| m.classe_id == classe.id && m.enseignant_id == enseignant_id)
+        };
+        if deja {
+            return Err(regle("affectation.deja"));
+        }
+        let m = MaitreJardin {
+            id: nouvel_id(),
+            etablissement_id: session.etablissement_id,
+            annee_id: classe.annee_id,
+            classe_id: classe.id,
+            enseignant_id,
+        };
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Critique)
+            .await?;
+        jardin::inserer_maitre(unite.connexion(), &m, &contexte).await?;
+        let id = classe.id.vers_chaine();
+        unite.auditer(
+            "maitre_jardin",
+            &id,
+            Operation::Creation,
+            None,
+            Some(serde_json::to_value(&m)?),
+            "enseignants.maitre_jardin",
+        );
+        unite.emettre(
+            TypeEvenement::AffectationModifiee,
+            "classe",
+            &id,
+            serde_json::json!({ "enseignant_id": enseignant_id, "jardin": true }),
+        );
+        self.noyau.terminer(unite).await?;
+        Ok(1)
+    }
+
+    /// Maîtres des classes du jardin d'une année, avec les libellés.
+    pub async fn maitres_jardin(
+        &self,
+        session: &Session,
+        annee_id: Id<AnneeScolaire>,
+    ) -> Resultat<Vec<MaitreJardinAffiche>> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let fiches = self.lister(session).await?;
+        let mut cnx = self.connexion().await?;
+        let classes = academique::classes(&mut cnx, annee_id, &contexte).await?;
+        Ok(jardin::maitres(&mut cnx, annee_id, &contexte)
+            .await?
+            .into_iter()
+            .map(|m| MaitreJardinAffiche {
+                classe: classes
+                    .iter()
+                    .find(|c| c.id == m.classe_id)
+                    .map(|c| c.libelle.clone())
+                    .unwrap_or_default(),
+                enseignant: fiches
+                    .iter()
+                    .find(|f| f.enseignant.id == m.enseignant_id)
+                    .map(|f| format!("{} {}", f.prenoms, f.nom))
+                    .unwrap_or_default(),
+                maitre: m,
+            })
+            .collect())
+    }
+
+    /// Retire le maître d'une classe du jardin ; refusé dans une année close.
+    pub async fn retirer_maitre_jardin(
+        &self,
+        session: &Session,
+        id: Id<MaitreJardin>,
+    ) -> Resultat<()> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut trouve = None;
+        {
+            let mut cnx = self.connexion().await?;
+            for annee in annee_scolaire::lister(&mut cnx, &contexte).await? {
+                if let Some(m) = jardin::maitres(&mut cnx, annee.id, &contexte)
+                    .await?
+                    .into_iter()
+                    .find(|m| m.id == id)
+                {
+                    if matches!(annee.statut, StatutAnnee::Cloturee | StatutAnnee::Archivee) {
+                        return Err(regle("pedagogie.annee_close"));
+                    }
+                    trouve = Some(m);
+                    break;
+                }
+            }
+        }
+        let m = trouve.ok_or(regle("affectation.inconnue"))?;
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Critique)
+            .await?;
+        jardin::retirer_maitre(unite.connexion(), m.id, &contexte).await?;
+        let cle = m.classe_id.vers_chaine();
+        unite.auditer(
+            "maitre_jardin",
+            &cle,
+            Operation::Suppression,
+            Some(serde_json::to_value(&m)?),
+            None,
+            "enseignants.retirer_maitre_jardin",
+        );
+        unite.emettre(
+            TypeEvenement::AffectationModifiee,
+            "classe",
+            &cle,
+            serde_json::json!({ "enseignant_id": m.enseignant_id, "jardin": true, "retiree": true }),
+        );
+        self.noyau.terminer(unite).await?;
+        Ok(())
     }
 }
