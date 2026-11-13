@@ -231,16 +231,18 @@ pub async fn ecrire_decision(
     Ok(())
 }
 
-/// Place l'inscription dans une autre classe et garde la précédente.
+/// Place l'inscription dans une autre classe à partir d'un jour et garde la précédente.
 pub async fn changer_classe(
     cnx: &mut Connexion,
     id: Id<Inscription>,
     nouvelle: Id<Classe>,
     precedente: Id<Classe>,
+    depuis: DateCivile,
     contexte: &Contexte,
 ) -> Resultat<()> {
     sqlx::query(
-        "UPDATE inscription SET classe_id = ?1, classe_precedente_id = ?2, mis_a_jour_le = ?3, mis_a_jour_par = ?4, identifiant_poste = ?5
+        "UPDATE inscription SET classe_id = ?1, classe_precedente_id = ?2, classe_depuis = ?8, mis_a_jour_le = ?3,
+            mis_a_jour_par = ?4, identifiant_poste = ?5
          WHERE id = ?6 AND etablissement_id = ?7",
     )
     .bind(nouvelle.vers_chaine())
@@ -250,9 +252,36 @@ pub async fn changer_classe(
     .bind(&contexte.poste.0)
     .bind(id.vers_chaine())
     .bind(contexte.etablissement_id.vers_chaine())
+    .bind(depuis.to_string())
     .execute(cnx)
     .await?;
     Ok(())
+}
+
+/// Jour d'arrivée dans leur classe des élèves qui en ont changé en cours d'année : ils n'y
+/// comptent qu'à partir de ce jour. Les autres y sont depuis leur inscription.
+pub async fn arrivees_dans_la_classe(
+    cnx: &mut Connexion,
+    classe_id: Id<Classe>,
+    contexte: &Contexte,
+) -> Resultat<Vec<(Id<Inscription>, DateCivile)>> {
+    let lignes: Vec<(String, String)> = sqlx::query_as(
+        "SELECT id, classe_depuis FROM inscription
+         WHERE classe_id = ?1 AND etablissement_id = ?2 AND classe_depuis IS NOT NULL",
+    )
+    .bind(classe_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?;
+    lignes
+        .into_iter()
+        .map(|(id, depuis)| {
+            Ok((
+                lire_id("inscription", "id", &id)?,
+                date("classe_depuis", &depuis)?,
+            ))
+        })
+        .collect()
 }
 
 /// Inscriptions d'un élève, toutes années, la plus récente d'abord.

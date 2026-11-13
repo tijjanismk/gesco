@@ -277,3 +277,57 @@ pub async fn ecrire_note(
     .await?;
     Ok(())
 }
+
+#[derive(FromRow)]
+struct LigneNoteDeLEleve {
+    evaluation_id: String,
+    inscription_id: String,
+    valeur: Option<i64>,
+    absent: i64,
+    justifie: i64,
+    dispense: i64,
+    #[sqlx(flatten)]
+    evaluation: LigneEvaluation,
+    classe: String,
+    matiere: String,
+}
+
+/// Notes en vigueur d'un élève, toutes classes et toutes années, avec l'évaluation, le libellé de
+/// la classe et celui de la matière : son historique, qu'il ait ou non changé de classe depuis.
+pub async fn notes_de_l_eleve(
+    cnx: &mut Connexion,
+    eleve_id: Id<gesco_core::scolarite::Eleve>,
+    contexte: &Contexte,
+) -> Resultat<Vec<(Evaluation, NoteEleve, String, String)>> {
+    sqlx::query_as::<_, LigneNoteDeLEleve>(
+        "SELECT n.evaluation_id, n.inscription_id, n.valeur, n.absent, n.justifie, n.dispense,
+            e.id, e.etablissement_id, e.annee_id, e.periode_id, e.classe_id, e.matiere_id,
+            e.type_evaluation, e.libelle, e.date, e.bareme, e.ponderation, e.enseignant_id, e.statut,
+            e.motif_deverrouillage, c.libelle AS classe, m.libelle AS matiere
+         FROM note n
+            JOIN evaluation e ON e.id = n.evaluation_id
+            JOIN inscription i ON i.id = n.inscription_id
+            JOIN classe c ON c.id = e.classe_id
+            JOIN matiere m ON m.id = e.matiere_id
+         WHERE i.eleve_id = ?1 AND n.etablissement_id = ?2 AND n.retiree = 0
+         ORDER BY e.date, e.cree_le",
+    )
+    .bind(eleve_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(|l| {
+        let note = LigneNote {
+            evaluation_id: l.evaluation_id,
+            inscription_id: l.inscription_id,
+            valeur: l.valeur,
+            absent: l.absent,
+            justifie: l.justifie,
+            dispense: l.dispense,
+        }
+        .vers_entite()?;
+        Ok((l.evaluation.vers_entite()?, note, l.classe, l.matiere))
+    })
+    .collect()
+}

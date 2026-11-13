@@ -9,6 +9,7 @@ import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, dateCivile, dateHeure, francs, t } from "../../i18n";
 import { ApercuPdf } from "../../composants/ApercuPdf";
 import type { Remise, SituationInscription, StatutRemise, TypeFrais, TypeRemise, ValeurRemise, Versement } from "../../types/gesco";
+import { EcartsFrais } from "./AjustementFrais";
 import { lireJour } from "./echeances";
 import { MODES } from "./Encaissement";
 
@@ -47,6 +48,8 @@ export function FraisEleve({ eleveId, permissions }: { eleveId: string; permissi
   const situation = useQuery({ queryKey: ["situation", eleveId], queryFn: () => appeler("situation_financiere", { id: eleveId }) });
   const vivantes = (situation.data ?? []).filter((s) => s.inscription.statut === "brouillon" || s.inscription.statut === "validee" || s.facture !== null);
   const releve = useMutation({ mutationFn: () => appeler("releve_compte_produire", { id: eleveId }) });
+  // Avoirs de l'élève, toutes années : ce qui reste à utiliser.
+  const avoirDisponible = (situation.data ?? []).flatMap((s) => s.avoirs).reduce((somme, a) => somme + a.montant - a.utilise, 0);
   return (
     <Section titre={t("facture.titre")}>
       <MessageErreur erreur={situation.error} />
@@ -59,13 +62,13 @@ export function FraisEleve({ eleveId, permissions }: { eleveId: string; permissi
       ) : null}
       {situation.isSuccess && vivantes.length === 0 ? <p className="text-sm text-muet">{t("facture.aucune")}</p> : null}
       {vivantes.map((s) => (
-        <FraisInscription key={s.inscription.id} situation={s} eleveId={eleveId} permissions={permissions} />
+        <FraisInscription key={s.inscription.id} situation={s} eleveId={eleveId} permissions={permissions} avoirDisponible={avoirDisponible} />
       ))}
     </Section>
   );
 }
 
-function FraisInscription({ situation, eleveId, permissions }: { situation: SituationInscription; eleveId: string; permissions: readonly string[] }) {
+function FraisInscription({ situation, eleveId, permissions, avoirDisponible }: { situation: SituationInscription; eleveId: string; permissions: readonly string[]; avoirDisponible: number }) {
   const client = useQueryClient();
   const rafraichir = () => {
     void client.invalidateQueries({ queryKey: ["situation", eleveId] });
@@ -79,6 +82,23 @@ function FraisInscription({ situation, eleveId, permissions }: { situation: Situ
   });
   const [jour, setJour] = useState("");
   const jourLu = lireJour(jour);
+  const inscriptionId = situation.inscription.id;
+  // Frais de la classe actuelle, pour un élève qui a changé de classe : l'écart avant tout.
+  const ajustable =
+    facture !== null && situation.inscription.statut === "validee" && situation.inscription.classe_precedente_id !== null && commandeAutorisee("facture_ajuster", permissions);
+  const apercu = useQuery({
+    queryKey: ["ajustement", inscriptionId, "actuelle"],
+    queryFn: () => appeler("facture_ajustement_apercu", { inscription_id: inscriptionId, classe_id: null }),
+    enabled: ajustable,
+  });
+  const ajustement = useMutation({
+    mutationFn: () => appeler("facture_ajuster", { inscription_id: inscriptionId }),
+    onSuccess: () => {
+      rafraichir();
+      void client.invalidateQueries({ queryKey: ["ajustement", inscriptionId] });
+    },
+  });
+  const avoir = useMutation({ mutationFn: () => appeler("avoirs_utiliser", { inscription_id: inscriptionId }), onSuccess: rafraichir });
   const decalage = useMutation({
     mutationFn: () => appeler("echeancier_changer_jour", { inscription_id: situation.inscription.id, jour: jourLu ?? 0 }),
     onSuccess: () => {
@@ -96,12 +116,26 @@ function FraisInscription({ situation, eleveId, permissions }: { situation: Situ
             {t("facture.entete", { annee: situation.annee, classe: situation.classe, numero: facture.facture.numero, plan: facture.plan })}
           </p>
           <p className="text-encre">
-            {t("facture.totaux", { total: francs(facture.facture.total), remise: francs(facture.remise), paye: francs(facture.paye), reste: francs(facture.reste) })}
+            {facture.ajustement === 0
+              ? t("facture.totaux", { total: francs(facture.facture.total), remise: francs(facture.remise), paye: francs(facture.paye), reste: francs(facture.reste) })
+              : t("facture.totaux_ajustes", {
+                  total: francs(facture.facture.total),
+                  remise: francs(facture.remise),
+                  baisse: francs(facture.ajustement),
+                  paye: francs(facture.paye),
+                  reste: francs(facture.reste),
+                })}
           </p>
+          {facture.ajustements.map((a) => (
+            <p key={a.id} className="text-muet">
+              {t("facture.ajustement_fait", { date: dateCivile(a.date), hausse: francs(a.hausse), baisse: francs(a.baisse) })}
+              {a.avoir === 0 ? "" : ` ${t("facture.ajustement_avoir", { avoir: francs(a.avoir) })}`}
+            </p>
+          ))}
           <table className="w-full text-left font-condensee tabular-nums">
             <thead>
               <tr className="text-muet">
-                {(["facture.echeance", "facture.date", "facture.montant", "facture.remise", "facture.net"] as const).map((cle) => (
+                {(["facture.echeance", "facture.date", "facture.montant", "facture.remise", "facture.ajustement", "facture.net"] as const).map((cle) => (
                   <th key={cle} className="px-2 py-1 font-normal">{t(cle)}</th>
                 ))}
               </tr>
@@ -113,12 +147,14 @@ function FraisInscription({ situation, eleveId, permissions }: { situation: Situ
                   <td className="px-2 py-1">{dateCivile(e.echeance.date)}</td>
                   <td className="px-2 py-1">{francs(e.echeance.montant)}</td>
                   <td className="px-2 py-1">{e.remise === 0 ? "" : `− ${francs(e.remise)}`}</td>
+                  <td className="px-2 py-1">{e.ajustement === 0 ? "" : `− ${francs(e.ajustement)}`}</td>
                   <td className="px-2 py-1 font-medium">{francs(e.net)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {commandeAutorisee("echeancier_changer_plan", permissions) && situation.plans.length > 1 ? (
+          {/* Après un ajustement au changement de classe, le plan ne change plus. */}
+          {commandeAutorisee("echeancier_changer_plan", permissions) && situation.plans.length > 1 && facture.ajustements.length === 0 ? (
             <div className="flex flex-wrap items-end gap-2">
               <Selection
                 id={`plan-${situation.inscription.id}`}
@@ -145,8 +181,32 @@ function FraisInscription({ situation, eleveId, permissions }: { situation: Situ
             </div>
           ) : null}
           <MessageErreur erreur={decalage.error} />
+          {ajustable && apercu.data !== undefined && apercu.data.ecarts.length > 0 ? (
+            <div className="flex flex-col gap-2 rounded border border-muet/30 p-2">
+              <EcartsFrais apercu={apercu.data} />
+              <div>
+                <Bouton variante="secondaire" onClick={() => ajustement.mutate()} disabled={ajustement.isPending}>
+                  {t("facture.appliquer_frais_classe", { classe: apercu.data.classe_apres })}
+                </Bouton>
+              </div>
+            </div>
+          ) : null}
+          <MessageErreur erreur={apercu.error ?? ajustement.error} />
+          {avoirDisponible > 0 && facture.reste > 0 && commandeAutorisee("avoirs_utiliser", permissions) ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Bouton variante="secondaire" onClick={() => avoir.mutate()} disabled={avoir.isPending}>
+                {t("facture.utiliser_avoir", { avoir: francs(avoirDisponible) })}
+              </Bouton>
+            </div>
+          ) : null}
+          <MessageErreur erreur={avoir.error} />
         </>
       )}
+      {situation.avoirs.map((a) => (
+        <p key={a.id} className="text-encre">
+          {t("facture.avoir", { montant: francs(a.montant), solde: francs(a.montant - a.utilise) })}
+        </p>
+      ))}
       {situation.versements.length === 0 ? null : (
         <ul className="flex flex-col gap-1">
           {situation.versements.map((v) => (

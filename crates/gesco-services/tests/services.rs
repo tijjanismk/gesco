@@ -8,6 +8,7 @@ mod absences;
 mod annuelle;
 mod bulletins;
 mod caisse;
+mod changement_classe;
 mod charge;
 mod conges;
 mod consultation;

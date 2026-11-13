@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use base64::Engine;
-use gesco_core::commun::{Horodatage, Id};
+use gesco_core::commun::{Horodatage, Id, Montant};
 use gesco_core::core::{
     AnneeScolaire, CleDonnees, Etablissement, MotifSauvegarde, Operation, Parametre, Permission,
     PhraseSecours, Poste, StatutEtablissement, TypeEvenement, Utilisateur, ValeurParametre,
@@ -34,6 +34,9 @@ use crate::absences_seances::{DemandeReleveParSeance, ReleveParSeance, ServiceAb
 use crate::administration::{
     FicheRole, FicheUtilisateur, PageJournal, RechercheJournal, ServiceAdministration,
     VerificationAudit,
+};
+use crate::ajustements::{
+    ApercuAjustement, DemandeApercuAjustement, DemandeFraisInscription, ServiceAjustements,
 };
 use crate::annees::ServiceAnnees;
 use crate::archive_journal::{DemandeVerificationArchive, VerificationArchive};
@@ -109,7 +112,7 @@ use crate::espace::EspaceDonnees;
 use crate::evaluations::{
     ApercuImportNotes, DemandeDeverrouillage, DemandeEvaluation, DemandeEvaluations,
     DemandeIdEvaluation, DemandeImportNotes, DemandeNote, EvaluationAffichee, GrilleNotes,
-    ServiceEvaluations,
+    NoteDeLEleve, ServiceEvaluations,
 };
 use crate::export::{DemandeExport, FichierEcrit};
 use crate::facturation::{
@@ -1043,6 +1046,10 @@ contrat! {
     situation_financiere(DemandeEleve) -> Vec<SituationInscription>;
     echeancier_changer_plan(DemandeChangementPlan) -> FactureAffichee;
     echeancier_changer_jour(DemandeJourEcheance) -> FactureAffichee;
+    facture_ajustement_apercu(DemandeApercuAjustement) -> ApercuAjustement;
+    facture_ajuster(DemandeFraisInscription) -> ApercuAjustement;
+    avoirs_utiliser(DemandeFraisInscription) -> Montant;
+    eleve_notes(DemandeEleve) -> Vec<NoteDeLEleve>;
     factures_rattraper_apercu(()) -> Vec<LigneRattrapage>;
     factures_rattraper(()) -> RapportRattrapage;
     remise_proposer(DemandeRemise) -> gesco_core::finance::Remise;
@@ -2812,7 +2819,7 @@ impl Application {
         entree: DemandeChangementClasse,
     ) -> Resultat<ResultatInscription> {
         ServiceInscriptions::nouveau(&appel.ouverte()?.noyau)
-            .changer_classe(appel.session()?, entree.id, entree.classe_id, &entree.motif)
+            .changer_classe(appel.session()?, &entree)
             .await
     }
 
@@ -3202,6 +3209,42 @@ impl Application {
     ) -> Resultat<FactureAffichee> {
         ServiceFacturation::nouveau(&appel.ouverte()?.noyau)
             .changer_jour(appel.session()?, &entree)
+            .await
+    }
+
+    async fn facture_ajustement_apercu(
+        &self,
+        appel: Appel,
+        entree: DemandeApercuAjustement,
+    ) -> Resultat<ApercuAjustement> {
+        ServiceAjustements::nouveau(&appel.ouverte()?.noyau)
+            .apercu(appel.session()?, &entree)
+            .await
+    }
+
+    async fn facture_ajuster(
+        &self,
+        appel: Appel,
+        entree: DemandeFraisInscription,
+    ) -> Resultat<ApercuAjustement> {
+        ServiceAjustements::nouveau(&appel.ouverte()?.noyau)
+            .ajuster(appel.session()?, &entree)
+            .await
+    }
+
+    async fn avoirs_utiliser(
+        &self,
+        appel: Appel,
+        entree: DemandeFraisInscription,
+    ) -> Resultat<Montant> {
+        ServiceAjustements::nouveau(&appel.ouverte()?.noyau)
+            .utiliser_avoirs(appel.session()?, &entree)
+            .await
+    }
+
+    async fn eleve_notes(&self, appel: Appel, entree: DemandeEleve) -> Resultat<Vec<NoteDeLEleve>> {
+        ServiceEvaluations::nouveau(&appel.ouverte()?.noyau)
+            .de_l_eleve(appel.session()?, entree.id)
             .await
     }
 

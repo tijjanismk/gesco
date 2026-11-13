@@ -9,12 +9,12 @@ use gesco_core::core::{
 use gesco_core::finance::facture::{ArriveeEnCours, Bornes, LigneCalculee, calculer};
 use gesco_core::finance::tarif::JOURS_ECHEANCE;
 use gesco_core::finance::{
-    ContexteTarifaire, Echeance, Exigibilite, Facture, LigneFacture, LigneTarifaire, PlanPaiement,
-    StatutEcheance, StatutFacture,
+    Ajustement, Avoir, ContexteTarifaire, Echeance, Exigibilite, Facture, LigneFacture,
+    LigneTarifaire, PlanPaiement, StatutEcheance, StatutFacture,
 };
 use gesco_core::scolarite::personne::millesime;
 use gesco_core::scolarite::{Eleve, Inscription, StatutInscription};
-use gesco_db::depots::{annee_scolaire, factures, parametre, tarifs};
+use gesco_db::depots::{ajustements, annee_scolaire, factures, parametre, tarifs};
 use gesco_db::unite::Durabilite;
 use gesco_db::{Contexte, UniteDeTravail, nouvel_id};
 use serde::{Deserialize, Serialize};
@@ -54,11 +54,13 @@ pub struct EcheanceAffichee {
     pub echeance: Echeance,
     /// Part des remises accordées.
     pub remise: Montant,
-    /// Dû après remise.
+    /// Baisse portée par l'échéance après un changement de classe.
+    pub ajustement: Montant,
+    /// Dû après remise et baisse.
     pub net: Montant,
-    /// Versements imputés.
+    /// Versements imputés, et avoirs utilisés.
     pub paye: Montant,
-    /// Reste à payer : dû après remise, moins le payé.
+    /// Reste à payer : dû après remise et baisse, moins le payé.
     pub reste: Montant,
 }
 
@@ -66,14 +68,17 @@ fn calcul(r: Result<Montant, gesco_core::commun::ErreurMontant>) -> Resultat<Mon
     r.map_err(|_| regle("facture.calcul_impossible"))
 }
 
-/// État des échéances dues d'une facture, par date : montant, remises, payé, reste. Tout se
-/// recalcule depuis les échéances, les parts de remise et les imputations (R-20).
+/// État des échéances dues d'une facture, par date : montant, remises, baisses, payé, reste.
+/// Tout se recalcule depuis les échéances, les parts de remise et de baisse, les imputations et
+/// les avoirs utilisés (R-20).
 pub(crate) async fn etat_echeances(
     cnx: &mut gesco_db::Connexion,
     facture_id: Id<Facture>,
     contexte: &Contexte,
 ) -> Resultat<Vec<EcheanceAffichee>> {
     let parts = gesco_db::depots::remises::parts_de_la_facture(cnx, facture_id, contexte).await?;
+    let baisses = ajustements::parts_de_la_facture(cnx, facture_id, contexte).await?;
+    let avoirs = ajustements::avoirs_utilises_sur_la_facture(cnx, facture_id, contexte).await?;
     let imputations =
         gesco_db::depots::versements::imputations_de_la_facture(cnx, facture_id, contexte).await?;
     let mut etats = Vec::new();
@@ -88,18 +93,37 @@ pub(crate) async fn etat_echeances(
                 .filter(|(_, e, _)| *e == echeance.id)
                 .try_fold(Montant::ZERO, |s, (_, _, m)| s.ajouter(*m)),
         )?;
-        let paye = calcul(
-            imputations
+        let ajustement = calcul(
+            baisses
                 .iter()
                 .filter(|(_, e, _)| *e == echeance.id)
                 .try_fold(Montant::ZERO, |s, (_, _, m)| s.ajouter(*m)),
         )?;
-        let net = calcul(echeance.montant.soustraire(remise))?;
+        let paye = calcul(
+            imputations
+                .iter()
+                .filter(|(_, e, _)| *e == echeance.id)
+                .map(|(_, _, m)| *m)
+                .chain(
+                    avoirs
+                        .iter()
+                        .filter(|(e, _)| *e == echeance.id)
+                        .map(|(_, m)| *m),
+                )
+                .try_fold(Montant::ZERO, |s, m| s.ajouter(m)),
+        )?;
+        let net = calcul(
+            echeance
+                .montant
+                .soustraire(remise)
+                .and_then(|m| m.soustraire(ajustement)),
+        )?;
         etats.push(EcheanceAffichee {
             reste: calcul(net.soustraire(paye))?,
             net,
             paye,
             remise,
+            ajustement,
             echeance,
         });
     }
@@ -150,9 +174,13 @@ pub struct FactureAffichee {
     pub echeances: Vec<EcheanceAffichee>,
     /// Total des remises accordées.
     pub remise: Montant,
-    /// Versements imputés.
+    /// Total des baisses portées par les échéances après un changement de classe.
+    pub ajustement: Montant,
+    /// Ajustements au changement de classe, du plus ancien au plus récent.
+    pub ajustements: Vec<Ajustement>,
+    /// Versements imputés, et avoirs utilisés.
     pub paye: Montant,
-    /// Reste à payer : total, moins les remises, moins le payé.
+    /// Reste à payer : total, moins les remises et les baisses, moins le payé.
     pub reste: Montant,
 }
 
@@ -182,6 +210,8 @@ pub struct SituationInscription {
     pub remises: Vec<gesco_core::finance::Remise>,
     /// Versements de l'inscription, annulés compris, du plus ancien au plus récent.
     pub versements: Vec<gesco_core::finance::Versement>,
+    /// Avoirs nés des ajustements de cette facture, avec ce qui en est utilisé.
+    pub avoirs: Vec<Avoir>,
 }
 
 /// Changement de plan d'une inscription.
@@ -230,6 +260,24 @@ struct Calcul {
     lignes: Vec<LigneCalculee>,
     plan: PlanPaiement,
     grille_id: Id<gesco_core::finance::Grille>,
+}
+
+/// Contexte tarifaire ramené au niveau et à la série des frais de la facture : ceux de la classe
+/// où l'élève a été facturé, même s'il a changé de classe depuis.
+pub(crate) fn niveau_de_la_facture(
+    tarif: ContexteTarifaire,
+    lignes: &[LigneFacture],
+    grille: &[LigneTarifaire],
+) -> ContexteTarifaire {
+    let tarifaires: Vec<&LigneTarifaire> = lignes
+        .iter()
+        .filter_map(|l| grille.iter().find(|g| g.id == l.ligne_tarifaire_id))
+        .collect();
+    tarifaires.first().map_or(tarif, |g| ContexteTarifaire {
+        niveau_id: g.niveau_id,
+        serie_id: tarifaires.iter().find_map(|g| g.serie_id),
+        ..tarif
+    })
 }
 
 /// Calcule la facture d'une inscription dans la transaction ouverte.
@@ -514,6 +562,7 @@ pub(crate) async fn retablir_echeances_dans(
             ..e.clone()
         };
         factures::inserer_echeance(unite.connexion(), facture.id, rang, &copie, contexte).await?;
+        ajustements::reporter_parts(unite.connexion(), e.id, copie.id, contexte).await?;
         retablies.push(copie);
     }
     crate::remises::reappliquer_dans(unite, contexte, &facture).await?;
@@ -582,6 +631,8 @@ impl<'n> ServiceFacturation<'n> {
             )
         };
         let remise_totale = somme(|e| e.remise)?;
+        let ajustement = somme(|e| e.ajustement)?;
+        let ajustements = ajustements::de_la_facture(&mut cnx, facture.id, &contexte).await?;
         let paye = somme(|e| e.paye)?;
         let reste = somme(|e| e.reste)?;
         let plan = tarifs::contenu(&mut cnx, facture.grille_id, &contexte)
@@ -598,6 +649,8 @@ impl<'n> ServiceFacturation<'n> {
             paye,
             reste,
             remise: remise_totale,
+            ajustement,
+            ajustements,
             facture,
         })
     }
@@ -609,6 +662,10 @@ impl<'n> ServiceFacturation<'n> {
         eleve_id: Id<Eleve>,
     ) -> Resultat<Vec<SituationInscription>> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let avoirs = {
+            let mut cnx = self.connexion().await?;
+            ajustements::avoirs_de_l_eleve(&mut cnx, eleve_id, &contexte).await?
+        };
         let mut situations = Vec::new();
         for affichee in ServiceInscriptions::nouveau(self.noyau)
             .de_l_eleve(session, eleve_id)
@@ -648,8 +705,19 @@ impl<'n> ServiceFacturation<'n> {
                 )
                 .await?
             };
+            let avoirs = facture
+                .as_ref()
+                .map(|f| {
+                    avoirs
+                        .iter()
+                        .filter(|a| f.ajustements.iter().any(|j| j.id == a.ajustement_id))
+                        .cloned()
+                        .collect()
+                })
+                .unwrap_or_default();
             situations.push(SituationInscription {
                 versements,
+                avoirs,
                 remises,
                 inscription: affichee.inscription,
                 annee: affichee.annee,
@@ -686,6 +754,18 @@ impl<'n> ServiceFacturation<'n> {
         if avant.plan_paiement_id == demande.plan_paiement_id {
             return self.affichee(session, avant).await;
         }
+        {
+            let mut cnx = self.connexion().await?;
+            if !ajustements::de_la_facture(&mut cnx, avant.id, &contexte)
+                .await?
+                .is_empty()
+            {
+                return Err(regle("echeancier.plan_ajuste"));
+            }
+        }
+        // Le plan se calcule sur les frais de la facture, pas sur ceux de la classe actuelle :
+        // un élève qui a changé de niveau garde ses frais tant que la direction ne les ajuste pas.
+        let tarif = niveau_de_la_facture(tarif, &lignes_avant, &contenu.lignes);
         let plan = contenu
             .plans
             .iter()
@@ -900,6 +980,8 @@ impl<'n> ServiceFacturation<'n> {
                 ..ancienne.clone()
             };
             factures::inserer_echeance(unite.connexion(), facture.id, rang, &nouvelle, &contexte)
+                .await?;
+            ajustements::reporter_parts(unite.connexion(), ancienne.id, nouvelle.id, &contexte)
                 .await?;
             decalees.push(serde_json::json!({
                 "libelle": ancienne.libelle, "avant": ancienne.date, "apres": date,

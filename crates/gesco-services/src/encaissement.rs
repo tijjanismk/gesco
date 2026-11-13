@@ -698,14 +698,16 @@ impl ServiceEncaissement<'_> {
                         "numero": f.facture.numero,
                         "plan": f.plan,
                         "total": f.facture.total.formater(),
-                        "remise": f.remise.formater(),
+                        // Remises et baisses d'un changement de classe : ce que la famille ne doit
+                        // plus, pour que dû, moins remise, moins payé donne le reste.
+                        "remise": f.remise.ajouter(f.ajustement).unwrap_or(f.remise).formater(),
                         "paye": f.paye.formater(),
                         "reste": f.reste.formater(),
                         "echeances": f.echeances.iter().map(|e| serde_json::json!({
                             "libelle": e.echeance.libelle,
                             "date": date_civile(e.echeance.date),
                             "montant": e.echeance.montant.formater(),
-                            "remise": e.remise.formater(),
+                            "remise": e.remise.ajouter(e.ajustement).unwrap_or(e.remise).formater(),
                             "paye": e.paye.formater(),
                             "reste": e.reste.formater(),
                         })).collect::<Vec<_>>(),

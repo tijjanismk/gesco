@@ -180,6 +180,28 @@ export type AffectationEnseignement = {
 	enseignant_id: string,
 };
 
+/**  Ajustement enregistré sur une facture. */
+export type Ajustement = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement propriétaire. */
+	etablissement_id: string,
+	/**  Facture ajustée. */
+	facture_id: string,
+	/**  Jour de l'ajustement. */
+	date: string,
+	/**  Hausse : la ligne de facture en plus. */
+	hausse: Montant,
+	/**  Baisse, avoir compris. */
+	baisse: Montant,
+	/**  Part de la baisse déjà payée : l'avoir né de l'ajustement. */
+	avoir: Montant,
+	/**  Classe quittée. */
+	classe_avant_id: string,
+	/**  Classe rejointe. */
+	classe_apres_id: string,
+};
+
 /**  Résultat de l'analyse : ce que l'écran propose, corrigeable. */
 export type Analyse = {
 	/**  Identifiant du fichier gardé en mémoire. */
@@ -294,6 +316,24 @@ export type Apercu = {
 	erreurs: number,
 	/**  Classes citées par le fichier et absentes de l'année : à créer avant d'importer. */
 	classes_absentes: string[],
+};
+
+/**  Ce que changerait l'application des frais de la nouvelle classe, sans rien écrire. */
+export type ApercuAjustement = {
+	/**  Classe dont la facture porte les frais. */
+	classe_avant: string,
+	/**  Classe dont les frais s'appliqueraient. */
+	classe_apres: string,
+	/**  Vrai si l'inscription n'a pas encore de facture : rien à ajuster. */
+	sans_facture: boolean,
+	/**  Tranches à venir qui changent. */
+	ecarts: EcartTranche[],
+	/**  Hausse totale. */
+	hausse: Montant,
+	/**  Baisse totale, avoir compris. */
+	baisse: Montant,
+	/**  Part de la baisse déjà payée, qui deviendrait un avoir. */
+	avoir: Montant,
 };
 
 /**  Ce que la fusion produira, montré avant la confirmation. */
@@ -497,6 +537,20 @@ export type AvanceAffichee = {
 export type Avertissement = {
 	/**  Clé de traduction. */
 	cle: string,
+};
+
+/**  Avoir d'un élève : un trop-perçu, jamais effacé, qui règle ses échéances sans encaissement. */
+export type Avoir = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Ajustement d'où il vient. */
+	ajustement_id: string,
+	/**  Échéance payée qui l'a fait naître. */
+	echeance_id: string,
+	/**  Montant de l'avoir. */
+	montant: Montant,
+	/**  Déjà utilisé. */
+	utilise: Montant,
 };
 
 /**  Bilan de la cantine d'un mois. */
@@ -1479,6 +1533,14 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	echeancier_changer_jour: Signature<DemandeJourEcheance, FactureAffichee>,
 	/**  Signature de la commande du même nom. */
+	facture_ajustement_apercu: Signature<DemandeApercuAjustement, ApercuAjustement>,
+	/**  Signature de la commande du même nom. */
+	facture_ajuster: Signature<DemandeFraisInscription, ApercuAjustement>,
+	/**  Signature de la commande du même nom. */
+	avoirs_utiliser: Signature<DemandeFraisInscription, Montant>,
+	/**  Signature de la commande du même nom. */
+	eleve_notes: Signature<DemandeEleve, NoteDeLEleve[]>,
+	/**  Signature de la commande du même nom. */
 	factures_rattraper_apercu: Signature<null, LigneRattrapage[]>,
 	/**  Signature de la commande du même nom. */
 	factures_rattraper: Signature<null, RapportRattrapage>,
@@ -2246,6 +2308,17 @@ export type DemandeApercu = {
 	texte: string,
 };
 
+/**
+ *  Écart demandé : celui d'un changement vers une classe, ou, sans classe, celui qui aligne la
+ *  facture sur la classe actuelle de l'élève.
+ */
+export type DemandeApercuAjustement = {
+	/**  Inscription validée. */
+	inscription_id: string,
+	/**  Classe visée ; absente : la classe actuelle. */
+	classe_id?: string | null,
+};
+
 /**  Relevé choisi pour un compte. */
 export type DemandeApercuReleve = {
 	/**  Compte. */
@@ -2398,6 +2471,11 @@ export type DemandeChangementClasse = {
 	classe_id: string,
 	/**  Motif, obligatoire hors du niveau et de la série. */
 	motif: string,
+	/**
+	 *  Vrai pour appliquer les frais de la nouvelle classe aux échéances à venir (la direction) ;
+	 *  faux, par défaut, pour garder les frais actuels.
+	 */
+	appliquer_frais?: boolean,
 };
 
 /**  Changement de mot de passe. */
@@ -3081,6 +3159,12 @@ export type DemandeFournisseur = {
 	 *  absent pour en créer une.
 	 */
 	lue_le?: number | null,
+};
+
+/**  Inscription dont les frais s'alignent sur sa classe actuelle, ou dont l'avoir règle la facture. */
+export type DemandeFraisInscription = {
+	/**  Inscription. */
+	inscription_id: string,
 };
 
 /**  Fiches désignées pour la fusion. */
@@ -4517,6 +4601,20 @@ export type DroitsRemise = {
 	remettre: boolean,
 };
 
+/**  Écart d'une tranche à venir entre les frais actuels et ceux de la nouvelle classe. */
+export type EcartTranche = {
+	/**  Nature du frais. */
+	type_frais: TypeFrais,
+	/**  Date d'échéance. */
+	date: string,
+	/**  Libellé de la tranche. */
+	libelle: string,
+	/**  Dû aujourd'hui. */
+	avant: Montant,
+	/**  Dû aux frais de la nouvelle classe. */
+	apres: Montant,
+};
+
 /**  Échéance d'une facture. */
 export type Echeance = {
 	/**  Identifiant technique. */
@@ -4539,11 +4637,13 @@ export type EcheanceAffichee = {
 	echeance: Echeance,
 	/**  Part des remises accordées. */
 	remise: Montant,
-	/**  Dû après remise. */
+	/**  Baisse portée par l'échéance après un changement de classe. */
+	ajustement: Montant,
+	/**  Dû après remise et baisse. */
 	net: Montant,
-	/**  Versements imputés. */
+	/**  Versements imputés, et avoirs utilisés. */
 	paye: Montant,
-	/**  Reste à payer : dû après remise, moins le payé. */
+	/**  Reste à payer : dû après remise et baisse, moins le payé. */
 	reste: Montant,
 };
 
@@ -5229,9 +5329,13 @@ export type FactureAffichee = {
 	echeances: EcheanceAffichee[],
 	/**  Total des remises accordées. */
 	remise: Montant,
-	/**  Versements imputés. */
+	/**  Total des baisses portées par les échéances après un changement de classe. */
+	ajustement: Montant,
+	/**  Ajustements au changement de classe, du plus ancien au plus récent. */
+	ajustements: Ajustement[],
+	/**  Versements imputés, et avoirs utilisés. */
 	paye: Montant,
-	/**  Reste à payer : total, moins les remises, moins le payé. */
+	/**  Reste à payer : total, moins les remises et les baisses, moins le payé. */
 	reste: Montant,
 };
 
@@ -6999,6 +7103,20 @@ export type NoteConduite = {
 	motif_annulation: string,
 };
 
+/**  Note d'un élève dans son historique. */
+export type NoteDeLEleve = {
+	/**  Évaluation. */
+	evaluation: Evaluation,
+	/**  Note. */
+	note: NoteEleve,
+	/**  Classe de l'évaluation. */
+	classe: string,
+	/**  Matière. */
+	matiere: string,
+	/**  Période : « 1er trimestre ». */
+	periode: string,
+};
+
 /**  Note d'un élève à une évaluation. */
 export type NoteEleve = {
 	/**  Évaluation. */
@@ -8578,6 +8696,8 @@ export type SituationInscription = {
 	remises: Remise[],
 	/**  Versements de l'inscription, annulés compris, du plus ancien au plus récent. */
 	versements: Versement[],
+	/**  Avoirs nés des ajustements de cette facture, avec ce qui en est utilisé. */
+	avoirs: Avoir[],
 };
 
 /**  SMS reçu, tel que le journal le garde : le code qu'il portait est masqué. */

@@ -5,6 +5,7 @@
 pub mod absences;
 pub mod absences_seances;
 pub mod academique;
+pub mod ajustements;
 pub mod annee_scolaire;
 pub mod audit;
 pub mod budget;

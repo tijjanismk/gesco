@@ -9,6 +9,7 @@ import { CaseACocher, Champ, Formulaire, Selection } from "../../composants/Cham
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, dateCivile, t, texteDeCle } from "../../i18n";
 import type { ChoixFrais, FicheEleve, InscriptionAffichee, StatutInscription, TypeInscription } from "../../types/gesco";
+import { EcartsFrais } from "../finance/AjustementFrais";
 import { ChoixFraisChamps } from "../finance/ChoixFrais";
 import { DepartEleve, DocumentsDepart, ExclusionsEleve } from "./Departs";
 
@@ -207,6 +208,10 @@ function ActionsInscription({
   const [motif, setMotif] = useState("");
   const [classeId, setClasseId] = useState("");
   const [choix, setChoix] = useState<ChoixFrais>({});
+  // Au changement de classe, les frais actuels restent, sauf si la direction choisit d'appliquer
+  // ceux de la nouvelle classe après avoir vu l'écart.
+  const [frais, setFrais] = useState<"garder" | "appliquer">("garder");
+  const decideLesFrais = commandeAutorisee("facture_ajuster", permissions);
   const id = inscription.inscription.id;
   const classe = classes.find((c) => c.classe.id === inscription.inscription.classe_id)?.classe;
   const suivi = {
@@ -221,7 +226,19 @@ function ActionsInscription({
     onSuccess: (r) => surRetour({ erreur: null, avertissements: r.avertissements }),
   });
   const abandon = useMutation({ mutationFn: () => appeler("inscription_abandonner", { id, motif }), ...suivi });
-  const changement = useMutation({ mutationFn: () => appeler("inscription_changer_classe", { id, classe_id: classeId, motif }), ...suivi });
+  const changement = useMutation({
+    mutationFn: () => appeler("inscription_changer_classe", { id, classe_id: classeId, motif, appliquer_frais: decideLesFrais && frais === "appliquer" }),
+    ...suivi,
+    onSuccess: () => {
+      setClasseId("");
+      setFrais("garder");
+    },
+  });
+  const apercu = useQuery({
+    queryKey: ["ajustement", id, classeId],
+    queryFn: () => appeler("facture_ajustement_apercu", { inscription_id: id, classe_id: classeId }),
+    enabled: !brouillon && classeId !== "" && commandeAutorisee("facture_ajustement_apercu", permissions),
+  });
   return (
     <div className="mt-2 flex flex-col gap-2">
       {brouillon && commandeAutorisee("inscription_valider", permissions) ? (
@@ -246,7 +263,28 @@ function ActionsInscription({
             surChangement={setClasseId}
             options={[{ valeur: "", libelle: t("inscriptions.choisir_classe") }, ...classes.filter((c) => c.classe.id !== inscription.inscription.classe_id).map((c) => ({ valeur: c.classe.id, libelle: c.classe.libelle }))]}
           />
+          {classeId !== "" && decideLesFrais ? (
+            <Selection
+              id={`frais-changement-${id}`}
+              libelle={t("inscriptions.frais_changement")}
+              valeur={frais}
+              surChangement={(v) => setFrais(v === "appliquer" ? "appliquer" : "garder")}
+              options={[
+                { valeur: "garder", libelle: t("inscriptions.frais_garder") },
+                { valeur: "appliquer", libelle: t("inscriptions.frais_appliquer") },
+              ]}
+            />
+          ) : null}
           <Bouton variante="secondaire" onClick={() => changement.mutate()} disabled={changement.isPending || classeId === ""}>{t("inscriptions.changer")}</Bouton>
+          {classeId === "" || apercu.data === undefined ? null : (
+            <div className="w-full rounded border border-muet/30 p-2 text-sm">
+              <EcartsFrais apercu={apercu.data} />
+              {apercu.data.ecarts.length === 0 ? null : (
+                <p className="text-muet">{t(frais === "appliquer" && decideLesFrais ? "inscriptions.frais_seront_appliques" : "inscriptions.frais_seront_gardes")}</p>
+              )}
+            </div>
+          )}
+          <div className="w-full"><MessageErreur erreur={apercu.error} /></div>
         </div>
       ) : null}
       {commandeAutorisee("inscription_abandonner", permissions) ? (

@@ -1,0 +1,10 @@
+DROP TRIGGER avoir_imputation_sans_suppression;
+DROP TRIGGER avoir_sans_suppression;
+DROP TRIGGER ajustement_echeance_sans_suppression;
+DROP TRIGGER ajustement_facture_sans_suppression;
+DROP TABLE avoir_imputation;
+DROP TABLE avoir;
+DROP TABLE ajustement_echeance;
+ALTER TABLE ligne_facture DROP COLUMN ajustement_id;
+DROP TABLE ajustement_facture;
+ALTER TABLE inscription DROP COLUMN classe_depuis;

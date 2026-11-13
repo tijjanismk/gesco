@@ -81,6 +81,21 @@ pub struct LigneGrille {
     pub note: Option<NoteEleve>,
 }
 
+/// Note d'un élève dans son historique.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct NoteDeLEleve {
+    /// Évaluation.
+    pub evaluation: Evaluation,
+    /// Note.
+    pub note: NoteEleve,
+    /// Classe de l'évaluation.
+    pub classe: String,
+    /// Matière.
+    pub matiere: String,
+    /// Période : « 1er trimestre ».
+    pub periode: String,
+}
+
 /// Grille de saisie d'une évaluation.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 pub struct GrilleNotes {
@@ -166,12 +181,19 @@ impl<'n> ServiceEvaluations<'n> {
         }
     }
 
-    /// Élèves validés d'une classe, dans l'ordre de la liste, avec leur date d'inscription.
+    /// Élèves validés d'une classe, dans l'ordre de la liste, avec le jour depuis lequel ils y
+    /// sont : leur inscription, ou leur arrivée s'ils ont changé de classe en cours d'année.
     async fn eleves_dates(
         &self,
         session: &Session,
         classe: &Classe,
     ) -> Resultat<Vec<(Id<Inscription>, String, String, DateCivile)>> {
+        let arrivees = {
+            let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+            let mut cnx = self.connexion().await?;
+            gesco_db::depots::inscriptions::arrivees_dans_la_classe(&mut cnx, classe.id, &contexte)
+                .await?
+        };
         Ok(ServiceInscriptions::nouveau(self.noyau)
             .de_la_classe(session, classe)
             .await?
@@ -181,12 +203,48 @@ impl<'n> ServiceEvaluations<'n> {
                     && l.inscription.statut == StatutInscription::Validee
             })
             .map(|l| {
-                (
-                    l.inscription.id,
-                    l.eleve,
-                    l.matricule,
-                    l.inscription.date_inscription,
-                )
+                let depuis = arrivees
+                    .iter()
+                    .find(|(i, _)| *i == l.inscription.id)
+                    .map_or(l.inscription.date_inscription, |(_, d)| *d);
+                (l.inscription.id, l.eleve, l.matricule, depuis)
+            })
+            .collect())
+    }
+
+    /// Notes d'un élève, toutes classes et toutes années, de la plus ancienne à la plus récente :
+    /// celles prises dans une classe quittée en cours d'année restent dans son historique. Un
+    /// enseignant n'y voit que ses classes et ses matières.
+    pub async fn de_l_eleve(
+        &self,
+        session: &Session,
+        eleve_id: Id<gesco_core::scolarite::Eleve>,
+    ) -> Resultat<Vec<NoteDeLEleve>> {
+        let portee = self.portee(session).await?;
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut cnx = self.connexion().await?;
+        let notes = evaluations::notes_de_l_eleve(&mut cnx, eleve_id, &contexte).await?;
+        let mut periodes: Vec<Periode> = Vec::new();
+        let mut annees_lues = Vec::new();
+        for (e, _, _, _) in &notes {
+            if !annees_lues.contains(&e.annee_id) {
+                annees_lues.push(e.annee_id);
+                periodes.extend(pedagogie::periodes(&mut cnx, e.annee_id, &contexte).await?);
+            }
+        }
+        Ok(notes
+            .into_iter()
+            .filter(|(e, _, _, _)| portee.autorise(e.classe_id, e.matiere_id))
+            .map(|(evaluation, note, classe, matiere)| NoteDeLEleve {
+                periode: periodes
+                    .iter()
+                    .find(|p| p.id == evaluation.periode_id)
+                    .map(Periode::libelle)
+                    .unwrap_or_default(),
+                classe,
+                matiere,
+                note,
+                evaluation,
             })
             .collect())
     }

@@ -2851,3 +2851,54 @@ test("phase 11, lot B : quarante enfants observés au clavier en moins de trois 
   await expect(page.getByRole("listitem").filter({ hasText: "Aminata Koné" })).toBeVisible();
   await capturer("169-maitresse-du-jardin");
 });
+
+test("changement de classe : Fatoumata passe de la 7e A à la 6e A, la direction applique les frais de la 6e après avoir vu l'écart ; ses notes de 7e restent sur sa fiche", async () => {
+  // La 6e année ouvre une classe et reçoit ses frais dans une nouvelle version de la grille.
+  await allerA("nav.classes");
+  await page.locator("#classe-niveau").selectOption({ label: "6e année" });
+  await page.locator("#classe-libelle").fill("6e A");
+  await page.getByRole("button", { name: texte("classes.creer") }).click();
+  await expect(page.getByRole("cell", { name: "6e A", exact: true })).toBeVisible();
+  await allerA("nav.frais");
+  await page.getByRole("button", { name: texte("frais.nouvelle_version") }).click();
+  const montants = page.locator('[id^="frais-ligne-"][id$="-montant"]');
+  await expect(montants.first()).toBeVisible();
+  const lignes = await montants.count();
+  for (let i = 0; i < lignes; i++) {
+    if ((await page.locator(`#frais-ligne-${i}-montant`).inputValue()) === "10000") await page.locator(`#frais-ligne-${i}-niveau-6`).check();
+  }
+  await page.getByRole("button", { name: texte("frais.ajouter_ligne") }).click();
+  await page.locator(`#frais-ligne-${lignes}-niveau-6`).check();
+  await page.locator(`#frais-ligne-${lignes}-montant`).fill("120000");
+  await page.getByRole("button", { name: texte("frais.mettre_en_vigueur") }).click();
+  await expect(page.getByRole("heading", { name: new RegExp(`version \\d+\\) · ${texte("frais.etat.en_vigueur")}`) })).toBeVisible();
+
+  // Sur la fiche de Fatoumata, la nouvelle classe choisie montre l'écart des tranches à venir avant tout.
+  await allerA("nav.eleves");
+  await page.locator("#eleves-recherche").fill("Fatoumata");
+  await page.getByRole("row").filter({ hasText: "Fatoumata" }).filter({ hasText: "7e A" }).first().click();
+  await expect(page.getByRole("heading", { name: "Fatoumata Diallo" })).toBeVisible();
+  await page.getByText(texte("inscriptions.autres_actions")).click();
+  await page.locator('[id^="motif-"]').first().fill("Niveau mieux adapté à l'élève");
+  await page.locator('[id^="nouvelle-classe-"]').first().selectOption({ label: "6e A" });
+  await expect(page.getByText(/Frais de 7e A → frais de 6e A/)).toBeVisible();
+  await expect(page.locator('[id^="frais-changement-"]').first()).toHaveValue("garder");
+  await expect(page.getByText(texte("inscriptions.frais_seront_gardes"))).toBeVisible();
+  await page.locator('[id^="frais-changement-"]').first().selectOption("appliquer");
+  await expect(page.getByText(texte("inscriptions.frais_seront_appliques"))).toBeVisible();
+  await page.getByText(/Frais de 7e A → frais de 6e A/).scrollIntoViewIfNeeded();
+  await capturer("170-changement-de-classe-ecart");
+  await page.getByRole("button", { name: texte("inscriptions.changer"), exact: true }).click();
+  await expect(page.getByText(/6e A/).first()).toBeVisible();
+
+  // La facture n'est pas réécrite : l'ajustement daté s'y ajoute, la baisse sur les échéances.
+  await expect(page.getByText(/Frais ajustés le .* au changement de classe/)).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: texte("facture.ajustement") })).toBeVisible();
+  await page.getByText(/Frais ajustés le/).scrollIntoViewIfNeeded();
+  await capturer("171-frais-ajustes");
+
+  // Ses notes de 7e A restent dans son historique.
+  await expect(page.getByRole("heading", { name: "7e A · 1er trimestre" })).toBeVisible();
+  await page.getByRole("heading", { name: "7e A · 1er trimestre" }).scrollIntoViewIfNeeded();
+  await capturer("172-notes-de-l-eleve");
+});

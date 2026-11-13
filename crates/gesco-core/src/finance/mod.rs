@@ -1,6 +1,7 @@
 //! Finance (SPEC_PHASE_3, blueprint §8.8) : frais, factures, échéanciers, remises, caisse.
 //! Règles pures, sans E/S (R-03) ; montants en francs entiers (R-11).
 
+pub mod ajustement;
 pub mod caisse;
 pub mod facture;
 pub mod recouvrement;
@@ -8,6 +9,7 @@ pub mod remise;
 pub mod tarif;
 pub mod versement;
 
+pub use ajustement::{Ajustement, Avoir, EcartTranche};
 pub use caisse::{ModePaiement, MouvementCaisse, NatureMouvement, SessionCaisse, StatutSession};
 pub use facture::{
     ArriveeEnCours, ContexteTarifaire, Echeance, Facture, LigneFacture, StatutEcheance,

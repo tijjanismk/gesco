@@ -21,13 +21,13 @@
       [Aucune facture : l'inscription n'est pas validée.]
     } else {
       let f = i.facture
-      [Facture #f.numero · plan « #f.plan » · total #f.total · remises #f.remise · payé #f.paye · *reste #f.reste*]
+      [Facture #f.numero · plan « #f.plan » · total #f.total · remises et baisses #f.remise · payé #f.paye · *reste #f.reste*]
       table(
         columns: (largeur("echeance", 1fr), largeur("date", auto), largeur("du", auto), largeur("remise", auto), largeur("paye", auto), largeur("reste", auto)),
         stroke: 0.4pt,
         inset: 4pt,
         align: (left, left, right, right, right, right),
-        table.header[*Échéance*][*Date*][*Dû*][*Remise*][*Payé*][*Reste*],
+        table.header[*Échéance*][*Date*][*Dû*][*Remise ou baisse*][*Payé*][*Reste*],
         ..f.echeances.map(e => ([#e.libelle], [#e.date], [#e.montant], [#e.remise], [#e.paye], [#e.reste])).flatten(),
       )
       if i.versements.len() > 0 {

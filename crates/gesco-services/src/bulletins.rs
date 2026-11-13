@@ -176,6 +176,8 @@ struct Classement {
     regle: RegleEvaluation,
     /// Contenu calculé de chaque élève de la classe, dans l'ordre de la liste.
     contenus: Vec<(Id<Inscription>, ContenuBulletin)>,
+    /// Inscriptions de la classe, tous états ; un élève passé dans une autre classe n'y est plus.
+    inscriptions: Vec<Id<Inscription>>,
     evaluations_en_saisie: u32,
 }
 
@@ -218,12 +220,12 @@ impl<'n> ServiceBulletins<'n> {
             crate::referentiel::niveau_imprime(&mut cnx, &niveau, &classe, &contexte).await?;
         let bareme = bareme_du_cycle(niveau.cycle).ok_or(regle("bulletin.cycle_sans_notes"))?;
         let annee = annee_scolaire::lire(&mut cnx, classe.annee_id, &contexte).await?;
-        let mut periodes_du_niveau: Vec<Periode> =
-            pedagogie::periodes(&mut cnx, classe.annee_id, &contexte)
-                .await?
-                .into_iter()
-                .filter(|p| p.niveau_id == classe.niveau_id)
-                .collect();
+        let toutes_periodes = pedagogie::periodes(&mut cnx, classe.annee_id, &contexte).await?;
+        let mut periodes_du_niveau: Vec<Periode> = toutes_periodes
+            .iter()
+            .filter(|p| p.niveau_id == classe.niveau_id)
+            .cloned()
+            .collect();
         periodes_du_niveau.sort_by_key(|p| p.rang);
         let periode = periodes_du_niveau
             .iter()
@@ -258,30 +260,41 @@ impl<'n> ServiceBulletins<'n> {
         let appreciations = bulletins::appreciations(&mut cnx, periode.id, &contexte).await?;
         let sanctions =
             crate::discipline::du_conseil_imprimees(&mut cnx, periode.id, &contexte).await?;
+        let arrivees =
+            gesco_db::depots::inscriptions::arrivees_dans_la_classe(&mut cnx, classe.id, &contexte)
+                .await?;
         drop(cnx);
         let fiches = ServiceEnseignants::nouveau(self.noyau)
             .lister(session)
             .await?;
         // Un élève arrivé après la fin de la période ne l'a pas suivie (Q-27) : pas de bulletin.
-        let eleves: Vec<(Id<Inscription>, String, String, DateCivile)> =
-            ServiceInscriptions::nouveau(self.noyau)
-                .de_la_classe(session, &classe)
-                .await?
-                .into_iter()
-                .filter(|l| {
-                    l.inscription.classe_id == classe.id
-                        && l.inscription.statut == StatutInscription::Validee
-                        && !non_suivie(l.inscription.date_inscription, &periode)
-                })
-                .map(|l| {
-                    (
-                        l.inscription.id,
-                        l.eleve,
-                        l.matricule,
-                        l.inscription.date_inscription,
-                    )
-                })
-                .collect();
+        // Un élève venu d'une autre classe en cours d'année y est arrivé le jour du changement :
+        // le bulletin de la classe ne compte que les notes prises dans la classe.
+        let lignes_classe = ServiceInscriptions::nouveau(self.noyau)
+            .de_la_classe(session, &classe)
+            .await?;
+        // Inscriptions de la classe, tous états : celles qui l'ont quittée pour une autre classe
+        // n'y sont plus.
+        let inscriptions: Vec<Id<Inscription>> = lignes_classe
+            .iter()
+            .filter(|l| l.inscription.classe_id == classe.id)
+            .map(|l| l.inscription.id)
+            .collect();
+        let eleves: Vec<(Id<Inscription>, String, String, DateCivile)> = lignes_classe
+            .into_iter()
+            .filter(|l| {
+                l.inscription.classe_id == classe.id
+                    && l.inscription.statut == StatutInscription::Validee
+            })
+            .map(|l| {
+                let depuis = arrivees
+                    .iter()
+                    .find(|(i, _)| *i == l.inscription.id)
+                    .map_or(l.inscription.date_inscription, |(_, d)| *d);
+                (l.inscription.id, l.eleve, l.matricule, depuis)
+            })
+            .filter(|(_, _, _, depuis)| !non_suivie(*depuis, &periode))
+            .collect();
 
         // Note de conduite, si l'école l'a activée pour ce cycle.
         let conduite = {
@@ -374,12 +387,28 @@ impl<'n> ServiceBulletins<'n> {
                         let moyenne = if p.id == periode.id {
                             r.moyenne
                         } else if non_suivie(*inscrit_le, p) {
-                            reprises
+                            // Période faite dans une autre classe de l'école : la moyenne de son
+                            // bulletin de même rang ; sinon, la moyenne reprise d'ailleurs.
+                            siens
                                 .iter()
-                                .find(|x| {
-                                    x.inscription_id == *inscription_id && x.periode_id == p.id
+                                .filter(|b| {
+                                    toutes_periodes
+                                        .iter()
+                                        .any(|x| x.id == b.periode_id && x.rang == p.rang)
+                                        && b.statut != StatutBulletin::Remplace
                                 })
-                                .map(|x| x.moyenne)
+                                .max_by_key(|b| (b.statut.fige(), b.version))
+                                .map(|b| b.contenu.moyenne)
+                                .or_else(|| {
+                                    reprises
+                                        .iter()
+                                        .find(|x| {
+                                            x.inscription_id == *inscription_id
+                                                && x.periode_id == p.id
+                                        })
+                                        .map(|x| Some(x.moyenne))
+                                })
+                                .flatten()
                         } else {
                             match siens
                                 .iter()
@@ -538,6 +567,7 @@ impl<'n> ServiceBulletins<'n> {
             periode,
             regle: regle_cycle,
             contenus,
+            inscriptions,
         })
     }
 
@@ -583,8 +613,17 @@ impl<'n> ServiceBulletins<'n> {
         demande: &DemandeBulletins,
     ) -> Resultat<BulletinsClasse> {
         let classement = self.classer(session, demande).await?;
-        let mut derniers = self.derniers(session, demande).await?;
         let ordre: Vec<Id<Inscription>> = classement.contenus.iter().map(|(i, _)| *i).collect();
+        // Un élève parti dans une autre classe ne garde ici que ses bulletins publiés.
+        let mut derniers: Vec<BulletinAffiche> = self
+            .derniers(session, demande)
+            .await?
+            .into_iter()
+            .filter(|a| {
+                a.bulletin.statut.fige()
+                    || classement.inscriptions.contains(&a.bulletin.inscription_id)
+            })
+            .collect();
         derniers.sort_by_key(|a| {
             ordre
                 .iter()
@@ -647,13 +686,24 @@ impl<'n> ServiceBulletins<'n> {
                 .map(|a| &a.bulletin);
             match dernier {
                 None => {
+                    // Un élève venu d'une autre classe pendant la période peut y avoir un bulletin
+                    // non publié de cette période : celui de la classe où il est le suit.
+                    let version =
+                        bulletins::de_l_inscription(unite.connexion(), *inscription_id, &contexte)
+                            .await?
+                            .iter()
+                            .filter(|b| b.periode_id == classement.periode.id)
+                            .map(|b| b.version)
+                            .max()
+                            .unwrap_or(0)
+                            + 1;
                     let b = Bulletin {
                         id: nouvel_id(),
                         etablissement_id: session.etablissement_id,
                         inscription_id: *inscription_id,
                         periode_id: classement.periode.id,
                         classe_id: classement.classe.id,
-                        version: 1,
+                        version,
                         statut: StatutBulletin::Calcule,
                         contenu: contenu.clone(),
                         regle_version: classement.regle.version,
@@ -959,12 +1009,17 @@ impl<'n> ServiceBulletins<'n> {
         if classement.evaluations_en_saisie > 0 {
             return Err(regle("bulletin.evaluations_en_saisie"));
         }
+        // Seuls les élèves de la classe : le bulletin non publié d'un élève parti dans une autre
+        // classe ne part pas avec ceux de la classe qu'il a quittée.
         let a_valider: Vec<Bulletin> = self
             .derniers(session, demande)
             .await?
             .into_iter()
             .map(|a| a.bulletin)
-            .filter(|b| b.statut == StatutBulletin::Calcule)
+            .filter(|b| {
+                b.statut == StatutBulletin::Calcule
+                    && classement.inscriptions.contains(&b.inscription_id)
+            })
             .collect();
         // Un bulletin dont les notes ont changé depuis le calcul doit être recalculé.
         if a_valider.iter().any(|b| {
@@ -994,11 +1049,15 @@ impl<'n> ServiceBulletins<'n> {
         demande: &DemandeBulletins,
     ) -> Resultat<Vec<Bulletin>> {
         annees::exiger_classe_modifiable(self.noyau, session, demande.classe_id).await?;
+        let classement = self.classer(session, demande).await?;
         let derniers = self.derniers(session, demande).await?;
         let a_publier: Vec<Bulletin> = derniers
             .iter()
             .map(|a| a.bulletin.clone())
-            .filter(|b| b.statut == StatutBulletin::Valide)
+            .filter(|b| {
+                b.statut == StatutBulletin::Valide
+                    && classement.inscriptions.contains(&b.inscription_id)
+            })
             .collect();
         if a_publier.is_empty() {
             return Err(regle("bulletin.rien_a_publier"));

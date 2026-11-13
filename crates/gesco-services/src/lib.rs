@@ -7,6 +7,7 @@
 pub mod absences;
 pub mod absences_seances;
 pub mod administration;
+pub mod ajustements;
 mod alea;
 pub mod annees;
 pub mod archive;

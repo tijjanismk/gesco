@@ -92,6 +92,10 @@ pub struct DemandeChangementClasse {
     pub classe_id: Id<Classe>,
     /// Motif, obligatoire hors du niveau et de la série.
     pub motif: String,
+    /// Vrai pour appliquer les frais de la nouvelle classe aux échéances à venir (la direction) ;
+    /// faux, par défaut, pour garder les frais actuels.
+    #[serde(default)]
+    pub appliquer_frais: bool,
 }
 
 /// Inscriptions d'une année.
@@ -837,30 +841,36 @@ impl<'n> ServiceInscriptions<'n> {
     }
 
     /// Change de classe une inscription validée (Q-35) : même niveau et même série, sauf décision
-    /// de la direction (`enrollments:validate`), motivée.
+    /// de la direction (`enrollments:validate`), motivée. L'élève compte dans la nouvelle classe
+    /// à partir du jour même. La facture reste telle quelle, sauf si la direction applique les
+    /// frais de la nouvelle classe, dans la même transaction (décision du 2026-11-13).
     pub async fn changer_classe(
         &self,
         session: &Session,
-        id: Id<Inscription>,
-        classe_id: Id<Classe>,
-        motif: &str,
+        demande: &DemandeChangementClasse,
     ) -> Resultat<ResultatInscription> {
+        let (id, classe_id, motif) = (demande.id, demande.classe_id, demande.motif.as_str());
         let avant = self.lire(session, id).await?;
         if avant.statut != StatutInscription::Validee {
             return Err(regle("inscription.non_validee"));
         }
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
-        {
+        let (ancienne, nouvelle) = {
             let mut cnx = self.connexion().await?;
             let ancienne = academique::classe(&mut cnx, avant.classe_id, &contexte).await?;
             let nouvelle = academique::classe(&mut cnx, classe_id, &contexte).await?;
-            let direction = self
+            let permissions = self
                 .noyau
                 .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
-                .await?
-                .contains(&Permission::ENROLLMENTS_VALIDATE);
+                .await?;
+            let direction = permissions.contains(&Permission::ENROLLMENTS_VALIDATE);
             verifier_changement(&ancienne, &nouvelle, direction, motif).map_err(regle)?;
-        }
+            if demande.appliquer_frais && !crate::ajustements::decide_les_frais(&permissions) {
+                return Err(regle("ajustement.reserve_direction"));
+            }
+            (ancienne, nouvelle)
+        };
+        let depuis = jour(contexte.maintenant)?;
         let apres = Inscription {
             classe_id,
             classe_precedente_id: Some(avant.classe_id),
@@ -870,8 +880,28 @@ impl<'n> ServiceInscriptions<'n> {
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
-        inscriptions::changer_classe(unite.connexion(), id, classe_id, avant.classe_id, &contexte)
-            .await?;
+        inscriptions::changer_classe(
+            unite.connexion(),
+            id,
+            classe_id,
+            avant.classe_id,
+            depuis,
+            &contexte,
+        )
+        .await?;
+        if demande.appliquer_frais
+            && let Some(prepare) = crate::ajustements::preparer(
+                unite.connexion(),
+                &contexte,
+                &avant,
+                &ancienne,
+                &nouvelle,
+                depuis,
+            )
+            .await?
+        {
+            crate::ajustements::appliquer_dans(&mut unite, &contexte, &prepare).await?;
+        }
         let id_texte = id.vers_chaine();
         let trace = serde_json::json!({ "inscription": apres, "motif": motif.trim() });
         unite.auditer(
@@ -890,6 +920,7 @@ impl<'n> ServiceInscriptions<'n> {
                 "ancienne": avant.classe_id,
                 "nouvelle": classe_id,
                 "motif": motif.trim(),
+                "frais_appliques": demande.appliquer_frais,
             }),
         );
         self.noyau.terminer(unite).await?;

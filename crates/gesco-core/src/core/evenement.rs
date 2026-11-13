@@ -86,6 +86,11 @@ pub enum TypeEvenement {
     PlanPaiementChange,
     /// Les échéances d'un élève passent à un autre jour du mois.
     EcheancierDecale,
+    /// La facture d'un élève qui a changé de classe reçoit les frais de sa nouvelle classe : une
+    /// hausse en ligne, une baisse en parts, le trop-perçu en avoir (décision du 2026-11-13).
+    FactureAjustee,
+    /// Un avoir de l'élève règle ses échéances, sans encaissement.
+    AvoirUtilise,
     /// Une remise est proposée à la direction (§5).
     RemiseProposee,
     /// Une remise est accordée ; elle réduit l'échéancier.
@@ -346,6 +351,8 @@ impl TypeEvenement {
         Self::FactureAnnulee,
         Self::PlanPaiementChange,
         Self::EcheancierDecale,
+        Self::FactureAjustee,
+        Self::AvoirUtilise,
         Self::RemiseProposee,
         Self::RemiseAccordee,
         Self::RemiseRefusee,
@@ -495,6 +502,8 @@ impl TypeEvenement {
             Self::FactureAnnulee => "FactureAnnulee",
             Self::PlanPaiementChange => "PlanPaiementChange",
             Self::EcheancierDecale => "EcheancierDecale",
+            Self::FactureAjustee => "FactureAjustee",
+            Self::AvoirUtilise => "AvoirUtilise",
             Self::RemiseProposee => "RemiseProposee",
             Self::RemiseAccordee => "RemiseAccordee",
             Self::RemiseRefusee => "RemiseRefusee",
@@ -646,6 +655,8 @@ impl TypeEvenement {
             | Self::FactureAnnulee
             | Self::PlanPaiementChange
             | Self::EcheancierDecale
+            | Self::FactureAjustee
+            | Self::AvoirUtilise
             | Self::RemiseProposee
             | Self::RemiseAccordee
             | Self::RemiseRefusee

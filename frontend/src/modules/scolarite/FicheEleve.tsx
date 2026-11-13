@@ -12,6 +12,7 @@ import { ChampsIdentite, identiteVide, saisieDepuis } from "./Identite";
 import { reduirePhoto } from "./photo";
 import { FicheAbsorbee, FusionEleve } from "./Fusion";
 import { FraisEleve } from "../finance/FraisEleve";
+import { NotesEleve } from "../pedagogie/NotesEleve";
 import { InscriptionsEleve } from "./InscriptionsEleve";
 import { ResponsablesEleve } from "./Responsables";
 import { Webcam } from "./Webcam";
@@ -97,6 +98,7 @@ export function FicheEleveEcran({ id, permissions, maitre, surOuvrir }: { id: st
       {modifiable ? <EditionEleve key={JSON.stringify(fiche.data.eleve) + JSON.stringify(identite)} fiche={fiche.data} /> : null}
       <ResponsablesEleve fiche={fiche.data} modifiable={modifiable} messages={commandeAutorisee("responsable_messages_lire", permissions, maitre)} />
       {eleve.fusionne_dans === null ? <InscriptionsEleve fiche={fiche.data} permissions={permissions} maitre={maitre} /> : null}
+      {commandeAutorisee("eleve_notes", permissions, maitre) ? <NotesEleve eleveId={eleve.id} /> : null}
       {/* Un compte de maître lit la fiche des élèves de ses classes, sans leur situation financière. */}
       {commandeAutorisee("situation_financiere", permissions, maitre) ? <FraisEleve eleveId={eleve.id} permissions={permissions} /> : null}
       {modifiable && commandeAutorisee("eleves_fusionner", permissions) ? <FusionEleve fiche={fiche.data} surOuvrir={surOuvrir} /> : null}
