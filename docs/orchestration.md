@@ -347,3 +347,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-13 : 7e mathématiques finies (32 sur 32, 121 figures SVG) : toute la 7e scientifique est
   rédigée. Le porteur a passé la physique-chimie de terminale sur Opus 5.5. Lancée : 8e biologie
   11 à 15 (Sonnet).
+- 2026-11-13 : 8e biologie finie (15 sur 15) ; 8e mathématiques 15 sur 44. Décision du porteur :
+  matières scientifiques sur Opus 5.5, les autres sur Sonnet. TSE et 8e mathématiques passées
+  sur Opus ; 8e mathématiques relancée (A-16 à A-20) ; 8e physique-chimie lancée sur Opus.
