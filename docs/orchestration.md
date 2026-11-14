@@ -380,3 +380,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   corrigés (948 vérifications justes) ; sujets du BAC : 2. Lot B étape 3 (livret du jardin) faite
   (`fd9cca0`), sept choix à confirmer ; ceux de l'étape 2 attendent toujours. Changement de classe :
   corrections 5 et 6 en cours. Ensuite : lot B étape 4, par message à `local_f6f8d8f3-…`.
+- 2026-11-14 : changement de classe fini (`b37d53b`). Le porteur valide tous les choix des étapes 2 et 3
+  du lot B ; son principe : « la flexibilité sans incohérence ». Lot B étape 4 lancée (par message à
+  `local_f6f8d8f3-0fc5-4742-8ae3-c5d51c4d0494`). Ensuite : phase 9, étape 1 (`SPEC_PHASE_9.md`).
