@@ -9,7 +9,7 @@ use crate::commun::{DateCivile, Horodatage, Id};
 use crate::core::{Etablissement, MachineAEtats};
 use crate::pedagogie::assiduite::TotauxAbsences;
 use crate::pedagogie::calcul::Rang;
-use crate::pedagogie::{Matiere, Periode};
+use crate::pedagogie::{Matiere, NiveauAcquisition, Periode};
 use crate::scolarite::{Classe, Cycle, Inscription};
 
 /// État d'un bulletin. Le « brouillon » du blueprint n'est pas enregistré : un bulletin existe
@@ -161,6 +161,67 @@ pub struct ContenuBulletin {
     /// Note de conduite de la période (2e cycle, lycée, technique), quand l'école l'a activée.
     #[serde(default)]
     pub conduite: Option<ConduiteBulletin>,
+    /// Forme du document : bulletin de notes, ou livret du jardin.
+    #[serde(default)]
+    pub forme: FormeBulletin,
+    /// Contenu propre au livret du jardin ; vide pour un bulletin de notes.
+    #[serde(default)]
+    pub livret: Option<ContenuLivret>,
+}
+
+/// Forme d'un bulletin (SPEC_PHASE_11_B §3.4) : le livret du jardin est un bulletin, porté par
+/// la même table et le même cycle de vie, d'un contenu d'une autre forme.
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum FormeBulletin {
+    /// Bulletin de notes, avec moyennes.
+    #[default]
+    Bulletin,
+    /// Livret du jardin : des compétences observées, sans note ni moyenne.
+    Livret,
+}
+
+/// Compétence imprimée au livret, avec son niveau à chaque période déjà passée (T-111).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct CompetenceLivret {
+    /// Libellé, figé à la préparation.
+    pub libelle: String,
+    /// Section où elle a été observée, quand ce n'est pas celle de l'enfant aujourd'hui (RB-7).
+    pub section: Option<String>,
+    /// Niveau à chaque période imprimée, dans l'ordre des colonnes ; vide si non observée.
+    pub niveaux: Vec<Option<NiveauAcquisition>>,
+}
+
+/// Domaine imprimé au livret : seulement s'il a une compétence observée.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct DomaineLivret {
+    /// Libellé, figé à la préparation.
+    pub libelle: String,
+    /// Compétences observées au moins une fois, dans leur ordre.
+    pub competences: Vec<CompetenceLivret>,
+    /// Commentaire du domaine pour la période ; vide s'il n'y en a pas.
+    pub commentaire: String,
+}
+
+/// Contenu figé d'un livret du jardin (SPEC_PHASE_11_B §3.4, §5).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct ContenuLivret {
+    /// Date de naissance de l'enfant.
+    pub date_naissance: Option<DateCivile>,
+    /// Périodes imprimées, une colonne chacune : celles déjà passées où l'enfant était inscrit
+    /// (T-111, RB-8).
+    pub periodes: Vec<String>,
+    /// Libellés des trois niveaux : acquis, en cours, non acquis (T-110).
+    pub echelle: Vec<String>,
+    /// Domaines qui ont au moins une compétence observée, dans leur ordre.
+    pub domaines: Vec<DomaineLivret>,
+    /// Vrai si l'école a relevé les absences de la classe dans la période (RB-9) : la ligne des
+    /// absences ne s'imprime qu'alors.
+    pub absences_relevees: bool,
+    /// Décision de fin d'année, au livret de la dernière période quand elle est posée.
+    pub decision: Option<String>,
 }
 
 /// Bulletin d'un élève, dans une version.

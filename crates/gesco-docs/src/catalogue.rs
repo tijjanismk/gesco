@@ -50,6 +50,10 @@ const MODELES_INTEGRES: &[(&str, &str)] = &[
         include_str!("../modeles/bulletin/modele.typ"),
     ),
     (
+        include_str!("../modeles/livret/modele.json"),
+        include_str!("../modeles/livret/modele.typ"),
+    ),
+    (
         include_str!("../modeles/certificat_transfert/modele.json"),
         include_str!("../modeles/certificat_transfert/modele.typ"),
     ),

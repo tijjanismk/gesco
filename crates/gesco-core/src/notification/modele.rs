@@ -139,9 +139,40 @@ pub fn verifier(nature: NatureMessage, modele: &str) -> Result<(), &'static str>
     Ok(())
 }
 
+/// Texte d'un avis de bulletin dit pour le livret du jardin (SPEC_PHASE_11_B RB-12) : le modèle
+/// que l'école a réglé sert tel quel, son mot « bulletin » devient « livret ».
+pub fn pour_un_livret(texte: &str) -> String {
+    texte
+        .replace("bulletins", "livrets")
+        .replace("Bulletins", "Livrets")
+        .replace("BULLETIN", "LIVRET")
+        .replace("bulletin", "livret")
+        .replace("Bulletin", "Livret")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn l_avis_du_jardin_dit_livret() {
+        let texte = formuler(
+            modele_par_defaut(NatureMessage::Bulletin),
+            &[
+                ("ecole", "Ecole Askia"),
+                ("eleve", "Awa"),
+                ("classe", "PS"),
+                ("periode", "1er trimestre"),
+            ],
+        );
+        let livret = pour_un_livret(&texte);
+        assert!(livret.contains("le livret de 1er trimestre de Awa (PS)"));
+        assert!(!livret.to_lowercase().contains("bulletin"));
+        assert_eq!(
+            pour_un_livret("Bulletins non retires"),
+            "Livrets non retires"
+        );
+    }
 
     #[test]
     fn les_modeles_livres_tiennent_en_un_sms() {

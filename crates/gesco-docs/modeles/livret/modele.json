@@ -1,0 +1,8 @@
+{
+  "id": "livret",
+  "version": 1,
+  "libelle": "Livrets du jardin d'une classe",
+  "variables": [
+    { "nom": "livrets", "requise": true }
+  ]
+}

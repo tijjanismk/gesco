@@ -467,6 +467,8 @@ impl<'n> ServiceDeparts<'n> {
             let b = siens
                 .iter()
                 .filter(|b| b.periode_id == p.id && b.statut != StatutBulletin::Remplace)
+                // Un livret du jardin n'a pas de moyenne : il n'entre pas au relevé.
+                .filter(|b| b.contenu.forme == gesco_core::pedagogie::FormeBulletin::Bulletin)
                 .max_by_key(|b| (b.statut == StatutBulletin::Publie, b.version));
             let Some(b) = b else { continue };
             lignes.push(serde_json::json!({

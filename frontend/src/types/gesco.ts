@@ -1082,6 +1082,16 @@ export type Competence = {
 	retiree_le: number | null,
 };
 
+/**  Compétence imprimée au livret, avec son niveau à chaque période déjà passée (T-111). */
+export type CompetenceLivret = {
+	/**  Libellé, figé à la préparation. */
+	libelle: string,
+	/**  Section où elle a été observée, quand ce n'est pas celle de l'enfant aujourd'hui (RB-7). */
+	section: string | null,
+	/**  Niveau à chaque période imprimée, dans l'ordre des colonnes ; vide si non observée. */
+	niveaux: (NiveauAcquisition | null)[],
+};
+
 /**
  *  Compétences du jardin et réglages de l'échelle, pour l'écran de la direction et les écrans de
  *  saisie.
@@ -1294,6 +1304,10 @@ export type ContenuBulletin = {
 	sanctions_conseil?: string[],
 	/**  Note de conduite de la période (2e cycle, lycée, technique), quand l'école l'a activée. */
 	conduite?: ConduiteBulletin | null,
+	/**  Forme du document : bulletin de notes, ou livret du jardin. */
+	forme?: FormeBulletin,
+	/**  Contenu propre au livret du jardin ; vide pour un bulletin de notes. */
+	livret?: ContenuLivret | null,
 };
 
 /**  Contenu d'une grille : ses lignes et ses plans. */
@@ -1302,6 +1316,28 @@ export type ContenuGrille = {
 	lignes: LigneTarifaire[],
 	/**  Plans de paiement. */
 	plans: PlanPaiement[],
+};
+
+/**  Contenu figé d'un livret du jardin (SPEC_PHASE_11_B §3.4, §5). */
+export type ContenuLivret = {
+	/**  Date de naissance de l'enfant. */
+	date_naissance: string | null,
+	/**
+	 *  Périodes imprimées, une colonne chacune : celles déjà passées où l'enfant était inscrit
+	 *  (T-111, RB-8).
+	 */
+	periodes: string[],
+	/**  Libellés des trois niveaux : acquis, en cours, non acquis (T-110). */
+	echelle: string[],
+	/**  Domaines qui ont au moins une compétence observée, dans leur ordre. */
+	domaines: DomaineLivret[],
+	/**
+	 *  Vrai si l'école a relevé les absences de la classe dans la période (RB-9) : la ligne des
+	 *  absences ne s'imprime qu'alors.
+	 */
+	absences_relevees: boolean,
+	/**  Décision de fin d'année, au livret de la dernière période quand elle est posée. */
+	decision: string | null,
 };
 
 /**  Contenu d'une règle d'évaluation. */
@@ -4527,6 +4563,16 @@ export type DomaineCompetence = {
 	retire_le: number | null,
 };
 
+/**  Domaine imprimé au livret : seulement s'il a une compétence observée. */
+export type DomaineLivret = {
+	/**  Libellé, figé à la préparation. */
+	libelle: string,
+	/**  Compétences observées au moins une fois, dans leur ordre. */
+	competences: CompetenceLivret[],
+	/**  Commentaire du domaine pour la période ; vide s'il n'y en a pas. */
+	commentaire: string,
+};
+
 /**  Le dossier de discipline d'un élève pour son inscription. */
 export type DossierDiscipline = {
 	/**  Inscription. */
@@ -5611,6 +5657,16 @@ export type FormatReleve = {
 	/**  Colonne de la référence de la transaction. */
 	reference: number | null,
 };
+
+/**
+ *  Forme d'un bulletin (SPEC_PHASE_11_B §3.4) : le livret du jardin est un bulletin, porté par
+ *  la même table et le même cycle de vie, d'un contenu d'une autre forme.
+ */
+export type FormeBulletin = 
+/**  Bulletin de notes, avec moyennes. */
+"bulletin" | 
+/**  Livret du jardin : des compétences observées, sans note ni moyenne. */
+"livret";
 
 /**  Formule de la moyenne d'une matière sur une période (T-28). */
 export type FormuleMatiere = 

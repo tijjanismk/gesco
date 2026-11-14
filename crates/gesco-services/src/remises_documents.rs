@@ -196,6 +196,17 @@ pub(crate) async fn afficher(
         .find(|p| p.id == remise.periode_id)
         .map(|p| p.libelle())
         .unwrap_or_default();
+    // Le livret du jardin figure sous son nom (SPEC_PHASE_11_B §4.4).
+    let periode = if gesco_db::depots::bulletins::lire(cnx, remise.bulletin_id, contexte)
+        .await?
+        .contenu
+        .forme
+        == gesco_core::pedagogie::FormeBulletin::Livret
+    {
+        format!("Livret du {periode}")
+    } else {
+        periode
+    };
     let mut responsables = Vec::new();
     for (_, id, qualites) in
         personnes::liens_de_l_eleve(cnx, inscription.eleve_id, contexte).await?

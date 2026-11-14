@@ -4146,6 +4146,24 @@ impl Application {
     ) -> Resultat<DocumentAffiche> {
         let ouverte = appel.ouverte()?;
         let session = appel.session()?;
+        // Les livrets du jardin ont leur modèle (SPEC_PHASE_11_B §5).
+        if liste
+            .first()
+            .is_some_and(|b| b.contenu.forme == gesco_core::pedagogie::FormeBulletin::Livret)
+        {
+            let (donnees, pieces) =
+                crate::livrets::donnees_impression(&ouverte.noyau, session, liste).await?;
+            let contexte = ouverte
+                .noyau
+                .contexte(session.etablissement_id, Some(session));
+            let produit = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+                .produire_avec(contexte, "livret", entite, entite_id, donnees, pieces)
+                .await?;
+            return Ok(DocumentAffiche {
+                pdf: base64(&produit.pdf),
+                document: produit.document,
+            });
+        }
         // Les bulletins d'un lot sont d'une même classe, donc d'un même cycle.
         let cycle = liste
             .first()

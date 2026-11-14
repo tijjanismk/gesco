@@ -26,7 +26,13 @@ fn id_par(liste: &Value, champ: &str, valeur: &str) -> Value {
 }
 
 /// Enfant inscrit dans la classe ; rend sa fiche. La classe se valide ensuite d'un geste.
-async fn inscrire(p: &Poste_, admin: &Jeton, nom: &str, prenoms: &str, classe: &Value) -> Value {
+pub(crate) async fn inscrire(
+    p: &Poste_,
+    admin: &Jeton,
+    nom: &str,
+    prenoms: &str,
+    classe: &Value,
+) -> Value {
     let fiche = p
         .ok(
             "eleve_creer",
@@ -69,18 +75,18 @@ async fn inscrire(p: &Poste_, admin: &Jeton, nom: &str, prenoms: &str, classe: &
 
 /// École d'essai : deux classes de moyenne section, un enfant dans la seconde et trois dans la
 /// première, une 7e pour les refus ; le 1er trimestre de la moyenne section.
-struct Ecole {
-    p: Poste_,
-    admin: Jeton,
-    ms_a: Value,
-    ms_b: Value,
-    septieme_a: Value,
-    trimestre: Value,
-    math: Value,
+pub(crate) struct Ecole {
+    pub(crate) p: Poste_,
+    pub(crate) admin: Jeton,
+    pub(crate) ms_a: Value,
+    pub(crate) ms_b: Value,
+    pub(crate) septieme_a: Value,
+    pub(crate) trimestre: Value,
+    pub(crate) math: Value,
     _dossier: tempfile::TempDir,
 }
 
-async fn ecole() -> Ecole {
+pub(crate) async fn ecole() -> Ecole {
     let dossier = tempfile::tempdir().unwrap();
     let p = poste_vierge(dossier.path()).await;
     p.installer().await;
@@ -149,7 +155,7 @@ async fn ecole() -> Ecole {
     }
 }
 
-fn demande(classe: &Value, periode: &Value) -> Value {
+pub(crate) fn demande(classe: &Value, periode: &Value) -> Value {
     json!({ "classe_id": classe, "periode_id": periode })
 }
 

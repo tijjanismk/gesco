@@ -8,7 +8,8 @@ import { Bouton } from "../../composants/Bouton";
 import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, date as dateDuJour, dateCivile, t } from "../../i18n";
-import type { BulletinAffiche, BulletinsClasse, LigneReprise, StatutBulletin } from "../../types/gesco";
+import type { BulletinAffiche, BulletinsClasse, LigneReprise, NiveauAcquisition, StatutBulletin } from "../../types/gesco";
+import { NIVEAUX, PICTOGRAMMES } from "./grilleObservations";
 import { lirePoints, moyenne, points, texteRang } from "./saisies";
 
 const STATUTS: Record<StatutBulletin, Cle> = {
@@ -38,14 +39,15 @@ export function Bulletins() {
   const [classeChoisie, setClasseChoisie] = useState<string | null>(null);
   const [periodeChoisie, setPeriodeChoisie] = useState<string | null>(null);
   const permissions = session.data?.permissions ?? [];
-  const niveauxNotes = new Set((pedagogie.data?.niveaux ?? []).filter((n) => n.cycle !== "jardin").map((n) => n.id));
-  const visibles = (classes.data ?? []).filter((c) => niveauxNotes.has(c.classe.niveau_id));
+  // Les classes du jardin ont des livrets, les autres des bulletins (SPEC_PHASE_11_B §4.3).
+  const visibles = classes.data ?? [];
   const classe = visibles.find((c) => c.classe.id === classeChoisie) ?? visibles[0];
   const periodes = (pedagogie.data?.periodes ?? []).filter((p) => classe !== undefined && p.periode.niveau_id === classe.classe.niveau_id);
   const periode = periodes.find((p) => p.periode.id === periodeChoisie) ?? periodes[0];
+  const duJardin = classe !== undefined && pedagogie.data?.niveaux.find((n) => n.id === classe.classe.niveau_id)?.mode_evaluation === "competences";
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold text-encre">{t("bulletins.titre")}</h1>
+      <h1 className="text-xl font-semibold text-encre">{t(duJardin ? "livrets.titre" : "bulletins.titre")}</h1>
       {ouvertes.length > 1 ? (
         <div className="flex flex-wrap items-end gap-3">
           <Selection
@@ -93,13 +95,13 @@ function BulletinsDeLaClasse({ classeId, periodeId, permissions, close }: { clas
     mutationFn: () => appeler("resultats_calculer", demande),
     onSuccess: (donnees) => {
       client.setQueryData(cle, donnees);
-      setBilan(t("bulletins.calcules", { nombre: String(donnees.bulletins.length) }));
+      setBilan(t(donnees.cycle === "jardin" ? "livrets.prepares" : "bulletins.calcules", { nombre: String(donnees.bulletins.length) }));
     },
   });
   const validation = useMutation({
     mutationFn: () => appeler("bulletins_valider", demande),
     onSuccess: (n) => {
-      setBilan(t("bulletins.valides", { nombre: String(n) }));
+      setBilan(t(lecture.data?.cycle === "jardin" ? "livrets.valides" : "bulletins.valides", { nombre: String(n) }));
       rafraichir();
     },
   });
@@ -107,7 +109,7 @@ function BulletinsDeLaClasse({ classeId, periodeId, permissions, close }: { clas
     mutationFn: () => appeler("bulletins_publier", demande),
     onSuccess: (document) => {
       setPdf(document.pdf);
-      setBilan(t("bulletins.publies"));
+      setBilan(t(lecture.data?.cycle === "jardin" ? "livrets.publies" : "bulletins.publies"));
       rafraichir();
     },
   });
@@ -124,9 +126,66 @@ function BulletinsDeLaClasse({ classeId, periodeId, permissions, close }: { clas
   });
   const d = lecture.data;
   if (d === undefined) return <MessageErreur erreur={lecture.error} />;
-  const premier = d.bulletins[0]?.bulletin.contenu;
   const choisi = d.bulletins.find((b) => b.bulletin.inscription_id === ouvert);
   const erreur = calcul.error ?? validation.error ?? publication.error ?? apercu.error ?? remplissage.error;
+  if (d.cycle === "jardin") {
+    return (
+      <>
+        <Section titre={t("livrets.classe", { classe: d.classe, periode: d.periode })}>
+          <div className="flex flex-wrap gap-2">
+            {!close && commandeAutorisee("resultats_calculer", permissions) ? (
+              <Bouton onClick={() => calcul.mutate()} disabled={calcul.isPending}>{t("livrets.preparer")}</Bouton>
+            ) : null}
+            {!close && commandeAutorisee("bulletins_valider", permissions) ? (
+              <Bouton variante="secondaire" onClick={() => validation.mutate()} disabled={validation.isPending || d.bulletins.length === 0}>{t("livrets.valider")}</Bouton>
+            ) : null}
+            {!close && commandeAutorisee("bulletins_publier", permissions) ? (
+              <Bouton variante="secondaire" onClick={() => publication.mutate()} disabled={publication.isPending || d.bulletins.length === 0}>{t("livrets.publier")}</Bouton>
+            ) : null}
+            {commandeAutorisee("bulletins_produire", permissions) ? (
+              <Bouton variante="secondaire" onClick={() => apercu.mutate()} disabled={apercu.isPending || d.bulletins.length === 0}>{t("livrets.imprimer_classe")}</Bouton>
+            ) : null}
+          </div>
+          {bilan === null ? null : <p role="status" className="text-sm text-vert">{bilan}</p>}
+          <MessageErreur erreur={erreur} />
+          {d.bulletins.length === 0 ? (
+            <p className="text-sm text-muet">{t("livrets.aucun")}</p>
+          ) : (
+            <table className="w-full max-w-3xl text-left text-sm">
+              <thead>
+                <tr className="text-muet">
+                  <th className="px-2 py-1 font-normal">{t("notes.numero")}</th>
+                  <th className="px-2 py-1 font-normal">{t("observations.enfant")}</th>
+                  <th className="px-2 py-1 font-normal">{t("bulletins.etat")}</th>
+                  <th className="px-2 py-1 font-normal" />
+                </tr>
+              </thead>
+              <tbody>
+                {d.bulletins.map((a, i) => (
+                  <tr key={a.bulletin.id} className="border-b border-muet/30">
+                    <td className="px-2 py-1 text-muet">{i + 1}</td>
+                    <td className="px-2 py-1 text-encre">{a.bulletin.contenu.eleve}</td>
+                    <td className="px-2 py-1 text-muet">
+                      {t(STATUTS[a.bulletin.statut])}
+                      {a.bulletin.version > 1 ? ` · ${t("bulletins.version", { version: String(a.bulletin.version) })}` : ""}
+                    </td>
+                    <td className="px-2 py-1">
+                      <button type="button" className="text-sm text-primaire underline" onClick={() => setOuvert(ouvert === a.bulletin.inscription_id ? null : a.bulletin.inscription_id)}>
+                        {t(ouvert === a.bulletin.inscription_id ? "bulletins.fermer" : "bulletins.ouvrir")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Section>
+        {choisi === undefined ? null : <LivretEleve key={choisi.bulletin.id} affiche={choisi} permissions={permissions} surChange={rafraichir} close={close} />}
+        {pdf === null ? null : <ApercuPdf base64={pdf} />}
+      </>
+    );
+  }
+  const premier = d.bulletins[0]?.bulletin.contenu;
   return (
     <>
       <Section titre={t("bulletins.classe", { classe: d.classe, periode: d.periode })}>
@@ -333,6 +392,80 @@ function BulletinEleve({ affiche, classe, permissions, surChange, close }: { aff
       <div className="flex flex-wrap items-end gap-2">
         {commandeAutorisee("bulletin_produire", permissions) ? (
           <Bouton variante="secondaire" onClick={() => impression.mutate(b.id)} disabled={impression.isPending}>{t("bulletins.imprimer_un")}</Bouton>
+        ) : null}
+        {!close && b.statut === "publie" && commandeAutorisee("bulletin_corriger", permissions) ? (
+          <>
+            <Champ id="correction-motif" libelle={t("bulletins.motif_correction")} value={motif} onChange={(e) => setMotif(e.target.value)} />
+            <Bouton variante="secondaire" onClick={() => correction.mutate()} disabled={correction.isPending || motif.trim() === ""}>{t("bulletins.corriger")}</Bouton>
+          </>
+        ) : null}
+      </div>
+      {affiche.anterieures.length === 0 ? null : (
+        <ul className="flex flex-col gap-1 text-sm">
+          {affiche.anterieures.map((v) => (
+            <li key={v.id}>
+              <button type="button" className="text-primaire underline" onClick={() => impression.mutate(v.id)}>
+                {t("bulletins.ancienne_version", { version: String(v.version), statut: t(STATUTS[v.statut]), date: v.publie_le === null ? "" : dateDuJour(v.publie_le) })}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {pdf === null ? null : <ApercuPdf base64={pdf} />}
+    </Section>
+  );
+}
+
+/** Aperçu du livret d'un enfant (SPEC_PHASE_11_B §4.3) : ce qu'il imprimera, sans rien ajouter
+ *  pour ce qui n'existe pas ; impression, correction motivée d'un livret publié. */
+function LivretEleve({ affiche, permissions, surChange, close }: { affiche: BulletinAffiche; permissions: readonly string[]; surChange: () => void; close: boolean }) {
+  const b = affiche.bulletin;
+  const c = b.contenu;
+  const l = c.livret ?? null;
+  const [motif, setMotif] = useState("");
+  const [pdf, setPdf] = useState<string | null>(null);
+  const correction = useMutation({ mutationFn: () => appeler("bulletin_corriger", { id: b.id, motif }), onSuccess: surChange });
+  const impression = useMutation({ mutationFn: (id: string) => appeler("bulletin_produire", { id }), onSuccess: (document) => setPdf(document.pdf) });
+  const libelle = (n: NiveauAcquisition) => l?.echelle[NIVEAUX.indexOf(n)] ?? n;
+  return (
+    <Section titre={t("livrets.de", { eleve: c.eleve })}>
+      {b.motif_correction === "" ? null : <p className="text-sm text-ocre">{t("bulletins.corrige", { version: String(b.version), motif: b.motif_correction })}</p>}
+      {(l?.domaines ?? []).map((dom) => (
+        <table key={dom.libelle} className="w-full max-w-4xl text-left text-sm">
+          <thead>
+            <tr className="text-muet">
+              <th className="px-2 py-1 font-semibold text-encre">{dom.libelle}</th>
+              {(l?.periodes ?? []).map((p) => (
+                <th key={p} className="w-40 px-2 py-1 font-normal">{p}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dom.competences.map((k) => (
+              <tr key={k.libelle} className="border-b border-muet/30">
+                <td className="px-2 py-1 text-encre">{k.section === null ? k.libelle : `${k.libelle} (${k.section})`}</td>
+                {k.niveaux.map((n, i) => (
+                  <td key={i} className="px-2 py-1 text-encre">
+                    {n === null ? null : `${PICTOGRAMMES[n]} ${libelle(n)}`}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {dom.commentaire === "" ? null : (
+              <tr>
+                <td colSpan={1 + (l?.periodes.length ?? 0)} className="px-2 py-1 text-sm italic text-encre">{dom.commentaire}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      ))}
+      {c.appreciation_generale === "" ? null : <p className="text-sm text-encre">{`${t("observations.appreciation_generale")} : ${c.appreciation_generale}`}</p>}
+      {l === null || !l.absences_relevees ? null : <p className="text-sm text-encre">{t("livrets.absences", { demi_journees: String(c.absences.demi_journees) })}</p>}
+      {l?.decision == null ? null : <p className="text-sm text-encre">{t("livrets.decision", { decision: l.decision })}</p>}
+      <MessageErreur erreur={correction.error ?? impression.error} />
+      <div className="flex flex-wrap items-end gap-2">
+        {commandeAutorisee("bulletin_produire", permissions) ? (
+          <Bouton variante="secondaire" onClick={() => impression.mutate(b.id)} disabled={impression.isPending}>{t("livrets.imprimer_un")}</Bouton>
         ) : null}
         {!close && b.statut === "publie" && commandeAutorisee("bulletin_corriger", permissions) ? (
           <>

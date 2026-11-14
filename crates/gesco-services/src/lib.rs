@@ -64,6 +64,7 @@ pub mod journal_technique;
 pub mod journal_tresorerie;
 pub mod licence;
 pub mod livres;
+pub(crate) mod livrets;
 pub mod maitres;
 pub mod messages;
 pub mod messages_auto;

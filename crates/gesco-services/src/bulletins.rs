@@ -18,10 +18,12 @@ use gesco_core::pedagogie::evaluation::{SaisieNote, lire_saisie};
 use gesco_core::pedagogie::regle::bareme_du_cycle;
 use gesco_core::pedagogie::resultats::{NotesEleve, calculer_classe, moyennes_annuelles};
 use gesco_core::pedagogie::{
-    Bulletin, ConduiteBulletin, ContenuBulletin, ImpressionMoyenneAnnuelle, LigneBulletin, Matiere,
-    MoyenneReprise, Periode, RegleEvaluation, StatutBulletin, StatutEvaluation,
+    Bulletin, ConduiteBulletin, ContenuBulletin, FormeBulletin, ImpressionMoyenneAnnuelle,
+    LigneBulletin, Matiere, MoyenneReprise, Periode, StatutBulletin, StatutEvaluation,
 };
-use gesco_core::scolarite::{Classe, Cycle, DiplomeTerminal, Inscription, StatutInscription};
+use gesco_core::scolarite::{
+    Classe, Cycle, DiplomeTerminal, Inscription, ModeEvaluation, StatutInscription,
+};
 use gesco_db::depots::bulletins::APPRECIATION_GENERALE;
 use gesco_db::depots::{
     absences, academique, annee_scolaire, bulletins, enseignants, evaluations, parametre, pedagogie,
@@ -173,7 +175,8 @@ pub struct ReprisesClasse {
 struct Classement {
     classe: Classe,
     periode: Periode,
-    regle: RegleEvaluation,
+    /// Version de la règle d'évaluation qui calcule ; zéro pour les livrets du jardin.
+    regle_version: i64,
     /// Contenu calculé de chaque élève de la classe, dans l'ordre de la liste.
     contenus: Vec<(Id<Inscription>, ContenuBulletin)>,
     /// Inscriptions de la classe, tous états ; un élève passé dans une autre classe n'y est plus.
@@ -216,6 +219,22 @@ impl<'n> ServiceBulletins<'n> {
         let mut cnx = self.connexion().await?;
         let classe = academique::classe(&mut cnx, demande.classe_id, &contexte).await?;
         let niveau = academique::niveau(&mut cnx, classe.niveau_id, &contexte).await?;
+        // Le jardin a des livrets : des compétences observées, sans note ni moyenne
+        // (SPEC_PHASE_11_B §3.4).
+        if niveau.mode_evaluation == ModeEvaluation::Competences {
+            drop(cnx);
+            let livrets =
+                crate::livrets::preparer(self.noyau, session, &classe, &niveau, demande.periode_id)
+                    .await?;
+            return Ok(Classement {
+                classe,
+                periode: livrets.periode,
+                regle_version: 0,
+                contenus: livrets.contenus,
+                inscriptions: livrets.inscriptions,
+                evaluations_en_saisie: 0,
+            });
+        }
         let niveau_imprime =
             crate::referentiel::niveau_imprime(&mut cnx, &niveau, &classe, &contexte).await?;
         let bareme = bareme_du_cycle(niveau.cycle).ok_or(regle("bulletin.cycle_sans_notes"))?;
@@ -551,6 +570,8 @@ impl<'n> ServiceBulletins<'n> {
                             coefficient: conduite.as_ref().map_or(1, |(c, _, _)| *c),
                             points: r.points_conduite,
                         }),
+                        forme: FormeBulletin::Bulletin,
+                        livret: None,
                     },
                 )
             })
@@ -565,7 +586,7 @@ impl<'n> ServiceBulletins<'n> {
             .unwrap_or(u32::MAX),
             classe,
             periode,
-            regle: regle_cycle,
+            regle_version: regle_cycle.version,
             contenus,
             inscriptions,
         })
@@ -706,7 +727,7 @@ impl<'n> ServiceBulletins<'n> {
                         version,
                         statut: StatutBulletin::Calcule,
                         contenu: contenu.clone(),
-                        regle_version: classement.regle.version,
+                        regle_version: classement.regle_version,
                         motif_correction: String::new(),
                         calcule_le: contexte.maintenant,
                         publie_le: None,
@@ -723,14 +744,14 @@ impl<'n> ServiceBulletins<'n> {
                     calcules += 1;
                 }
                 Some(avant) if !avant.statut.fige() => {
-                    if avant.contenu == *contenu && avant.regle_version == classement.regle.version
+                    if avant.contenu == *contenu && avant.regle_version == classement.regle_version
                     {
                         continue;
                     }
                     let apres = Bulletin {
                         statut: StatutBulletin::Calcule,
                         contenu: contenu.clone(),
-                        regle_version: classement.regle.version,
+                        regle_version: classement.regle_version,
                         calcule_le: contexte.maintenant,
                         ..avant.clone()
                     };
@@ -753,7 +774,7 @@ impl<'n> ServiceBulletins<'n> {
             "classe",
             &classement.classe.id.vers_chaine(),
             serde_json::json!({ "periode_id": classement.periode.id, "bulletins": calcules,
-                "regle_version": classement.regle.version }),
+                "regle_version": classement.regle_version }),
         );
         self.noyau.terminer(unite).await?;
         self.lire(session, demande).await
@@ -1147,7 +1168,7 @@ impl<'n> ServiceBulletins<'n> {
             version: publie.version + 1,
             statut: StatutBulletin::Calcule,
             contenu,
-            regle_version: classement.regle.version,
+            regle_version: classement.regle_version,
             motif_correction: motif.to_owned(),
             calcule_le: contexte.maintenant,
             publie_le: None,

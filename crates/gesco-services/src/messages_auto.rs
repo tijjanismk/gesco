@@ -13,7 +13,7 @@ use gesco_core::notification::{
     EtatMessage, Message, NatureMessage, TypeMessage, modele, numero_destinataire, recoit,
 };
 use gesco_core::pedagogie::assiduite::{DemiJournee, NatureAbsence};
-use gesco_core::pedagogie::bulletin::Bulletin;
+use gesco_core::pedagogie::bulletin::{Bulletin, FormeBulletin};
 use gesco_core::scolarite::discipline::Sanction;
 use gesco_core::scolarite::{Eleve, Inscription, Qualites, Responsable, StatutInscription};
 use gesco_db::depots::{
@@ -177,6 +177,12 @@ pub(crate) async fn avis_bulletin(
             ("periode", &periode),
         ],
     );
+    // Au jardin, l'avis dit « livret » (SPEC_PHASE_11_B RB-12).
+    let texte = if bulletin.contenu.forme == FormeBulletin::Livret {
+        modele::pour_un_livret(&texte)
+    } else {
+        texte
+    };
     let pour = destinataires(
         cnx,
         inscription.eleve_id,
@@ -557,6 +563,16 @@ pub(crate) async fn rappel_bulletin(
             ("periode", &periode),
         ],
     );
+    let texte = if gesco_db::depots::bulletins::lire(cnx, remise.bulletin_id, contexte)
+        .await?
+        .contenu
+        .forme
+        == FormeBulletin::Livret
+    {
+        modele::pour_un_livret(&texte)
+    } else {
+        texte
+    };
     let pour = destinataires(
         cnx,
         inscription.eleve_id,

@@ -2902,3 +2902,29 @@ test("changement de classe : Fatoumata passe de la 7e A à la 6e A, la direction
   await page.getByRole("heading", { name: "7e A · 1er trimestre" }).scrollIntoViewIfNeeded();
   await capturer("172-notes-de-l-eleve");
 });
+
+test("phase 11, lot B : les livrets de la petite section se préparent, se valident, se publient et s'impriment", async () => {
+  // L'écran des bulletins, ouvert sur la petite section, montre des livrets.
+  await allerA("nav.bulletins");
+  await page.locator("#bulletins-classe").selectOption({ label: "PS · Petite section" });
+  await expect(page.getByRole("heading", { name: texte("livrets.titre"), exact: true })).toBeVisible();
+  await page.getByRole("button", { name: texte("livrets.preparer") }).click();
+  // Tous les enfants ont leur livret, observés ou non (RB-1).
+  await expect(page.getByRole("status").filter({ hasText: "Livrets préparés : 40." })).toBeVisible();
+  // Aperçu du livret d'un enfant observé : ses domaines, ses niveaux, son appréciation.
+  await page.getByRole("row").filter({ hasText: "Adama 36 Coulibaly" }).getByRole("button", { name: texte("bulletins.ouvrir") }).click();
+  const livret = page.locator("section").filter({ has: page.getByRole("heading", { name: "Livret de Adama 36 Coulibaly" }) });
+  await expect(livret.getByRole("columnheader", { name: "Motricité" })).toBeVisible();
+  await expect(livret.getByText("Un bon trimestre, curieux de tout.", { exact: false })).toBeVisible();
+  await livret.scrollIntoViewIfNeeded();
+  await capturer("172-apercu-du-livret");
+
+  await page.getByRole("button", { name: texte("livrets.valider") }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Livrets validés : 40." })).toBeVisible();
+  await page.getByRole("button", { name: texte("livrets.publier") }).click();
+  await expect(page.getByRole("status").filter({ hasText: texte("livrets.publies") })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Adama 36 Coulibaly" }).getByText(texte("bulletins.statut.publie"))).toBeVisible();
+  // Le PDF de la classe, un livret par page, lisible en noir et blanc.
+  await page.locator("iframe").last().scrollIntoViewIfNeeded();
+  await capturer("173-livrets-publies");
+});

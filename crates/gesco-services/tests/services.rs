@@ -36,6 +36,7 @@ mod import_referentiel;
 mod jardin;
 mod journal_technique;
 mod livres;
+mod livrets;
 mod maitres;
 mod matrice_permissions;
 mod messages;

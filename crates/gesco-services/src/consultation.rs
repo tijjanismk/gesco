@@ -15,7 +15,9 @@ use gesco_core::notification::consultation::{
 use gesco_core::notification::{NatureMessage, gsm7};
 use gesco_core::pedagogie::assiduite::NatureAbsence;
 use gesco_core::pedagogie::{Periode, StatutBulletin, TypePeriode};
-use gesco_core::scolarite::{Inscription, Responsable, StatutInscription, telephone};
+use gesco_core::scolarite::{
+    Inscription, ModeEvaluation, Responsable, StatutInscription, telephone,
+};
 use gesco_db::depots::{
     absences, academique, annee_scolaire, bulletins, consultation as depot, factures, file_sms,
     inscriptions, parametre, pedagogie, personnes, utilisateur,
@@ -344,6 +346,12 @@ async fn notes(
             .into_iter()
             .filter(|b| b.statut == StatutBulletin::Publie)
             .max_by_key(|b| b.publie_le.map(|h| h.millis_epoque()));
+        // Un enfant du jardin a des livrets, sans moyenne (SPEC_PHASE_11_B RB-13).
+        let classe = academique::classe(cnx, enfant.inscription.classe_id, contexte).await?;
+        let livret = academique::niveau(cnx, classe.niveau_id, contexte)
+            .await?
+            .mode_evaluation
+            == ModeEvaluation::Competences;
         lignes.push(match publie {
             Some(b) => NoteEnfant {
                 prenom: enfant.prenom.clone(),
@@ -355,6 +363,7 @@ async fn notes(
                 } else {
                     None
                 },
+                livret,
             },
             None => NoteEnfant {
                 prenom: enfant.prenom.clone(),
@@ -362,6 +371,7 @@ async fn notes(
                 moyenne: None,
                 bareme: 2_000,
                 rang: None,
+                livret,
             },
         });
     }

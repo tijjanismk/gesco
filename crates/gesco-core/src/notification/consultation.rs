@@ -450,6 +450,8 @@ pub struct NoteEnfant {
     pub bareme: i32,
     /// Rang et effectif, si l'école les donne par SMS.
     pub rang: Option<(u32, u32)>,
+    /// Vrai pour un enfant du jardin : il a des livrets, sans moyenne (SPEC_PHASE_11_B RB-13).
+    pub livret: bool,
 }
 
 /// Réponse à NOTE : la moyenne générale de la dernière période publiée de chaque enfant ; le rang
@@ -461,6 +463,9 @@ pub fn reponse_notes(ecole: &str, enfants: &[NoteEnfant]) -> String {
     let lignes: Vec<String> = enfants
         .iter()
         .map(|e| match (&e.periode, e.moyenne) {
+            // Au jardin, rien sur une moyenne qu'il n'a pas : son livret publié, ou rien encore.
+            (Some(periode), _) if e.livret => format!("{} livret du {periode} publie", e.prenom),
+            (None, _) if e.livret => format!("{} pas encore de livret", e.prenom),
             (Some(periode), Some(moyenne)) => {
                 let mut ligne = format!(
                     "{} {periode} {}/{}",
@@ -478,6 +483,9 @@ pub fn reponse_notes(ecole: &str, enfants: &[NoteEnfant]) -> String {
             (None, _) => format!("{} pas encore de bulletin", e.prenom),
         })
         .collect();
+    if enfants.iter().all(|e| e.livret) {
+        return format!("{ecole} : {}.", lignes.join(" ; "));
+    }
     format!("{ecole} : moyennes {}.", lignes.join(" ; "))
 }
 
@@ -651,6 +659,7 @@ mod tests {
                     moyenne: Some(1_250),
                     bareme: 2_000,
                     rang: Some((1, 42)),
+                    livret: false,
                 },
                 NoteEnfant {
                     prenom: "Moussa".into(),
@@ -658,6 +667,7 @@ mod tests {
                     moyenne: None,
                     bareme: 2_000,
                     rang: None,
+                    livret: false,
                 },
             ],
         );
@@ -665,6 +675,22 @@ mod tests {
             notes,
             "GS Les Etoiles : moyennes Awa 1er trimestre 12,50/20, rang 1er/42 ; Moussa pas encore de bulletin."
         );
+        // Au jardin, la réponse ne dit rien d'une moyenne (RB-13).
+        let jardin = |periode: Option<&str>| NoteEnfant {
+            prenom: "Fanta".into(),
+            periode: periode.map(Into::into),
+            moyenne: None,
+            bareme: 0,
+            rang: None,
+            livret: true,
+        };
+        assert_eq!(
+            reponse_notes(ecole, &[jardin(Some("1er trimestre"))]),
+            "GS Les Etoiles : Fanta livret du 1er trimestre publie."
+        );
+        let deux = reponse_notes(ecole, &[jardin(None)]);
+        assert_eq!(deux, "GS Les Etoiles : Fanta pas encore de livret.");
+        assert!(!deux.contains("moyenne"));
         assert_eq!(
             reponse_aide(ecole),
             "GS Les Etoiles : envoyez SOLDE, ABS, NOTE suivi de votre code. Exemple : SOLDE K7PX3M."
