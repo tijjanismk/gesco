@@ -362,3 +362,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-14 : décision du porteur : la rédaction s'arrête quand les quatre lots en cours finissent
   (TSE, terminale physique-chimie, 8e mathématiques, 8e physique-chimie). Ne plus relancer de
   lot ni ouvrir de matière sans un mot de lui. Le code continue (lot B, changement de classe).
+- 2026-11-14, demande du porteur pour la phase 12 : les cours doivent pouvoir être améliorés dans
+  l'application même. Proposition de l'orchestrateur (choix ouverts au porteur) : la leçon livrée
+  reste intacte, l'école en fait sa version (texte, formules LaTeX avec aperçu KaTeX, images,
+  vidéos, exercices) ; chaque modification est tracée ; un enseignant peut marquer une leçon
+  « relue » ; retour possible à la version livrée ; une mise à jour de la bibliothèque ne
+  touche jamais la version de l'école. À inscrire dans `docs/plan-phase-12.md` et la spécification.
