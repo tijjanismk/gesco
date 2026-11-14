@@ -457,3 +457,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   Playwright ». La phase 9 a 8 étapes (`SPEC_PHASE_9.md` §12) ; les enquêtes sont dans l'étape 8.
   Elles s'enchaînent sans captures ni accord par étape (contrairement au §12 de la spécification) ;
   l'essai Playwright global et les captures viennent après l'étape 8.
+- 2026-11-14, accord du porteur : une session fait plusieurs étapes, commite après chacune, et passe
+  la main au-delà d'environ 150 000 jetons (note « Reprise » en tête de la section « Phase 9 » de
+  `ETAT_AVANCEMENT.md`). Phase 9 étapes 2 à 8 lancées dans `local_c76a8b02-5213-4cab-9181-ada4eda07f85`
+  (Opus 5.5, effort élevé) ; elle attend sans compiler le commit de l'étape 1
+  (`local_9aead718`, essais Rust en cours). Le retrait du 2e trimestre de l'école d'essai est confié
+  à son étape 8.
