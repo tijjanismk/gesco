@@ -467,3 +467,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   mais seuls ceux de l'étape sont lancés (plus fmt, clippy, tsc, ESLint, vitest, knip). Suite
   complète des essais Rust (réseau compris) et Playwright une seule fois, après l'étape 8 de la
   phase 9. Message passé aux deux sessions de la phase 9.
+- 2026-11-14, demande du porteur (remplace l'entrée précédente) : aucun essai pendant les étapes,
+  même pas ceux de l'étape. Par étape : fmt, clippy, tsc, ESLint, puis commit et push. Après
+  l'étape 8 : tous les essais une seule fois (suite Rust complète, vitest, knip, Playwright),
+  corrections, commit. Consigne passée aux deux sessions de la phase 9.
