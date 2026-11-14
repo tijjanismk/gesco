@@ -440,3 +440,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (installeur d'essai 2.0.0 hors du dépôt). Phase 9 étape 1 lancée dans
   `local_9aead718-ea1a-4a91-a44d-b29e9eab5f87` (Opus 5.5, effort élevé). `code-lot-b-2` à archiver
   avec l'accord du porteur.
+- 2026-11-14 : `code-lot-b-2` archivée à la demande du porteur. Choix de l'étape 4 du lot B : 1
+  (chapitre du jardin à part jusqu'au manuel 2.0), 2 (ancienne école d'essai gardée sous un autre
+  nom) et 4 (instant d'observation toujours croissant) retenus. Choix 3 écarté par le principe
+  « flexibilité sans incohérence » : l'école d'essai vit le 14 octobre 2026 et ne doit pas avoir de
+  livrets du 2e trimestre publiés. À faire par une session de code neuve, après le commit de la
+  phase 9 étape 1 (une seule qui compile) : retirer ce 2e trimestre de l'école d'essai (le livret
+  sur deux trimestres reste vérifié par les essais Rust), puis refaire l'école d'essai.
