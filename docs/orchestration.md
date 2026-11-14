@@ -447,3 +447,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   livrets du 2e trimestre publiés. À faire par une session de code neuve, après le commit de la
   phase 9 étape 1 (une seule qui compile) : retirer ce 2e trimestre de l'école d'essai (le livret
   sur deux trimestres reste vérifié par les essais Rust), puis refaire l'école d'essai.
+- 2026-11-14, décision du porteur : « nous allons coder une majeure partie, on fera test Playwright
+  global pour aller vite ». Change la règle 8 : les sessions de code ne lancent plus Playwright à
+  chaque étape (« tout vert » = fmt, clippy, essais Rust, tsc, ESLint, vitest, knip) et notent dans
+  `ETAT_AVANCEMENT.md` les écrans à couvrir. Un essai Playwright global, avec captures montrées au
+  porteur et l'école d'essai refaite (2e trimestre retiré), viendra après la phase 9 et la
+  sauvegarde hors de l'école, avant la phase 12. Message passé à `phase9-etape1` en cours.
