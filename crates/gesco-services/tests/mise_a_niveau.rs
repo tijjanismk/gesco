@@ -734,6 +734,33 @@ async fn une_base_de_la_composition_9_recoit_les_droits_des_messages_aux_famille
 }
 
 #[tokio::test]
+async fn une_base_de_la_composition_11_recoit_le_droit_des_statistiques() {
+    let (noyau, etablissement_id, _dossier) = installer().await;
+    // Composition 11 : personne ne consulte les statistiques.
+    executer(
+        &noyau,
+        "DELETE FROM role_permission WHERE permission_code = 'statistics:read'",
+    )
+    .await;
+    executer(&noyau, "UPDATE role SET composition_livree = 11").await;
+    mise_a_niveau::completer_roles(&noyau, etablissement_id)
+        .await
+        .unwrap();
+    for role in RoleSysteme::TOUS {
+        let obtenues = permissions(&noyau, etablissement_id, *role).await;
+        let attendu = matches!(
+            role,
+            RoleSysteme::Administrateur | RoleSysteme::Directeur | RoleSysteme::Secretaire
+        );
+        assert_eq!(
+            obtenues.contains(&Permission::STATISTICS_READ),
+            attendu,
+            "{role:?}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn une_base_de_la_2_0_0_recoit_la_liste_livree_du_jardin() {
     let (noyau, etablissement_id, _dossier) = installer().await;
     effacer_competences(&noyau).await;

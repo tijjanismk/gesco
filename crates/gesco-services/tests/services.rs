@@ -54,6 +54,7 @@ mod recettes;
 mod reseau_local;
 mod scolarite;
 mod socle_services;
+mod statistiques;
 mod technique;
 mod tresorerie;
 mod types_typescript;

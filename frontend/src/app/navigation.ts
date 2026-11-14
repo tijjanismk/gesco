@@ -2,7 +2,7 @@ import type { Cle } from "../i18n";
 import { ACCES, COMMANDES_DU_MAITRE, COMMANDES_POSTE_PRINCIPAL, type NomCommande } from "../types/acces";
 import type { ModuleEcole } from "../types/gesco";
 
-export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes";
+export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes" | "statistiques";
 
 interface Section {
   id: IdSection;
@@ -18,6 +18,7 @@ interface Section {
  *  la nourrit ; masquer n'est qu'un confort, la garde reste la seule décision (R-01). */
 const SECTIONS: readonly Section[] = [
   { id: "accueil", libelle: "nav.accueil", groupe: "nav.groupe.general", commande: null },
+  { id: "statistiques", libelle: "nav.statistiques", groupe: "nav.groupe.general", commande: "statistiques_lire" },
   { id: "guichet", libelle: "nav.guichet", groupe: "nav.groupe.scolarite", commande: "guichet_lire" },
   { id: "eleves", libelle: "nav.eleves", groupe: "nav.groupe.scolarite", commande: "eleves_rechercher" },
   { id: "inscriptions", libelle: "nav.inscriptions", groupe: "nav.groupe.scolarite", commande: "inscriptions_lister" },

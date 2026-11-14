@@ -281,6 +281,14 @@ export type AnneeScolaire = {
 	modifiee_le?: number,
 };
 
+/**  Une année qu'on peut choisir. */
+export type AnneeStatistiques = {
+	/**  Identifiant. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+};
+
 /**  Année suivante en préparation : ses classes et les réinscriptions qu'elle a reçues. */
 export type AnneeSuivante = {
 	/**  Année. */
@@ -914,6 +922,16 @@ export type CategorieTresorerie = {
 	ordre: number,
 	/**  Faux pour une catégorie retirée : les écritures qui la portent la gardent. */
 	active: boolean,
+};
+
+/**  Une case d'un tableau. */
+export type CelluleStatistique = {
+	/**  Nombre ; en minutes pour une colonne d'heures. Rien pour une case de texte. */
+	nombre: number | null,
+	/**  Texte d'une liste nominative, brut : l'écran le met en forme selon sa colonne. */
+	texte: string | null,
+	/**  Places, dans les fiches de l'onglet, de ce que le nombre compte. */
+	membres: number[],
 };
 
 /**  Ce qu'une colonne du fichier apporte. */
@@ -1550,6 +1568,10 @@ export type Contrat = {
 	document_essai_produire: Signature<null, DocumentAffiche>,
 	/**  Signature de la commande du même nom. */
 	exporter_xlsx: Signature<DemandeExport, FichierEcrit>,
+	/**  Signature de la commande du même nom. */
+	statistiques_lire: Signature<DemandeStatistiques, Statistiques>,
+	/**  Signature de la commande du même nom. */
+	statistiques_exporter: Signature<DemandeExportStatistiques, FichierEcrit>,
 	/**  Signature de la commande du même nom. */
 	import_eleves_analyser: Signature<DemandeAnalyse, Analyse>,
 	/**  Signature de la commande du même nom. */
@@ -3115,6 +3137,16 @@ export type DemandeExport = {
 	lignes: string[][],
 };
 
+/**  Export d'un tableau ou d'un onglet entier : une feuille par tableau. */
+export type DemandeExportStatistiques = {
+	/**  Chemin du classeur à écrire, extension `.xlsx`. */
+	chemin: string,
+	/**  Titre du classeur. */
+	titre: string,
+	/**  Feuilles, dans l'ordre de l'écran. */
+	feuilles: FeuilleStatistique[],
+};
+
 /**  Facture reçue d'un fournisseur. */
 export type DemandeFacture = {
 	/**  Fournisseur. */
@@ -4285,6 +4317,16 @@ export type DemandeSimulationSms = {
 	texte: string,
 };
 
+/**  Ce que l'écran demande : l'année, la date d'arrêt, le périmètre. */
+export type DemandeStatistiques = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
+	/**  Date d'arrêt des chiffres ; aujourd'hui si rien n'est donné, ramené dans l'année. */
+	date: string | null,
+	/**  Un seul cycle ; toute l'école si rien n'est donné. */
+	cycle: Cycle | null,
+};
+
 /**  Transfert d'un élève vers une autre école. */
 export type DemandeTransfert = {
 	/**  Inscription. */
@@ -5447,6 +5489,16 @@ export type FeuilleAnalysee = {
 	apercu: string[][],
 };
 
+/**  Une feuille d'un export des statistiques, telle que l'écran la montre. */
+export type FeuilleStatistique = {
+	/**  Titre du tableau, nom de la feuille. */
+	titre: string,
+	/**  En-têtes des colonnes. */
+	entetes: string[],
+	/**  Lignes, chacune aussi large que les en-têtes. */
+	lignes: string[][],
+};
+
 /**  Classe affichée : libellés du niveau et de la série. */
 export type FicheClasse = {
 	/**  Classe. */
@@ -5547,6 +5599,21 @@ export type FicheRole = {
 	permissions: string[],
 	/**  Instant de dernière modification, à renvoyer avec la modification. */
 	modifiee_le: number,
+};
+
+/**
+ *  Une fiche comptée : un élève ou un membre du personnel. Les cellules la désignent par sa place
+ *  dans la liste de l'onglet.
+ */
+export type FicheStatistique = {
+	/**  Identifiant de l'élève ou du membre du personnel. */
+	id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  Classe de l'élève à la date, ou catégorie du membre du personnel. */
+	detail: string,
+	/**  Motif du départ d'un élève parti ; vide sinon. */
+	motif: string,
 };
 
 /**  Utilisateur et codes de ses rôles. */
@@ -5832,6 +5899,17 @@ export type Guichet = {
 	 *  paraissent.
 	 */
 	sms_actif: boolean,
+};
+
+/**
+ *  Fiches comptées dans le total sans entrer dans aucune colonne ou ligne : l'écran le dit d'une
+ *  ligne neutre ; rien de tel n'est jamais exporté ni imprimé.
+ */
+export type HorsColonnes = {
+	/**  Clé du texte : « {n} élèves sans date de naissance ». */
+	cle: string,
+	/**  Places des fiches dans la liste de l'onglet. */
+	membres: number[],
 };
 
 /**  Impayé d'une facture à une date. */
@@ -6506,6 +6584,16 @@ export type LigneReprise = {
 	inscrit_le: string,
 	/**  Moyenne reprise, si elle est saisie. */
 	reprise: MoyenneReprise | null,
+};
+
+/**  Une ligne d'un tableau. */
+export type LigneStatistique = {
+	/**  Libellé tiré des données : classe, niveau, année, matière… */
+	libelle: string,
+	/**  Clé du texte affiché, quand le libellé est un nom fixe (cycle, type, nature…). */
+	cle: string | null,
+	/**  Cases, dans l'ordre des colonnes. */
+	cellules: CelluleStatistique[],
 };
 
 /**  Ligne de frais d'une grille. */
@@ -7216,6 +7304,14 @@ export type Observation = {
 	 *  pour ne pas écraser en silence ce qu'un autre poste a écrit entre-temps.
 	 */
 	modifiee_le: number,
+};
+
+/**  Un onglet : ses fiches et ses tableaux. */
+export type OngletStatistique = {
+	/**  Fiches comptées dans l'onglet. */
+	fiches: FicheStatistique[],
+	/**  Tableaux, dans l'ordre d'affichage. */
+	tableaux: TableauStatistique[],
 };
 
 /**  Nature de la mutation auditée. */
@@ -8860,6 +8956,28 @@ export type SourcePaiement =
 /**  Hors de la caisse : mobile money, banque, ou espèces d'une autre source (Q-77). */
 "hors_caisse";
 
+/**  Statistiques de l'école à une date. */
+export type Statistiques = {
+	/**  Années qu'on peut choisir, de la plus récente à la plus ancienne. */
+	annees: AnneeStatistiques[],
+	/**  Année des chiffres, s'il y en a une. */
+	annee_id: string | null,
+	/**  Premier jour de l'année. */
+	rentree: string | null,
+	/**  Dernier jour de l'année. */
+	fin: string | null,
+	/**  Date d'arrêt des chiffres. */
+	date: string,
+	/**  Cycle du périmètre, si un seul est retenu. */
+	cycle: Cycle | null,
+	/**  Cycles qui ont une classe cette année, dans l'ordre de l'école. */
+	cycles: Cycle[],
+	/**  Onglet Élèves. */
+	eleves: OngletStatistique,
+	/**  Onglet Personnel. */
+	personnel: OngletStatistique,
+};
+
 /**  Cycle de vie d'une année (§10.8 du blueprint). */
 export type StatutAnnee = 
 /**  Paramétrage en cours, aucune inscription. */
@@ -9095,6 +9213,20 @@ export type TableauDeBord = {
 	personnel: BlocPersonnel | null,
 	/**  Trésorerie (`treasury:read` ou un droit sur les dépenses), avec ou sans année ouverte. */
 	tresorerie: BlocTresorerie | null,
+};
+
+/**  Un tableau d'un onglet. */
+export type TableauStatistique = {
+	/**  Code stable du tableau, d'où l'écran tire son titre. */
+	code: string,
+	/**  Codes des colonnes, d'où l'écran tire leurs titres. */
+	colonnes: string[],
+	/**  Lignes. */
+	lignes: LigneStatistique[],
+	/**  Ligne du total ; elle compte toutes les fiches, même celles hors des colonnes. */
+	total: LigneStatistique | null,
+	/**  Fiches comptées sans entrer dans une colonne ou une ligne. */
+	hors: HorsColonnes[],
 };
 
 /**  Total d'une classe. */

@@ -47,6 +47,7 @@ import { Messages } from "../modules/communication/Messages";
 import { Convocations } from "../modules/scolarite/Convocations";
 import { Guichet } from "../modules/scolarite/Guichet";
 import { Remises } from "../modules/scolarite/Remises";
+import { Statistiques } from "../modules/statistiques/Statistiques";
 import { BandeauPoste } from "./BandeauPoste";
 import { commandeAutorisee, GROUPES_REPLIES, type IdSection, sectionsAutorisees } from "./navigation";
 import { RechercheGlobale } from "./RechercheGlobale";
@@ -256,6 +257,8 @@ function Contenu({
   switch (section) {
     case "accueil":
       return <Accueil nom={nom} />;
+    case "statistiques":
+      return <Statistiques surOuvrirEleve={surOuvrirEleve} />;
     case "compte":
       return <MonCompte changementExige={false} />;
     case "utilisateurs":

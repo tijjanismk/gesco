@@ -235,6 +235,9 @@ use crate::sauvegarde::{
 };
 use crate::secrets::{MotDePasse, Pin, mot_de_passe_correspond_a_part};
 use crate::session::{Jeton, PolitiqueSession, Session};
+use crate::statistiques::{
+    DemandeExportStatistiques, DemandeStatistiques, ServiceStatistiques, Statistiques,
+};
 use crate::tableau::{ServiceTableau, TableauDeBord};
 use crate::tresorerie::{
     DemandeCategorieTresorerie, DemandeCompteTresorerie, ReglagesTresorerie, ServiceTresorerie,
@@ -1036,6 +1039,8 @@ contrat! {
     phrase_secours_regenerer(DemandeRegeneration) -> PhraseAffichee;
     document_essai_produire(()) -> DocumentAffiche;
     exporter_xlsx(DemandeExport) -> FichierEcrit;
+    statistiques_lire(DemandeStatistiques) -> Statistiques;
+    statistiques_exporter(DemandeExportStatistiques) -> FichierEcrit;
     import_eleves_analyser(DemandeAnalyse) -> Analyse;
     import_eleves_valider(Reglages) -> Apercu;
     import_eleves_appliquer(Reglages) -> Rapport;
@@ -3140,6 +3145,26 @@ impl Application {
         // Connecté, rien de plus : la liste vient de l'écran, rien n'est lu en base (§11).
         appel.session()?;
         crate::export::exporter_xlsx(entree).await
+    }
+
+    async fn statistiques_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeStatistiques,
+    ) -> Resultat<Statistiques> {
+        ServiceStatistiques::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn statistiques_exporter(
+        &self,
+        appel: Appel,
+        entree: DemandeExportStatistiques,
+    ) -> Resultat<FichierEcrit> {
+        ServiceStatistiques::nouveau(&appel.ouverte()?.noyau)
+            .exporter(entree)
+            .await
     }
 
     async fn grilles_lister(

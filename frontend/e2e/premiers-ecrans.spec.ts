@@ -2970,3 +2970,45 @@ test("phase 11, lot B : au 2e trimestre, la petite section est observée de nouv
   await livret.scrollIntoViewIfNeeded();
   await capturer("176-livret-du-2e-trimestre");
 });
+
+test("phase 9 : les statistiques de l'école, arrêtées à une date, égalent le décompte des inscriptions et mènent aux fiches", async () => {
+  // Décompte à part, sur la liste des inscriptions : validées (ou achevées), datées d'aujourd'hui
+  // ou d'avant, l'élève pas encore parti.
+  const attendu = await parCommandes<number>(`
+    const annee = (await api.appeler("annees_lister", null)).find((a) => a.est_courante);
+    const liste = await api.appeler("inscriptions_lister", { annee_id: annee.id });
+    const jour = "${JOUR_ESSAI}";
+    const ids = new Set();
+    for (const l of liste) {
+      const i = l.inscription;
+      if (i.statut === "brouillon" || i.date_inscription > jour) continue;
+      const parti = ["transferee", "abandonnee", "radiee"].includes(i.statut);
+      if (parti && (i.date_depart === null || i.date_depart <= jour)) continue;
+      ids.add(i.eleve_id);
+    }
+    return ids.size;
+  `);
+  expect(attendu).toBeGreaterThan(40);
+  await allerA("nav.statistiques");
+  await expect(page.getByRole("heading", { name: texte("statistiques.titre") })).toBeVisible();
+  const parClasse = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("statistiques.tableau.eleves_par_classe"), exact: true }) });
+  const total = parClasse.getByRole("row").filter({ has: page.getByRole("rowheader", { name: texte("statistiques.total"), exact: true }) });
+  await expect(total.getByRole("cell").last()).toHaveText(String(attendu));
+  await capturer("177-statistiques-eleves");
+
+  // Un chiffre mène aux élèves qu'il compte.
+  await parClasse.getByRole("row").nth(1).getByRole("button").last().click();
+  const detail = page.locator("section").filter({ has: page.getByRole("button", { name: texte("commun.fermer") }) });
+  await expect(detail.getByRole("listitem").first()).toBeVisible();
+  await detail.scrollIntoViewIfNeeded();
+  await capturer("178-statistiques-detail-d-un-chiffre");
+  await detail.getByRole("button", { name: texte("commun.fermer") }).click();
+
+  // Une autre date d'arrêt : les chiffres sont relus à ce jour.
+  await page.locator("#statistiques-date").fill("2026-10-01");
+  await expect(page.getByText(texte("statistiques.arretes_au").replace("{date}", "1er octobre 2026"))).toBeVisible();
+
+  await page.getByRole("tab", { name: texte("statistiques.onglet.personnel") }).click();
+  await expect(page.getByRole("heading", { name: texte("statistiques.tableau.liste_nominative"), exact: true })).toBeVisible();
+  await capturer("179-statistiques-personnel");
+});

@@ -2,7 +2,7 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 9 — statistiques de l'école, rapports de rentrée et de fermeture, données de l'enquête annuelle ; version 2.0.0
-**Statut** : v1.0 — proposée le 12 novembre 2026, à soumettre au porteur du projet avec les questions T-98 à T-108 (§13) ; rien n'est codé
+**Statut** : v1.1 — recommandations de T-98 à T-108 validées par le porteur du projet le 12 novembre 2026, avec une réserve sur T-103 (§13) ; étape 1 codée le 14 novembre 2026
 **Documents parents** : `ETAT_AVANCEMENT.md` (section « Phase 9 », décisions du 11 novembre 2026), `docs/orchestration.md` (décisions du 12 novembre 2026 : ne pas bloquer, ne pas le mentionner), `SPEC_PHASE_2.md` (élèves, inscriptions), `SPEC_PHASE_4.md` (notes, bulletins), `SPEC_PHASE_6.md` (personnel), `SPEC_PHASE_10.md` (clôture de l'année, décisions de fin d'année), `SPEC_PHASE_11_A.md` (plusieurs postes), `docs/questions-terrain.md`
 **Date** : 12 novembre 2026
 
@@ -387,6 +387,8 @@ Rien de cela ne touche à la paie, et rien n'exige une pièce au dossier.
   filles, des garçons, des enseignants.
 - Un relevé par année, repris de l'année précédente à l'ouverture, corrigeable toute l'année ;
   le rapport de fermeture lit l'état du jour où il est arrêté (T-103).
+- L'inventaire est tenu par la personne que l'école en charge, quel que soit son rôle : un droit
+  à part (§11), que l'administrateur donne à qui il veut (réserve du porteur sur T-103).
 - Toutes les quantités sont facultatives ; une quantité absente est une case vide, pas un zéro.
 
 ### 8.5 Examens
@@ -508,12 +510,18 @@ tableur existant.
 
 ## 11. Droits
 
-Quatre permissions nouvelles, nommées selon `docs/matrice-permissions.md` à l'étape 1 :
-- consulter les statistiques et les exporter — direction, secrétariat ;
-- tenir la fiche de l'établissement, l'inventaire et les résultats aux examens — direction,
-  secrétariat ;
-- rédiger, arrêter et rouvrir les rapports — direction ;
-- lire et saisir le handicap d'un élève — direction seule à la livraison.
+Cinq permissions nouvelles, nommées à l'étape 1 selon `docs/matrice-permissions.md` ; chacune
+entre au catalogue avec l'étape qui s'en sert :
+- `statistics:read` : consulter les statistiques et les exporter — direction, secrétariat
+  (étape 1) ;
+- `school_profile:manage` : tenir la fiche de l'établissement et les résultats aux examens —
+  direction, secrétariat (étapes 2 et 5) ;
+- `inventory:manage` : tenir l'inventaire — direction, secrétariat à la livraison ; un droit à
+  part, pour que l'école le donne à la personne qu'elle charge de l'inventaire, quel que soit son
+  rôle (réserve du porteur sur T-103 ; étape 4) ;
+- `school_reports:manage` : rédiger, arrêter et rouvrir les rapports — direction (étape 6) ;
+- `students:disability` : lire et saisir le handicap d'un élève — direction seule à la
+  livraison (étape 3).
 
 Les maîtres n'ont aucune de ces permissions. Les champs nouveaux des fiches de l'élève et du
 personnel suivent les droits existants de ces fiches.
@@ -607,6 +615,10 @@ et à la fermeture ? L'école veut-elle suivre les manuels prêtés aux élèves
 *Recommandation* : un relevé par an, repris de l'année d'avant et corrigé quand il change, tenu
 par le secrétariat ; pas de suivi des prêts dans la 2.0.
 
+*Réponse du porteur (12 novembre 2026)* : validée, avec une réserve : l'inventaire n'est pas
+forcément tenu par le secrétaire, mais par toute personne que l'école en charge — un droit à part,
+pas lié au rôle (§8.4, §11).
+
 ### T-104 — Sous quelle forme le CAP reçoit les rapports
 
 Papier signé, PDF, ou fichier Word que le CAP modifie ?
@@ -650,3 +662,6 @@ rapports et les statistiques dans toute licence, sans module.
 
 - v1.0, 12 novembre 2026 : première rédaction, d'après les formulaires remis le 11 novembre
   2026 et les décisions des 11 et 12 novembre 2026.
+- v1.1, 14 novembre 2026 : réponses du porteur à T-98 à T-108 reportées, réserve sur T-103
+  (inventaire tenu par la personne que l'école désigne, droit à part) ; cinq permissions nommées
+  (§11).

@@ -45,6 +45,7 @@ pub mod reseau;
 pub mod role;
 pub mod sauvegarde;
 pub mod sequence;
+pub mod statistiques;
 pub mod tableau;
 pub mod tarifs;
 pub mod tresorerie;

@@ -91,6 +91,7 @@ pub mod sauvegarde;
 pub mod secrets;
 pub mod session;
 mod seul;
+pub mod statistiques;
 pub mod tableau;
 pub mod tresorerie;
 

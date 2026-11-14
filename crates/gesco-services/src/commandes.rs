@@ -240,6 +240,7 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("sauvegarde_restaurer", Fichier::Lu("chemin")),
     ("journal_archive_verifier", Fichier::Lu("chemin")),
     ("exporter_xlsx", Fichier::Ecrit("chemin")),
+    ("statistiques_exporter", Fichier::Ecrit("chemin")),
     ("import_eleves_analyser", Fichier::Lu("chemin")),
     ("notes_import_analyser", Fichier::Lu("chemin")),
     ("notes_importer", Fichier::Lu("chemin")),
@@ -446,6 +447,9 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("phrase_secours_regenerer", Permission::CORE_BACKUP_RESTORE),
     Commande::permise("document_essai_produire", Permission::TEMPLATES_MANAGE),
     Commande::connectee("exporter_xlsx"),
+    // Statistiques de l'école (SPEC_PHASE_9 §9.1, §11) : elles ne font que lire.
+    Commande::permise("statistiques_lire", Permission::STATISTICS_READ),
+    Commande::permise("statistiques_exporter", Permission::STATISTICS_READ),
     Commande::permise("import_eleves_analyser", Permission::IMPORT_STUDENTS),
     Commande::permise("import_eleves_valider", Permission::IMPORT_STUDENTS),
     Commande::permise("import_eleves_appliquer", Permission::IMPORT_STUDENTS),

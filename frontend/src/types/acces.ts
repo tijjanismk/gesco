@@ -93,6 +93,8 @@ export const ACCES = {
   phrase_secours_regenerer: { type: "permission", permission: "core:backup:restore" },
   document_essai_produire: { type: "permission", permission: "templates:manage" },
   exporter_xlsx: { type: "connecte" },
+  statistiques_lire: { type: "permission", permission: "statistics:read" },
+  statistiques_exporter: { type: "permission", permission: "statistics:read" },
   import_eleves_analyser: { type: "permission", permission: "import:students" },
   import_eleves_valider: { type: "permission", permission: "import:students" },
   import_eleves_appliquer: { type: "permission", permission: "import:students" },
