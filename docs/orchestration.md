@@ -427,4 +427,12 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   l'école ; n'y part que la sauvegarde déjà chiffrée, jamais la base en clair ni la clé ;
   l'application vérifie sans bloquer que la dernière copie est arrivée). Rien n'est retenu tant
   qu'il n'a pas répondu. T-88 : sans ordre, tout entre d'un coup.
+- 2026-11-14, réponse du porteur : « oui sauf on met tout dans la v2 ». T-89, T-91 et T-96 sont
+  acceptés tels que recommandés ci-dessus. T-95 change : tout « en ligne » entre dans la 2.0, y
+  compris le lot C (sauvegarde hors site, envoi des données, serveur de l'éditeur) et le lot D
+  (portail des parents) de `docs/plan-phase-11.md` §2.4 et §2.5. La sauvegarde par dossier
+  synchronisé (T-96) reste la voie sans abonnement. Préalables du lot C que seul le porteur
+  fournit : hébergeur, tarif, avis d'un juriste sur les données de mineurs en ligne (plan 11, §4,
+  décisions 5 à 8, et T-85 sur ce que voit le parent). Ordre : lot B, phase 9, sauvegarde hors de
+  l'école, phase 12, puis lots C et D ; leurs questions seront posées à la spécification.
 - Étape 4 du lot B : commit pas encore dans `git log` à la prise de poste ; rien d'autre ne compile.
