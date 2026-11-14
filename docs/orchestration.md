@@ -436,3 +436,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   décisions 5 à 8, et T-85 sur ce que voit le parent). Ordre : lot B, phase 9, sauvegarde hors de
   l'école, phase 12, puis lots C et D ; leurs questions seront posées à la spécification.
 - Étape 4 du lot B : commit pas encore dans `git log` à la prise de poste ; rien d'autre ne compile.
+- 2026-11-14 : lot B étape 4 commitée (`5312409`, `cd20c5e`) ; lot B complet, à valider par le porteur
+  (installeur d'essai 2.0.0 hors du dépôt). Phase 9 étape 1 lancée dans
+  `local_9aead718-ea1a-4a91-a44d-b29e9eab5f87` (Opus 5.5, effort élevé). `code-lot-b-2` à archiver
+  avec l'accord du porteur.
