@@ -359,3 +359,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   encore changer après un ajustement (recalcul, jamais de refus) ; la moyenne annuelle ne compte
   que les périodes de la nouvelle classe. Transmis à `local_6cd59c7c-46f0-4b13-bf99-ee7e8a76db88`,
   qui code après le commit de l'étape 3 du lot B (à lui réécrire alors).
+- 2026-11-14 : décision du porteur : la rédaction s'arrête quand les quatre lots en cours finissent
+  (TSE, terminale physique-chimie, 8e mathématiques, 8e physique-chimie). Ne plus relancer de
+  lot ni ouvrir de matière sans un mot de lui. Le code continue (lot B, changement de classe).
