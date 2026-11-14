@@ -411,3 +411,15 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - **Principe du porteur** : « la flexibilité sans incohérence » (ne jamais bloquer, ne pas faire
   remarquer ce qui manque, chiffres et documents toujours justes).
 - **Disque** : 18 Go libres le 14 novembre.
+
+## 14 novembre 2026 — orchestrateur neuf (`local_4dff60fa`)
+
+- Questions ouvertes posées au porteur, sans préférence de sa part : les recommandations sont
+  retenues, sauf avis contraire. T-88 : la bibliothèque entre dans GESCO pour la 9e et les
+  terminales d'abord, puis dans l'ordre de la rédaction. T-91 : suivi des élèves par leurs maîtres
+  allumé à la livraison, réglable par chaque direction ; devoirs à rendre en lot à part. T-95 :
+  « en ligne » = seulement mettre les sauvegardes à l'abri hors de l'école. T-96 : par un dossier
+  synchronisé (Google Drive, OneDrive, Dropbox) sur le compte de l'école. T-93 et T-94 sans objet
+  depuis la décision 7 du plan de la phase 12. Ces réponses sont à reporter dans
+  `docs/plan-phase-12.md` et `docs/plan-phase-11.md` par la session qui écrira leurs spécifications.
+- Étape 4 du lot B : commit pas encore dans `git log` à la prise de poste ; rien d'autre ne compile.
