@@ -24,6 +24,7 @@ pub mod enseignants;
 pub mod etablissement;
 pub mod evaluations;
 pub mod factures;
+pub mod fiche;
 pub mod file_sms;
 pub mod fournisseurs;
 pub mod fraicheur;

@@ -1573,6 +1573,16 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	statistiques_exporter: Signature<DemandeExportStatistiques, FichierEcrit>,
 	/**  Signature de la commande du même nom. */
+	fiche_ecole_lire: Signature<DemandeFicheEcole, FicheEcole>,
+	/**  Signature de la commande du même nom. */
+	fiche_ecole_repondre: Signature<DemandeReponseFiche, FicheEcole>,
+	/**  Signature de la commande du même nom. */
+	fiche_ecole_reprendre: Signature<DemandeRepriseFiche, FicheEcole>,
+	/**  Signature de la commande du même nom. */
+	rubrique_fiche_enregistrer: Signature<DemandeRubriqueFiche, RubriqueFiche>,
+	/**  Signature de la commande du même nom. */
+	rubrique_fiche_activer: Signature<DemandeActivationRubrique, RubriqueFiche>,
+	/**  Signature de la commande du même nom. */
 	import_eleves_analyser: Signature<DemandeAnalyse, Analyse>,
 	/**  Signature de la commande du même nom. */
 	import_eleves_valider: Signature<Reglages, Apercu>,
@@ -2262,6 +2272,14 @@ export type DemandeAccuse = {
 	id: string,
 	/**  Réception. */
 	accuse: AccuseConvocation,
+};
+
+/**  Désactivation ou réactivation d'une rubrique. */
+export type DemandeActivationRubrique = {
+	/**  Rubrique. */
+	id: string,
+	/**  Vrai pour la remettre en service. */
+	active: boolean,
 };
 
 /**  Affectation demandée. */
@@ -3182,6 +3200,12 @@ export type DemandeFamille = {
 	payeur_nom: string,
 	/**  Parts, une par enfant. */
 	parts: PartEnfant[],
+};
+
+/**  Ce que l'écran demande : l'année des réponses annuelles. */
+export type DemandeFicheEcole = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
 };
 
 /**  Messages d'un état à lire ; aucun : tous. */
@@ -4157,6 +4181,16 @@ export type DemandeRepas = {
 	pris: boolean,
 };
 
+/**  Réponse saisie dans une case. */
+export type DemandeReponseFiche = {
+	/**  Rubrique. */
+	rubrique_id: string,
+	/**  Année, pour une rubrique annuelle ; ignorée pour une rubrique permanente. */
+	annee_id: string | null,
+	/**  Réponse ; vide pour vider la case. Plusieurs choix : séparés par un saut de ligne. */
+	valeur: string | null,
+};
+
 /**  Rendez-vous déplacé. */
 export type DemandeReport = {
 	/**  Convocation. */
@@ -4181,6 +4215,14 @@ export type DemandeReprise = {
 	etablissement_origine: string,
 	/**  Référence du relevé. */
 	piece: string,
+};
+
+/**  Reprise des réponses de l'an dernier. */
+export type DemandeRepriseFiche = {
+	/**  Année qui reçoit les réponses. */
+	annee_id: string,
+	/**  Rubriques à reprendre ; toutes celles qui ont une proposition si rien n'est donné. */
+	rubriques: string[] | null,
 };
 
 /**  Restauration d'une archive. */
@@ -4219,6 +4261,24 @@ export type DemandeRetraitSeance = {
 export type DemandeRole = {
 	/**  Code du rôle. */
 	code: string,
+};
+
+/**  Rubrique ajoutée ou modifiée par l'école. */
+export type DemandeRubriqueFiche = {
+	/**  Rubrique de l'école à modifier ; une nouvelle si rien n'est donné. */
+	id: string | null,
+	/**  Thème. */
+	theme: ThemeRubrique,
+	/**  Libellé. */
+	libelle: string,
+	/**  Aide affichée sous la case. */
+	aide: string,
+	/**  Type de réponse. */
+	type_reponse: TypeReponse,
+	/**  Choix, pour un choix ou plusieurs choix. */
+	choix: string[],
+	/**  Vrai si la réponse vaut pour une année. */
+	annuelle: boolean,
 };
 
 /**  Heures saisies pour une vacation et un mois. */
@@ -5509,6 +5569,18 @@ export type FicheClasse = {
 	serie: string | null,
 	/**  Élèves inscrits. */
 	effectif: number,
+};
+
+/**  Fiche de l'établissement : rubriques et réponses de l'année choisie. */
+export type FicheEcole = {
+	/**  Années qu'on peut choisir, de la plus récente à la plus ancienne. */
+	annees: AnneeStatistiques[],
+	/**  Année des réponses annuelles, s'il y en a une. */
+	annee_id: string | null,
+	/**  Rubriques, désactivées comprises, dans l'ordre des thèmes puis de chaque thème. */
+	rubriques: RubriqueFiche[],
+	/**  Réponses, une par rubrique qui a une réponse ou une proposition. */
+	reponses: ReponseFiche[],
 };
 
 /**  Fiche élève complète. */
@@ -8213,6 +8285,19 @@ minutes_par_semaine: number } |
  */
 { type: "masquee" };
 
+/**  La réponse à une rubrique. */
+export type ReponseFiche = {
+	/**  Rubrique. */
+	rubrique_id: string,
+	/**  Réponse de l'année, ou réponse permanente ; vide s'il n'y en a pas. */
+	valeur: string | null,
+	/**
+	 *  Pour une rubrique annuelle sans réponse cette année : la réponse de l'année d'avant,
+	 *  proposée à côté de la case.
+	 */
+	proposee: string | null,
+};
+
 /**  Élèves d'une classe arrivés après une période. */
 export type ReprisesClasse = {
 	/**  Barème du niveau, en centièmes. */
@@ -8381,6 +8466,34 @@ export type RolePoste =
 "principal" | 
 /**  Le poste transmet tout au poste principal. */
 "relie";
+
+/**  Rubrique de la fiche de l'établissement. */
+export type RubriqueFiche = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Code stable d'une rubrique livrée (`cercle`) ; vide pour une rubrique de l'école. */
+	code: string | null,
+	/**  Thème. */
+	theme: ThemeRubrique,
+	/**  Libellé. */
+	libelle: string,
+	/**  Aide affichée sous la case ; vide le plus souvent. */
+	aide: string,
+	/**  Type de réponse. */
+	type_reponse: TypeReponse,
+	/**  Choix proposés, pour un choix ou plusieurs choix. */
+	choix: string[],
+	/**  Vrai si la réponse vaut pour une année ; faux si elle vaut d'une année à l'autre. */
+	annuelle: boolean,
+	/**  Vrai pour une rubrique livrée : elle ne se renomme pas. */
+	livree: boolean,
+	/**  Ordre dans son thème. */
+	ordre: number,
+	/**  Instant de la désactivation ; vide tant que la rubrique sert. */
+	retiree_le: number | null,
+};
 
 /**  Montant saisi dans la paie, avec le nom du membre et de l'élément. */
 export type SaisieAffichee = {
@@ -9229,6 +9342,9 @@ export type TableauStatistique = {
 	hors: HorsColonnes[],
 };
 
+/**  Thème d'une rubrique : l'ordre des groupes à l'écran. */
+export type ThemeRubrique = "localisation" | "identite" | "actes" | "eau_hygiene" | "energie" | "equipements" | "vie_ecole" | "accessibilite" | "autres";
+
 /**  Total d'une classe. */
 export type TotalClasse = {
 	/**  Classe. */
@@ -9482,6 +9598,9 @@ export type TypeRemise =
 "enfant_personnel" | 
 /**  Arrangement avec la famille. */
 "arrangement";
+
+/**  Type de réponse d'une rubrique. */
+export type TypeReponse = "oui_non" | "nombre" | "texte" | "date" | "choix" | "plusieurs_choix";
 
 /**
  *  Compte d'un utilisateur de l'établissement. Les secrets (empreintes du mot de passe et du PIN)

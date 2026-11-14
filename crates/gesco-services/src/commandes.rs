@@ -193,6 +193,7 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("calendrier_modifier", SansControle::Reference),
     ("regle_enregistrer", SansControle::Reference),
     ("domaine_competence_enregistrer", SansControle::Reference),
+    ("rubrique_fiche_enregistrer", SansControle::Reference),
     ("competence_enregistrer", SansControle::Reference),
     ("categorie_personnel_enregistrer", SansControle::Reference),
     ("fonction_personnel_enregistrer", SansControle::Reference),
@@ -450,6 +451,16 @@ pub const COMMANDES: &[Commande] = &[
     // Statistiques de l'école (SPEC_PHASE_9 §9.1, §11) : elles ne font que lire.
     Commande::permise("statistiques_lire", Permission::STATISTICS_READ),
     Commande::permise("statistiques_exporter", Permission::STATISTICS_READ),
+    // Fiche de l'établissement (SPEC_PHASE_9 §8.1) : lue avec les statistiques, tenue par qui
+    // en a la charge ; une case à la fois, la dernière écriture gagne.
+    Commande::permise("fiche_ecole_lire", Permission::STATISTICS_READ),
+    Commande::permise("fiche_ecole_repondre", Permission::SCHOOL_PROFILE_MANAGE),
+    Commande::permise("fiche_ecole_reprendre", Permission::SCHOOL_PROFILE_MANAGE),
+    Commande::permise(
+        "rubrique_fiche_enregistrer",
+        Permission::SCHOOL_PROFILE_MANAGE,
+    ),
+    Commande::permise("rubrique_fiche_activer", Permission::SCHOOL_PROFILE_MANAGE),
     Commande::permise("import_eleves_analyser", Permission::IMPORT_STUDENTS),
     Commande::permise("import_eleves_valider", Permission::IMPORT_STUDENTS),
     Commande::permise("import_eleves_appliquer", Permission::IMPORT_STUDENTS),

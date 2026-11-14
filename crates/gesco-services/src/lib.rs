@@ -39,6 +39,7 @@ pub mod espace;
 pub mod evaluations;
 pub mod export;
 pub mod facturation;
+pub mod fiche_ecole;
 pub mod fiche_etablissement;
 pub mod fichiers_relies;
 pub mod file_sms;

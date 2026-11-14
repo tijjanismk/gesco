@@ -8,14 +8,17 @@ import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { dateCivile, t, texteDeCle } from "../../i18n";
 import type { Cycle, FeuilleStatistique, FicheStatistique, LigneStatistique, OngletStatistique, TableauStatistique } from "../../types/gesco";
+import { OngletEtablissement } from "./FicheEcole";
 import { feuilleDe, libelleLigne, texteCellule, titreColonne, titrePremiere, titreTableau } from "./mise-en-forme";
 
-type Onglet = "eleves" | "personnel";
+type Onglet = "eleves" | "personnel" | "etablissement";
+
+const TITRES_ONGLETS = { eleves: "statistiques.onglet.eleves", personnel: "statistiques.onglet.personnel", etablissement: "statistiques.onglet.etablissement" } as const;
 
 /** Fiches désignées par un chiffre cliqué. */
 interface Detail {
   titre: string;
-  onglet: Onglet;
+  onglet: "eleves" | "personnel";
   membres: readonly number[];
 }
 
@@ -47,9 +50,11 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
       setExportation({ erreur });
     }
   };
-  const contenu: OngletStatistique | undefined = s?.[onglet];
+  const contenu: OngletStatistique | undefined = onglet === "etablissement" ? undefined : s?.[onglet];
   const arret = s === undefined ? "" : dateCivile(s.date);
-  const ouvrir = (titre: string, membres: readonly number[]) => setDetail({ titre, onglet, membres });
+  const ouvrir = (titre: string, membres: readonly number[]) => {
+    if (onglet !== "etablissement") setDetail({ titre, onglet, membres });
+  };
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-encre">{t("statistiques.titre")}</h1>
@@ -85,7 +90,7 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
             />
           </div>
           <div role="tablist" className="flex gap-2 border-b border-muet">
-            {(["eleves", "personnel"] as const).map((o) => (
+            {(["eleves", "personnel", "etablissement"] as const).map((o) => (
               <button
                 key={o}
                 type="button"
@@ -97,17 +102,24 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
                   setDetail(null);
                 }}
               >
-                {t(o === "eleves" ? "statistiques.onglet.eleves" : "statistiques.onglet.personnel")}
+                {t(TITRES_ONGLETS[o])}
               </button>
             ))}
           </div>
+          {onglet === "etablissement" ? (
+            <>
+              {exportation !== null && "chemin" in exportation ? <p role="status" className="text-sm text-muet">{t("commun.export_enregistre", { chemin: exportation.chemin })}</p> : null}
+              <MessageErreur erreur={exportation !== null && "erreur" in exportation ? exportation.erreur : null} />
+              <OngletEtablissement anneeId={s.annee_id} surExporter={(titre, feuilles) => void exporter(titre, feuilles)} />
+            </>
+          ) : null}
           {contenu === undefined ? null : (
             <>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-sm text-muet">{t("statistiques.arretes_au", { date: arret })}</p>
                 <Bouton
                   variante="secondaire"
-                  onClick={() => void exporter(`${t(onglet === "eleves" ? "statistiques.onglet.eleves" : "statistiques.onglet.personnel")} ${s.date}`, contenu.tableaux.map((x) => feuilleDe(x)))}
+                  onClick={() => void exporter(`${t(TITRES_ONGLETS[onglet])} ${s.date}`, contenu.tableaux.map((x) => feuilleDe(x)))}
                 >
                   {t("statistiques.exporter_onglet")}
                 </Bouton>

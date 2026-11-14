@@ -119,6 +119,10 @@ use crate::facturation::{
     DemandeChangementPlan, DemandeJourEcheance, FactureAffichee, LigneRattrapage,
     RapportRattrapage, ServiceFacturation, SituationInscription,
 };
+use crate::fiche_ecole::{
+    DemandeActivationRubrique, DemandeFicheEcole, DemandeReponseFiche, DemandeRepriseFiche,
+    DemandeRubriqueFiche, FicheEcole, ServiceFicheEcole,
+};
 use crate::fiche_etablissement::{ChampsEtablissement, FicheEtablissement, ServiceEtablissement};
 use crate::file_sms::{
     ApercuSms, BilanFile, DemandeAnnulationMessage, DemandeApercu, DemandeDecisionMessage,
@@ -1041,6 +1045,11 @@ contrat! {
     exporter_xlsx(DemandeExport) -> FichierEcrit;
     statistiques_lire(DemandeStatistiques) -> Statistiques;
     statistiques_exporter(DemandeExportStatistiques) -> FichierEcrit;
+    fiche_ecole_lire(DemandeFicheEcole) -> FicheEcole;
+    fiche_ecole_repondre(DemandeReponseFiche) -> FicheEcole;
+    fiche_ecole_reprendre(DemandeRepriseFiche) -> FicheEcole;
+    rubrique_fiche_enregistrer(DemandeRubriqueFiche) -> gesco_core::core::RubriqueFiche;
+    rubrique_fiche_activer(DemandeActivationRubrique) -> gesco_core::core::RubriqueFiche;
     import_eleves_analyser(DemandeAnalyse) -> Analyse;
     import_eleves_valider(Reglages) -> Apercu;
     import_eleves_appliquer(Reglages) -> Rapport;
@@ -3164,6 +3173,56 @@ impl Application {
     ) -> Resultat<FichierEcrit> {
         ServiceStatistiques::nouveau(&appel.ouverte()?.noyau)
             .exporter(entree)
+            .await
+    }
+
+    async fn fiche_ecole_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeFicheEcole,
+    ) -> Resultat<FicheEcole> {
+        ServiceFicheEcole::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn fiche_ecole_repondre(
+        &self,
+        appel: Appel,
+        entree: DemandeReponseFiche,
+    ) -> Resultat<FicheEcole> {
+        ServiceFicheEcole::nouveau(&appel.ouverte()?.noyau)
+            .repondre(appel.session()?, entree)
+            .await
+    }
+
+    async fn fiche_ecole_reprendre(
+        &self,
+        appel: Appel,
+        entree: DemandeRepriseFiche,
+    ) -> Resultat<FicheEcole> {
+        ServiceFicheEcole::nouveau(&appel.ouverte()?.noyau)
+            .reprendre(appel.session()?, entree)
+            .await
+    }
+
+    async fn rubrique_fiche_enregistrer(
+        &self,
+        appel: Appel,
+        entree: DemandeRubriqueFiche,
+    ) -> Resultat<gesco_core::core::RubriqueFiche> {
+        ServiceFicheEcole::nouveau(&appel.ouverte()?.noyau)
+            .enregistrer_rubrique(appel.session()?, entree)
+            .await
+    }
+
+    async fn rubrique_fiche_activer(
+        &self,
+        appel: Appel,
+        entree: DemandeActivationRubrique,
+    ) -> Resultat<gesco_core::core::RubriqueFiche> {
+        ServiceFicheEcole::nouveau(&appel.ouverte()?.noyau)
+            .activer_rubrique(appel.session()?, entree)
             .await
     }
 

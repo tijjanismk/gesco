@@ -23,6 +23,7 @@ mod enseignants;
 mod evaluations;
 mod export;
 mod facturation;
+mod fiche_ecole;
 mod file_sms;
 mod fin_annee;
 mod fournisseurs;

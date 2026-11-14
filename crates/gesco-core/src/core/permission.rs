@@ -134,6 +134,7 @@ catalogue! {
     LICENCE_INSTALL = "licence:install",
     WORKSTATIONS_MANAGE = "workstations:manage",
     STATISTICS_READ = "statistics:read",
+    SCHOOL_PROFILE_MANAGE = "school_profile:manage",
 }
 
 /// Version de la composition des rôles livrés. Une phase qui ajoute des permissions à
@@ -178,7 +179,9 @@ catalogue! {
 /// activer le réseau de l'école, relier un poste, le révoquer, renouveler la clé du réseau.
 /// Version 12 (SPEC_PHASE_9 §11) : `statistics:read`, nouvelle, pour le Directeur et le
 /// Secrétaire : consulter les statistiques de l'école et les exporter.
-pub const COMPOSITION_ROLES_LIVRES: i64 = 12;
+/// Version 13 (SPEC_PHASE_9 §11) : `school_profile:manage`, nouvelle, pour le Directeur et le
+/// Secrétaire : tenir la fiche de l'établissement et ses rubriques.
+pub const COMPOSITION_ROLES_LIVRES: i64 = 13;
 
 /// Rôles livrés avec le produit (§11.4), composés selon SPEC_PHASE_1 §5.2 (Q-44).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -267,6 +270,7 @@ impl RoleSysteme {
                 P::LICENCE_READ,
                 P::WORKSTATIONS_MANAGE,
                 P::STATISTICS_READ,
+                P::SCHOOL_PROFILE_MANAGE,
                 P::STUDENTS_READ,
                 P::ENROLLMENTS_VALIDATE,
                 P::ENROLLMENTS_EXPEL,
@@ -355,6 +359,7 @@ impl RoleSysteme {
                 P::LEAVE_REQUEST,
                 P::CANTEEN_MANAGE,
                 P::STATISTICS_READ,
+                P::SCHOOL_PROFILE_MANAGE,
             ],
             Self::Caissier => vec![
                 P::STUDENTS_READ,
