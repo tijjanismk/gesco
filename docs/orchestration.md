@@ -376,3 +376,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   2 lisibles (mathématiques 2025 TSE et TSExp), faits. Décision du porteur : les sujets illisibles
   sont laissés ; l'école les ajoutera par l'amélioration des cours dans l'application (phase 12).
   Après les deux sessions de sujets (DEF, BAC), plus aucune rédaction.
+- 2026-11-14 : rédaction terminée. Sujets du DEF : 39 sujets officiels 2021-2026, énoncés et
+  corrigés (948 vérifications justes) ; sujets du BAC : 2. Lot B étape 3 (livret du jardin) faite
+  (`fd9cca0`), sept choix à confirmer ; ceux de l'étape 2 attendent toujours. Changement de classe :
+  corrections 5 et 6 en cours. Ensuite : lot B étape 4, par message à `local_f6f8d8f3-…`.
