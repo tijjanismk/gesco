@@ -414,12 +414,14 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 
 ## 14 novembre 2026 — orchestrateur neuf (`local_4dff60fa`)
 
-- Questions ouvertes posées au porteur, sans préférence de sa part : les recommandations sont
-  retenues, sauf avis contraire. T-88 : la bibliothèque entre dans GESCO pour la 9e et les
-  terminales d'abord, puis dans l'ordre de la rédaction. T-91 : suivi des élèves par leurs maîtres
-  allumé à la livraison, réglable par chaque direction ; devoirs à rendre en lot à part. T-95 :
-  « en ligne » = seulement mettre les sauvegardes à l'abri hors de l'école. T-96 : par un dossier
-  synchronisé (Google Drive, OneDrive, Dropbox) sur le compte de l'école. T-93 et T-94 sans objet
-  depuis la décision 7 du plan de la phase 12. Ces réponses sont à reporter dans
-  `docs/plan-phase-12.md` et `docs/plan-phase-11.md` par la session qui écrira leurs spécifications.
+- Questions de la phase 12, revues contre §0 du plan et le journal des 12 au 14 novembre :
+  T-87 (« tout cela à la fois »), T-90, T-92 (compris dans la licence) répondues ; T-88 réglée par
+  les faits, 14 novembre 2026 (tout ce qui est écrit entre dans GESCO : 7e, 8e, 9e, terminale,
+  sujets du DEF et du BAC, matières incomplètes comprises ; l'école complète dans l'application) ;
+  T-93 et T-94 sans objet (rien de recopié sauf les énoncés officiels du DEF et du BAC, quiz écrits
+  à neuf) ; KaTeX, SVG, vidéos de l'école hors sauvegarde avec deux guides : décidés.
+  Restent posées au porteur le 14 novembre, avec recommandation : T-89 (l'enseignant de la matière
+  modifie, la direction valide avant que les élèves voient), T-91 (suivi allumé à la livraison,
+  réglable par la direction), T-95 (seulement mettre les sauvegardes à l'abri), T-96 (dossier
+  synchronisé sur le compte de l'école). Rien n'est retenu tant qu'il n'a pas répondu.
 - Étape 4 du lot B : commit pas encore dans `git log` à la prise de poste ; rien d'autre ne compile.
