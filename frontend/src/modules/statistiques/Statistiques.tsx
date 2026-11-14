@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { appeler } from "../../api";
+import { commandeAutorisee } from "../../app/navigation";
 import { choisirClasseur } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
 import { Champ, Selection } from "../../composants/Champ";
@@ -10,16 +11,17 @@ import { dateCivile, t, texteDeCle } from "../../i18n";
 import type { Cycle, FeuilleStatistique, FicheStatistique, LigneStatistique, OngletStatistique, TableauStatistique } from "../../types/gesco";
 import { OngletEtablissement } from "./FicheEcole";
 import { PourLesRapports } from "./PourLesRapports";
+import { ResultatsExamens } from "./ResultatsExamens";
 import { feuilleDe, libelleLigne, texteCellule, titreColonne, titrePremiere, titreTableau } from "./mise-en-forme";
 
-type Onglet = "eleves" | "personnel" | "locaux" | "etablissement" | "rapports";
+type Onglet = "eleves" | "personnel" | "locaux" | "examens" | "etablissement" | "rapports";
 
-const TITRES_ONGLETS = { eleves: "statistiques.onglet.eleves", personnel: "statistiques.onglet.personnel", locaux: "statistiques.onglet.locaux", etablissement: "statistiques.onglet.etablissement", rapports: "statistiques.onglet.rapports" } as const;
+const TITRES_ONGLETS = { eleves: "statistiques.onglet.eleves", personnel: "statistiques.onglet.personnel", locaux: "statistiques.onglet.locaux", examens: "statistiques.onglet.examens", etablissement: "statistiques.onglet.etablissement", rapports: "statistiques.onglet.rapports" } as const;
 
 /** Fiches désignées par un chiffre cliqué. */
 interface Detail {
   titre: string;
-  onglet: "eleves" | "personnel";
+  onglet: "eleves" | "personnel" | "examens";
   membres: readonly number[];
 }
 
@@ -40,6 +42,8 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
     queryFn: () => appeler("statistiques_lire", { annee_id: anneeId, date, cycle }),
   });
   const s = stats.data;
+  const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
+  const peutSaisirExamens = commandeAutorisee("examens_lire", session.data?.permissions ?? []);
   const exporter = async (titre: string, feuilles: FeuilleStatistique[]) => {
     setExportation(null);
     try {
@@ -54,7 +58,7 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
   const contenu: OngletStatistique | undefined = onglet === "etablissement" || onglet === "rapports" ? undefined : s?.[onglet];
   const arret = s === undefined ? "" : dateCivile(s.date);
   const ouvrir = (titre: string, membres: readonly number[]) => {
-    if (onglet === "eleves" || onglet === "personnel") setDetail({ titre, onglet, membres });
+    if (onglet === "eleves" || onglet === "personnel" || onglet === "examens") setDetail({ titre, onglet, membres });
   };
   return (
     <div className="flex flex-col gap-4">
@@ -91,7 +95,7 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
             />
           </div>
           <div role="tablist" className="flex gap-2 border-b border-muet">
-            {(["eleves", "personnel", "locaux", "etablissement", "rapports"] as const).map((o) => (
+            {(["eleves", "personnel", "locaux", "examens", "etablissement", "rapports"] as const).map((o) => (
               <button
                 key={o}
                 type="button"
@@ -115,6 +119,7 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
             </>
           ) : null}
           {onglet === "rapports" ? <PourLesRapports anneeId={s.annee_id} /> : null}
+          {onglet === "examens" && peutSaisirExamens ? <ResultatsExamens anneeId={s.annee_id} /> : null}
           {contenu === undefined ? null : (
             <>
               <div className="flex flex-wrap items-center gap-2">
@@ -131,7 +136,7 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
               </div>
               <MessageErreur erreur={exportation !== null && "erreur" in exportation ? exportation.erreur : null} />
               {detail === null || detail.onglet !== onglet ? null : (
-                <ListeDetail detail={detail} fiches={contenu.fiches} surFermer={() => setDetail(null)} surOuvrirEleve={onglet === "eleves" ? surOuvrirEleve : null} />
+                <ListeDetail detail={detail} fiches={contenu.fiches} surFermer={() => setDetail(null)} surOuvrirEleve={onglet === "eleves" || onglet === "examens" ? surOuvrirEleve : null} />
               )}
               {contenu.tableaux.map((x) => (
                 <TableauStat key={x.code} tableau={x} surOuvrir={ouvrir} surExporter={() => void exporter(`${titreTableau(x.code)} ${s.date}`, [feuilleDe(x)])} />

@@ -31,6 +31,8 @@ pub struct ClasseStat {
 /// Une inscription de l'année, avec ce qu'il faut savoir de l'élève.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InscriptionStat {
+    /// Identifiant de l'inscription.
+    pub inscription_id: String,
     /// Identifiant de l'élève.
     pub eleve_id: String,
     /// Nom et prénoms.
@@ -59,6 +61,8 @@ pub struct InscriptionStat {
     pub date_depart: Option<String>,
     /// Motif du départ ou de l'abandon.
     pub motif: String,
+    /// Décision de fin d'année, nom persisté.
+    pub decision: String,
     /// Dernière modification, millisecondes depuis l'époque.
     pub mis_a_jour_le: i64,
 }
@@ -174,23 +178,26 @@ pub async fn classes(
 }
 
 /// Ligne lue d'une inscription.
-type LigneInscription = (
-    String,
-    String,
-    String,
-    Option<String>,
-    Option<String>,
-    String,
-    Option<String>,
-    Option<String>,
-    String,
-    String,
-    String,
-    i64,
-    Option<String>,
-    String,
-    i64,
-);
+#[derive(sqlx::FromRow)]
+struct LigneInscription {
+    inscription_id: String,
+    eleve_id: String,
+    nom: String,
+    prenoms: String,
+    sexe: Option<String>,
+    date_naissance: Option<String>,
+    classe_id: String,
+    classe_precedente_id: Option<String>,
+    classe_depuis: Option<String>,
+    date_inscription: String,
+    type_inscription: String,
+    statut: String,
+    redoublant: i64,
+    date_depart: Option<String>,
+    motif: String,
+    decision: String,
+    mis_a_jour_le: i64,
+}
 
 /// Inscriptions de l'année, hors des fiches fusionnées ou supprimées.
 pub async fn inscriptions(
@@ -199,11 +206,13 @@ pub async fn inscriptions(
     contexte: &Contexte,
 ) -> Resultat<Vec<InscriptionStat>> {
     let lignes: Vec<LigneInscription> = sqlx::query_as(
-        "SELECT e.id, p.nom, p.prenoms, p.sexe, p.date_naissance, i.classe_id,
-                i.classe_precedente_id, i.classe_depuis, i.date_inscription, i.type, i.statut,
-                i.redoublant, i.date_depart,
-                CASE WHEN i.motif_depart <> '' THEN i.motif_depart ELSE i.motif_abandon END,
-                i.mis_a_jour_le
+        "SELECT i.id AS inscription_id, e.id AS eleve_id, p.nom, p.prenoms, p.sexe,
+                p.date_naissance, i.classe_id, i.classe_precedente_id, i.classe_depuis,
+                i.date_inscription, i.type AS type_inscription, i.statut, i.redoublant,
+                i.date_depart,
+                CASE WHEN i.motif_depart <> '' THEN i.motif_depart ELSE i.motif_abandon END
+                    AS motif,
+                i.decision_fin_annee AS decision, i.mis_a_jour_le
          FROM inscription i
          JOIN eleve e ON e.id = i.eleve_id
          JOIN personne p ON p.id = e.personne_id
@@ -217,41 +226,25 @@ pub async fn inscriptions(
     .await?;
     Ok(lignes
         .into_iter()
-        .map(
-            |(
-                eleve_id,
-                nom,
-                prenoms,
-                sexe,
-                date_naissance,
-                classe_id,
-                classe_precedente_id,
-                classe_depuis,
-                date_inscription,
-                type_inscription,
-                statut,
-                redoublant,
-                date_depart,
-                motif,
-                mis_a_jour_le,
-            )| InscriptionStat {
-                eleve_id,
-                nom,
-                prenoms,
-                sexe,
-                date_naissance,
-                classe_id,
-                classe_precedente_id,
-                classe_depuis,
-                date_inscription,
-                type_inscription,
-                statut,
-                redoublant: redoublant != 0,
-                date_depart,
-                motif,
-                mis_a_jour_le,
-            },
-        )
+        .map(|l| InscriptionStat {
+            inscription_id: l.inscription_id,
+            eleve_id: l.eleve_id,
+            nom: l.nom,
+            prenoms: l.prenoms,
+            sexe: l.sexe,
+            date_naissance: l.date_naissance,
+            classe_id: l.classe_id,
+            classe_precedente_id: l.classe_precedente_id,
+            classe_depuis: l.classe_depuis,
+            date_inscription: l.date_inscription,
+            type_inscription: l.type_inscription,
+            statut: l.statut,
+            redoublant: l.redoublant != 0,
+            date_depart: l.date_depart,
+            motif: l.motif,
+            decision: l.decision,
+            mis_a_jour_le: l.mis_a_jour_le,
+        })
         .collect())
 }
 

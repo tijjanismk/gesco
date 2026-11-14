@@ -119,6 +119,10 @@ use crate::evaluations::{
     DemandeIdEvaluation, DemandeImportNotes, DemandeNote, EvaluationAffichee, GrilleNotes,
     NoteDeLEleve, ServiceEvaluations,
 };
+use crate::examens::{
+    DemandeEntree7e, DemandeExamens, DemandeResultatExamen, DemandeTotalExamen, EleveExamen,
+    Examens, ServiceExamens, TotalAffiche,
+};
 use crate::export::{DemandeExport, FichierEcrit};
 use crate::facturation::{
     DemandeChangementPlan, DemandeJourEcheance, FactureAffichee, LigneRattrapage,
@@ -1064,6 +1068,10 @@ contrat! {
     inventaire_reprendre(DemandeRepriseInventaire) -> Inventaire;
     article_inventaire_enregistrer(DemandeArticleInventaire) -> gesco_core::core::ArticleInventaire;
     article_inventaire_activer(DemandeActivationArticle) -> gesco_core::core::ArticleInventaire;
+    examens_lire(DemandeExamens) -> Examens;
+    resultat_examen_regler(DemandeResultatExamen) -> EleveExamen;
+    total_examen_regler(DemandeTotalExamen) -> TotalAffiche;
+    examens_entree_7e_regler(DemandeEntree7e) -> bool;
     complements_eleves_lire(DemandeComplementsEleves) -> ComplementsEleves;
     complement_eleve_regler(DemandeComplementEleve) -> ComplementsEleves;
     classe_rapports_regler(DemandeClasseRapports) -> ComplementsEleves;
@@ -3294,6 +3302,42 @@ impl Application {
     ) -> Resultat<gesco_core::core::ArticleInventaire> {
         ServiceInventaire::nouveau(&appel.ouverte()?.noyau)
             .activer_article(appel.session()?, entree)
+            .await
+    }
+
+    async fn examens_lire(&self, appel: Appel, entree: DemandeExamens) -> Resultat<Examens> {
+        ServiceExamens::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn resultat_examen_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeResultatExamen,
+    ) -> Resultat<EleveExamen> {
+        ServiceExamens::nouveau(&appel.ouverte()?.noyau)
+            .regler_resultat(appel.session()?, entree)
+            .await
+    }
+
+    async fn total_examen_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeTotalExamen,
+    ) -> Resultat<TotalAffiche> {
+        ServiceExamens::nouveau(&appel.ouverte()?.noyau)
+            .regler_total(appel.session()?, entree)
+            .await
+    }
+
+    async fn examens_entree_7e_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeEntree7e,
+    ) -> Resultat<bool> {
+        ServiceExamens::nouveau(&appel.ouverte()?.noyau)
+            .regler_entree_7e(appel.session()?, entree)
             .await
     }
 

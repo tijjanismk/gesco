@@ -1661,6 +1661,14 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	article_inventaire_activer: Signature<DemandeActivationArticle, ArticleInventaire>,
 	/**  Signature de la commande du même nom. */
+	examens_lire: Signature<DemandeExamens, Examens>,
+	/**  Signature de la commande du même nom. */
+	resultat_examen_regler: Signature<DemandeResultatExamen, EleveExamen>,
+	/**  Signature de la commande du même nom. */
+	total_examen_regler: Signature<DemandeTotalExamen, TotalAffiche>,
+	/**  Signature de la commande du même nom. */
+	examens_entree_7e_regler: Signature<DemandeEntree7e, boolean>,
+	/**  Signature de la commande du même nom. */
 	complements_eleves_lire: Signature<DemandeComplementsEleves, ComplementsEleves>,
 	/**  Signature de la commande du même nom. */
 	complement_eleve_regler: Signature<DemandeComplementEleve, ComplementsEleves>,
@@ -9271,6 +9279,9 @@ export type Statistiques = {
 	/**  Onglet Locaux et équipements : l'inventaire de l'année ; ses cases ne mènent à aucune
  *  fiche. */
 	locaux: OngletStatistique,
+	/**  Onglet Examens et fin d'année : décisions, résultats aux examens, taux d'admis, effectifs
+ *  probables à la rentrée. */
+	examens: OngletStatistique,
 };
 
 /**  Cycle de vie d'une année (§10.8 du blueprint). */
@@ -10030,5 +10041,79 @@ export type DemandeArticleInventaire = {
 /**  Retrait ou remise en service d'un article. */
 export type DemandeActivationArticle = {
 	id: string,
+	actif: boolean,
+};
+
+/**  Examen dont l'école note les résultats. */
+export type Examen = "entree_7e" | "def" | "bac" | "cap" | "bt";
+
+/**  Ce que l'écran demande : l'année et la classe. */
+export type DemandeExamens = {
+	annee_id: string | null,
+	classe_id: string | null,
+};
+
+/**  Une classe dont les élèves passent un examen. */
+export type ClasseExamen = {
+	id: string,
+	libelle: string,
+	examen: Examen,
+};
+
+/**  Le résultat d'un élève, tel que la grille le montre. */
+export type EleveExamen = {
+	inscription_id: string,
+	eleve_id: string,
+	nom: string,
+	sexe: Sexe | null,
+	inscrit: boolean | null,
+	present: boolean | null,
+	admis: boolean | null,
+	mention: string,
+};
+
+/**  Les totaux d'un examen pour un sexe. */
+export type TotalAffiche = {
+	examen: Examen,
+	sexe: Sexe,
+	inscrits: number | null,
+	presentes: number | null,
+	admis: number | null,
+};
+
+/**  Les résultats d'une année. */
+export type Examens = {
+	annees: AnneeStatistiques[],
+	annee_id: string | null,
+	entree_7e: boolean,
+	examens: Examen[],
+	classes: ClasseExamen[],
+	classe_id: string | null,
+	eleves: EleveExamen[],
+	totaux: TotalAffiche[],
+	avec_detail: Examen[],
+};
+
+/**  Résultat saisi d'un élève. */
+export type DemandeResultatExamen = {
+	inscription_id: string,
+	inscrit: boolean | null,
+	present: boolean | null,
+	admis: boolean | null,
+	mention: string,
+};
+
+/**  Totaux saisis d'un examen pour un sexe. */
+export type DemandeTotalExamen = {
+	annee_id: string,
+	examen: Examen,
+	sexe: Sexe,
+	inscrits: number | null,
+	presentes: number | null,
+	admis: number | null,
+};
+
+/**  Réglage de l'examen d'entrée en 7e. */
+export type DemandeEntree7e = {
 	actif: boolean,
 };

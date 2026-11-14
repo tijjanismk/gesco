@@ -196,6 +196,9 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("rubrique_fiche_enregistrer", SansControle::Reference),
     ("article_inventaire_enregistrer", SansControle::Reference),
     ("inventaire_releve_enregistrer", SansControle::Grille),
+    ("resultat_examen_regler", SansControle::Grille),
+    ("total_examen_regler", SansControle::Grille),
+    ("examens_entree_7e_regler", SansControle::Valeur),
     ("complement_eleve_regler", SansControle::Grille),
     ("classe_rapports_regler", SansControle::Reference),
     ("difficulte_eleve_regler", SansControle::Valeur),
@@ -480,6 +483,14 @@ pub const COMMANDES: &[Commande] = &[
         Permission::INVENTORY_MANAGE,
     ),
     Commande::permise("article_inventaire_activer", Permission::INVENTORY_MANAGE),
+    // Résultats aux examens (SPEC_PHASE_9 §8.5) : tenus avec la fiche de l'établissement.
+    Commande::permise("examens_lire", Permission::SCHOOL_PROFILE_MANAGE),
+    Commande::permise("resultat_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),
+    Commande::permise("total_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),
+    Commande::permise(
+        "examens_entree_7e_regler",
+        Permission::SCHOOL_PROFILE_MANAGE,
+    ),
     // Compléments pour les rapports (SPEC_PHASE_9 §8.2, §8.3) : ils suivent les droits des
     // fiches ; les difficultés d'un élève ont leur droit propre.
     Commande::permise("complements_eleves_lire", Permission::STUDENTS_READ),

@@ -19,7 +19,9 @@ use gesco_core::scolarite::Cycle;
 use gesco_db::depots::statistiques::{
     AffectationStat, ClasseStat, EngagementStat, InscriptionStat, MembreStat,
 };
-use gesco_db::depots::{academique, annee_scolaire, complements, inventaire, statistiques};
+use gesco_db::depots::{
+    academique, annee_scolaire, complements, examens, inventaire, statistiques,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::erreur::Resultat;
@@ -142,6 +144,9 @@ pub struct Statistiques {
     /// Onglet Locaux et équipements : l'inventaire de l'année ; ses cases ne mènent à aucune
     /// fiche.
     pub locaux: OngletStatistique,
+    /// Onglet Examens et fin d'année : décisions, résultats aux examens, taux d'admis, effectifs
+    /// probables à la rentrée.
+    pub examens: OngletStatistique,
 }
 
 /// Une feuille d'un export des statistiques, telle que l'écran la montre.
@@ -251,6 +256,13 @@ impl<'n> ServiceStatistiques<'n> {
             None => (Vec::new(), Vec::new()),
         };
         let niveaux = academique::niveaux(&mut cnx, &contexte).await?;
+        let (resultats, totaux) = match &choisie {
+            Some(a) => (
+                examens::resultats(&mut cnx, a.id, &contexte).await?,
+                examens::totaux(&mut cnx, a.id, &contexte).await?,
+            ),
+            None => (Vec::new(), Vec::new()),
+        };
         let membres = statistiques::membres(&mut cnx, &contexte).await?;
         let engagements = statistiques::engagements(&mut cnx, &contexte).await?;
         let complements = self
@@ -281,6 +293,7 @@ impl<'n> ServiceStatistiques<'n> {
             &complements,
         );
         let locaux = onglet_locaux(&articles, &releves, &niveaux, demande.cycle);
+        let examens = onglet_examens(&perimetre, &inscriptions, &resultats, &totaux);
         Ok(Statistiques {
             annees: annees
                 .iter()
@@ -298,6 +311,7 @@ impl<'n> ServiceStatistiques<'n> {
             eleves,
             personnel,
             locaux,
+            examens,
         })
     }
 
@@ -401,6 +415,9 @@ struct MembreComplete {
     specialite: Option<Specialite>,
     diplome: Option<DiplomeEleve>,
 }
+
+/// Clé de la ligne neutre des élèves dont le sexe n'est pas noté.
+const CLE_SANS_SEXE: &str = "statistiques.hors.eleves_sans_sexe";
 
 /// Ce qui borne les chiffres : la date, la rentrée, le cycle, les classes de l'année.
 struct Perimetre<'a> {
@@ -1632,5 +1649,313 @@ fn onglet_locaux(
                 true,
             ),
         ],
+    }
+}
+
+/// Cycle où se passe un examen, pour le périmètre d'un cycle.
+const fn cycle_de_l_examen(examen: gesco_core::core::Examen) -> Cycle {
+    use gesco_core::core::Examen;
+    match examen {
+        Examen::Entree7e => Cycle::PremierCycle,
+        Examen::Def => Cycle::SecondCycle,
+        Examen::Bac => Cycle::Lycee,
+        Examen::Cap | Examen::Bt => Cycle::Technique,
+    }
+}
+
+/// Trois cases par sexe — garçons, filles, total — de nombres saisis, sans fiches.
+fn cellules_saisies(g: Option<u32>, f: Option<u32>) -> Vec<CelluleStatistique> {
+    let total = match (g, f) {
+        (None, None) => None,
+        (g, f) => Some(g.unwrap_or(0).saturating_add(f.unwrap_or(0))),
+    };
+    [g, f, total]
+        .into_iter()
+        .map(|n| CelluleStatistique {
+            nombre: n,
+            ..CelluleStatistique::default()
+        })
+        .collect()
+}
+
+/// Taux de réussite par sexe, en texte ; vide quand un des deux nombres manque.
+fn cellules_taux(admis: [Option<u32>; 3], presentes: [Option<u32>; 3]) -> Vec<CelluleStatistique> {
+    admis
+        .into_iter()
+        .zip(presentes)
+        .map(|(a, p)| CelluleStatistique {
+            texte: match (a, p) {
+                (Some(a), Some(p)) => gesco_core::core::examens::taux(a, p),
+                _ => None,
+            },
+            ..CelluleStatistique::default()
+        })
+        .collect()
+}
+
+/// Inscrits, présentés, admis et taux d'un examen, par sexe : neuf cases de nombres et trois de
+/// taux, d'après trois lignes de trois cases (inscrits, présentés, admis).
+fn cellules_examen(trois: [Vec<CelluleStatistique>; 3]) -> Vec<CelluleStatistique> {
+    let nombres = |l: &[CelluleStatistique]| -> [Option<u32>; 3] {
+        let mut n = [None; 3];
+        for (x, c) in n.iter_mut().zip(l) {
+            *x = c.nombre;
+        }
+        n
+    };
+    let [inscrits, presentes, admis] = trois;
+    let taux = cellules_taux(nombres(&admis), nombres(&presentes));
+    let mut cellules = inscrits;
+    cellules.extend(presentes);
+    cellules.extend(admis);
+    cellules.extend(taux);
+    cellules
+}
+
+/// Onglet Examens et fin d'année (SPEC_PHASE_9 §9.1, §5.2) : décisions de fin d'année par niveau
+/// et sexe, résultats aux examens (le détail par élève l'emporte sur les totaux), taux d'admis par
+/// cycle, effectifs probables à la rentrée (passants du niveau d'en dessous plus redoublants du
+/// niveau). « Non statué » et « rattrapage » ne comptent dans aucune décision.
+fn onglet_examens(
+    p: &Perimetre<'_>,
+    inscriptions: &[InscriptionStat],
+    resultats: &[gesco_db::depots::examens::ResultatExamen],
+    totaux: &[gesco_db::depots::examens::TotalExamen],
+) -> OngletStatistique {
+    use gesco_core::core::Examen;
+    use gesco_db::depots::examens::{ResultatExamen, TotalExamen};
+    // Toute l'école, pour trouver les passants du niveau d'en dessous d'un cycle choisi.
+    let ecole = Perimetre {
+        date: p.date,
+        rentree: p.rentree,
+        cycle: None,
+        classes: p.classes.clone(),
+    };
+    let retenues: Vec<Retenue<'_>> = retenir(&ecole, inscriptions)
+        .into_iter()
+        .filter(|r| r.presente)
+        .collect();
+    let fiches: Vec<FicheStatistique> = retenues
+        .iter()
+        .map(|r| FicheStatistique {
+            id: r.inscription.eleve_id.clone(),
+            nom: format!("{} {}", r.inscription.nom, r.inscription.prenoms)
+                .trim()
+                .to_owned(),
+            detail: r.classe.libelle.clone(),
+            motif: String::new(),
+        })
+        .collect();
+    let sexes: Vec<Option<String>> = retenues
+        .iter()
+        .map(|r| r.inscription.sexe.clone())
+        .collect();
+    let places = |filtre: &dyn Fn(&Retenue<'_>) -> bool| -> Vec<u32> {
+        retenues
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| filtre(r))
+            .map(|(i, _)| place(i))
+            .collect()
+    };
+    let par_sexe = |m: &[u32]| ligne_par_sexe(String::new(), None, m, &sexes).cellules;
+    let colonnes_sexe = |prefixe: &str| -> Vec<String> {
+        ["garcons", "filles", "total"]
+            .iter()
+            .map(|s| format!("{prefixe}_{s}"))
+            .collect()
+    };
+    // Niveaux de l'année, dans l'ordre.
+    let mut niveaux_annee: Vec<(&str, &str, i64)> = Vec::new();
+    for c in p.classes.values() {
+        if !niveaux_annee.iter().any(|(id, _, _)| *id == c.niveau_id) {
+            niveaux_annee.push((c.niveau_id.as_str(), c.niveau.as_str(), c.ordre));
+        }
+    }
+    niveaux_annee.sort_by_key(|n| n.2);
+
+    // Décisions de fin d'année par niveau.
+    let decisions_de = |filtre: &dyn Fn(&Retenue<'_>) -> bool| -> Vec<CelluleStatistique> {
+        let mut cellules = par_sexe(&places(filtre));
+        for decision in ["admis", "redouble", "exclu"] {
+            cellules.extend(par_sexe(&places(&|r: &Retenue<'_>| {
+                filtre(r) && r.inscription.decision == decision
+            })));
+        }
+        cellules
+    };
+    let mut lignes_decisions = Vec::new();
+    for (niveau_id, libelle, _) in &niveaux_annee {
+        let du_niveau = |r: &Retenue<'_>| p.retient(r.classe) && r.classe.niveau_id == *niveau_id;
+        if !retenues.iter().any(du_niveau) {
+            continue;
+        }
+        lignes_decisions.push(LigneStatistique {
+            libelle: (*libelle).to_owned(),
+            cle: None,
+            cellules: decisions_de(&du_niveau),
+        });
+    }
+    let tous = places(&|r: &Retenue<'_>| p.retient(r.classe));
+    let decisions = TableauStatistique {
+        code: "decisions_par_niveau".to_owned(),
+        colonnes: ["effectif", "passages", "redoublements", "exclusions"]
+            .iter()
+            .flat_map(|c| colonnes_sexe(c))
+            .collect(),
+        total: (!lignes_decisions.is_empty()).then(|| LigneStatistique {
+            libelle: String::new(),
+            cle: Some("statistiques.total".to_owned()),
+            cellules: decisions_de(&|r: &Retenue<'_>| p.retient(r.classe)),
+        }),
+        lignes: lignes_decisions,
+        hors: sans_sexe(&tous, &sexes, CLE_SANS_SEXE)
+            .into_iter()
+            .collect(),
+    };
+
+    // Résultats aux examens.
+    let par_inscription: HashMap<&str, &ResultatExamen> = resultats
+        .iter()
+        .map(|r| (r.inscription_id.as_str(), r))
+        .collect();
+    let resultat_de = |r: &Retenue<'_>| par_inscription.get(r.inscription.inscription_id.as_str());
+    let mut lignes_examens = Vec::new();
+    for examen in Examen::TOUS {
+        let du_detail = |r: &Retenue<'_>| {
+            p.retient(r.classe)
+                && resultat_de(r).is_some_and(|x| {
+                    x.examen == examen
+                        && (x.inscrit.is_some() || x.present.is_some() || x.admis.is_some())
+                })
+        };
+        let cellules = if retenues.iter().any(du_detail) {
+            let selon = |champ: fn(&ResultatExamen) -> Option<bool>| {
+                par_sexe(&places(&|r: &Retenue<'_>| {
+                    du_detail(r) && resultat_de(r).is_some_and(|x| champ(x) == Some(true))
+                }))
+            };
+            cellules_examen([
+                selon(|x| x.inscrit),
+                selon(|x| x.present),
+                selon(|x| x.admis),
+            ])
+        } else {
+            if p.cycle.is_some_and(|c| c != cycle_de_l_examen(examen)) {
+                continue;
+            }
+            let du_sexe = |s: &str| totaux.iter().find(|t| t.examen == examen && t.sexe == s);
+            let (g, f) = (du_sexe("masculin"), du_sexe("feminin"));
+            if g.is_none() && f.is_none() {
+                continue;
+            }
+            let selon = |champ: fn(&TotalExamen) -> Option<u32>| {
+                cellules_saisies(g.and_then(champ), f.and_then(champ))
+            };
+            cellules_examen([
+                selon(|t| t.inscrits),
+                selon(|t| t.presentes),
+                selon(|t| t.admis),
+            ])
+        };
+        lignes_examens.push(LigneStatistique {
+            libelle: String::new(),
+            cle: Some(format!("examens.examen.{}", examen.nom())),
+            cellules,
+        });
+    }
+    let resultats_examens = TableauStatistique {
+        code: "resultats_examens".to_owned(),
+        colonnes: ["inscrits", "presentes", "admis", "taux"]
+            .iter()
+            .flat_map(|c| colonnes_sexe(c))
+            .collect(),
+        lignes: lignes_examens,
+        total: None,
+        hors: Vec::new(),
+    };
+
+    // Taux d'admis parmi les décisions, par cycle.
+    let mut lignes_taux = Vec::new();
+    for cycle in Cycle::TOUS {
+        if p.cycle.is_some_and(|c| c != cycle) {
+            continue;
+        }
+        let du_cycle = |r: &Retenue<'_>| r.classe.cycle == cycle.nom();
+        if !retenues.iter().any(du_cycle) {
+            continue;
+        }
+        let decides = places(&|r: &Retenue<'_>| {
+            du_cycle(r)
+                && matches!(
+                    r.inscription.decision.as_str(),
+                    "admis" | "redouble" | "exclu"
+                )
+        });
+        let admis = places(&|r: &Retenue<'_>| du_cycle(r) && r.inscription.decision == "admis");
+        let taux = gesco_core::core::examens::taux(place(admis.len()), place(decides.len()));
+        lignes_taux.push(LigneStatistique {
+            libelle: String::new(),
+            cle: Some(format!("niveaux.cycle.{}", cycle.nom())),
+            cellules: vec![
+                CelluleStatistique {
+                    nombre: nombre(decides.len()),
+                    texte: None,
+                    membres: decides,
+                },
+                CelluleStatistique {
+                    nombre: nombre(admis.len()),
+                    texte: None,
+                    membres: admis,
+                },
+                CelluleStatistique {
+                    texte: taux,
+                    ..CelluleStatistique::default()
+                },
+            ],
+        });
+    }
+    let taux_par_cycle = TableauStatistique {
+        code: "taux_admis_par_cycle".to_owned(),
+        colonnes: vec!["decides".to_owned(), "admis".to_owned(), "taux".to_owned()],
+        lignes: lignes_taux,
+        total: None,
+        hors: Vec::new(),
+    };
+
+    // Effectifs probables : passants du niveau d'en dessous, plus redoublants du niveau.
+    let mut groupes = Vec::new();
+    for (k, (niveau_id, libelle, ordre)) in niveaux_annee.iter().enumerate() {
+        if !retenues
+            .iter()
+            .any(|r| p.retient(r.classe) && r.classe.niveau_id == *niveau_id)
+        {
+            continue;
+        }
+        let dessous = k
+            .checked_sub(1)
+            .and_then(|j| niveaux_annee.get(j))
+            .filter(|(_, _, o)| *o == ordre - 1)
+            .map(|(id, _, _)| *id);
+        let mut g = Groupe::nouveau(*libelle, None);
+        g.membres = places(&|r: &Retenue<'_>| {
+            (r.classe.niveau_id == *niveau_id && r.inscription.decision == "redouble")
+                || (Some(r.classe.niveau_id.as_str()) == dessous
+                    && r.inscription.decision == "admis")
+        });
+        groupes.push(g);
+    }
+    let probables = tableau_par_sexe(
+        "effectifs_probables",
+        ["garcons", "filles", "total"],
+        groupes,
+        None,
+        &sexes,
+        CLE_SANS_SEXE,
+    );
+
+    OngletStatistique {
+        fiches,
+        tableaux: vec![decisions, resultats_examens, taux_par_cycle, probables],
     }
 }

@@ -24,6 +24,7 @@ pub mod emploi_du_temps;
 pub mod enseignants;
 pub mod etablissement;
 pub mod evaluations;
+pub mod examens;
 pub mod factures;
 pub mod fiche;
 pub mod file_sms;

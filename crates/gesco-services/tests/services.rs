@@ -22,6 +22,7 @@ mod emploi_du_temps;
 mod engagements;
 mod enseignants;
 mod evaluations;
+mod examens;
 mod export;
 mod facturation;
 mod fiche_ecole;

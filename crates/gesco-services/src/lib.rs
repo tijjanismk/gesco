@@ -38,6 +38,7 @@ pub mod enseignants;
 pub mod erreur;
 pub mod espace;
 pub mod evaluations;
+pub mod examens;
 pub mod export;
 pub mod facturation;
 pub mod fiche_ecole;
