@@ -463,3 +463,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (Opus 5.5, effort élevé) ; elle attend sans compiler le commit de l'étape 1
   (`local_9aead718`, essais Rust en cours). Le retrait du 2e trimestre de l'école d'essai est confié
   à son étape 8.
+- 2026-11-14, porteur : « on fait des tests à la fin ». À chaque étape : essais écrits avec le code,
+  mais seuls ceux de l'étape sont lancés (plus fmt, clippy, tsc, ESLint, vitest, knip). Suite
+  complète des essais Rust (réseau compris) et Playwright une seule fois, après l'étape 8 de la
+  phase 9. Message passé aux deux sessions de la phase 9.
