@@ -194,6 +194,8 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("regle_enregistrer", SansControle::Reference),
     ("domaine_competence_enregistrer", SansControle::Reference),
     ("rubrique_fiche_enregistrer", SansControle::Reference),
+    ("article_inventaire_enregistrer", SansControle::Reference),
+    ("inventaire_releve_enregistrer", SansControle::Grille),
     ("complement_eleve_regler", SansControle::Grille),
     ("classe_rapports_regler", SansControle::Reference),
     ("difficulte_eleve_regler", SansControle::Valeur),
@@ -465,6 +467,19 @@ pub const COMMANDES: &[Commande] = &[
         Permission::SCHOOL_PROFILE_MANAGE,
     ),
     Commande::permise("rubrique_fiche_activer", Permission::SCHOOL_PROFILE_MANAGE),
+    // Inventaire (SPEC_PHASE_9 §8.4) : un droit à part, donné à qui l'école charge de
+    // l'inventaire ; une ligne à la fois, la dernière écriture gagne.
+    Commande::permise("inventaire_lire", Permission::INVENTORY_MANAGE),
+    Commande::permise(
+        "inventaire_releve_enregistrer",
+        Permission::INVENTORY_MANAGE,
+    ),
+    Commande::permise("inventaire_reprendre", Permission::INVENTORY_MANAGE),
+    Commande::permise(
+        "article_inventaire_enregistrer",
+        Permission::INVENTORY_MANAGE,
+    ),
+    Commande::permise("article_inventaire_activer", Permission::INVENTORY_MANAGE),
     // Compléments pour les rapports (SPEC_PHASE_9 §8.2, §8.3) : ils suivent les droits des
     // fiches ; les difficultés d'un élève ont leur droit propre.
     Commande::permise("complements_eleves_lire", Permission::STUDENTS_READ),

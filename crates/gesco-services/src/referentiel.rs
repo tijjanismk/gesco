@@ -136,6 +136,8 @@ pub async fn poser_referentiel(
     ajoutes += crate::tresorerie::poser_tresorerie(unite, etablissement_id, origine).await?;
     // Et les rubriques livrées de la fiche de l'établissement (SPEC_PHASE_9 §8.1).
     ajoutes += crate::fiche_ecole::poser_rubriques(unite, etablissement_id, origine).await?;
+    // Et les articles livrés de l'inventaire (SPEC_PHASE_9 §8.4).
+    ajoutes += crate::inventaire::poser_articles(unite, etablissement_id, origine).await?;
     Ok(ajoutes)
 }
 

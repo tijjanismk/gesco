@@ -1651,6 +1651,16 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	rubrique_fiche_activer: Signature<DemandeActivationRubrique, RubriqueFiche>,
 	/**  Signature de la commande du même nom. */
+	inventaire_lire: Signature<DemandeInventaire, Inventaire>,
+	/**  Signature de la commande du même nom. */
+	inventaire_releve_enregistrer: Signature<DemandeReleveInventaire, Inventaire>,
+	/**  Signature de la commande du même nom. */
+	inventaire_reprendre: Signature<DemandeRepriseInventaire, Inventaire>,
+	/**  Signature de la commande du même nom. */
+	article_inventaire_enregistrer: Signature<DemandeArticleInventaire, ArticleInventaire>,
+	/**  Signature de la commande du même nom. */
+	article_inventaire_activer: Signature<DemandeActivationArticle, ArticleInventaire>,
+	/**  Signature de la commande du même nom. */
 	complements_eleves_lire: Signature<DemandeComplementsEleves, ComplementsEleves>,
 	/**  Signature de la commande du même nom. */
 	complement_eleve_regler: Signature<DemandeComplementEleve, ComplementsEleves>,
@@ -9258,6 +9268,9 @@ export type Statistiques = {
 	eleves: OngletStatistique,
 	/**  Onglet Personnel. */
 	personnel: OngletStatistique,
+	/**  Onglet Locaux et équipements : l'inventaire de l'année ; ses cases ne mènent à aucune
+ *  fiche. */
+	locaux: OngletStatistique,
 };
 
 /**  Cycle de vie d'une année (§10.8 du blueprint). */
@@ -9907,4 +9920,115 @@ export type VersionElement = {
 	calcul: Calcul,
 	/**  Retenues salariales retranchées du brut pour former l'assiette d'un taux ou d'un barème. */
 	assiette_deduit: string[],
+};
+
+/**  Un article du catalogue de l'inventaire. */
+export type ArticleInventaire = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement propriétaire. */
+	etablissement_id: string,
+	/**  Code stable d'un article livré ; vide pour un article de l'école. */
+	code: string | null,
+	/**  Famille. */
+	famille: FamilleInventaire,
+	/**  Désignation. */
+	designation: string,
+	/**  Matière d'un manuel ; vide sinon. */
+	matiere: string,
+	/**  Niveau d'un manuel, s'il est donné. */
+	niveau_id: string | null,
+	/**  Vrai pour un article livré : il ne se renomme pas, il se retire. */
+	livre: boolean,
+	/**  Ordre dans sa famille. */
+	ordre: number,
+	/**  Instant du retrait ; vide pour un article en service. */
+	retire_le: number | null,
+};
+
+/**  Famille d'un article : l'onglet de l'écran d'inventaire. */
+export type FamilleInventaire = "local" | "mobilier" | "materiel" | "manuel" | "adapte";
+
+/**  Quantités d'une ligne de relevé ; chacune facultative. */
+export type QuantitesInventaire = {
+	existant: number | null,
+	bon_etat: number | null,
+	besoins: number | null,
+	dur: number | null,
+	semi_dur: number | null,
+	banco: number | null,
+	autre_construction: number | null,
+	neufs: number | null,
+	en_location: number | null,
+	murs_bons: number | null,
+	murs_mauvais: number | null,
+	toits_bons: number | null,
+	toits_mauvais: number | null,
+	cabines_filles: number | null,
+	cabines_garcons: number | null,
+	cabines_enseignants: number | null,
+};
+
+/**  Une ligne de relevé. */
+export type ReleveInventaire = {
+	/**  Article. */
+	article_id: string,
+	/**  Cycle ; vide pour un relevé de toute l'école. */
+	cycle: Cycle | null,
+	/**  Quantités. */
+	quantites: QuantitesInventaire,
+	/**  Observation libre. */
+	observation: string,
+};
+
+/**  Ce que l'écran demande : l'année et la partie de l'école. */
+export type DemandeInventaire = {
+	annee_id: string | null,
+	cycle: Cycle | null,
+};
+
+/**  Un niveau qu'on peut donner à un manuel. */
+export type NiveauInventaire = {
+	id: string,
+	libelle: string,
+	cycle: Cycle,
+};
+
+/**  L'inventaire d'une année, pour une partie de l'école. */
+export type Inventaire = {
+	annees: AnneeStatistiques[],
+	annee_id: string | null,
+	cycle: Cycle | null,
+	cycles: Cycle[],
+	niveaux: NiveauInventaire[],
+	articles: ArticleInventaire[],
+	lignes: ReleveInventaire[],
+	an_dernier: ReleveInventaire[],
+};
+
+/**  Une ligne saisie. */
+export type DemandeReleveInventaire = {
+	annee_id: string,
+	releve: ReleveInventaire,
+};
+
+/**  Reprise des lignes de l'an dernier. */
+export type DemandeRepriseInventaire = {
+	annee_id: string,
+	cycle: Cycle | null,
+};
+
+/**  Article ajouté ou modifié par l'école. */
+export type DemandeArticleInventaire = {
+	id: string | null,
+	famille: FamilleInventaire,
+	designation: string,
+	matiere: string,
+	niveau_id: string | null,
+};
+
+/**  Retrait ou remise en service d'un article. */
+export type DemandeActivationArticle = {
+	id: string,
+	actif: boolean,
 };

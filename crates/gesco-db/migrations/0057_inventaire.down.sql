@@ -1,0 +1,4 @@
+DROP TRIGGER releve_inventaire_sans_suppression;
+DROP TABLE releve_inventaire;
+DROP TRIGGER article_inventaire_sans_suppression;
+DROP TABLE article_inventaire;

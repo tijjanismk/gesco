@@ -30,6 +30,7 @@ pub mod file_sms;
 pub mod fournisseurs;
 pub mod fraicheur;
 pub mod inscriptions;
+pub mod inventaire;
 pub mod jardin;
 pub mod licence;
 pub mod livres;

@@ -25,6 +25,12 @@ const TABLEAUX: Readonly<Record<string, readonly [Cle, Cle]>> = {
   personnel_par_statut: ["statistiques.tableau.personnel_par_statut", "statistiques.premiere.personnel_par_statut"],
   enseignants_par_specialite: ["statistiques.tableau.enseignants_par_specialite", "statistiques.premiere.enseignants_par_specialite"],
   enseignants_par_diplome: ["statistiques.tableau.enseignants_par_diplome", "statistiques.premiere.enseignants_par_diplome"],
+  inventaire_locaux: ["statistiques.tableau.inventaire_locaux", "inventaire.article"],
+  inventaire_latrines: ["statistiques.tableau.inventaire_latrines", "inventaire.article"],
+  inventaire_mobilier: ["statistiques.tableau.inventaire_mobilier", "inventaire.article"],
+  inventaire_materiel: ["statistiques.tableau.inventaire_materiel", "inventaire.article"],
+  inventaire_manuels: ["statistiques.tableau.inventaire_manuels", "inventaire.manuel"],
+  inventaire_adapte: ["statistiques.tableau.inventaire_adapte", "inventaire.article"],
 };
 
 /** Titre de chaque colonne, par code de colonne. */
@@ -42,6 +48,23 @@ const COLONNES: Readonly<Record<string, Cle>> = {
   fonctionnaire: "statistiques.colonne.fonctionnaire",
   diplome: "statistiques.colonne.diplome",
   arrive_le: "statistiques.colonne.arrive_le",
+  existant: "inventaire.colonne.existant",
+  bon_etat: "inventaire.colonne.bon_etat",
+  besoins: "inventaire.colonne.besoins",
+  dur: "inventaire.colonne.dur",
+  semi_dur: "inventaire.colonne.semi_dur",
+  banco: "inventaire.colonne.banco",
+  autre_construction: "inventaire.colonne.autre_construction",
+  neufs: "inventaire.colonne.neufs",
+  en_location: "inventaire.colonne.en_location",
+  murs_bons: "inventaire.colonne.murs_bons",
+  murs_mauvais: "inventaire.colonne.murs_mauvais",
+  toits_bons: "inventaire.colonne.toits_bons",
+  toits_mauvais: "inventaire.colonne.toits_mauvais",
+  cabines_filles: "inventaire.colonne.cabines_filles",
+  cabines_garcons: "inventaire.colonne.cabines_garcons",
+  cabines_enseignants: "inventaire.colonne.cabines_enseignants",
+  observation: "inventaire.colonne.observation",
 };
 
 /** Titre d'un tableau. */

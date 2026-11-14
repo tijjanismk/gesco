@@ -48,6 +48,7 @@ import { Convocations } from "../modules/scolarite/Convocations";
 import { Guichet } from "../modules/scolarite/Guichet";
 import { Remises } from "../modules/scolarite/Remises";
 import { Statistiques } from "../modules/statistiques/Statistiques";
+import { Inventaire } from "../modules/inventaire/Inventaire";
 import { BandeauPoste } from "./BandeauPoste";
 import { commandeAutorisee, GROUPES_REPLIES, type IdSection, sectionsAutorisees } from "./navigation";
 import { RechercheGlobale } from "./RechercheGlobale";
@@ -259,6 +260,8 @@ function Contenu({
       return <Accueil nom={nom} />;
     case "statistiques":
       return <Statistiques surOuvrirEleve={surOuvrirEleve} />;
+    case "inventaire":
+      return <Inventaire />;
     case "compte":
       return <MonCompte changementExige={false} />;
     case "utilisateurs":

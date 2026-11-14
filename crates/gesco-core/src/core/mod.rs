@@ -9,6 +9,7 @@ pub mod complements;
 pub mod etablissement;
 pub mod evenement;
 pub mod fiche;
+pub mod inventaire;
 pub mod licence;
 pub mod module;
 pub mod mot_de_passe;
@@ -29,6 +30,7 @@ pub use cle::{
 pub use etablissement::{Etablissement, Organisation, StatutEtablissement};
 pub use evenement::{Evenement, TypeEvenement};
 pub use fiche::{RubriqueFiche, ThemeRubrique, TypeReponse};
+pub use inventaire::{ArticleInventaire, FamilleInventaire, QuantitesInventaire, ReleveInventaire};
 pub use licence::{Edition, ErreurLicence, EtatLicence, Licence, StatutLicence};
 pub use module::ModuleEcole;
 pub use mot_de_passe::PolitiqueMotDePasse;

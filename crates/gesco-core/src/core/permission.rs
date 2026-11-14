@@ -136,6 +136,7 @@ catalogue! {
     STATISTICS_READ = "statistics:read",
     SCHOOL_PROFILE_MANAGE = "school_profile:manage",
     STUDENTS_DISABILITY = "students:disability",
+    INVENTORY_MANAGE = "inventory:manage",
 }
 
 /// Version de la composition des rôles livrés. Une phase qui ajoute des permissions à
@@ -184,7 +185,10 @@ catalogue! {
 /// Secrétaire : tenir la fiche de l'établissement et ses rubriques.
 /// Version 14 (SPEC_PHASE_9 §11) : `students:disability`, nouvelle, pour le Directeur seul : lire
 /// et noter les difficultés d'un élève.
-pub const COMPOSITION_ROLES_LIVRES: i64 = 14;
+/// Version 15 (SPEC_PHASE_9 §11) : `inventory:manage`, nouvelle, pour le Directeur et le
+/// Secrétaire : tenir l'inventaire de l'école ; l'administrateur la donne à qui l'école charge
+/// de l'inventaire.
+pub const COMPOSITION_ROLES_LIVRES: i64 = 15;
 
 /// Rôles livrés avec le produit (§11.4), composés selon SPEC_PHASE_1 §5.2 (Q-44).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -275,6 +279,7 @@ impl RoleSysteme {
                 P::STATISTICS_READ,
                 P::SCHOOL_PROFILE_MANAGE,
                 P::STUDENTS_DISABILITY,
+                P::INVENTORY_MANAGE,
                 P::STUDENTS_READ,
                 P::ENROLLMENTS_VALIDATE,
                 P::ENROLLMENTS_EXPEL,
@@ -364,6 +369,7 @@ impl RoleSysteme {
                 P::CANTEEN_MANAGE,
                 P::STATISTICS_READ,
                 P::SCHOOL_PROFILE_MANAGE,
+                P::INVENTORY_MANAGE,
             ],
             Self::Caissier => vec![
                 P::STUDENTS_READ,

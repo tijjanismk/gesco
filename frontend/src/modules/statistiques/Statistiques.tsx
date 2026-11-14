@@ -12,9 +12,9 @@ import { OngletEtablissement } from "./FicheEcole";
 import { PourLesRapports } from "./PourLesRapports";
 import { feuilleDe, libelleLigne, texteCellule, titreColonne, titrePremiere, titreTableau } from "./mise-en-forme";
 
-type Onglet = "eleves" | "personnel" | "etablissement" | "rapports";
+type Onglet = "eleves" | "personnel" | "locaux" | "etablissement" | "rapports";
 
-const TITRES_ONGLETS = { eleves: "statistiques.onglet.eleves", personnel: "statistiques.onglet.personnel", etablissement: "statistiques.onglet.etablissement", rapports: "statistiques.onglet.rapports" } as const;
+const TITRES_ONGLETS = { eleves: "statistiques.onglet.eleves", personnel: "statistiques.onglet.personnel", locaux: "statistiques.onglet.locaux", etablissement: "statistiques.onglet.etablissement", rapports: "statistiques.onglet.rapports" } as const;
 
 /** Fiches désignées par un chiffre cliqué. */
 interface Detail {
@@ -91,7 +91,7 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
             />
           </div>
           <div role="tablist" className="flex gap-2 border-b border-muet">
-            {(["eleves", "personnel", "etablissement", "rapports"] as const).map((o) => (
+            {(["eleves", "personnel", "locaux", "etablissement", "rapports"] as const).map((o) => (
               <button
                 key={o}
                 type="button"

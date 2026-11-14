@@ -174,6 +174,10 @@ use crate::inscriptions::{
     DemandeListeInscriptions, DemandeModificationInscription, DemandeValidation, LigneInscription,
     ResultatInscription, ServiceInscriptions,
 };
+use crate::inventaire::{
+    DemandeActivationArticle, DemandeArticleInventaire, DemandeInventaire, DemandeReleveInventaire,
+    DemandeRepriseInventaire, Inventaire, ServiceInventaire,
+};
 use crate::jardin::{
     CompetencesJardin, DemandeCompetence, DemandeDeplacementCompetence, DemandeDeplacementDomaine,
     DemandeDomaine, DemandeRecopie, ServiceJardin,
@@ -1055,6 +1059,11 @@ contrat! {
     fiche_ecole_reprendre(DemandeRepriseFiche) -> FicheEcole;
     rubrique_fiche_enregistrer(DemandeRubriqueFiche) -> gesco_core::core::RubriqueFiche;
     rubrique_fiche_activer(DemandeActivationRubrique) -> gesco_core::core::RubriqueFiche;
+    inventaire_lire(DemandeInventaire) -> Inventaire;
+    inventaire_releve_enregistrer(DemandeReleveInventaire) -> Inventaire;
+    inventaire_reprendre(DemandeRepriseInventaire) -> Inventaire;
+    article_inventaire_enregistrer(DemandeArticleInventaire) -> gesco_core::core::ArticleInventaire;
+    article_inventaire_activer(DemandeActivationArticle) -> gesco_core::core::ArticleInventaire;
     complements_eleves_lire(DemandeComplementsEleves) -> ComplementsEleves;
     complement_eleve_regler(DemandeComplementEleve) -> ComplementsEleves;
     classe_rapports_regler(DemandeClasseRapports) -> ComplementsEleves;
@@ -3235,6 +3244,56 @@ impl Application {
     ) -> Resultat<gesco_core::core::RubriqueFiche> {
         ServiceFicheEcole::nouveau(&appel.ouverte()?.noyau)
             .activer_rubrique(appel.session()?, entree)
+            .await
+    }
+
+    async fn inventaire_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeInventaire,
+    ) -> Resultat<Inventaire> {
+        ServiceInventaire::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn inventaire_releve_enregistrer(
+        &self,
+        appel: Appel,
+        entree: DemandeReleveInventaire,
+    ) -> Resultat<Inventaire> {
+        ServiceInventaire::nouveau(&appel.ouverte()?.noyau)
+            .enregistrer_releve(appel.session()?, entree)
+            .await
+    }
+
+    async fn inventaire_reprendre(
+        &self,
+        appel: Appel,
+        entree: DemandeRepriseInventaire,
+    ) -> Resultat<Inventaire> {
+        ServiceInventaire::nouveau(&appel.ouverte()?.noyau)
+            .reprendre(appel.session()?, entree)
+            .await
+    }
+
+    async fn article_inventaire_enregistrer(
+        &self,
+        appel: Appel,
+        entree: DemandeArticleInventaire,
+    ) -> Resultat<gesco_core::core::ArticleInventaire> {
+        ServiceInventaire::nouveau(&appel.ouverte()?.noyau)
+            .enregistrer_article(appel.session()?, entree)
+            .await
+    }
+
+    async fn article_inventaire_activer(
+        &self,
+        appel: Appel,
+        entree: DemandeActivationArticle,
+    ) -> Resultat<gesco_core::core::ArticleInventaire> {
+        ServiceInventaire::nouveau(&appel.ouverte()?.noyau)
+            .activer_article(appel.session()?, entree)
             .await
     }
 

@@ -810,6 +810,32 @@ async fn une_base_de_la_composition_13_recoit_le_droit_des_difficultes() {
 }
 
 #[tokio::test]
+async fn une_base_de_la_composition_14_recoit_le_droit_de_l_inventaire() {
+    let (noyau, etablissement_id, _dossier) = installer().await;
+    executer(
+        &noyau,
+        "DELETE FROM role_permission WHERE permission_code = 'inventory:manage'",
+    )
+    .await;
+    executer(&noyau, "UPDATE role SET composition_livree = 14").await;
+    mise_a_niveau::completer_roles(&noyau, etablissement_id)
+        .await
+        .unwrap();
+    for role in RoleSysteme::TOUS {
+        let obtenues = permissions(&noyau, etablissement_id, *role).await;
+        let attendu = matches!(
+            role,
+            RoleSysteme::Administrateur | RoleSysteme::Directeur | RoleSysteme::Secretaire
+        );
+        assert_eq!(
+            obtenues.contains(&Permission::INVENTORY_MANAGE),
+            attendu,
+            "{role:?}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn les_rubriques_livrees_de_la_fiche_ne_sont_posees_qu_une_fois() {
     let (noyau, etablissement_id, _dossier) = installer().await;
     // L'installation les a posées ; la mise à niveau n'en ajoute aucune de plus.

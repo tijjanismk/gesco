@@ -19,7 +19,7 @@ use gesco_core::scolarite::Cycle;
 use gesco_db::depots::statistiques::{
     AffectationStat, ClasseStat, EngagementStat, InscriptionStat, MembreStat,
 };
-use gesco_db::depots::{annee_scolaire, complements, statistiques};
+use gesco_db::depots::{academique, annee_scolaire, complements, inventaire, statistiques};
 use serde::{Deserialize, Serialize};
 
 use crate::erreur::Resultat;
@@ -139,6 +139,9 @@ pub struct Statistiques {
     pub eleves: OngletStatistique,
     /// Onglet Personnel.
     pub personnel: OngletStatistique,
+    /// Onglet Locaux et équipements : l'inventaire de l'année ; ses cases ne mènent à aucune
+    /// fiche.
+    pub locaux: OngletStatistique,
 }
 
 /// Une feuille d'un export des statistiques, telle que l'écran la montre.
@@ -240,6 +243,14 @@ impl<'n> ServiceStatistiques<'n> {
             ),
             None => (Vec::new(), Vec::new(), Vec::new(), Vec::new()),
         };
+        let (articles, releves) = match &choisie {
+            Some(a) => (
+                inventaire::articles(&mut cnx, &contexte).await?,
+                inventaire::releves(&mut cnx, a.id, &contexte).await?,
+            ),
+            None => (Vec::new(), Vec::new()),
+        };
+        let niveaux = academique::niveaux(&mut cnx, &contexte).await?;
         let membres = statistiques::membres(&mut cnx, &contexte).await?;
         let engagements = statistiques::engagements(&mut cnx, &contexte).await?;
         let complements = self
@@ -269,6 +280,7 @@ impl<'n> ServiceStatistiques<'n> {
             &seances,
             &complements,
         );
+        let locaux = onglet_locaux(&articles, &releves, &niveaux, demande.cycle);
         Ok(Statistiques {
             annees: annees
                 .iter()
@@ -285,6 +297,7 @@ impl<'n> ServiceStatistiques<'n> {
             cycles,
             eleves,
             personnel,
+            locaux,
         })
     }
 
@@ -1469,4 +1482,155 @@ fn tableaux_complements_eleves(
         tableaux.push(t);
     }
     tableaux
+}
+
+/// Colonnes des tableaux de l'inventaire, hors locaux.
+const COLONNES_ARTICLES: [&str; 4] = ["existant", "bon_etat", "besoins", "observation"];
+/// Colonnes du tableau des locaux.
+const COLONNES_LOCAUX: [&str; 14] = [
+    "existant",
+    "bon_etat",
+    "besoins",
+    "dur",
+    "semi_dur",
+    "banco",
+    "autre_construction",
+    "neufs",
+    "en_location",
+    "murs_bons",
+    "murs_mauvais",
+    "toits_bons",
+    "toits_mauvais",
+    "observation",
+];
+/// Colonnes du tableau des cabines de latrines.
+const COLONNES_CABINES: [&str; 3] = ["cabines_filles", "cabines_garcons", "cabines_enseignants"];
+
+/// Ligne d'un tableau de l'inventaire : une case par colonne, l'observation en texte.
+fn ligne_inventaire(
+    libelle: String,
+    colonnes: &[&str],
+    quantites: &gesco_core::core::QuantitesInventaire,
+    observations: &[String],
+) -> LigneStatistique {
+    LigneStatistique {
+        libelle,
+        cle: None,
+        cellules: colonnes
+            .iter()
+            .map(|c| {
+                if *c == "observation" {
+                    CelluleStatistique {
+                        texte: (!observations.is_empty()).then(|| observations.join(" ; ")),
+                        ..CelluleStatistique::default()
+                    }
+                } else {
+                    CelluleStatistique {
+                        nombre: quantites.valeur(c),
+                        ..CelluleStatistique::default()
+                    }
+                }
+            })
+            .collect(),
+    }
+}
+
+/// Onglet Locaux et équipements (SPEC_PHASE_9 §9.1) : l'inventaire de l'année, existant, bon
+/// état, besoins, pour toute l'école (la somme de toutes les lignes) ou pour un cycle (ses
+/// lignes). Seuls les articles qui ont quelque chose de saisi paraissent ; une quantité absente
+/// reste une case vide.
+fn onglet_locaux(
+    articles: &[gesco_core::core::ArticleInventaire],
+    releves: &[gesco_core::core::ReleveInventaire],
+    niveaux: &[gesco_core::scolarite::Niveau],
+    cycle: Option<Cycle>,
+) -> OngletStatistique {
+    use gesco_core::core::{FamilleInventaire, QuantitesInventaire};
+    let par_article = crate::inventaire::releve_par_article(releves, cycle);
+    let mut tries: Vec<&gesco_core::core::ArticleInventaire> = articles.iter().collect();
+    tries.sort_by_key(|a| a.ordre);
+    let libelle = |a: &gesco_core::core::ArticleInventaire| {
+        let mut l = a.designation.clone();
+        let niveau = a
+            .niveau_id
+            .and_then(|n| niveaux.iter().find(|x| x.id == n))
+            .map(|n| n.libelle.clone());
+        let precisions: Vec<String> = [Some(a.matiere.clone()).filter(|m| !m.is_empty()), niveau]
+            .into_iter()
+            .flatten()
+            .collect();
+        if !precisions.is_empty() {
+            l = format!("{l} ({})", precisions.join(", "));
+        }
+        l
+    };
+    let tableau = |code: &str, famille: FamilleInventaire, colonnes: &[&str], total: bool| {
+        let mut somme = QuantitesInventaire::default();
+        let lignes: Vec<LigneStatistique> = tries
+            .iter()
+            .filter(|a| a.famille == famille)
+            .filter_map(|a| {
+                let (q, obs) = par_article.get(&a.id)?;
+                let utile = colonnes
+                    .iter()
+                    .any(|c| q.valeur(c).is_some() || (*c == "observation" && !obs.is_empty()));
+                if !utile {
+                    return None;
+                }
+                somme = somme.additionner(q);
+                Some(ligne_inventaire(libelle(a), colonnes, q, obs))
+            })
+            .collect();
+        TableauStatistique {
+            code: code.to_owned(),
+            colonnes: colonnes.iter().map(|c| (*c).to_owned()).collect(),
+            total: (total && !lignes.is_empty()).then(|| LigneStatistique {
+                cle: Some("statistiques.total".to_owned()),
+                ..ligne_inventaire(String::new(), colonnes, &somme, &[])
+            }),
+            lignes,
+            hors: Vec::new(),
+        }
+    };
+    OngletStatistique {
+        fiches: Vec::new(),
+        tableaux: vec![
+            tableau(
+                "inventaire_locaux",
+                FamilleInventaire::Local,
+                &COLONNES_LOCAUX,
+                false,
+            ),
+            tableau(
+                "inventaire_latrines",
+                FamilleInventaire::Local,
+                &COLONNES_CABINES,
+                false,
+            ),
+            tableau(
+                "inventaire_mobilier",
+                FamilleInventaire::Mobilier,
+                &COLONNES_ARTICLES,
+                true,
+            ),
+            tableau(
+                "inventaire_materiel",
+                FamilleInventaire::Materiel,
+                &COLONNES_ARTICLES,
+                true,
+            ),
+            tableau(
+                "inventaire_manuels",
+                FamilleInventaire::Manuel,
+                &COLONNES_ARTICLES,
+                true,
+            ),
+            tableau(
+                "inventaire_adapte",
+                FamilleInventaire::Adapte,
+                &COLONNES_ARTICLES,
+                true,
+            ),
+        ],
+    }
 }
