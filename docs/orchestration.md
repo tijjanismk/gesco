@@ -368,3 +368,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   vidéos, exercices) ; chaque modification est tracée ; un enseignant peut marquer une leçon
   « relue » ; retour possible à la version livrée ; une mise à jour de la bibliothèque ne
   touche jamais la version de l'école. À inscrire dans `docs/plan-phase-12.md` et la spécification.
+- 2026-11-14 : le porteur accepte de reproduire les énoncés officiels du DEF et du BAC (exception
+  à « rien de recopié », règle dans `DECISIONS.md`), corrigés écrits à neuf. Dernier chantier de
+  rédaction : DEF 2020-2026 et BAC TSE/TSExp 2020-2026, dans `contenus/sujets`. Deux sessions
+  proposées en cartes (cinq sessions tournent déjà).
