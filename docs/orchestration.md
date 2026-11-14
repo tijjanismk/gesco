@@ -471,3 +471,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   même pas ceux de l'étape. Par étape : fmt, clippy, tsc, ESLint, puis commit et push. Après
   l'étape 8 : tous les essais une seule fois (suite Rust complète, vitest, knip, Playwright),
   corrections, commit. Consigne passée aux deux sessions de la phase 9.
+- 2026-11-14 : phase 9 étapes 1 à 3 commitées (`251a5fa`, `783dcd8`, `c833671`), sans essais
+  lancés depuis l'étape 2. `phase9-etapes-2-8` a passé la main (note « Reprise » dans
+  `ETAT_AVANCEMENT.md`). Étapes 4 à 8 lancées dans `local_602fd3de-311d-4953-aa8f-19f8fc50df3d`.
+  Sessions à archiver avec l'accord du porteur : `phase9-etape1`, `phase9-etapes-2-8`.
