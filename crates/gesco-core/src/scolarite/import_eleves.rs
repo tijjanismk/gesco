@@ -38,6 +38,8 @@ pub enum Champ {
     ResponsableNom,
     /// Téléphone du responsable.
     ResponsableTelephone,
+    /// Année de recrutement : année d'entrée en 1re année, facultative.
+    AnneeRecrutement,
 }
 
 impl Champ {
@@ -53,6 +55,7 @@ impl Champ {
         Self::Classe,
         Self::MatriculeInterne,
         Self::MatriculeNational,
+        Self::AnneeRecrutement,
         Self::Adresse,
         Self::ResponsableNom,
         Self::ResponsableTelephone,
@@ -90,6 +93,9 @@ pub fn reconnaitre(entete: &str) -> Champ {
     let contient = |mots: &[&str]| mots.iter().any(|m| n.contains(m));
     if n.is_empty() {
         return Champ::Ignorer;
+    }
+    if contient(&["recrutement"]) {
+        return Champ::AnneeRecrutement;
     }
     if contient(&["national"]) && contient(&["matricule", "numero", "identifiant", "n "]) {
         return Champ::MatriculeNational;
@@ -245,6 +251,8 @@ pub struct EleveLu {
     pub matricule_interne: String,
     /// Matricule national, s'il est fourni.
     pub matricule_national: String,
+    /// Année de recrutement, quand le fichier la donne et qu'elle se lit.
+    pub annee_recrutement: Option<i32>,
     /// Adresse.
     pub adresse: String,
     /// Nom et prénoms du responsable.
@@ -312,6 +320,17 @@ pub fn lire_ligne(
             Champ::Adresse => lu.adresse = valeur.to_owned(),
             Champ::ResponsableNom => lu.responsable_nom = valeur.to_owned(),
             Champ::ResponsableTelephone => lu.responsable_telephone = valeur.to_owned(),
+            // Facultative : une année illisible est laissée de côté, sans bloquer la ligne.
+            Champ::AnneeRecrutement => {
+                lu.annee_recrutement = valeur
+                    .trim()
+                    .parse::<i32>()
+                    .ok()
+                    .filter(|a| (1950..=2200).contains(a));
+                if !valeur.trim().is_empty() && lu.annee_recrutement.is_none() {
+                    lu.avertissements.push("import.annee_recrutement_ignoree");
+                }
+            }
         }
     }
     if let Some(feuille) = classe_de_feuille {
@@ -342,6 +361,7 @@ mod tests {
     #[test]
     fn les_titres_des_ecoles_sont_reconnus() {
         assert_eq!(reconnaitre("Nom"), Champ::Nom);
+        assert_eq!(reconnaitre("Année de recrutement"), Champ::AnneeRecrutement);
         assert_eq!(reconnaitre("NOM DE L'ÉLÈVE"), Champ::Nom);
         assert_eq!(reconnaitre("Prénom(s)"), Champ::Prenoms);
         assert_eq!(reconnaitre("Nom et prénoms"), Champ::NomEtPrenoms);

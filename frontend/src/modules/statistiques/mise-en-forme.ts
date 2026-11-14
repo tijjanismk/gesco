@@ -19,6 +19,12 @@ const TABLEAUX: Readonly<Record<string, readonly [Cle, Cle]>> = {
   enseignants_par_discipline: ["statistiques.tableau.enseignants_par_discipline", "statistiques.premiere.enseignants_par_discipline"],
   heures_par_discipline: ["statistiques.tableau.heures_par_discipline", "statistiques.premiere.heures_par_discipline"],
   liste_nominative: ["statistiques.tableau.liste_nominative", "statistiques.premiere.liste_nominative"],
+  eleves_par_annee_recrutement: ["statistiques.tableau.eleves_par_annee_recrutement", "statistiques.premiere.eleves_par_annee_recrutement"],
+  eleves_pris_en_charge: ["statistiques.tableau.eleves_pris_en_charge", "statistiques.premiere.eleves_pris_en_charge"],
+  eleves_handicapes: ["statistiques.tableau.eleves_handicapes", "statistiques.premiere.eleves_handicapes"],
+  personnel_par_statut: ["statistiques.tableau.personnel_par_statut", "statistiques.premiere.personnel_par_statut"],
+  enseignants_par_specialite: ["statistiques.tableau.enseignants_par_specialite", "statistiques.premiere.enseignants_par_specialite"],
+  enseignants_par_diplome: ["statistiques.tableau.enseignants_par_diplome", "statistiques.premiere.enseignants_par_diplome"],
 };
 
 /** Titre de chaque colonne, par code de colonne. */

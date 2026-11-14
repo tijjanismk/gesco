@@ -51,6 +51,11 @@ use crate::caisse::{
 use crate::cantine::{Cantine, DemandeCantine, DemandeRepas, ServiceCantine};
 use crate::cles::{EspaceCles, EtatCles, Trousseau};
 use crate::commandes::{Acces, Commande, Lieu};
+use crate::complements::{
+    ComplementMembre, ComplementsEleves, DemandeClasseRapports, DemandeComplementEleve,
+    DemandeComplementMembre, DemandeComplementsEleves, DemandeDifficulte, DemandeDifficultes,
+    ServiceComplements,
+};
 use crate::comptes::ServiceComptes;
 use crate::conduite::{
     ClassesConduite, ConduiteClasse, DemandeConduite, DemandeNoteConduite, DemandeRetraitConduite,
@@ -1050,6 +1055,13 @@ contrat! {
     fiche_ecole_reprendre(DemandeRepriseFiche) -> FicheEcole;
     rubrique_fiche_enregistrer(DemandeRubriqueFiche) -> gesco_core::core::RubriqueFiche;
     rubrique_fiche_activer(DemandeActivationRubrique) -> gesco_core::core::RubriqueFiche;
+    complements_eleves_lire(DemandeComplementsEleves) -> ComplementsEleves;
+    complement_eleve_regler(DemandeComplementEleve) -> ComplementsEleves;
+    classe_rapports_regler(DemandeClasseRapports) -> ComplementsEleves;
+    difficultes_eleve_lire(DemandeDifficultes) -> Vec<gesco_core::core::complements::DifficulteEleve>;
+    difficulte_eleve_regler(DemandeDifficulte) -> Vec<gesco_core::core::complements::DifficulteEleve>;
+    complements_personnel_lire(()) -> Vec<ComplementMembre>;
+    complement_membre_regler(DemandeComplementMembre) -> Vec<ComplementMembre>;
     import_eleves_analyser(DemandeAnalyse) -> Analyse;
     import_eleves_valider(Reglages) -> Apercu;
     import_eleves_appliquer(Reglages) -> Rapport;
@@ -3223,6 +3235,76 @@ impl Application {
     ) -> Resultat<gesco_core::core::RubriqueFiche> {
         ServiceFicheEcole::nouveau(&appel.ouverte()?.noyau)
             .activer_rubrique(appel.session()?, entree)
+            .await
+    }
+
+    async fn complements_eleves_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeComplementsEleves,
+    ) -> Resultat<ComplementsEleves> {
+        ServiceComplements::nouveau(&appel.ouverte()?.noyau)
+            .eleves(appel.session()?, &entree)
+            .await
+    }
+
+    async fn complement_eleve_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeComplementEleve,
+    ) -> Resultat<ComplementsEleves> {
+        ServiceComplements::nouveau(&appel.ouverte()?.noyau)
+            .regler_eleve(appel.session()?, entree)
+            .await
+    }
+
+    async fn classe_rapports_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeClasseRapports,
+    ) -> Resultat<ComplementsEleves> {
+        ServiceComplements::nouveau(&appel.ouverte()?.noyau)
+            .regler_classe(appel.session()?, entree)
+            .await
+    }
+
+    async fn difficultes_eleve_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeDifficultes,
+    ) -> Resultat<Vec<gesco_core::core::complements::DifficulteEleve>> {
+        ServiceComplements::nouveau(&appel.ouverte()?.noyau)
+            .difficultes(appel.session()?, &entree)
+            .await
+    }
+
+    async fn difficulte_eleve_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeDifficulte,
+    ) -> Resultat<Vec<gesco_core::core::complements::DifficulteEleve>> {
+        ServiceComplements::nouveau(&appel.ouverte()?.noyau)
+            .regler_difficulte(appel.session()?, entree)
+            .await
+    }
+
+    async fn complements_personnel_lire(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<Vec<ComplementMembre>> {
+        ServiceComplements::nouveau(&appel.ouverte()?.noyau)
+            .personnel(appel.session()?)
+            .await
+    }
+
+    async fn complement_membre_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeComplementMembre,
+    ) -> Resultat<Vec<ComplementMembre>> {
+        ServiceComplements::nouveau(&appel.ouverte()?.noyau)
+            .regler_membre(appel.session()?, entree)
             .await
     }
 

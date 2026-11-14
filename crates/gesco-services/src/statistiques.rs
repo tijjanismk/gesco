@@ -11,12 +11,15 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use gesco_core::commun::{DateCivile, Horodatage, Id};
-use gesco_core::core::AnneeScolaire;
+use gesco_core::core::complements::{
+    DegreDifficulte, DifficulteEleve, DiplomeEleve, Specialite, StatutRapport, TypeDifficulte,
+};
+use gesco_core::core::{AnneeScolaire, Permission};
 use gesco_core::scolarite::Cycle;
 use gesco_db::depots::statistiques::{
     AffectationStat, ClasseStat, EngagementStat, InscriptionStat, MembreStat,
 };
-use gesco_db::depots::{annee_scolaire, statistiques};
+use gesco_db::depots::{annee_scolaire, complements, statistiques};
 use serde::{Deserialize, Serialize};
 
 use crate::erreur::Resultat;
@@ -239,6 +242,9 @@ impl<'n> ServiceStatistiques<'n> {
         };
         let membres = statistiques::membres(&mut cnx, &contexte).await?;
         let engagements = statistiques::engagements(&mut cnx, &contexte).await?;
+        let complements = self
+            .complements(&mut cnx, session, choisie.as_ref(), &contexte)
+            .await?;
         drop(cnx);
         let mut cycles: Vec<Cycle> = Vec::new();
         for c in &classes {
@@ -254,9 +260,15 @@ impl<'n> ServiceStatistiques<'n> {
             cycle: demande.cycle,
             classes: classes.iter().map(|c| (c.id.as_str(), c)).collect(),
         };
-        let eleves = onglet_eleves(&perimetre, &classes, &inscriptions);
-        let personnel =
-            onglet_personnel(&perimetre, &membres, &engagements, &affectations, &seances);
+        let eleves = onglet_eleves(&perimetre, &classes, &inscriptions, &complements);
+        let personnel = onglet_personnel(
+            &perimetre,
+            &membres,
+            &engagements,
+            &affectations,
+            &seances,
+            &complements,
+        );
         Ok(Statistiques {
             annees: annees
                 .iter()
@@ -276,6 +288,73 @@ impl<'n> ServiceStatistiques<'n> {
         })
     }
 
+    /// Compléments des fiches pour les tableaux de l'étape 3 : années de recrutement (saisies,
+    /// sinon déduites), prises en charge par l'État de l'année, difficultés pour qui en a le
+    /// droit, statut, spécialité et diplôme saisis du personnel.
+    async fn complements(
+        &self,
+        cnx: &mut gesco_db::Connexion,
+        session: &Session,
+        annee: Option<&AnneeScolaire>,
+        contexte: &gesco_db::contexte::Contexte,
+    ) -> Resultat<ComplementsStat> {
+        let premieres = complements::premieres_inscriptions(cnx, contexte).await?;
+        let saisies = complements::annees_recrutement(cnx, contexte).await?;
+        let mut annees_recrutement: HashMap<String, i32> = HashMap::new();
+        for (eleve, p) in &premieres {
+            if let Some(a) = crate::complements::annee_proposee(Some(p)) {
+                annees_recrutement.insert(eleve.clone(), a);
+            }
+        }
+        for (eleve, a) in saisies {
+            if let Ok(a) = i32::try_from(a) {
+                annees_recrutement.insert(eleve, a);
+            }
+        }
+        let pris_en_charge = match annee {
+            Some(a) => complements::prises_en_charge(cnx, &a.id.vers_chaine(), contexte)
+                .await?
+                .into_iter()
+                .collect(),
+            None => HashSet::new(),
+        };
+        let droits = self
+            .noyau
+            .permissions_de(cnx, session.utilisateur_id, contexte)
+            .await?;
+        let difficultes = if droits.contains(&Permission::STUDENTS_DISABILITY) {
+            Some(complements::difficultes(cnx, contexte).await?)
+        } else {
+            None
+        };
+        let membres = complements::membres(cnx, contexte)
+            .await?
+            .into_iter()
+            .map(|m| {
+                (
+                    m.id,
+                    MembreComplete {
+                        statut: m
+                            .statut_rapport
+                            .as_deref()
+                            .and_then(StatutRapport::depuis_nom),
+                        specialite: m.specialite.as_deref().and_then(Specialite::depuis_nom),
+                        diplome: m
+                            .diplome_eleve
+                            .as_deref()
+                            .and_then(DiplomeEleve::depuis_nom),
+                    },
+                )
+            })
+            .collect();
+        Ok(ComplementsStat {
+            annees_recrutement,
+            pris_en_charge,
+            difficultes,
+            membres,
+        })
+    }
+
     /// Écrit un classeur d'une feuille par tableau, tel que l'écran les montre.
     pub async fn exporter(&self, demande: DemandeExportStatistiques) -> Resultat<FichierEcrit> {
         let feuilles = demande
@@ -289,6 +368,25 @@ impl<'n> ServiceStatistiques<'n> {
             .collect();
         exporter_xlsx_feuilles(demande.chemin, demande.titre, feuilles).await
     }
+}
+
+/// Ce que les fiches disent en plus pour les rapports (étape 3).
+struct ComplementsStat {
+    /// Année de recrutement par élève : saisie, sinon déduite.
+    annees_recrutement: HashMap<String, i32>,
+    /// Élèves pris en charge par l'État cette année.
+    pris_en_charge: HashSet<String>,
+    /// Difficultés des élèves, pour qui a le droit de les lire.
+    difficultes: Option<Vec<DifficulteEleve>>,
+    /// Compléments saisis du personnel, par membre.
+    membres: HashMap<String, MembreComplete>,
+}
+
+/// Statut, spécialité et diplôme saisis d'un membre du personnel.
+struct MembreComplete {
+    statut: Option<StatutRapport>,
+    specialite: Option<Specialite>,
+    diplome: Option<DiplomeEleve>,
 }
 
 /// Ce qui borne les chiffres : la date, la rentrée, le cycle, les classes de l'année.
@@ -524,6 +622,7 @@ fn onglet_eleves(
     p: &Perimetre<'_>,
     classes: &[ClasseStat],
     inscriptions: &[InscriptionStat],
+    c: &ComplementsStat,
 ) -> OngletStatistique {
     let retenues = retenir(p, inscriptions);
     let fiches: Vec<FicheStatistique> = retenues
@@ -777,6 +876,8 @@ fn onglet_eleves(
             sans_sexe_cle,
         ),
     ];
+    let mut tableaux = tableaux;
+    tableaux.extend(tableaux_complements_eleves(&retenues, &sexes, c));
     OngletStatistique { fiches, tableaux }
 }
 
@@ -793,6 +894,15 @@ fn engagement_le<'a>(
         .filter(|e| date(Some(&e.debut)).is_some_and(|d| d <= jour))
         .filter(|e| date(e.arrete_le.as_deref()).is_none_or(|a| a >= jour))
         .max_by(|a, b| a.debut.cmp(&b.debut))
+}
+
+/// Nature de l'engagement en cours d'un membre à une date.
+pub(crate) fn nature_engagement_le(
+    engagements: &[EngagementStat],
+    membre: &str,
+    jour: DateCivile,
+) -> Option<String> {
+    engagement_le(engagements, membre, jour).map(|e| e.nature.clone())
 }
 
 /// Intitulé du diplôme le plus récent, d'après les diplômes saisis.
@@ -814,6 +924,7 @@ fn onglet_personnel(
     engagements: &[EngagementStat],
     affectations: &[AffectationStat],
     seances: &[statistiques::SeanceStat],
+    c: &ComplementsStat,
 ) -> OngletStatistique {
     let cycles_de = |personne: &str| -> Vec<&str> {
         let mut v: Vec<&str> = affectations
@@ -970,6 +1081,139 @@ fn onglet_personnel(
     }
     par_matiere.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.2.libelle.cmp(&b.2.libelle)));
 
+    // Statut pour les rapports : saisi, sinon déduit de la fiche ; jamais vide.
+    let mut par_statut: Vec<Groupe> = StatutRapport::TOUS
+        .iter()
+        .map(|s| Groupe::nouveau("", Some(format!("complements.statut.{}", s.nom()))))
+        .collect();
+    for (i, m) in retenus.iter().enumerate() {
+        let statut = c
+            .membres
+            .get(&m.id)
+            .and_then(|x| x.statut)
+            .unwrap_or_else(|| {
+                StatutRapport::deduit(
+                    m.fonctionnaire,
+                    engagement_le(engagements, &m.id, p.date).map(|e| e.nature.as_str()),
+                )
+            });
+        if let Some(g) = StatutRapport::TOUS
+            .iter()
+            .position(|s| *s == statut)
+            .and_then(|k| par_statut.get_mut(k))
+        {
+            g.membres.push(place(i));
+        }
+    }
+    // Spécialité des maîtres du second cycle : saisie, sinon proposée d'après leurs matières,
+    // sinon « autres » ; diplôme le plus élevé des enseignants : saisi, sinon proposé.
+    let mut matieres_de: HashMap<u32, Vec<&str>> = HashMap::new();
+    for a in affectations {
+        if let (Some(m), Some(classe)) = (
+            place_de.get(a.personne_id.as_str()),
+            p.classes.get(a.classe_id.as_str()),
+        ) && p.retient(classe)
+        {
+            matieres_de.entry(*m).or_default().push(a.matiere.as_str());
+        }
+    }
+    let second: Vec<u32> = par_cycle
+        .iter()
+        .find(|(n, _)| n == "second_cycle")
+        .map(|(_, g)| g.membres.clone())
+        .unwrap_or_default();
+    let mut enseignants: Vec<u32> = par_cycle
+        .iter()
+        .flat_map(|(_, g)| g.membres.iter().copied())
+        .collect();
+    enseignants.sort_unstable();
+    enseignants.dedup();
+    let membre_a = |m: u32| usize::try_from(m).ok().and_then(|k| retenus.get(k));
+    let mut par_specialite: Vec<Groupe> = Specialite::TOUS
+        .iter()
+        .map(|s| Groupe::nouveau("", Some(format!("complements.specialite.{}", s.nom()))))
+        .collect();
+    for m in &second {
+        let Some(membre) = membre_a(*m) else {
+            continue;
+        };
+        let specialite = c
+            .membres
+            .get(&membre.id)
+            .and_then(|x| x.specialite)
+            .or_else(|| Specialite::proposee(matieres_de.get(m).cloned().unwrap_or_default()))
+            .unwrap_or(Specialite::Autre);
+        if let Some(g) = Specialite::TOUS
+            .iter()
+            .position(|s| *s == specialite)
+            .and_then(|k| par_specialite.get_mut(k))
+        {
+            g.membres.push(*m);
+        }
+    }
+    let mut par_diplome: Vec<Groupe> = DiplomeEleve::TOUS
+        .iter()
+        .map(|d| Groupe::nouveau("", Some(format!("complements.diplome.{}", d.nom()))))
+        .collect();
+    let mut sans_diplome: Vec<u32> = Vec::new();
+    for m in &enseignants {
+        let Some(membre) = membre_a(*m) else {
+            continue;
+        };
+        let diplome = c
+            .membres
+            .get(&membre.id)
+            .and_then(|x| x.diplome)
+            .or_else(|| DiplomeEleve::propose(&membre.diplomes));
+        match diplome.and_then(|d| {
+            DiplomeEleve::TOUS
+                .iter()
+                .position(|x| *x == d)
+                .and_then(|k| par_diplome.get_mut(k))
+        }) {
+            Some(g) => g.membres.push(*m),
+            None => sans_diplome.push(*m),
+        }
+    }
+    let non_vides = |v: Vec<Groupe>| {
+        v.into_iter()
+            .filter(|g| !g.membres.is_empty())
+            .collect::<Vec<_>>()
+    };
+    let tableau_statut = tableau_par_sexe(
+        "personnel_par_statut",
+        COLONNES_PERSONNEL,
+        non_vides(par_statut),
+        Some(tous.clone()),
+        &sexes,
+        sans_sexe_cle,
+    );
+    let tableau_specialite = tableau_par_sexe(
+        "enseignants_par_specialite",
+        COLONNES_PERSONNEL,
+        non_vides(par_specialite),
+        Some(second),
+        &sexes,
+        sans_sexe_cle,
+    );
+    let mut tableau_diplome = tableau_par_sexe(
+        "enseignants_par_diplome",
+        COLONNES_PERSONNEL,
+        non_vides(par_diplome),
+        Some(enseignants),
+        &sexes,
+        sans_sexe_cle,
+    );
+    if !sans_diplome.is_empty() {
+        tableau_diplome.hors.insert(
+            0,
+            HorsColonnes {
+                cle: "statistiques.hors.enseignants_sans_diplome".to_owned(),
+                membres: sans_diplome,
+            },
+        );
+    }
+
     // Heures hebdomadaires par discipline, d'après l'emploi du temps quand l'école le tient.
     let mut heures: Vec<(i64, String, String, i64)> = Vec::new();
     for s in seances {
@@ -1092,5 +1336,137 @@ fn onglet_personnel(
         tableau_heures,
         nominative,
     ];
+    let mut tableaux = tableaux;
+    tableaux.insert(1.min(tableaux.len()), tableau_statut);
+    let apres = tableaux
+        .iter()
+        .position(|t| t.code == "enseignants_par_discipline")
+        .map_or(tableaux.len(), |k| k + 1);
+    tableaux.splice(apres..apres, [tableau_specialite, tableau_diplome]);
     OngletStatistique { fiches, tableaux }
+}
+
+/// Tableaux des élèves tirés des compléments : par année de recrutement, pris en charge par
+/// l'État, et, pour qui en a le droit, handicapés par type et degré, sans nom.
+fn tableaux_complements_eleves(
+    retenues: &[Retenue<'_>],
+    sexes: &[Option<String>],
+    c: &ComplementsStat,
+) -> Vec<TableauStatistique> {
+    let sans_sexe_cle = "statistiques.hors.eleves_sans_sexe";
+    let presentes: Vec<(u32, &Retenue<'_>)> = retenues
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.presente)
+        .map(|(i, r)| (place(i), r))
+        .collect();
+    let presents: Vec<u32> = presentes.iter().map(|(m, _)| *m).collect();
+
+    let mut par_annee: BTreeMap<i32, Vec<u32>> = BTreeMap::new();
+    let mut sans_annee: Vec<u32> = Vec::new();
+    for (m, r) in &presentes {
+        match c.annees_recrutement.get(&r.inscription.eleve_id) {
+            Some(a) => par_annee.entry(*a).or_default().push(*m),
+            None => sans_annee.push(*m),
+        }
+    }
+    let mut recrutement = tableau_par_sexe(
+        "eleves_par_annee_recrutement",
+        COLONNES_ELEVES,
+        par_annee
+            .into_iter()
+            .map(|(a, membres)| Groupe {
+                libelle: a.to_string(),
+                cle: None,
+                membres,
+            })
+            .collect(),
+        Some(presents),
+        sexes,
+        sans_sexe_cle,
+    );
+    if !sans_annee.is_empty() {
+        recrutement.hors.insert(
+            0,
+            HorsColonnes {
+                cle: "statistiques.hors.eleves_sans_recrutement".to_owned(),
+                membres: sans_annee,
+            },
+        );
+    }
+
+    let mut par_niveau: Vec<(i64, String, Groupe)> = Vec::new();
+    for (m, r) in &presentes {
+        if !c.pris_en_charge.contains(&r.inscription.eleve_id) {
+            continue;
+        }
+        match par_niveau
+            .iter_mut()
+            .find(|(_, id, _)| *id == r.classe.niveau_id)
+        {
+            Some((_, _, g)) => g.membres.push(*m),
+            None => {
+                let mut g = Groupe::nouveau(r.classe.niveau.clone(), None);
+                g.membres.push(*m);
+                par_niveau.push((r.classe.ordre, r.classe.niveau_id.clone(), g));
+            }
+        }
+    }
+    par_niveau.sort_by_key(|(ordre, _, _)| *ordre);
+    let mut tableaux = vec![
+        recrutement,
+        tableau_par_sexe(
+            "eleves_pris_en_charge",
+            COLONNES_ELEVES,
+            par_niveau.into_iter().map(|(_, _, g)| g).collect(),
+            None,
+            sexes,
+            sans_sexe_cle,
+        ),
+    ];
+
+    if let Some(difficultes) = &c.difficultes {
+        let mut groupes: Vec<Groupe> = Vec::new();
+        for t in TypeDifficulte::TOUS {
+            for d in DegreDifficulte::TOUS {
+                let mut g = Groupe::nouveau(
+                    "",
+                    Some(format!(
+                        "complements.ligne_difficulte.{}.{}",
+                        t.nom(),
+                        d.nom()
+                    )),
+                );
+                for (m, r) in &presentes {
+                    if difficultes.iter().any(|x| {
+                        x.eleve_id == r.inscription.eleve_id
+                            && x.type_difficulte == *t
+                            && x.degre == Some(*d)
+                    }) {
+                        g.membres.push(*m);
+                    }
+                }
+                if !g.membres.is_empty() {
+                    groupes.push(g);
+                }
+            }
+        }
+        let mut t = tableau_par_sexe(
+            "eleves_handicapes",
+            COLONNES_ELEVES,
+            groupes,
+            None,
+            sexes,
+            sans_sexe_cle,
+        );
+        // Des chiffres sans nom : aucune case ne mène aux fiches.
+        for ligne in t.lignes.iter_mut().chain(t.total.iter_mut()) {
+            for cellule in &mut ligne.cellules {
+                cellule.membres.clear();
+            }
+        }
+        t.hors.clear();
+        tableaux.push(t);
+    }
+    tableaux
 }

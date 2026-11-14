@@ -5,6 +5,7 @@ pub mod annee_scolaire;
 pub mod archive_journal;
 pub mod audit;
 pub mod cle;
+pub mod complements;
 pub mod etablissement;
 pub mod evenement;
 pub mod fiche;

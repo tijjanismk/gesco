@@ -25,6 +25,7 @@ const CHAMPS: Record<Champ, Cle> = {
   adresse: "import.champ.adresse",
   responsable_nom: "import.champ.responsable_nom",
   responsable_telephone: "import.champ.responsable_telephone",
+  annee_recrutement: "import.champ.annee_recrutement",
 };
 
 const DISPOSITIONS: Record<Disposition, Cle> = {

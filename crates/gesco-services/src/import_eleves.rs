@@ -658,6 +658,15 @@ impl<'n> ServiceImport<'n> {
                 "import.appliquer",
             )
             .await?;
+            if let Some(annee) = lu.annee_recrutement {
+                gesco_db::depots::complements::ecrire_annee_recrutement(
+                    unite.connexion(),
+                    &eleve.id.vers_chaine(),
+                    Some(i64::from(annee)),
+                    &contexte,
+                )
+                .await?;
+            }
             if let Ok(numero) = telephone::normaliser(&lu.responsable_telephone) {
                 let responsable = match responsables_par_telephone.get(&numero) {
                     Some(r) => {

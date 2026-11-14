@@ -18,6 +18,7 @@ pub mod caisse;
 pub mod cantine;
 pub mod cles;
 pub mod commandes;
+pub mod complements;
 pub mod comptes;
 pub mod conduite;
 pub mod conges;

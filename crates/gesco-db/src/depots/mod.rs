@@ -12,6 +12,7 @@ pub mod budget;
 pub mod bulletins;
 pub mod caisse;
 pub mod cantine;
+pub mod complements;
 pub mod conduite;
 pub mod conges;
 pub mod consultation;

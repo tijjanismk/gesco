@@ -961,7 +961,9 @@ export type Champ =
 /**  Nom et prénoms du responsable. */
 "responsable_nom" | 
 /**  Téléphone du responsable. */
-"responsable_telephone";
+"responsable_telephone" | 
+/**  Année de recrutement : année d'entrée en 1re année, facultative. */
+"annee_recrutement";
 
 /**  Champs modifiables de la fiche. */
 export type ChampsEtablissement = {
@@ -1034,6 +1036,18 @@ export type ClasseEmploi = {
 	cycle: Cycle,
 	/**  Matières au programme. */
 	matieres: MatiereDeClasse[],
+};
+
+/**  Une classe de l'année et ses compléments. */
+export type ClasseRapports = {
+	/**  Classe. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Fonctionnement saisi. */
+	fonctionnement: Fonctionnement | null,
+	/**  Pédagogie saisie. */
+	pedagogie: PedagogieClasse | null,
 };
 
 /**  Classes de l'année courante qui ont une note de conduite. */
@@ -1127,6 +1141,60 @@ export type CompetencesJardin = {
 	echelle: string[],
 	/**  Vrai si la ligne de commentaire par domaine se montre. */
 	commentaire_domaine: boolean,
+};
+
+/**  Un élève de la grille d'une classe. */
+export type ComplementEleve = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  Année de recrutement saisie. */
+	annee_recrutement: number | null,
+	/**  Année proposée. */
+	annee_proposee: number | null,
+	/**  Pris en charge par l'État cette année. */
+	prise_en_charge_etat: boolean,
+};
+
+/**  Un membre du personnel et ses compléments. */
+export type ComplementMembre = {
+	/**  Membre. */
+	membre_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  Parti à ce jour. */
+	parti: boolean,
+	/**  Statut saisi. */
+	statut: StatutRapport | null,
+	/**  Statut déduit. */
+	statut_deduit: StatutRapport,
+	/**  Spécialité saisie. */
+	specialite: Specialite | null,
+	/**  Spécialité proposée. */
+	specialite_proposee: Specialite | null,
+	/**  Diplôme saisi. */
+	diplome: DiplomeEleve | null,
+	/**  Diplôme proposé. */
+	diplome_propose: DiplomeEleve | null,
+};
+
+/**  Compléments d'une année. */
+export type ComplementsEleves = {
+	/**  Classes de l'année. */
+	classes: ClasseRapports[],
+	/**  Fonctionnement par défaut. */
+	fonctionnement_defaut: Fonctionnement,
+	/**  Pédagogie par défaut. */
+	pedagogie_defaut: PedagogieClasse,
+	/**  Classe choisie. */
+	classe_id: string | null,
+	/**  Vrai pour le lycée et le technique. */
+	prise_en_charge_possible: boolean,
+	/**  Élèves de la classe choisie. */
+	eleves: ComplementEleve[],
 };
 
 /**  Nombre de messages d'un état. */
@@ -1582,6 +1650,20 @@ export type Contrat = {
 	rubrique_fiche_enregistrer: Signature<DemandeRubriqueFiche, RubriqueFiche>,
 	/**  Signature de la commande du même nom. */
 	rubrique_fiche_activer: Signature<DemandeActivationRubrique, RubriqueFiche>,
+	/**  Signature de la commande du même nom. */
+	complements_eleves_lire: Signature<DemandeComplementsEleves, ComplementsEleves>,
+	/**  Signature de la commande du même nom. */
+	complement_eleve_regler: Signature<DemandeComplementEleve, ComplementsEleves>,
+	/**  Signature de la commande du même nom. */
+	classe_rapports_regler: Signature<DemandeClasseRapports, ComplementsEleves>,
+	/**  Signature de la commande du même nom. */
+	difficultes_eleve_lire: Signature<DemandeDifficultes, DifficulteEleve[]>,
+	/**  Signature de la commande du même nom. */
+	difficulte_eleve_regler: Signature<DemandeDifficulte, DifficulteEleve[]>,
+	/**  Signature de la commande du même nom. */
+	complements_personnel_lire: Signature<null, ComplementMembre[]>,
+	/**  Signature de la commande du même nom. */
+	complement_membre_regler: Signature<DemandeComplementMembre, ComplementMembre[]>,
 	/**  Signature de la commande du même nom. */
 	import_eleves_analyser: Signature<DemandeAnalyse, Analyse>,
 	/**  Signature de la commande du même nom. */
@@ -2224,6 +2306,9 @@ export type Decoupe =
 /**  Le dernier mot est le nom : « Moussa Abdoulaye DIALLO ». */
 "nom_en_dernier";
 
+/**  Degré d'une difficulté. */
+export type DegreDifficulte = "quelques" | "beaucoup" | "impossible";
+
 /**  Abandon, avec son motif. */
 export type DemandeAbandon = {
 	/**  Inscription. */
@@ -2584,6 +2669,16 @@ export type DemandeClasseFinAnnee = {
 	classe_id: string,
 };
 
+/**  Fonctionnement et pédagogie d'une classe. */
+export type DemandeClasseRapports = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Fonctionnement. */
+	fonctionnement: Fonctionnement | null,
+	/**  Pédagogie. */
+	pedagogie: PedagogieClasse | null,
+};
+
 /**  Année dont on veut les classes. */
 export type DemandeClasses = {
 	/**  Année scolaire. */
@@ -2651,6 +2746,36 @@ export type DemandeCompetence = {
 	libelle: string,
 	/**  Vrai pour la retirer, faux pour la garder ou la remettre. */
 	retiree: boolean,
+};
+
+/**  Une case de la grille des élèves. */
+export type DemandeComplementEleve = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Année de recrutement. */
+	annee_recrutement: number | null,
+	/**  Prise en charge par l'État. */
+	prise_en_charge_etat: boolean,
+};
+
+/**  Compléments d'un membre saisis. */
+export type DemandeComplementMembre = {
+	/**  Membre. */
+	membre_id: string,
+	/**  Statut. */
+	statut: StatutRapport | null,
+	/**  Spécialité. */
+	specialite: Specialite | null,
+	/**  Diplôme le plus élevé. */
+	diplome: DiplomeEleve | null,
+};
+
+/**  Ce que la grille demande. */
+export type DemandeComplementsEleves = {
+	/**  Année. */
+	annee_id: string | null,
+	/**  Classe. */
+	classe_id: string | null,
 };
 
 /**  Compte choisi pour un mode. */
@@ -2927,6 +3052,24 @@ export type DemandeDeverrouillageMotDePasse = {
 	jeton: Jeton,
 	/**  Mot de passe de son utilisateur. */
 	mot_de_passe: string,
+};
+
+/**  Une difficulté saisie. */
+export type DemandeDifficulte = {
+	/**  Élève. */
+	eleve_id: string,
+	/**  Type. */
+	type_difficulte: TypeDifficulte,
+	/**  Degré ; vide pour retirer. */
+	degre: DegreDifficulte | null,
+	/**  Note libre. */
+	note: string,
+};
+
+/**  Difficultés d'un élève demandées. */
+export type DemandeDifficultes = {
+	/**  Élève. */
+	eleve_id: string,
 };
 
 /**  Domaine saisi par la direction ; sans `id`, une création. */
@@ -4580,6 +4723,20 @@ export type Destination = {
 	amovible: boolean,
 };
 
+/**  Difficulté notée pour un élève. */
+export type DifficulteEleve = {
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Type. */
+	type_difficulte: TypeDifficulte,
+	/**  Degré ; vide quand la difficulté a été retirée. */
+	degre: DegreDifficulte | null,
+	/**  Note libre. */
+	note: string,
+};
+
 /**  Diplôme ou qualification du dossier. */
 export type Diplome = {
 	/**  Intitulé : « Licence de mathématiques », « CAP électricité ». */
@@ -4589,6 +4746,9 @@ export type Diplome = {
 	/**  Année d'obtention. */
 	annee: number | null,
 };
+
+/**  Diplôme le plus élevé, dans la liste de l'enquête. */
+export type DiplomeEleve = "doctorat" | "master" | "dea" | "ensup" | "ingenieur" | "maitrise" | "licence" | "deug_bts" | "bt" | "baccalaureat" | "cap" | "ifm" | "autre";
 
 /**  Diplôme qui termine un niveau. */
 export type DiplomeTerminal = 
@@ -5784,6 +5944,9 @@ export type FonctionPersonnel = {
 	/**  Faux pour une fonction retirée de la liste. */
 	active: boolean,
 };
+
+/**  Fonctionnement d'une classe. */
+export type Fonctionnement = "simple" | "double_division" | "double_vacation";
 
 /**  Colonnes d'un relevé, comptées à partir de zéro dans la ligne d'en-tête. */
 export type FormatReleve = {
@@ -7620,6 +7783,9 @@ export type Pedagogie = {
 	regles: RegleEvaluation[],
 };
 
+/**  Pédagogie appliquée dans une classe. */
+export type PedagogieClasse = "classique" | "pedagogie_convergente" | "curriculum";
+
 /**  Période de notes d'un niveau. */
 export type Periode = {
 	/**  Identifiant technique. */
@@ -9069,6 +9235,9 @@ export type SourcePaiement =
 /**  Hors de la caisse : mobile money, banque, ou espèces d'une autre source (Q-77). */
 "hors_caisse";
 
+/**  Spécialité d'un enseignant du second cycle. */
+export type Specialite = "lhg" | "mpc" | "snpc" | "ldm" | "eps" | "autre";
+
 /**  Statistiques de l'école à une date. */
 export type Statistiques = {
 	/**  Années qu'on peut choisir, de la plus récente à la plus ancienne. */
@@ -9258,6 +9427,9 @@ export type StatutPaie =
 "calculee" | 
 /**  Validée : figée, ses bulletins numérotés. */
 "validee";
+
+/**  Statut d'un membre du personnel pour les rapports. */
+export type StatutRapport = "fonctionnaire_etat" | "fonctionnaire_collectivites" | "contractuel_etat" | "contractuel_collectivites" | "contractuel_ecole" | "vacataire" | "eleve_maitre" | "autre";
 
 /**  État d'une remise (§10.10 du blueprint). */
 export type StatutRemise = 
@@ -9529,6 +9701,9 @@ export type TypeConge = {
 	/**  Ses jours se déduisent du solde, quand le décompte est actif : le congé annuel. */
 	deduit_du_solde: boolean,
 };
+
+/**  Type de difficulté d'un élève. */
+export type TypeDifficulte = "vue" | "ouie" | "motricite_globale" | "motricite_fine" | "intellect" | "communication" | "comportement" | "multiple" | "autre";
 
 /**  Type d'évaluation. */
 export type TypeEvaluation = 

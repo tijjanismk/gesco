@@ -10,6 +10,7 @@ mod bulletins;
 mod caisse;
 mod changement_classe;
 mod charge;
+mod complements;
 mod conges;
 mod consultation;
 mod convocations;

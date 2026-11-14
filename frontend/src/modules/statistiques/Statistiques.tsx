@@ -9,11 +9,12 @@ import { MessageErreur, Section } from "../../composants/Messages";
 import { dateCivile, t, texteDeCle } from "../../i18n";
 import type { Cycle, FeuilleStatistique, FicheStatistique, LigneStatistique, OngletStatistique, TableauStatistique } from "../../types/gesco";
 import { OngletEtablissement } from "./FicheEcole";
+import { PourLesRapports } from "./PourLesRapports";
 import { feuilleDe, libelleLigne, texteCellule, titreColonne, titrePremiere, titreTableau } from "./mise-en-forme";
 
-type Onglet = "eleves" | "personnel" | "etablissement";
+type Onglet = "eleves" | "personnel" | "etablissement" | "rapports";
 
-const TITRES_ONGLETS = { eleves: "statistiques.onglet.eleves", personnel: "statistiques.onglet.personnel", etablissement: "statistiques.onglet.etablissement" } as const;
+const TITRES_ONGLETS = { eleves: "statistiques.onglet.eleves", personnel: "statistiques.onglet.personnel", etablissement: "statistiques.onglet.etablissement", rapports: "statistiques.onglet.rapports" } as const;
 
 /** Fiches désignées par un chiffre cliqué. */
 interface Detail {
@@ -50,10 +51,10 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
       setExportation({ erreur });
     }
   };
-  const contenu: OngletStatistique | undefined = onglet === "etablissement" ? undefined : s?.[onglet];
+  const contenu: OngletStatistique | undefined = onglet === "etablissement" || onglet === "rapports" ? undefined : s?.[onglet];
   const arret = s === undefined ? "" : dateCivile(s.date);
   const ouvrir = (titre: string, membres: readonly number[]) => {
-    if (onglet !== "etablissement") setDetail({ titre, onglet, membres });
+    if (onglet === "eleves" || onglet === "personnel") setDetail({ titre, onglet, membres });
   };
   return (
     <div className="flex flex-col gap-4">
@@ -90,7 +91,7 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
             />
           </div>
           <div role="tablist" className="flex gap-2 border-b border-muet">
-            {(["eleves", "personnel", "etablissement"] as const).map((o) => (
+            {(["eleves", "personnel", "etablissement", "rapports"] as const).map((o) => (
               <button
                 key={o}
                 type="button"
@@ -113,6 +114,7 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
               <OngletEtablissement anneeId={s.annee_id} surExporter={(titre, feuilles) => void exporter(titre, feuilles)} />
             </>
           ) : null}
+          {onglet === "rapports" ? <PourLesRapports anneeId={s.annee_id} /> : null}
           {contenu === undefined ? null : (
             <>
               <div className="flex flex-wrap items-center gap-2">

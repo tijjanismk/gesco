@@ -135,6 +135,7 @@ catalogue! {
     WORKSTATIONS_MANAGE = "workstations:manage",
     STATISTICS_READ = "statistics:read",
     SCHOOL_PROFILE_MANAGE = "school_profile:manage",
+    STUDENTS_DISABILITY = "students:disability",
 }
 
 /// Version de la composition des rôles livrés. Une phase qui ajoute des permissions à
@@ -181,7 +182,9 @@ catalogue! {
 /// Secrétaire : consulter les statistiques de l'école et les exporter.
 /// Version 13 (SPEC_PHASE_9 §11) : `school_profile:manage`, nouvelle, pour le Directeur et le
 /// Secrétaire : tenir la fiche de l'établissement et ses rubriques.
-pub const COMPOSITION_ROLES_LIVRES: i64 = 13;
+/// Version 14 (SPEC_PHASE_9 §11) : `students:disability`, nouvelle, pour le Directeur seul : lire
+/// et noter les difficultés d'un élève.
+pub const COMPOSITION_ROLES_LIVRES: i64 = 14;
 
 /// Rôles livrés avec le produit (§11.4), composés selon SPEC_PHASE_1 §5.2 (Q-44).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -271,6 +274,7 @@ impl RoleSysteme {
                 P::WORKSTATIONS_MANAGE,
                 P::STATISTICS_READ,
                 P::SCHOOL_PROFILE_MANAGE,
+                P::STUDENTS_DISABILITY,
                 P::STUDENTS_READ,
                 P::ENROLLMENTS_VALIDATE,
                 P::ENROLLMENTS_EXPEL,
