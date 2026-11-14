@@ -383,3 +383,31 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-14 : changement de classe fini (`b37d53b`). Le porteur valide tous les choix des étapes 2 et 3
   du lot B ; son principe : « la flexibilité sans incohérence ». Lot B étape 4 lancée (par message à
   `local_f6f8d8f3-0fc5-4742-8ae3-c5d51c4d0494`). Ensuite : phase 9, étape 1 (`SPEC_PHASE_9.md`).
+
+## Passage de relais du 14 novembre 2026 (à lire en premier par l'orchestrateur neuf)
+
+- **Règle rétablie** : une étape de code = une session neuve (ne plus relancer par message une session
+  déjà longue ; ne pas compacter). Une seule session qui compile à la fois.
+- **Modèles** : code de la phase 11 et suivantes sur Opus 5.5, effort élevé. Rédaction terminée (plus
+  aucune leçon ni sujet sans un mot du porteur).
+- **Démarrage des sessions** : l'application ne le permet que dans le tour qui suit un message du
+  porteur ; sinon carte (`own_initiative`). Archivage : avec l'accord du porteur ; le mode automatique
+  en refuse parfois, le porteur archive alors lui-même.
+- **En cours** : lot B, étape 4, dans `local_f6f8d8f3-0fc5-4742-8ae3-c5d51c4d0494` (session lourde, à
+  archiver après son commit). Elle doit aussi reporter dans `ETAT_AVANCEMENT.md` la validation par le
+  porteur de tous les choix des étapes 2 et 3.
+- **Ensuite, dans l'ordre** : phase 9 étapes 1 à 8 (`SPEC_PHASE_9.md`, T-98 à T-108 validées, T-103 :
+  inventaire tenu par la personne que l'école désigne) ; poser au porteur les questions de la phase 12
+  (`docs/plan-phase-12.md` §4, T-87 et suivantes, avec recommandations) et de la sauvegarde hors de
+  l'école (`docs/plan-phase-11.md` §7.4) ; écrire leurs spécifications ; les coder.
+- **Pour que la 2.0.0 soit livrable** : lot B, phase 9, sauvegarde hors de l'école, phase 12 (5 lots,
+  avec les décisions notées plus haut : KaTeX, vidéos, cours modifiables dans l'application), puis
+  installeur officiel avec la bibliothèque, guide, essais à la main, essai sur deux machines par le
+  porteur. Périmètre entier : ne pas proposer de le réduire.
+- **Bibliothèque** (`Documents/gesco-bibliotheque`) : 9e et 7e finies ; 8e : mathématiques 30 sur 44,
+  physique-chimie 20, biologie 15 sur 15 ; terminale : mathématiques TSE 29 sur 38 (AN-09 à reprendre),
+  physique-chimie 20 sur 59 ; sujets du DEF 39 et du BAC 2. Règles dans `DECISIONS.md`, état par
+  matière dans `contenus/REPARTITION.md`. 79 leçons de sciences de 9e encore en texte simple.
+- **Principe du porteur** : « la flexibilité sans incohérence » (ne jamais bloquer, ne pas faire
+  remarquer ce qui manque, chiffres et documents toujours justes).
+- **Disque** : 18 Go libres le 14 novembre.
