@@ -422,6 +422,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   à neuf) ; KaTeX, SVG, vidéos de l'école hors sauvegarde avec deux guides : décidés.
   Restent posées au porteur le 14 novembre, avec recommandation : T-89 (l'enseignant de la matière
   modifie, la direction valide avant que les élèves voient), T-91 (suivi allumé à la livraison,
-  réglable par la direction), T-95 (seulement mettre les sauvegardes à l'abri), T-96 (dossier
-  synchronisé sur le compte de l'école). Rien n'est retenu tant qu'il n'a pas répondu.
+  réglable par la direction, ne bloque jamais ni l'élève ni l'enseignant), T-95 (seulement mettre
+  les sauvegardes à l'abri ; lots C et D hors de la 2.0), T-96 (dossier synchronisé sur le compte de
+  l'école ; n'y part que la sauvegarde déjà chiffrée, jamais la base en clair ni la clé ;
+  l'application vérifie sans bloquer que la dernière copie est arrivée). Rien n'est retenu tant
+  qu'il n'a pas répondu. T-88 : sans ordre, tout entre d'un coup.
 - Étape 4 du lot B : commit pas encore dans `git log` à la prise de poste ; rien d'autre ne compile.
