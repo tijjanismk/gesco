@@ -453,3 +453,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   `ETAT_AVANCEMENT.md` les écrans à couvrir. Un essai Playwright global, avec captures montrées au
   porteur et l'école d'essai refaite (2e trimestre retiré), viendra après la phase 9 et la
   sauvegarde hors de l'école, avant la phase 12. Message passé à `phase9-etape1` en cours.
+- 2026-11-14, porteur : « on code les étapes [de la phase 9] et puis après on fera les tests
+  Playwright ». La phase 9 a 8 étapes (`SPEC_PHASE_9.md` §12) ; les enquêtes sont dans l'étape 8.
+  Elles s'enchaînent sans captures ni accord par étape (contrairement au §12 de la spécification) ;
+  l'essai Playwright global et les captures viennent après l'étape 8.
