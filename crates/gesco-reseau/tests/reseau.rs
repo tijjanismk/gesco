@@ -1037,3 +1037,271 @@ async fn un_appareil_qui_ne_repond_pas_rend_poste_principal_injoignable() {
     let refus = relais::apercevoir(&adresse.to_string()).await.unwrap_err();
     assert_eq!(refus.cle, relais::CLE_INJOIGNABLE);
 }
+
+/// PNG d'essai (4 × 4 pixels) en base64, à la place d'une photo : au jardin, l'inscription en
+/// demande une.
+const PHOTO: &str = "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGOQc1gPRwzEcQCsUxDRqgYFyQAAAABJRU5ErkJggg==";
+
+/// SPEC_PHASE_11_B critère 13 : par le réseau, les commandes du jardin donnent le même résultat
+/// et le même refus que sur place ; deux postes qui modifient la même observation ne s'écrasent
+/// pas en silence.
+#[tokio::test]
+async fn le_jardin_repond_pareil_par_le_reseau_et_ne_s_ecrase_pas() {
+    let ecole = ecole().await;
+    let ok = |r: Result<Value, String>, nom: &str| r.unwrap_or_else(|e| panic!("{nom} : {e}"));
+    ok(
+        ecole
+            .sur_place(
+                "premier_demarrage",
+                None,
+                json!({
+                    "organisation": "Groupe scolaire Askia",
+                    "etablissement_nom": "École Askia",
+                    "statut": "prive",
+                    "code_academie": "AE-BKO-RD",
+                    "code_cap": "CAP-01",
+                    "adresse": "Hamdallaye ACI 2000, Bamako",
+                    "telephones": ["+223 20 22 00 00"],
+                    "administrateur_identifiant": "admin",
+                    "administrateur_nom": "Awa Traoré",
+                    "administrateur_mot_de_passe": MOT_DE_PASSE,
+                    "cycles": ["jardin", "premier_cycle"],
+                }),
+            )
+            .await,
+        "premier_demarrage",
+    );
+    ok(
+        ecole
+            .sur_place("certificat_confirmer_initial", None, Value::Null)
+            .await,
+        "certificat_confirmer_initial",
+    );
+    let sp = ecole.connecter_sur_place().await;
+    let rs = ecole.connecter_par_reseau().await;
+    let ici = |nom: &'static str, entree: Value| {
+        let ecole = &ecole;
+        let sp = &sp;
+        async move { ok(ecole.sur_place(nom, Some(sp), entree).await, nom) }
+    };
+    let annee = ici(
+        "annee_creer",
+        json!({ "libelle": "2026-2027", "debut": 1_790_812_800_000_i64, "fin": 1_816_992_000_000_i64 }),
+    )
+    .await;
+    ici("annee_activer", json!({ "id": annee["id"] })).await;
+    // Les frais de l'année, sans quoi aucune inscription ne se valide.
+    let niveaux = ici("niveaux_lister", Value::Null).await;
+    let grille = ici(
+        "grille_creer",
+        json!({ "annee_id": annee["id"], "copie_de": null }),
+    )
+    .await;
+    let lignes: Vec<Value> = niveaux["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| json!({ "niveau_id": n["id"], "serie_id": null, "type_frais": "inscription",
+            "libelle": "Frais d'inscription", "montant": 10_000, "obligatoire": true, "exigibilite": "une_fois" }))
+        .collect();
+    let plans: Vec<Value> = grille["contenu"]["plans"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| json!({ "libelle": p["libelle"], "par_defaut": p["par_defaut"], "tranches": p["tranches"] }))
+        .collect();
+    ici(
+        "grille_modifier",
+        json!({ "id": grille["grille"]["id"], "lue_le": grille["modifiee_le"],
+            "libelle": grille["grille"]["libelle"], "lignes": lignes, "plans": plans }),
+    )
+    .await;
+    ici(
+        "grille_mettre_en_vigueur",
+        json!({ "id": grille["grille"]["id"] }),
+    )
+    .await;
+    let niveau = |code: &str| {
+        niveaux["niveaux"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["code"] == code)
+            .unwrap()["id"]
+            .clone()
+    };
+    let ms = ici(
+        "classe_creer",
+        json!({ "annee_id": annee["id"], "niveau_id": niveau("MS"), "serie_id": null, "libelle": "MS A" }),
+    )
+    .await["id"]
+        .clone();
+    let premiere = ici(
+        "classe_creer",
+        json!({ "annee_id": annee["id"], "niveau_id": niveau("1"), "serie_id": null, "libelle": "1re A" }),
+    )
+    .await["id"]
+        .clone();
+    // Un enfant au jardin : photo, mère joignable qui vient le chercher.
+    let fiche = ici(
+        "eleve_creer",
+        json!({ "identite": { "nom": "Diarra", "prenoms": "Aminata", "sexe": "feminin",
+            "date_naissance": "2022-03-02", "date_naissance_estimee": false, "lieu_naissance": "Bamako",
+            "nationalite": "Malienne", "adresse": "", "telephones": [] },
+            "matricule_interne": "J/2022/001", "matricule_national": "", "acte_nature": "acte",
+            "acte_numero": "", "acte_date": "", "ecole_origine": "" }),
+    )
+    .await;
+    ici(
+        "responsable_rattacher",
+        json!({ "eleve_id": fiche["eleve"]["id"], "responsable_id": null,
+            "saisie": { "identite": { "nom": "Diarra", "prenoms": "Mariam", "sexe": "feminin",
+                "date_naissance": "", "date_naissance_estimee": false, "lieu_naissance": "",
+                "nationalite": "", "adresse": "", "telephones": ["76 12 34 56"] },
+                "profession": "", "employeur": "" },
+            "qualites": { "lien": "mere", "est_responsable_legal": true, "est_payeur": true,
+                "recoit_notifications": true, "vient_chercher": true, "ordre_priorite": 1 } }),
+    )
+    .await;
+    ici(
+        "eleve_photo_definir",
+        json!({ "id": fiche["eleve"]["id"], "contenu_base64": PHOTO }),
+    )
+    .await;
+    ici(
+        "inscription_creer",
+        json!({ "eleve_id": fiche["eleve"]["id"], "classe_id": ms, "date_inscription": "",
+            "redoublant": false, "etablissement_origine": "" }),
+    )
+    .await;
+    assert_eq!(
+        ici("inscriptions_valider_classe", json!({ "id": ms })).await["validees"],
+        1
+    );
+    let ped = ici("pedagogie_lire", json!({ "id": annee["id"] })).await;
+    let trimestre = ped["periodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["periode"]["niveau_id"] == niveau("MS") && p["periode"]["rang"] == 1)
+        .unwrap()["periode"]["id"]
+        .clone();
+    let grille_obs = json!({ "classe_id": ms, "periode_id": trimestre });
+
+    // Les lectures donnent la même chose par les deux chemins.
+    for (nom, entree) in [
+        ("jardin_lire", Value::Null),
+        ("observations_grille", grille_obs.clone()),
+        ("maitres_jardin_lister", json!({ "id": annee["id"] })),
+        ("portee_notes_lire", Value::Null),
+    ] {
+        assert_eq!(
+            ecole.par_reseau(nom, Some(&rs), entree.clone()).await,
+            ecole.sur_place(nom, Some(&sp), entree).await,
+            "{nom}"
+        );
+    }
+    // Les refus aussi : une classe à notes, une compétence inconnue.
+    let g = ici("observations_grille", grille_obs.clone()).await;
+    let enfant = g["enfants"][0]["inscription_id"].clone();
+    let competence = g["competences"][0]["id"].clone();
+    for (nom, entree) in [
+        (
+            "observations_grille",
+            json!({ "classe_id": premiere, "periode_id": trimestre }),
+        ),
+        (
+            "observation_saisir",
+            json!({ "classe_id": ms, "periode_id": trimestre, "competence_id": enfant,
+                "inscription_id": enfant, "niveau": "acquis", "lue_le": 0 }),
+        ),
+        (
+            "observation_apprecier",
+            json!({ "classe_id": ms, "periode_id": trimestre, "inscription_id": enfant,
+                "domaine_id": null, "texte": "x".repeat(301) }),
+        ),
+    ] {
+        let local = ecole.sur_place(nom, Some(&sp), entree.clone()).await;
+        assert!(local.is_err(), "{nom}");
+        assert_eq!(
+            ecole.par_reseau(nom, Some(&rs), entree).await,
+            local,
+            "{nom}"
+        );
+    }
+
+    // Le poste relié pose une case ; l'écran, qui l'avait lue vide, ne l'écrase pas.
+    let case = |niveau: &str, lue_le: i64| {
+        json!({ "classe_id": ms, "periode_id": trimestre, "competence_id": competence,
+            "inscription_id": enfant, "niveau": niveau, "lue_le": lue_le })
+    };
+    let posee = ok(
+        ecole
+            .par_reseau("observation_saisir", Some(&rs), case("acquis", 0))
+            .await,
+        "observation_saisir",
+    );
+    assert_eq!(posee["niveau"], "acquis");
+    assert_eq!(
+        ecole
+            .sur_place("observation_saisir", Some(&sp), case("non_acquis", 0))
+            .await,
+        Err("fiche.modifiee_entre_temps".to_owned())
+    );
+    // Et l'inverse : le poste relié qui a lu avant l'écran est refusé à son tour.
+    let lue = posee["modifiee_le"].as_i64().unwrap();
+    ok(
+        ecole
+            .sur_place("observation_saisir", Some(&sp), case("en_cours", lue))
+            .await,
+        "observation_saisir",
+    );
+    assert_eq!(
+        ecole
+            .par_reseau("observation_saisir", Some(&rs), case("non_acquis", lue))
+            .await,
+        Err("fiche.modifiee_entre_temps".to_owned())
+    );
+    // « Toute la colonne » et l'appréciation par le réseau, puis le livret préparé par le
+    // réseau se lit pareil des deux côtés.
+    ok(
+        ecole
+            .par_reseau(
+                "observations_colonne",
+                Some(&rs),
+                json!({ "classe_id": ms, "periode_id": trimestre,
+                    "competence_id": g["competences"][1]["id"], "niveau": "en_cours", "lue_le": 0 }),
+            )
+            .await,
+        "observations_colonne",
+    );
+    ok(
+        ecole
+            .par_reseau(
+                "observation_apprecier",
+                Some(&rs),
+                json!({ "classe_id": ms, "periode_id": trimestre, "inscription_id": enfant,
+                    "domaine_id": null, "texte": "Un bon trimestre." }),
+            )
+            .await,
+        "observation_apprecier",
+    );
+    let livrets = ok(
+        ecole
+            .par_reseau("resultats_calculer", Some(&rs), grille_obs.clone())
+            .await,
+        "resultats_calculer",
+    );
+    assert_eq!(
+        livrets["bulletins"][0]["bulletin"]["contenu"]["forme"],
+        "livret"
+    );
+    assert_eq!(
+        ecole
+            .par_reseau("bulletins_lire", Some(&rs), grille_obs.clone())
+            .await,
+        ecole
+            .sur_place("bulletins_lire", Some(&sp), grille_obs)
+            .await
+    );
+}

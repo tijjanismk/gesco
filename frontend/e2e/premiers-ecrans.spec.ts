@@ -2928,3 +2928,45 @@ test("phase 11, lot B : les livrets de la petite section se préparent, se valid
   await page.locator("iframe").last().scrollIntoViewIfNeeded();
   await capturer("173-livrets-publies");
 });
+
+test("phase 11, lot B : au 2e trimestre, la petite section est observée de nouveau et son livret suit l'année", async () => {
+  // Le 2e trimestre observé par les commandes : toute la classe, puis huit enfants encore en cours
+  // sur la première compétence de chaque domaine.
+  await parCommandes<unknown>(`
+    const annee = (await api.appeler("annees_lister", null)).find((a) => a.est_courante);
+    const ps = (await api.appeler("classes_lister", { annee_id: annee.id })).find((c) => c.classe.libelle === "PS");
+    const periodes = (await api.appeler("pedagogie_lire", { id: annee.id })).periodes
+      .filter((p) => p.periode.niveau_id === ps.classe.niveau_id)
+      .sort((a, b) => a.periode.rang - b.periode.rang);
+    const t2 = periodes[1].periode.id;
+    const g = await api.appeler("observations_grille", { classe_id: ps.classe.id, periode_id: t2 });
+    for (const d of g.domaines) {
+      const siennes = g.competences.filter((c) => c.domaine_id === d.id);
+      for (const c of siennes) {
+        const colonne = await api.appeler("observations_colonne", { classe_id: ps.classe.id, periode_id: t2, competence_id: c.id, niveau: "acquis", lue_le: 0 });
+        if (c.id !== siennes[0].id) continue;
+        for (const e of g.enfants.slice(0, 8)) {
+          const lue = colonne.find((o) => o.inscription_id === e.inscription_id);
+          await api.appeler("observation_saisir", { classe_id: ps.classe.id, periode_id: t2, competence_id: c.id, inscription_id: e.inscription_id, niveau: "en_cours", lue_le: lue.modifiee_le });
+        }
+      }
+    }
+    return null;
+  `);
+  await allerA("nav.bulletins");
+  await page.locator("#bulletins-classe").selectOption({ label: "PS · Petite section" });
+  await page.locator("#bulletins-periode").selectOption({ label: "2e trimestre" });
+  await page.getByRole("button", { name: texte("livrets.preparer") }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Livrets préparés : 40." })).toBeVisible();
+  await page.getByRole("button", { name: texte("livrets.valider") }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Livrets validés : 40." })).toBeVisible();
+  await page.getByRole("button", { name: texte("livrets.publier") }).click();
+  await expect(page.getByRole("status").filter({ hasText: texte("livrets.publies") })).toBeVisible();
+  // Le livret du 2e trimestre montre le 1er à côté : une colonne par trimestre passé.
+  await page.getByRole("row").filter({ hasText: "Adama 36 Coulibaly" }).getByRole("button", { name: texte("bulletins.ouvrir") }).click();
+  const livret = page.locator("section").filter({ has: page.getByRole("heading", { name: "Livret de Adama 36 Coulibaly" }) });
+  await expect(livret.getByRole("columnheader", { name: "1er trimestre" }).first()).toBeVisible();
+  await expect(livret.getByRole("columnheader", { name: "2e trimestre" }).first()).toBeVisible();
+  await livret.scrollIntoViewIfNeeded();
+  await capturer("176-livret-du-2e-trimestre");
+});

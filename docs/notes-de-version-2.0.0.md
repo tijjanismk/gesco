@@ -26,6 +26,16 @@ compte qui n'a que le rôle Enseignant n'ouvre pas de session. Allumé, le maît
 **Désinstallation.** La case « Supprimer les données de l'application » n'efface plus l'école :
 sur un ordinateur qui garde les données d'une école, elle est ignorée et l'installeur le dit.
 
+**Le jardin d'enfants a son livret.** Paramètres → « Compétences du jardin » : cinq domaines et
+vingt compétences par section, que l'école modifie, et les libellés des trois niveaux. Dans
+Notes, une classe du jardin s'observe au clavier (A, E, N ou 1, 2, 3, « Toute la colonne »),
+avec un commentaire par domaine et une appréciation. Dans Bulletins, les livrets se préparent,
+se valident, se publient et s'impriment : un livret par enfant et par trimestre, une colonne par
+trimestre déjà passé, des ronds noirs lisibles en photocopie. Remise, signature et avis par SMS
+comme pour un bulletin, au mot « livret ». Une maîtresse est affectée à sa classe du jardin par
+« Lui confier la classe ». Le jardin reçoit ses trimestres à l'ouverture de la 2.0.0. Le
+chapitre du manuel est `manuel-2.0-jardin.md`.
+
 ## Mettre à jour
 
 Installez la 2.0.0 par-dessus la version en place : les données sont gardées. Dans une école à

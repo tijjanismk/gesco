@@ -309,7 +309,9 @@ pub struct CleObservation {
 }
 
 /// Pose, remplace ou vide (`None`) une observation ; la ligne existante est récrite, jamais
-/// supprimée (RB-5). `id` ne sert qu'à une première observation.
+/// supprimée (RB-5). `id` ne sert qu'à une première observation. L'instant de modification
+/// avance toujours, même pour deux écritures dans la même milliseconde : c'est lui qui refuse
+/// au second poste d'écraser le premier.
 pub async fn ecrire_observation(
     cnx: &mut Connexion,
     id: &str,
@@ -324,7 +326,8 @@ pub async fn ecrire_observation(
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?7, ?9, ?7, ?9, ?10)
          ON CONFLICT (inscription_id, competence_id, periode_id) DO UPDATE SET
             niveau = excluded.niveau, saisie_le = excluded.saisie_le,
-            saisie_par = excluded.saisie_par, mis_a_jour_le = excluded.mis_a_jour_le,
+            saisie_par = excluded.saisie_par,
+            mis_a_jour_le = max(excluded.mis_a_jour_le, observation.mis_a_jour_le + 1),
             mis_a_jour_par = excluded.mis_a_jour_par,
             identifiant_poste = excluded.identifiant_poste",
     )

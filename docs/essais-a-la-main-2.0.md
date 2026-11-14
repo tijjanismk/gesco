@@ -114,6 +114,24 @@ recherches (C-9) et de noter le plus lent. Cible : moins d'une seconde dans 95 c
 
 ---
 
+## D. Le jardin d'enfants, à jouer par le porteur du projet sur l'école d'essai
+
+Sur l'école d'essai (`Documents\gesco-ecole-essai`, ouverte par son lanceur), connecté comme
+direction. La petite section y compte quarante enfants, observés au 1er et au 2e trimestre, et
+leurs livrets sont publiés.
+
+| N° | Faire | Attendu |
+|---|---|---|
+| D-1 | Paramètres → Compétences du jardin | Un onglet par section ; la liste livrée ; renommer, monter, retirer puis remettre une compétence fonctionnent |
+| D-2 | Notes → classe « PS », 3e trimestre, domaine Langage | La grille des quarante enfants, avec les photos ; aucune case remplie ; aucun compteur |
+| D-3 | « Toute la colonne… » → Acquis sur une compétence, puis A, E, N sur quelques cases | Le niveau suit aussitôt ; le curseur descend ; Suppr vide la case |
+| D-4 | Commentaire et appréciation d'un enfant, quitter le champ | « Enregistré à … » |
+| D-5 | Bulletins → classe « PS », 2e trimestre, Ouvrir un enfant | Ses domaines, une colonne pour le 1er et une pour le 2e trimestre |
+| D-6 | Imprimer ce livret, puis l'imprimer en noir et blanc ou le photocopier | Une page A4 lisible : niveaux en lettres et ronds noirs ; ni case de photo vide, ni « non observé » |
+| D-7 | Remise des bulletins → classe « PS », 1er trimestre | Les livrets à remettre ; une remise et une signature fonctionnent |
+| D-8 | Paramètres → Enseignants → classe « PS » | « Lui confier la classe » ; la maîtresse figure parmi les maîtres de la classe |
+
+
 ## Ce qu'il faut rapporter
 
 1. Les lignes « pas vu », avec ce qui s'est affiché à la place.

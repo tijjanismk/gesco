@@ -266,3 +266,124 @@ async fn le_livret_se_prepare_se_publie_et_suit_l_annee() {
             .starts_with("Djeneba")
     }));
 }
+
+/// Tables dont la mise à niveau ne doit rien changer, et leur contenu lu en clair.
+const TABLES_GARDEES: [&str; 9] = [
+    "personne",
+    "eleve",
+    "inscription",
+    "facture",
+    "ligne_facture",
+    "echeance",
+    "versement",
+    "bulletin",
+    "classe",
+];
+
+async fn instantane(p: &crate::commun::Poste_) -> Vec<(String, i64, String)> {
+    use sqlx::Connection;
+    let mut cnx = crate::commun::base_brute(&p.racine, p.trousseau.clone()).await;
+    let mut lignes = Vec::new();
+    for table in TABLES_GARDEES {
+        let n: i64 =
+            sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT count(*) FROM {table}")))
+                .fetch_one(&mut cnx)
+                .await
+                .unwrap();
+        // L'empreinte des identifiants et des dates de modification dit qu'aucune ligne n'a bougé.
+        let empreinte: String = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT coalesce(group_concat(id || ':' || coalesce(mis_a_jour_le, ''), ','), '') FROM
+             (SELECT * FROM {table} ORDER BY id)"
+        )))
+        .fetch_one(&mut cnx)
+        .await
+        .unwrap_or_default();
+        lignes.push((table.to_owned(), n, empreinte));
+    }
+    cnx.close().await.unwrap();
+    lignes
+}
+
+/// Critère 14 : une école de la 2.0.0, avec des enfants au jardin, passe la mise à niveau sans
+/// rien perdre ; ses classes du jardin reçoivent leurs trimestres et la liste livrée.
+#[tokio::test]
+async fn une_ecole_de_la_2_0_0_passe_la_mise_a_niveau_sans_rien_perdre() {
+    use sqlx::Connection;
+    let e = ecole().await;
+    // La 2.0.0 ne connaissait ni compétences ni trimestres du jardin : on les retire.
+    {
+        let mut cnx = crate::commun::base_brute(&e.p.racine, e.p.trousseau.clone()).await;
+        for sql in [
+            "DROP TRIGGER competence_sans_suppression",
+            "DROP TRIGGER domaine_competence_sans_suppression",
+            "DELETE FROM competence",
+            "DELETE FROM domaine_competence",
+            "DELETE FROM periode_academique WHERE niveau_id IN
+                (SELECT id FROM niveau WHERE cycle = 'jardin')",
+        ] {
+            sqlx::query(sqlx::AssertSqlSafe(sql.to_owned()))
+                .execute(&mut cnx)
+                .await
+                .unwrap();
+        }
+        cnx.close().await.unwrap();
+    }
+    let avant = instantane(&e.p).await;
+    assert!(avant.iter().any(|(t, n, _)| t == "inscription" && *n >= 4));
+    // GESCO se ferme, la nouvelle version l'ouvre.
+    e.p.application.fermer().await.unwrap();
+    let p = crate::commun::demarrer(&e.p.racine, e.p.trousseau.clone(), e.p.horloge.clone()).await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    assert_eq!(instantane(&p).await, avant, "rien d'existant ne change");
+    let j = p.ok("jardin_lire", Some(&admin), Value::Null).await;
+    assert_eq!(j["domaines"].as_array().unwrap().len(), 5);
+    assert_eq!(j["competences"].as_array().unwrap().len(), 60);
+    let annee = p.ok("annees_lister", Some(&admin), Value::Null).await[0]["id"].clone();
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee }))
+        .await;
+    for section in j["sections"].as_array().unwrap() {
+        assert_eq!(
+            ped["periodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|x| x["periode"]["niveau_id"] == section["id"])
+                .count(),
+            3,
+            "{}",
+            section["code"]
+        );
+    }
+    // La classe du jardin s'observe et prépare ses livrets dès l'ouverture.
+    let premier = ped["periodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| {
+            x["periode"]["rang"] == 1
+                && j["sections"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|s| s["code"] == "MS" && s["id"] == x["periode"]["niveau_id"])
+        })
+        .unwrap()["periode"]["id"]
+        .clone();
+    let g = p
+        .ok(
+            "observations_grille",
+            Some(&admin),
+            demande(&e.ms_a, &premier),
+        )
+        .await;
+    assert_eq!(g["enfants"].as_array().unwrap().len(), 3);
+    let livrets = p
+        .ok(
+            "resultats_calculer",
+            Some(&admin),
+            demande(&e.ms_a, &premier),
+        )
+        .await;
+    assert_eq!(livrets["bulletins"].as_array().unwrap().len(), 3);
+}
