@@ -22,6 +22,7 @@ struct LigneAjustement {
     avoir: i64,
     classe_avant_id: String,
     classe_apres_id: String,
+    remplace_le: Option<i64>,
 }
 
 impl LigneAjustement {
@@ -39,6 +40,7 @@ impl LigneAjustement {
             avoir: Montant::depuis_francs(self.avoir),
             classe_avant_id: lire_id(t, "classe_avant_id", &self.classe_avant_id)?,
             classe_apres_id: lire_id(t, "classe_apres_id", &self.classe_apres_id)?,
+            remplace: self.remplace_le.is_some(),
         })
     }
 }
@@ -75,7 +77,7 @@ pub async fn de_la_facture(
 ) -> Resultat<Vec<Ajustement>> {
     sqlx::query_as::<_, LigneAjustement>(
         "SELECT id, etablissement_id, facture_id, date_ajustement, hausse, baisse, avoir,
-            classe_avant_id, classe_apres_id FROM ajustement_facture
+            classe_avant_id, classe_apres_id, remplace_le FROM ajustement_facture
          WHERE facture_id = ?1 AND etablissement_id = ?2 ORDER BY cree_le, rowid",
     )
     .bind(facture_id.vers_chaine())
@@ -85,6 +87,25 @@ pub async fn de_la_facture(
     .into_iter()
     .map(LigneAjustement::vers_entite)
     .collect()
+}
+
+/// Marque remplacé un ajustement dont les effets sont contre-passés : un changement de plan
+/// recalcule les échéances et applique l'ajustement de nouveau.
+pub async fn remplacer(
+    cnx: &mut Connexion,
+    id: Id<Ajustement>,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE ajustement_facture SET remplace_le = ?1
+         WHERE id = ?2 AND etablissement_id = ?3 AND remplace_le IS NULL",
+    )
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .execute(cnx)
+    .await?;
+    Ok(())
 }
 
 /// Rattache à son ajustement une ligne de facture née d'une hausse.

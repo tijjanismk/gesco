@@ -14,7 +14,7 @@ use gesco_core::finance::{
 };
 use gesco_core::scolarite::personne::millesime;
 use gesco_core::scolarite::{Eleve, Inscription, StatutInscription};
-use gesco_db::depots::{ajustements, annee_scolaire, factures, parametre, tarifs};
+use gesco_db::depots::{academique, ajustements, annee_scolaire, factures, parametre, tarifs};
 use gesco_db::unite::Durabilite;
 use gesco_db::{Contexte, UniteDeTravail, nouvel_id};
 use serde::{Deserialize, Serialize};
@@ -754,18 +754,26 @@ impl<'n> ServiceFacturation<'n> {
         if avant.plan_paiement_id == demande.plan_paiement_id {
             return self.affichee(session, avant).await;
         }
-        {
+        // Après un changement de classe, la facture peut porter des ajustements : ils s'appliquent
+        // de nouveau sur le nouveau plan (décision du 2026-11-13), jamais de refus.
+        let (d_ajustement, a_refaire) = {
             let mut cnx = self.connexion().await?;
-            if !ajustements::de_la_facture(&mut cnx, avant.id, &contexte)
+            let lignes = ajustements::lignes_d_ajustement(&mut cnx, avant.id, &contexte).await?;
+            let actifs: Vec<Ajustement> = ajustements::de_la_facture(&mut cnx, avant.id, &contexte)
                 .await?
-                .is_empty()
-            {
-                return Err(regle("echeancier.plan_ajuste"));
-            }
-        }
+                .into_iter()
+                .filter(|a| !a.remplace)
+                .collect();
+            (lignes, actifs)
+        };
+        let originales: Vec<LigneFacture> = lignes_avant
+            .iter()
+            .filter(|l| !d_ajustement.contains(&l.id))
+            .cloned()
+            .collect();
         // Le plan se calcule sur les frais de la facture, pas sur ceux de la classe actuelle :
         // un élève qui a changé de niveau garde ses frais tant que la direction ne les ajuste pas.
-        let tarif = niveau_de_la_facture(tarif, &lignes_avant, &contenu.lignes);
+        let tarif = niveau_de_la_facture(tarif, &originales, &contenu.lignes);
         let plan = contenu
             .plans
             .iter()
@@ -776,9 +784,10 @@ impl<'n> ServiceFacturation<'n> {
             let lignes_selon_plan: Vec<_> = lignes_avant
                 .iter()
                 .filter(|l| {
-                    contenu.lignes.iter().any(|g| {
-                        g.id == l.ligne_tarifaire_id && g.exigibilite == Exigibilite::SelonPlan
-                    })
+                    d_ajustement.contains(&l.id)
+                        || contenu.lignes.iter().any(|g| {
+                            g.id == l.ligne_tarifaire_id && g.exigibilite == Exigibilite::SelonPlan
+                        })
                 })
                 .map(|l| l.id)
                 .collect();
@@ -793,7 +802,7 @@ impl<'n> ServiceFacturation<'n> {
                 return Err(regle("echeancier.plan_verrouille"));
             }
         }
-        let options: Vec<Id<LigneTarifaire>> = lignes_avant
+        let options: Vec<Id<LigneTarifaire>> = originales
             .iter()
             .filter(|l| {
                 contenu
@@ -840,7 +849,21 @@ impl<'n> ServiceFacturation<'n> {
                 .iter()
                 .filter(|e| e.ligne_facture_id == ligne.id && e.statut == StatutEcheance::Due)
                 .collect();
-            let montant = if selon_plan.contains(&ligne.ligne_tarifaire_id) {
+            let montant = if d_ajustement.contains(&ligne.id) {
+                // Ligne d'une hausse : ses échéances se contre-passent, l'ajustement refait la
+                // sienne sur le nouveau plan.
+                for e in &echeances_ligne {
+                    factures::annuler_echeance(unite.connexion(), e.id, &contexte).await?;
+                }
+                factures::ecrire_montant_ligne(
+                    unite.connexion(),
+                    ligne.id,
+                    Montant::ZERO,
+                    &contexte,
+                )
+                .await?;
+                Montant::ZERO
+            } else if selon_plan.contains(&ligne.ligne_tarifaire_id) {
                 for e in &echeances_ligne {
                     factures::annuler_echeance(unite.connexion(), e.id, &contexte).await?;
                 }
@@ -889,13 +912,53 @@ impl<'n> ServiceFacturation<'n> {
         };
         factures::ecrire_facture(unite.connexion(), &apres, &contexte).await?;
         crate::remises::reappliquer_dans(&mut unite, &contexte, &apres).await?;
+        // Chaque ajustement s'applique de nouveau, dans l'ordre, à son jour et entre ses classes :
+        // l'ancien reste dans l'historique, marqué remplacé ; les baisses qu'il portait sont
+        // tombées avec les échéances contre-passées.
+        let mut refaits = Vec::new();
+        if !a_refaire.is_empty() {
+            let inscription = gesco_db::depots::inscriptions::lire(
+                unite.connexion(),
+                apres.inscription_id,
+                &contexte,
+            )
+            .await?;
+            for a in &a_refaire {
+                ajustements::remplacer(unite.connexion(), a.id, &contexte).await?;
+                let classe_avant =
+                    academique::classe(unite.connexion(), a.classe_avant_id, &contexte).await?;
+                let classe_apres =
+                    academique::classe(unite.connexion(), a.classe_apres_id, &contexte).await?;
+                if let Some(prepare) = crate::ajustements::preparer(
+                    unite.connexion(),
+                    &contexte,
+                    &inscription,
+                    &classe_avant,
+                    &classe_apres,
+                    a.date,
+                )
+                .await?
+                    && let Some(nouveau) =
+                        crate::ajustements::appliquer_dans(&mut unite, &contexte, &prepare).await?
+                {
+                    refaits.push(nouveau);
+                }
+            }
+        }
+        let apres = if a_refaire.is_empty() {
+            apres
+        } else {
+            factures::facture_vivante(unite.connexion(), apres.inscription_id, &contexte)
+                .await?
+                .ok_or(regle("facture.absente"))?
+        };
         let id = apres.id.vers_chaine();
         unite.auditer(
             "facture",
             &id,
             Operation::Modification,
             Some(serde_json::to_value(&avant)?),
-            Some(serde_json::to_value(&apres)?),
+            Some(serde_json::json!({ "facture": apres, "ajustements_refaits": refaits })),
             "facturation.changer_plan",
         );
         unite.emettre(

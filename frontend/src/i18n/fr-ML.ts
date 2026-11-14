@@ -1086,7 +1086,6 @@ export const catalogue = {
   "ajustement.sans_facture": "Pas encore de facture : rien à ajuster.",
   "ajustement.reserve_direction": "Seule la direction applique les frais de la nouvelle classe.",
   "ajustement.frais_absents": "La grille des frais n'a pas de frais pour cette classe : gardez les frais actuels ou complétez la grille.",
-  "echeancier.plan_ajuste": "Les frais de cet élève ont été ajustés à un changement de classe : le plan de paiement ne change plus.",
   "remise.type": "Remise",
   "remise.type.bourse": "Bourse",
   "remise.type.demi_bourse": "Demi-bourse",

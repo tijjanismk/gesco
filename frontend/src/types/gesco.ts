@@ -200,6 +200,8 @@ export type Ajustement = {
 	classe_avant_id: string,
 	/**  Classe rejointe. */
 	classe_apres_id: string,
+	/**  Vrai si un changement de plan l'a appliqué de nouveau : il reste dans l'historique. */
+	remplace: boolean,
 };
 
 /**  Résultat de l'analyse : ce que l'écran propose, corrigeable. */

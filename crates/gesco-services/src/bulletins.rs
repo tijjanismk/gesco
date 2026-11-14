@@ -239,12 +239,12 @@ impl<'n> ServiceBulletins<'n> {
             crate::referentiel::niveau_imprime(&mut cnx, &niveau, &classe, &contexte).await?;
         let bareme = bareme_du_cycle(niveau.cycle).ok_or(regle("bulletin.cycle_sans_notes"))?;
         let annee = annee_scolaire::lire(&mut cnx, classe.annee_id, &contexte).await?;
-        let toutes_periodes = pedagogie::periodes(&mut cnx, classe.annee_id, &contexte).await?;
-        let mut periodes_du_niveau: Vec<Periode> = toutes_periodes
-            .iter()
-            .filter(|p| p.niveau_id == classe.niveau_id)
-            .cloned()
-            .collect();
+        let mut periodes_du_niveau: Vec<Periode> =
+            pedagogie::periodes(&mut cnx, classe.annee_id, &contexte)
+                .await?
+                .into_iter()
+                .filter(|p| p.niveau_id == classe.niveau_id)
+                .collect();
         periodes_du_niveau.sort_by_key(|p| p.rang);
         let periode = periodes_du_niveau
             .iter()
@@ -406,15 +406,14 @@ impl<'n> ServiceBulletins<'n> {
                         let moyenne = if p.id == periode.id {
                             r.moyenne
                         } else if non_suivie(*inscrit_le, p) {
-                            // Période faite dans une autre classe de l'école : la moyenne de son
-                            // bulletin de même rang ; sinon, la moyenne reprise d'ailleurs.
+                            // Période faite avant l'arrivée dans la classe : celle d'une classe du
+                            // même niveau (mêmes périodes) compte ; celles d'un autre niveau restent
+                            // dans l'historique de l'élève sans compter (décision du 2026-11-13) ;
+                            // sinon, la moyenne reprise d'une autre école.
                             siens
                                 .iter()
                                 .filter(|b| {
-                                    toutes_periodes
-                                        .iter()
-                                        .any(|x| x.id == b.periode_id && x.rang == p.rang)
-                                        && b.statut != StatutBulletin::Remplace
+                                    b.periode_id == p.id && b.statut != StatutBulletin::Remplace
                                 })
                                 .max_by_key(|b| (b.statut.fige(), b.version))
                                 .map(|b| b.contenu.moyenne)

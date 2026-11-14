@@ -143,7 +143,7 @@ fn secrets() -> Secrets {
 #[tokio::test]
 async fn migrations_rejouees_sur_base_vide_et_integrite() {
     let t = terrain().await;
-    assert_eq!(t.base.version_schema().await.unwrap_or(0), 53);
+    assert_eq!(t.base.version_schema().await.unwrap_or(0), 54);
     assert!(t.base.verifier_integrite().await.is_ok());
     let mut cnx = t
         .base

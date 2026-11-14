@@ -371,8 +371,8 @@ async fn les_frais_au_changement_de_classe_ne_faussent_aucun_chiffre() {
     assert_eq!(f["ajustements"][0]["hausse"], 18_000);
     assert_eq!(facture_nette(&s), 148_000);
 
-    // Le plan ne se change plus sur une facture ajustée ; sur une facture gardée, il se calcule
-    // sur les frais de la facture, pas sur ceux de la classe actuelle.
+    // Sur une facture gardée, le plan se calcule sur les frais de la facture, pas sur ceux de la
+    // classe actuelle.
     let mensuel = |s: &Value| {
         s["plans"]
             .as_array()
@@ -382,16 +382,6 @@ async fn les_frais_au_changement_de_classe_ne_faussent_aucun_chiffre() {
             .unwrap()["id"]
             .clone()
     };
-    assert_eq!(
-        e.p.refus(
-            "echeancier_changer_plan",
-            Some(&e.admin),
-            json!({ "inscription_id": dado_i["id"], "plan_paiement_id": mensuel(&s) }),
-        )
-        .await
-        .cle,
-        "echeancier.plan_ajuste"
-    );
     e.p.ok(
         "inscription_changer_classe",
         Some(&e.admin),
@@ -407,6 +397,61 @@ async fn les_frais_au_changement_de_classe_ne_faussent_aucun_chiffre() {
         )
         .await;
     assert_eq!(plan["facture"]["total"], 160_000);
+
+    // Sur une facture ajustée, le plan change aussi, sans refus : les échéances se recalculent
+    // et l'ajustement s'applique de nouveau, à son jour, sur le nouveau plan ; l'ancien reste dans
+    // l'historique, marqué remplacé.
+    let scolarite = |f: &Value| -> Vec<(String, i64)> {
+        let ligne = f["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["libelle"] == "Scolarité")
+            .unwrap()["id"]
+            .clone();
+        f["echeances"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|x| x["echeance"]["ligne_facture_id"] == ligne)
+            .map(|x| {
+                (
+                    x["echeance"]["date"].as_str().unwrap().to_owned(),
+                    x["echeance"]["montant"].as_i64().unwrap(),
+                )
+            })
+            .collect()
+    };
+    let mensuel_7e = scolarite(&plan);
+    let s = situation(&e, &dado).await;
+    let dado_plan =
+        e.p.ok(
+            "echeancier_changer_plan",
+            Some(&e.admin),
+            json!({ "inscription_id": dado_i["id"], "plan_paiement_id": mensuel(&s) }),
+        )
+        .await;
+    assert_eq!(dado_plan["plan"], "Mensuel");
+    let mensuel_6e = scolarite(&dado_plan);
+    assert_eq!(mensuel_6e.len(), mensuel_7e.len());
+    let attendue: i64 = mensuel_6e
+        .iter()
+        .zip(&mensuel_7e)
+        .filter(|((date, _), _)| date.as_str() >= "2026-11-15")
+        .map(|((_, six), (_, sept))| sept - six)
+        .sum();
+    assert!(attendue > 0 && attendue < 30_000);
+    let ajustements = dado_plan["ajustements"].as_array().unwrap();
+    assert_eq!(ajustements.len(), 2);
+    assert_eq!(ajustements[0]["remplace"], true);
+    assert_eq!(ajustements[1]["remplace"], false);
+    assert_eq!(ajustements[1]["date"], "2026-11-15");
+    assert_eq!(ajustements[1]["hausse"], attendue);
+    assert_eq!(ajustements[1]["baisse"], 0);
+    assert_eq!(dado_plan["facture"]["total"], 130_000 + attendue);
+    let s = situation(&e, &dado).await;
+    assert_eq!(facture_nette(&s), 130_000 + attendue);
+    assert_eq!(s["facture"]["reste"], 130_000 + attendue);
 
     // L'avoir d'Awa règle sa tranche d'avril sans nouvel encaissement.
     let utilise =
@@ -661,4 +706,142 @@ async fn les_notes_restent_et_le_bulletin_ne_compte_que_celles_de_la_classe() {
         vec![(json!("7e A"), json!(1400)), (json!("7e B"), json!(1200))]
     );
     assert_eq!(notes[0]["periode"], "1er trimestre");
+}
+
+#[tokio::test]
+async fn la_moyenne_annuelle_apres_un_changement_de_niveau_ne_compte_que_la_nouvelle_classe() {
+    let dossier = tempfile::tempdir().unwrap();
+    let mut e = ecole(dossier.path()).await;
+    let ped =
+        e.p.ok(
+            "pedagogie_lire",
+            Some(&e.admin),
+            json!({ "id": e.annee["id"] }),
+        )
+        .await;
+    let niveau = |code: &str| {
+        ped["niveaux"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["code"] == code)
+            .unwrap()["id"]
+            .clone()
+    };
+    let huita = e
+        .p
+        .ok(
+            "classe_creer",
+            Some(&e.admin),
+            json!({ "annee_id": e.annee["id"], "niveau_id": niveau("8"), "serie_id": null, "libelle": "8e A" }),
+        )
+        .await;
+    let (awa, awa_i) = inscrit(&e, "Awa", &e.septa).await;
+    let trimestre = |classe: &Value, rang: i64| {
+        ped["periodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| {
+                x["periode"]["niveau_id"] == classe["niveau_id"] && x["periode"]["rang"] == rang
+            })
+            .unwrap()["periode"]["id"]
+            .clone()
+    };
+    let math = ped["matieres"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["code"] == "MATH")
+        .unwrap()["id"]
+        .clone();
+    let admin = |e: &Ecole| e.admin.clone();
+    // Une composition de maths, notée, puis les bulletins de la classe pour la période.
+    async fn composer(
+        e: &Ecole,
+        admin: &Jeton,
+        classe: &Value,
+        periode: Value,
+        math: &Value,
+        date: &str,
+        notes: &[(&Value, &str)],
+    ) -> Value {
+        let evaluation = e
+            .p
+            .ok(
+                "evaluation_creer",
+                Some(admin),
+                json!({ "classe_id": classe["id"], "periode_id": periode, "matiere_id": math,
+                    "type_evaluation": "composition", "libelle": "Composition", "date": date, "bareme": null }),
+            )
+            .await;
+        for (inscription, texte) in notes {
+            e.p.ok(
+                "note_saisir",
+                Some(admin),
+                json!({ "evaluation_id": evaluation["id"], "inscription_id": inscription["id"], "saisie": texte }),
+            )
+            .await;
+        }
+        e.p.ok(
+            "resultats_calculer",
+            Some(admin),
+            json!({ "classe_id": classe["id"], "periode_id": periode }),
+        )
+        .await
+    }
+    // 1er trimestre en 7e A : 14.
+    composer(
+        &e,
+        &admin(&e),
+        &e.septa,
+        trimestre(&e.septa, 1),
+        &math,
+        "2026-11-20",
+        &[(&awa_i, "14")],
+    )
+    .await;
+    // Mi-janvier, Awa passe en 8e A : la 7e est un autre niveau.
+    e.p.horloge.avancer(103 * JOUR);
+    e.admin = e.p.connecter("admin", MOT_DE_PASSE).await;
+    e.p.ok(
+        "inscription_changer_classe",
+        Some(&e.admin),
+        changement(&awa_i, &huita, false),
+    )
+    .await;
+    composer(
+        &e,
+        &admin(&e),
+        &huita,
+        trimestre(&huita, 2),
+        &math,
+        "2027-03-10",
+        &[(&awa_i, "10")],
+    )
+    .await;
+    let t3 = composer(
+        &e,
+        &admin(&e),
+        &huita,
+        trimestre(&huita, 3),
+        &math,
+        "2027-05-20",
+        &[(&awa_i, "12")],
+    )
+    .await;
+    // Moyenne annuelle en 8e : (10 + 12) ÷ 2 = 11,00 ; le 14 du 1er trimestre de 7e ne compte pas.
+    let contenu = &t3["bulletins"][0]["bulletin"]["contenu"];
+    assert_eq!(t3["bulletins"].as_array().unwrap().len(), 1);
+    assert_eq!(contenu["moyenne_annuelle"], 1100);
+    // Il reste dans son historique : sa note et son bulletin de 7e A.
+    let notes =
+        e.p.ok(
+            "eleve_notes",
+            Some(&e.admin),
+            json!({ "id": awa["eleve"]["id"] }),
+        )
+        .await;
+    assert_eq!(notes[0]["classe"], "7e A");
+    assert_eq!(notes[0]["note"]["valeur"], 1400);
 }

@@ -126,7 +126,7 @@ function FraisInscription({ situation, eleveId, permissions, avoirDisponible }: 
                   reste: francs(facture.reste),
                 })}
           </p>
-          {facture.ajustements.map((a) => (
+          {facture.ajustements.filter((a) => !a.remplace).map((a) => (
             <p key={a.id} className="text-muet">
               {t("facture.ajustement_fait", { date: dateCivile(a.date), hausse: francs(a.hausse), baisse: francs(a.baisse) })}
               {a.avoir === 0 ? "" : ` ${t("facture.ajustement_avoir", { avoir: francs(a.avoir) })}`}
@@ -153,8 +153,7 @@ function FraisInscription({ situation, eleveId, permissions, avoirDisponible }: 
               ))}
             </tbody>
           </table>
-          {/* Après un ajustement au changement de classe, le plan ne change plus. */}
-          {commandeAutorisee("echeancier_changer_plan", permissions) && situation.plans.length > 1 && facture.ajustements.length === 0 ? (
+          {commandeAutorisee("echeancier_changer_plan", permissions) && situation.plans.length > 1 ? (
             <div className="flex flex-wrap items-end gap-2">
               <Selection
                 id={`plan-${situation.inscription.id}`}

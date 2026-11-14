@@ -325,6 +325,7 @@ pub(crate) async fn appliquer_dans(
         avoir: apercu.avoir,
         classe_avant_id: prepare.classe_avant.id,
         classe_apres_id: prepare.classe_apres.id,
+        remplace: false,
     };
     ajustements::inserer(unite.connexion(), &ajustement, contexte).await?;
     let mut ordre = prepare.lignes;

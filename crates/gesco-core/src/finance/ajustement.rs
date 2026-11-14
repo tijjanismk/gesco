@@ -168,6 +168,8 @@ pub struct Ajustement {
     pub classe_avant_id: Id<Classe>,
     /// Classe rejointe.
     pub classe_apres_id: Id<Classe>,
+    /// Vrai si un changement de plan l'a appliqué de nouveau : il reste dans l'historique.
+    pub remplace: bool,
 }
 
 /// Avoir d'un élève : un trop-perçu, jamais effacé, qui règle ses échéances sans encaissement.
