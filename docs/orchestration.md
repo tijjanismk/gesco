@@ -372,3 +372,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   à « rien de recopié », règle dans `DECISIONS.md`), corrigés écrits à neuf. Dernier chantier de
   rédaction : DEF 2020-2026 et BAC TSE/TSExp 2020-2026, dans `contenus/sujets`. Deux sessions
   proposées en cartes (cinq sessions tournent déjà).
+- 2026-11-14 : TSE mathématiques arrêtées à 29 sur 38 (AN-09 à reprendre). Sujets du BAC : seuls
+  2 lisibles (mathématiques 2025 TSE et TSExp), faits. Décision du porteur : les sujets illisibles
+  sont laissés ; l'école les ajoutera par l'amélioration des cours dans l'application (phase 12).
+  Après les deux sessions de sujets (DEF, BAC), plus aucune rédaction.
