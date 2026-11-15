@@ -479,7 +479,7 @@ pub(crate) struct ComplementsStat {
 pub(crate) struct MembreComplete {
     pub(crate) statut: Option<StatutRapport>,
     pub(crate) specialite: Option<Specialite>,
-    diplome: Option<DiplomeEleve>,
+    pub(crate) diplome: Option<DiplomeEleve>,
 }
 
 /// Clé de la ligne neutre des élèves dont le sexe n'est pas noté.
@@ -1005,7 +1005,7 @@ pub(crate) fn nature_engagement_le(
 }
 
 /// Intitulé du diplôme le plus récent, d'après les diplômes saisis.
-fn dernier_diplome(diplomes: &str) -> Option<String> {
+pub(crate) fn dernier_diplome(diplomes: &str) -> Option<String> {
     let liste: Vec<serde_json::Value> = serde_json::from_str(diplomes).ok()?;
     liste
         .iter()

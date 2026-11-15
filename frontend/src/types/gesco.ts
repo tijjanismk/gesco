@@ -1657,6 +1657,10 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	rapport_rouvrir: Signature<DemandeRapport, RapportEcole>,
 	/**  Signature de la commande du même nom. */
+	rapport_effectif_regler: Signature<DemandeEffectifProbable, RapportEcole>,
+	/**  Signature de la commande du même nom. */
+	fiche_scolaire_produire: Signature<DemandeFicheScolaire, PdfRapport>,
+	/**  Signature de la commande du même nom. */
 	fiche_ecole_lire: Signature<DemandeFicheEcole, FicheEcole>,
 	/**  Signature de la commande du même nom. */
 	fiche_ecole_repondre: Signature<DemandeReponseFiche, FicheEcole>,
@@ -10135,7 +10139,7 @@ export type DemandeEntree7e = {
 };
 
 /**  Type d'un rapport. */
-export type TypeRapport = "succinct_rentree" | "rentree";
+export type TypeRapport = "succinct_rentree" | "rentree" | "fermeture";
 
 /**  État d'un rapport. */
 export type EtatRapport = "preparation" | "arrete";
@@ -10302,8 +10306,52 @@ export type RapportEcole = {
 	sections: SectionRapport[],
 	/**  Contenu imprimé : calculé à la date d'arrêt, ou figé si le rapport est arrêté. */
 	contenu: ContenuRapport,
+	/**
+	 *  Effectifs probables à la rentrée, proposés et saisis, par niveau : rapport de fermeture
+	 *  en préparation seulement.
+	 */
+	effectifs_probables: EffectifProbableNiveau[],
 	/**  Documents imprimés aux arrêts successifs, du plus ancien au plus récent. */
 	documents: Document[],
+};
+
+/**  Un niveau du fondamental et ses effectifs probables à la rentrée, pour la saisie. */
+export type EffectifProbableNiveau = {
+	/**  Niveau. */
+	niveau_id: string,
+	/**  Libellé du niveau. */
+	niveau: string,
+	/**  Garçons proposés. */
+	garcons_proposes: number,
+	/**  Filles proposées. */
+	filles_proposees: number,
+	/**  Garçons saisis par la direction. */
+	garcons: number | null,
+	/**  Filles saisies par la direction. */
+	filles: number | null,
+};
+
+/**
+ *  Effectifs probables à la rentrée d'un niveau, saisis dans un rapport de fermeture : une case
+ *  vide reprend le nombre proposé.
+ */
+export type DemandeEffectifProbable = {
+	/**  RapportEcole. */
+	id: string,
+	/**  Niveau. */
+	niveau_id: string,
+	/**  Garçons ; rien pour garder le nombre proposé. */
+	garcons: number | null,
+	/**  Filles ; rien pour garder le nombre proposé. */
+	filles: number | null,
+};
+
+/**  Les fiches à imprimer : celle d'un élève, ou celles des élèves d'une classe. */
+export type DemandeFicheScolaire = {
+	/**  Élève. */
+	eleve_id: string | null,
+	/**  Classe : une fiche par élève inscrit. */
+	classe_id: string | null,
 };
 
 /**  PDF d'un rapport : l'aperçu d'un rapport en préparation, ou le document de son arrêt. */

@@ -11,6 +11,7 @@ import { type Cle, dateCivile, t, texteDeCle } from "../../i18n";
 import type { ChoixFrais, FicheEleve, InscriptionAffichee, StatutInscription, TypeInscription } from "../../types/gesco";
 import { EcartsFrais } from "../finance/AjustementFrais";
 import { ChoixFraisChamps } from "../finance/ChoixFrais";
+import { FicheScolaire } from "../rapports/FicheScolaire";
 import { DepartEleve, DocumentsDepart, ExclusionsEleve } from "./Departs";
 
 export const STATUTS: Record<StatutInscription, Cle> = {
@@ -117,6 +118,7 @@ export function InscriptionsEleve({ fiche, permissions, maitre = false }: { fich
           </li>
         ))}
       </ul>
+      {commandeAutorisee("fiche_scolaire_produire", permissions) ? <FicheScolaire eleveId={fiche.eleve.id} /> : null}
       <AfficherRetour retour={retour} />
       {annonce === null ? null : <p role="status" className="text-sm text-vert">{annonce}</p>}
       {vivante === undefined && courante !== undefined && commandeAutorisee("inscription_creer", permissions) ? (

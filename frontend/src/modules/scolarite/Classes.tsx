@@ -9,6 +9,7 @@ import { MessageEnregistre, MessageErreur, Section } from "../../composants/Mess
 import { Tableau } from "../../composants/Tableau";
 import { t } from "../../i18n";
 import type { FicheClasse, Referentiel } from "../../types/gesco";
+import { FicheScolaire } from "../rapports/FicheScolaire";
 
 /** Classes d'une année (SPEC_PHASE_2 §3) : aucun effectif maximal, la série suit le niveau. */
 export function Classes() {
@@ -65,6 +66,7 @@ export function Classes() {
           </aside>
         ) : null}
       </div>
+      {fiche !== undefined && commandeAutorisee("fiche_scolaire_produire", session.data?.permissions ?? []) ? <FicheScolaire key={fiche.classe.id} classeId={fiche.classe.id} /> : null}
     </div>
   );
 }

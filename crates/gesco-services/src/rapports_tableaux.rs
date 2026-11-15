@@ -1,19 +1,23 @@
-//! Tableaux des rapports de rentrée (SPEC_PHASE_9 §3, §4.2), calculés à la date d'arrêt sur les
+//! Tableaux des rapports de rentrée et de fermeture (SPEC_PHASE_9 §3, §4.2, §5.2), calculés à la date d'arrêt sur les
 //! mêmes données que les statistiques. Ils reprennent les intitulés et l'ordre des modèles. Une
 //! donnée absente donne une case vide ; zéro ne s'écrit que lorsque l'application sait qu'il n'y
 //! en a pas (règle 1). Rien n'y dit qu'une donnée manque (règle 3).
 
 use std::collections::{BTreeMap, HashMap};
 
-use gesco_core::core::complements::{Fonctionnement, PedagogieClasse, Specialite, StatutRapport};
+use gesco_core::core::complements::{
+    DiplomeEleve, Fonctionnement, PedagogieClasse, Specialite, StatutRapport,
+};
 use gesco_core::core::inventaire::CODE_LATRINES;
-use gesco_core::core::{ArticleInventaire, FamilleInventaire, QuantitesInventaire};
+use gesco_core::core::{ArticleInventaire, Examen, FamilleInventaire, QuantitesInventaire};
 use gesco_core::scolarite::Cycle;
 use gesco_db::depots::complements::ClasseComplements;
+use gesco_db::depots::examens::{ResultatExamen, TotalExamen};
+use gesco_db::depots::rapports::EffectifProbable;
 use gesco_db::depots::statistiques::{ClasseStat, MembreStat};
 use serde::{Deserialize, Serialize};
 
-use crate::statistiques::{DonneesStat, Retenue, date, engagement_le, retenir};
+use crate::statistiques::{DonneesStat, Retenue, date, dernier_diplome, engagement_le, retenir};
 
 /// Un tableau d'un rapport, prêt à montrer, imprimer et exporter.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -225,14 +229,22 @@ fn releve(
     article: &ArticleInventaire,
     partie: Option<Cycle>,
 ) -> Option<(QuantitesInventaire, Vec<String>)> {
+    releve_si(d, article, |cycle| match partie {
+        Some(c) => cycle == Some(c),
+        None => cycle.is_none_or(|c| FONDAMENTAL.contains(&c)),
+    })
+}
+
+/// Relevé d'inventaire d'un article, additionné sur les lignes dont le cycle est retenu.
+fn releve_si(
+    d: &DonneesStat,
+    article: &ArticleInventaire,
+    retenir: impl Fn(Option<Cycle>) -> bool,
+) -> Option<(QuantitesInventaire, Vec<String>)> {
     let mut somme: Option<QuantitesInventaire> = None;
     let mut observations = Vec::new();
     for r in d.releves.iter().filter(|r| r.article_id == article.id) {
-        let retenue = match partie {
-            Some(c) => r.cycle == Some(c),
-            None => r.cycle.is_none_or(|c| FONDAMENTAL.contains(&c)),
-        };
-        if !retenue {
+        if !retenir(r.cycle) {
             continue;
         }
         somme = Some(match somme {
@@ -869,4 +881,718 @@ pub(crate) fn chiffres_du_jour(d: &DonneesStat) -> (usize, usize, usize) {
         .filter(|r| r.inscription.sexe.as_deref() == Some("feminin"))
         .count();
     (maitres(d).len(), presents.len(), filles)
+}
+
+/// Ce que les tableaux du rapport de fermeture lisent en plus des données des statistiques.
+pub(crate) struct AnnexesFermeture<'a> {
+    /// Effectifs probables saisis dans le rapport, par niveau.
+    pub(crate) probables: &'a [EffectifProbable],
+}
+
+/// Date AAAA-MM-JJ écrite JJ/MM/AAAA ; vide si elle n'est pas lisible.
+pub(crate) fn date_courte(texte: Option<&str>) -> String {
+    date(texte)
+        .map(|d| {
+            let s = d.to_string();
+            match (s.get(0..4), s.get(5..7), s.get(8..10)) {
+                (Some(a), Some(m), Some(j)) => format!("{j}/{m}/{a}"),
+                _ => s,
+            }
+        })
+        .unwrap_or_default()
+}
+
+fn titre_situation(s: Option<&str>) -> String {
+    match s {
+        Some("celibataire") => "Célibataire",
+        Some("marie") => "Marié(e)",
+        Some("veuf") => "Veuf(ve)",
+        Some("divorce") => "Divorcé(e)",
+        _ => "",
+    }
+    .to_owned()
+}
+
+fn titre_diplome(d: DiplomeEleve) -> &'static str {
+    match d {
+        DiplomeEleve::Doctorat => "Doctorat",
+        DiplomeEleve::Master => "Master",
+        DiplomeEleve::Dea => "DEA",
+        DiplomeEleve::Ensup => "ENSup",
+        DiplomeEleve::Ingenieur => "Ingénieur",
+        DiplomeEleve::Maitrise => "Maîtrise",
+        DiplomeEleve::Licence => "Licence",
+        DiplomeEleve::DeugBts => "DEUG ou BTS",
+        DiplomeEleve::Bt => "BT",
+        DiplomeEleve::Baccalaureat => "Baccalauréat",
+        DiplomeEleve::Cap => "CAP",
+        DiplomeEleve::Ifm => "IFM",
+        DiplomeEleve::Autre => "Autre",
+    }
+}
+
+/// Liste nominative du personnel enseignant d'un cycle (SPEC_PHASE_9 §5.2) : une case vide
+/// quand la fiche ne porte rien.
+fn personnel_nominatif(d: &DonneesStat, cycle: Cycle) -> TableauRapport {
+    let mut du_cycle: Vec<&MembreStat> = maitres(d)
+        .into_iter()
+        .filter(|(_, cycles)| cycles.contains(&cycle))
+        .map(|(m, _)| m)
+        .collect();
+    du_cycle.sort_by(|a, b| (&a.nom, &a.prenoms).cmp(&(&b.nom, &b.prenoms)));
+    let lignes = du_cycle
+        .iter()
+        .enumerate()
+        .map(|(i, m)| {
+            let diplome = dernier_diplome(&m.diplomes)
+                .or_else(|| {
+                    d.complements
+                        .membres
+                        .get(&m.id)
+                        .and_then(|x| x.diplome)
+                        .map(|x| titre_diplome(x).to_owned())
+                })
+                .unwrap_or_default();
+            vec![
+                texte(i + 1),
+                format!("{} {}", m.prenoms, m.nom).trim().to_owned(),
+                m.matricule.trim().to_owned(),
+                titre_situation(m.situation_famille.as_deref()),
+                titre_statut(statut(d, m)).to_owned(),
+                diplome,
+                date_courte(m.arrive_le.as_deref()),
+            ]
+        })
+        .collect();
+    TableauRapport {
+        code: format!("personnel_{}", cycle.nom()),
+        titre: format!("Personnel du {}", titre_cycle(cycle).to_lowercase()),
+        colonnes: colonnes(&[
+            "N°",
+            "Prénoms et nom",
+            "N° matricule",
+            "Situation de famille",
+            "Statut",
+            "Diplôme",
+            "Date d'arrivée au poste",
+        ]),
+        lignes,
+        paysage: true,
+        lien: "statistiques".to_owned(),
+    }
+}
+
+/// Inscrits, présentés et admis à un examen, par sexe (garçons, filles, total), comme l'onglet
+/// des examens les compte : le détail par élève l'emporte sur les totaux saisis ; rien si
+/// l'examen n'a ni l'un ni l'autre.
+fn chiffres_examen(
+    d: &DonneesStat,
+    retenues: &[Retenue<'_>],
+    examen: Examen,
+) -> Option<[[Option<usize>; 3]; 3]> {
+    let detail: Vec<(&Retenue<'_>, &ResultatExamen)> = retenues
+        .iter()
+        .filter(|r| r.presente)
+        .filter_map(|r| {
+            d.resultats
+                .iter()
+                .find(|x| {
+                    x.inscription_id == r.inscription.inscription_id
+                        && x.examen == examen
+                        && (x.inscrit.is_some() || x.present.is_some() || x.admis.is_some())
+                })
+                .map(|x| (r, x))
+        })
+        .collect();
+    if !detail.is_empty() {
+        let compter_si = |champ: fn(&ResultatExamen) -> Option<bool>| {
+            let mut s = Sexes::default();
+            for (r, x) in &detail {
+                if champ(x) == Some(true) {
+                    s.ajouter(r.inscription.sexe.as_deref());
+                }
+            }
+            [Some(s.g), Some(s.f), Some(s.t)]
+        };
+        return Some([
+            compter_si(|x| x.inscrit),
+            compter_si(|x| x.present),
+            compter_si(|x| x.admis),
+        ]);
+    }
+    let du_sexe = |s: &str| d.totaux.iter().find(|t| t.examen == examen && t.sexe == s);
+    let (g, f) = (du_sexe("masculin"), du_sexe("feminin"));
+    if g.is_none() && f.is_none() {
+        return None;
+    }
+    let selon = |champ: fn(&TotalExamen) -> Option<u32>| {
+        let g = g.and_then(champ).map(|x| x as usize);
+        let f = f.and_then(champ).map(|x| x as usize);
+        let t = match (g, f) {
+            (None, None) => None,
+            (g, f) => Some(g.unwrap_or(0) + f.unwrap_or(0)),
+        };
+        [g, f, t]
+    };
+    Some([
+        selon(|t| t.inscrits),
+        selon(|t| t.presentes),
+        selon(|t| t.admis),
+    ])
+}
+
+/// Résultats d'un examen, une ligne « École » : inscrits, présentés, admis et pourcentage de
+/// réussite, par sexe. Cases vides quand l'examen n'a rien de saisi.
+fn tableau_examen(
+    d: &DonneesStat,
+    retenues: &[Retenue<'_>],
+    examen: Examen,
+    code: &str,
+    titre: &str,
+) -> TableauRapport {
+    let mut l = vec!["École".to_owned()];
+    match chiffres_examen(d, retenues, examen) {
+        Some([inscrits, presentes, admis]) => {
+            for groupe in [inscrits, presentes, admis] {
+                l.extend(groupe.iter().map(|n| n.map(texte).unwrap_or_default()));
+            }
+            for (a, p) in admis.iter().zip(presentes) {
+                l.push(match (a, p) {
+                    (Some(a), Some(p)) => gesco_core::core::examens::taux(
+                        u32::try_from(*a).unwrap_or(u32::MAX),
+                        u32::try_from(p).unwrap_or(u32::MAX),
+                    )
+                    .unwrap_or_default(),
+                    _ => String::new(),
+                });
+            }
+        }
+        None => l.extend(std::iter::repeat_n(String::new(), 12)),
+    }
+    let mut cols = vec![String::new()];
+    for groupe in ["Inscrits", "Présentés", "Admis", "% de réussite"] {
+        for s in ["G", "F", "T"] {
+            cols.push(format!("{groupe} {s}"));
+        }
+    }
+    TableauRapport {
+        code: code.to_owned(),
+        titre: titre.to_owned(),
+        colonnes: cols,
+        lignes: vec![l],
+        paysage: true,
+        lien: "statistiques".to_owned(),
+    }
+}
+
+/// Élèves présents d'un niveau, tous ou ceux d'une décision de fin d'année.
+fn presents_du_niveau(retenues: &[Retenue<'_>], niveau_id: &str, decision: Option<&str>) -> Sexes {
+    let mut s = Sexes::default();
+    for r in retenues.iter().filter(|r| {
+        r.presente
+            && r.classe.niveau_id == niveau_id
+            && decision.is_none_or(|x| r.inscription.decision == x)
+    }) {
+        s.ajouter(r.inscription.sexe.as_deref());
+    }
+    s
+}
+
+/// Trois lignes G, F, T d'un groupe, le libellé sur la première.
+fn lignes_gft(libelle: &str, rangs: [Vec<String>; 3], total: [String; 3]) -> Vec<Vec<String>> {
+    rangs
+        .into_iter()
+        .zip(total)
+        .zip(["G", "F", "T"])
+        .enumerate()
+        .map(|(k, ((rang, total), sexe))| {
+            let mut l = vec![
+                if k == 0 {
+                    libelle.to_owned()
+                } else {
+                    String::new()
+                },
+                sexe.to_owned(),
+            ];
+            l.extend(rang);
+            l.push(total);
+            l
+        })
+        .collect()
+}
+
+/// Effectifs probables d'un niveau : garçons, filles, total. Proposés : passants du niveau
+/// d'en dessous plus redoublants du niveau ; la saisie de la direction l'emporte, case par case.
+fn probable(
+    niveaux: &[NiveauRapport<'_>],
+    k: usize,
+    retenues: &[Retenue<'_>],
+    probables: &[EffectifProbable],
+) -> (Sexes, Sexes) {
+    let Some(n) = niveaux.get(k) else {
+        return (Sexes::default(), Sexes::default());
+    };
+    let mut propose = presents_du_niveau(retenues, &n.id, Some("redouble"));
+    if let Some(dessous) = k.checked_sub(1).and_then(|j| niveaux.get(j)) {
+        propose = propose.plus(presents_du_niveau(retenues, &dessous.id, Some("admis")));
+    }
+    let saisi = probables.iter().find(|p| p.niveau_id == n.id);
+    let vers = |x: Option<i64>| x.map(|x| usize::try_from(x).unwrap_or(0));
+    let g_saisi = vers(saisi.and_then(|p| p.garcons));
+    let f_saisi = vers(saisi.and_then(|p| p.filles));
+    let g = g_saisi.unwrap_or(propose.g);
+    let f = f_saisi.unwrap_or(propose.f);
+    let t = if g_saisi.is_some() || f_saisi.is_some() {
+        g + f
+    } else {
+        propose.t
+    };
+    (propose, Sexes { g, f, t })
+}
+
+/// Situation des effectifs en fin d'année pour un cycle (SPEC_PHASE_9 §5.2) : effectifs de
+/// fermeture, passages, redoublements, exclusions, par niveau et sexe, puis les effectifs probables
+/// à la rentrée. « Non statué » et « rattrapage » ne comptent dans aucune décision.
+fn effectifs_fin_annee(
+    cycle: Cycle,
+    niveaux: &[NiveauRapport<'_>],
+    retenues: &[Retenue<'_>],
+    probables: &[EffectifProbable],
+) -> TableauRapport {
+    let du_cycle: Vec<usize> = niveaux
+        .iter()
+        .enumerate()
+        .filter(|(_, n)| n.cycle == cycle)
+        .map(|(k, _)| k)
+        .collect();
+    let mut lignes = Vec::new();
+    for (libelle, decision) in [
+        ("Effectifs de fermeture", None),
+        ("Promotions (passages)", Some("admis")),
+        ("Redoublements", Some("redouble")),
+        ("Exclusions", Some("exclu")),
+    ] {
+        let mut rangs = [Vec::new(), Vec::new(), Vec::new()];
+        let mut total = Sexes::default();
+        let mut connu = false;
+        for n in du_cycle.iter().filter_map(|k| niveaux.get(*k)) {
+            let a_des_classes = !n.classes.is_empty();
+            connu |= a_des_classes;
+            let s = presents_du_niveau(retenues, &n.id, decision);
+            total = total.plus(s);
+            for (rang, case) in rangs.iter_mut().zip(s.cases(a_des_classes)) {
+                rang.push(case);
+            }
+        }
+        lignes.extend(lignes_gft(libelle, rangs, total.cases(connu)));
+    }
+    let mut rangs = [Vec::new(), Vec::new(), Vec::new()];
+    let mut total = Sexes::default();
+    for k in &du_cycle {
+        let (_, retenu) = probable(niveaux, *k, retenues, probables);
+        total = total.plus(retenu);
+        for (rang, case) in rangs.iter_mut().zip(retenu.cases(true)) {
+            rang.push(case);
+        }
+    }
+    lignes.extend(lignes_gft(
+        "Effectifs probables à la rentrée",
+        rangs,
+        total.cases(true),
+    ));
+    let mut cols = colonnes(&["", "Sexe"]);
+    cols.extend(
+        du_cycle
+            .iter()
+            .filter_map(|k| niveaux.get(*k))
+            .map(|n| n.libelle.clone()),
+    );
+    cols.push("Total".to_owned());
+    TableauRapport {
+        code: format!("effectifs_fin_{}", cycle.nom()),
+        titre: format!(
+            "Situation des effectifs en fin d'année — {}",
+            titre_cycle(cycle).to_lowercase()
+        ),
+        colonnes: cols,
+        lignes,
+        paysage: du_cycle.len() > 6,
+        lien: "statistiques".to_owned(),
+    }
+}
+
+/// Un niveau du fondamental et ses effectifs probables à la rentrée, pour la saisie.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct EffectifProbableNiveau {
+    /// Niveau.
+    pub niveau_id: String,
+    /// Libellé du niveau.
+    pub niveau: String,
+    /// Garçons proposés.
+    pub garcons_proposes: u32,
+    /// Filles proposées.
+    pub filles_proposees: u32,
+    /// Garçons saisis par la direction.
+    pub garcons: Option<u32>,
+    /// Filles saisies par la direction.
+    pub filles: Option<u32>,
+}
+
+/// Les niveaux du fondamental avec leurs effectifs probables proposés et saisis.
+pub(crate) fn effectifs_probables(
+    d: &DonneesStat,
+    probables: &[EffectifProbable],
+) -> Vec<EffectifProbableNiveau> {
+    let perimetre = d.perimetre(None);
+    let retenues = eleves(d, &perimetre);
+    let niveaux = niveaux(d);
+    let vers = |x: usize| u32::try_from(x).unwrap_or(u32::MAX);
+    niveaux
+        .iter()
+        .enumerate()
+        .map(|(k, n)| {
+            let (propose, _) = probable(&niveaux, k, &retenues, &[]);
+            let saisi = probables.iter().find(|p| p.niveau_id == n.id);
+            let lu = |x: Option<i64>| x.and_then(|x| u32::try_from(x).ok());
+            EffectifProbableNiveau {
+                niveau_id: n.id.clone(),
+                niveau: n.libelle.clone(),
+                garcons_proposes: vers(propose.g),
+                filles_proposees: vers(propose.f),
+                garcons: lu(saisi.and_then(|p| p.garcons)),
+                filles: lu(saisi.and_then(|p| p.filles)),
+            }
+        })
+        .collect()
+}
+
+/// Existant et besoins d'une liste d'articles, par cycle du fondamental de l'école, avec une
+/// partie « toute l'école » quand des lignes ont été saisies pour toute l'école. Sans
+/// `garder_vides`, seuls les articles qui ont quelque chose de saisi paraissent.
+fn existant_besoins(
+    d: &DonneesStat,
+    code: &str,
+    titre: &str,
+    articles: &[(String, Option<&ArticleInventaire>)],
+    garder_vides: bool,
+) -> TableauRapport {
+    let mut cycles: Vec<Cycle> = FONDAMENTAL
+        .iter()
+        .copied()
+        .filter(|c| d.cycles.contains(c))
+        .collect();
+    if cycles.is_empty() {
+        cycles = FONDAMENTAL.to_vec();
+    }
+    let ecole = articles.iter().any(|(_, a)| {
+        a.is_some_and(|a| {
+            d.releves
+                .iter()
+                .any(|r| r.article_id == a.id && r.cycle.is_none() && !r.quantites.est_vide())
+        })
+    });
+    let mut parties: Vec<(String, Option<Cycle>)> = cycles
+        .iter()
+        .map(|c| (titre_cycle(*c).to_owned(), Some(*c)))
+        .collect();
+    if ecole {
+        parties.push(("Toute l'école".to_owned(), None));
+    }
+    let mut lignes = Vec::new();
+    for (libelle, article) in articles {
+        let mut l = vec![libelle.clone()];
+        let mut saisi = false;
+        for (_, partie) in &parties {
+            let q = article
+                .and_then(|a| releve_si(d, a, |c| c == *partie))
+                .map(|(q, _)| q);
+            saisi |= q.as_ref().is_some_and(|q| !q.est_vide());
+            l.push(optionnel(q.as_ref().and_then(|q| q.existant)));
+            l.push(optionnel(q.as_ref().and_then(|q| q.besoins)));
+        }
+        if garder_vides || saisi {
+            lignes.push(l);
+        }
+    }
+    let mut cols = vec![String::new()];
+    for (p, _) in &parties {
+        cols.push(format!("{p} — existant"));
+        cols.push(format!("{p} — besoins"));
+    }
+    TableauRapport {
+        code: code.to_owned(),
+        titre: titre.to_owned(),
+        colonnes: cols,
+        lignes,
+        paysage: false,
+        lien: "inventaire".to_owned(),
+    }
+}
+
+/// Une ligne du tableau des enseignants par statut : hommes et femmes de chaque statut, puis le
+/// total des hommes et des femmes.
+fn ligne_statuts(
+    d: &DonneesStat,
+    maitres: &[(&MembreStat, Vec<Cycle>)],
+    retenir: impl Fn(&MembreStat, &[Cycle]) -> bool,
+) -> Vec<usize> {
+    let n = StatutRapport::TOUS.len();
+    let mut c = vec![0usize; 2 * n + 2];
+    for (m, cycles) in maitres {
+        if !retenir(m, cycles) {
+            continue;
+        }
+        let decalage = match m.sexe.as_deref() {
+            Some("masculin") => 0,
+            Some("feminin") => 1,
+            _ => continue,
+        };
+        if let Some(k) = StatutRapport::TOUS.iter().position(|s| *s == statut(d, m)) {
+            compter(&mut c, 2 * k + decalage);
+        }
+        compter(&mut c, 2 * n + decalage);
+    }
+    c
+}
+
+/// Enseignants par spécialité, statut et sexe : les généralistes du premier cycle, puis les
+/// spécialistes du second cycle.
+fn enseignants_par_statut(d: &DonneesStat) -> TableauRapport {
+    let maitres = maitres(d);
+    let mut groupes: Vec<(String, Vec<usize>)> = Vec::new();
+    if d.cycles.contains(&Cycle::PremierCycle) {
+        groupes.push((
+            "Premier cycle — généralistes".to_owned(),
+            ligne_statuts(d, &maitres, |_, cycles| {
+                cycles.contains(&Cycle::PremierCycle)
+            }),
+        ));
+    }
+    if d.cycles.contains(&Cycle::SecondCycle) {
+        for sp in Specialite::TOUS {
+            groupes.push((
+                format!("Second cycle — {}", titre_specialite(*sp)),
+                ligne_statuts(d, &maitres, |m, cycles| {
+                    cycles.contains(&Cycle::SecondCycle) && specialite(d, m) == *sp
+                }),
+            ));
+        }
+    }
+    let mut totaux = vec![0usize; 2 * StatutRapport::TOUS.len() + 2];
+    let mut lignes = Vec::new();
+    for (libelle, c) in groupes {
+        for (t, x) in totaux.iter_mut().zip(&c) {
+            *t += x;
+        }
+        let mut l = vec![libelle];
+        l.extend(c.iter().map(|x| texte(*x)));
+        lignes.push(l);
+    }
+    let mut l = vec!["Total".to_owned()];
+    l.extend(totaux.iter().map(|x| texte(*x)));
+    lignes.push(l);
+    let mut cols = vec!["Spécialité".to_owned()];
+    for s in StatutRapport::TOUS {
+        cols.push(format!("{} H", titre_statut(*s)));
+        cols.push(format!("{} F", titre_statut(*s)));
+    }
+    cols.extend(colonnes(&["Total H", "Total F"]));
+    TableauRapport {
+        code: "enseignants_par_statut".to_owned(),
+        titre: "Répartition des enseignants par spécialité, statut et sexe".to_owned(),
+        colonnes: cols,
+        lignes,
+        paysage: true,
+        lien: "statistiques".to_owned(),
+    }
+}
+
+/// Codes et intitulés des locaux du rapport de fermeture, dans l'ordre du modèle.
+const LOCAUX_FERMETURE: [(&str, &str); 7] = [
+    ("salle_classe", "Salles de classe"),
+    ("bureau_direction", "Direction"),
+    (CODE_LATRINES, "Blocs de latrines"),
+    ("magasin", "Magasin"),
+    ("point_eau", "Points d'eau potable"),
+    ("coin_lecture", "Coins de lecture"),
+    ("bibliotheque", "Bibliothèque"),
+];
+
+/// Les articles d'une famille, désignés avec leur niveau quand ils en ont un.
+fn articles_de_la_famille(
+    d: &DonneesStat,
+    famille: FamilleInventaire,
+) -> Vec<(String, Option<&ArticleInventaire>)> {
+    d.articles
+        .iter()
+        .filter(|a| a.famille == famille)
+        .map(|a| {
+            let niveau = a
+                .niveau_id
+                .and_then(|n| d.niveaux.iter().find(|x| x.id == n))
+                .map(|n| format!(" ({})", n.libelle))
+                .unwrap_or_default();
+            (format!("{}{niveau}", a.designation), Some(a))
+        })
+        .collect()
+}
+
+/// Les tableaux du rapport de fermeture (SPEC_PHASE_9 §5.2), à la date d'arrêt.
+pub(crate) fn fermeture(d: &DonneesStat, annexes: &AnnexesFermeture<'_>) -> Vec<TableauRapport> {
+    let perimetre = d.perimetre(None);
+    let retenues = eleves(d, &perimetre);
+    let niveaux = niveaux(d);
+    let mut tableaux = Vec::new();
+    for cycle in FONDAMENTAL {
+        if d.cycles.contains(&cycle) {
+            tableaux.push(personnel_nominatif(d, cycle));
+        }
+    }
+    if d.cycles.contains(&Cycle::PremierCycle) {
+        tableaux.push(tableau_examen(
+            d,
+            &retenues,
+            Examen::Entree7e,
+            "examen_entree_7e",
+            "Résultats des examens — passage en 7e année",
+        ));
+    }
+    if d.cycles.contains(&Cycle::SecondCycle) {
+        tableaux.push(tableau_examen(
+            d,
+            &retenues,
+            Examen::Def,
+            "examen_def",
+            "Résultats des examens — DEF",
+        ));
+    }
+    for cycle in FONDAMENTAL {
+        if niveaux.iter().any(|n| n.cycle == cycle) {
+            tableaux.push(effectifs_fin_annee(
+                cycle,
+                &niveaux,
+                &retenues,
+                annexes.probables,
+            ));
+        }
+    }
+    let locaux: Vec<(String, Option<&ArticleInventaire>)> = LOCAUX_FERMETURE
+        .iter()
+        .map(|(code, libelle)| ((*libelle).to_owned(), article(d, code)))
+        .collect();
+    tableaux.push(existant_besoins(
+        d,
+        "infrastructures",
+        "Situation des infrastructures",
+        &locaux,
+        true,
+    ));
+    for (famille, code, titre) in [
+        (
+            FamilleInventaire::Mobilier,
+            "mobilier_fermeture",
+            "Situation du mobilier",
+        ),
+        (
+            FamilleInventaire::Materiel,
+            "materiel_fermeture",
+            "Situation du matériel didactique",
+        ),
+        (
+            FamilleInventaire::Manuel,
+            "manuels_fermeture",
+            "Situation des manuels scolaires",
+        ),
+    ] {
+        tableaux.push(existant_besoins(
+            d,
+            code,
+            titre,
+            &articles_de_la_famille(d, famille),
+            false,
+        ));
+    }
+    tableaux.push(enseignants_par_statut(d));
+    tableaux
+}
+
+/// Élèves d'un cycle à la date : garçons, filles, total, et les élèves de chaque niveau qui a
+/// des classes.
+pub(crate) struct ElevesDuCycle {
+    /// Cycle.
+    pub(crate) cycle: Cycle,
+    /// Garçons.
+    pub(crate) garcons: usize,
+    /// Filles.
+    pub(crate) filles: usize,
+    /// Total, sexe inconnu compris.
+    pub(crate) total: usize,
+    /// Libellé et élèves de chaque niveau qui a des classes.
+    pub(crate) niveaux: Vec<(String, usize)>,
+    /// Enseignants du cycle.
+    pub(crate) enseignants: usize,
+    /// Élèves décidés (passage, redoublement, exclusion).
+    pub(crate) decides: usize,
+    /// Admis parmi eux.
+    pub(crate) admis: usize,
+}
+
+/// Chiffres de la fin d'année pour les phrases proposées du rapport de fermeture : par cycle du
+/// fondamental qui a des niveaux, puis les besoins saisis à l'inventaire (désignation, quantité).
+pub(crate) fn chiffres_fermeture(d: &DonneesStat) -> (Vec<ElevesDuCycle>, Vec<(String, u32)>) {
+    let perimetre = d.perimetre(None);
+    let retenues = eleves(d, &perimetre);
+    let niveaux = niveaux(d);
+    let maitres = maitres(d);
+    let mut cycles = Vec::new();
+    for cycle in FONDAMENTAL {
+        if !niveaux.iter().any(|n| n.cycle == cycle) {
+            continue;
+        }
+        let mut total = Sexes::default();
+        let mut par_niveau = Vec::new();
+        for n in niveaux.iter().filter(|n| n.cycle == cycle) {
+            let e = presents_du_niveau(&retenues, &n.id, None);
+            total = total.plus(e);
+            if !n.classes.is_empty() {
+                par_niveau.push((n.libelle.clone(), e.t));
+            }
+        }
+        let du_cycle: Vec<&Retenue<'_>> = retenues
+            .iter()
+            .filter(|r| r.presente && Cycle::depuis_nom(&r.classe.cycle) == Some(cycle))
+            .collect();
+        cycles.push(ElevesDuCycle {
+            cycle,
+            garcons: total.g,
+            filles: total.f,
+            total: total.t,
+            niveaux: par_niveau,
+            enseignants: maitres.iter().filter(|(_, c)| c.contains(&cycle)).count(),
+            decides: du_cycle
+                .iter()
+                .filter(|r| {
+                    matches!(
+                        r.inscription.decision.as_str(),
+                        "admis" | "redouble" | "exclu"
+                    )
+                })
+                .count(),
+            admis: du_cycle
+                .iter()
+                .filter(|r| r.inscription.decision == "admis")
+                .count(),
+        });
+    }
+    let besoins = d
+        .articles
+        .iter()
+        .filter_map(|a| {
+            releve(d, a, None)
+                .and_then(|(q, _)| q.besoins)
+                .filter(|b| *b > 0)
+                .map(|b| (a.designation.clone(), b))
+        })
+        .collect();
+    (cycles, besoins)
 }

@@ -1,7 +1,7 @@
 {
   "id": "rapport_ecole",
   "version": 1,
-  "libelle": "Rapport de l'école (rentrée)",
+  "libelle": "Rapport de l'école",
   "variables": [
     { "nom": "titre", "requise": true },
     { "nom": "annee", "requise": true },

@@ -202,6 +202,7 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("examens_entree_7e_regler", SansControle::Valeur),
     ("complement_eleve_regler", SansControle::Grille),
     ("rapport_regler", SansControle::Reference),
+    ("rapport_effectif_regler", SansControle::Grille),
     ("classe_rapports_regler", SansControle::Reference),
     ("difficulte_eleve_regler", SansControle::Valeur),
     ("complement_membre_regler", SansControle::Grille),
@@ -475,6 +476,10 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("rapport_apercu", Permission::SCHOOL_REPORTS_MANAGE),
     Commande::permise("rapport_arreter", Permission::SCHOOL_REPORTS_MANAGE),
     Commande::permise("rapport_rouvrir", Permission::SCHOOL_REPORTS_MANAGE),
+    Commande::permise("rapport_effectif_regler", Permission::SCHOOL_REPORTS_MANAGE),
+    // Fiche scolaire de l'élève (SPEC_PHASE_9 §5.3) : un document de l'élève, comme sa fiche
+    // d'inscription.
+    Commande::permise("fiche_scolaire_produire", Permission::STUDENTS_READ),
     // Fiche de l'établissement (SPEC_PHASE_9 §8.1) : lue avec les statistiques, tenue par qui
     // en a la charge ; une case à la fois, la dernière écriture gagne.
     Commande::permise("fiche_ecole_lire", Permission::STATISTICS_READ),

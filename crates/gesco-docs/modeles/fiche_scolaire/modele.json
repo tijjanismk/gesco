@@ -1,0 +1,8 @@
+{
+  "id": "fiche_scolaire",
+  "version": 1,
+  "libelle": "Fiche scolaire de l'élève",
+  "variables": [
+    { "nom": "fiches", "requise": true }
+  ]
+}

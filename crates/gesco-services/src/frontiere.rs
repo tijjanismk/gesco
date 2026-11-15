@@ -133,6 +133,7 @@ use crate::fiche_ecole::{
     DemandeRubriqueFiche, FicheEcole, ServiceFicheEcole,
 };
 use crate::fiche_etablissement::{ChampsEtablissement, FicheEtablissement, ServiceEtablissement};
+use crate::fiche_scolaire::{DemandeFicheScolaire, ServiceFicheScolaire};
 use crate::file_sms::{
     ApercuSms, BilanFile, DemandeAnnulationMessage, DemandeApercu, DemandeDecisionMessage,
     DemandeEssai, DemandeFile, DemandeModele, DemandePort, DemandeRenvoi, EssaiCle, FileMessages,
@@ -231,8 +232,8 @@ use crate::postes::{
     ServicePostes,
 };
 use crate::rapports::{
-    DemandePreparationRapport, DemandeRapport, DemandeRapports, DemandeReglageRapport,
-    DemandeTexteRapport, ListeRapports, RapportEcole, ServiceRapports,
+    DemandeEffectifProbable, DemandePreparationRapport, DemandeRapport, DemandeRapports,
+    DemandeReglageRapport, DemandeTexteRapport, ListeRapports, RapportEcole, ServiceRapports,
 };
 use crate::recettes::{
     DemandeAnnulationRecette, DemandeMoisRecettes, DemandeRecette, RecettesDuMois, ServiceRecettes,
@@ -1077,6 +1078,8 @@ contrat! {
     rapport_apercu(DemandeRapport) -> PdfRapport;
     rapport_arreter(DemandeRapport) -> RapportEcole;
     rapport_rouvrir(DemandeRapport) -> RapportEcole;
+    rapport_effectif_regler(DemandeEffectifProbable) -> RapportEcole;
+    fiche_scolaire_produire(DemandeFicheScolaire) -> PdfRapport;
     fiche_ecole_lire(DemandeFicheEcole) -> FicheEcole;
     fiche_ecole_repondre(DemandeReponseFiche) -> FicheEcole;
     fiche_ecole_reprendre(DemandeRepriseFiche) -> FicheEcole;
@@ -3339,6 +3342,38 @@ impl Application {
         ServiceRapports::nouveau(&appel.ouverte()?.noyau)
             .rouvrir(appel.session()?, &entree)
             .await
+    }
+
+    async fn rapport_effectif_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeEffectifProbable,
+    ) -> Resultat<RapportEcole> {
+        ServiceRapports::nouveau(&appel.ouverte()?.noyau)
+            .regler_effectif(appel.session()?, entree)
+            .await
+    }
+
+    /// Fiches scolaires d'un élève ou d'une classe, une page par élève, composées en mémoire :
+    /// elles suivent la fiche de l'élève et se réimpriment à la demande.
+    async fn fiche_scolaire_produire(
+        &self,
+        appel: Appel,
+        entree: DemandeFicheScolaire,
+    ) -> Resultat<PdfRapport> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let fiches = ServiceFicheScolaire::nouveau(&ouverte.noyau)
+            .fiches(session, &entree)
+            .await?;
+        let pdf = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+            .composer_en_memoire(
+                session.etablissement_id,
+                "fiche_scolaire",
+                crate::fiche_scolaire::donnees_impression(&fiches),
+            )
+            .await?;
+        Ok(PdfRapport { pdf: base64(&pdf) })
     }
 
     async fn fiche_ecole_lire(

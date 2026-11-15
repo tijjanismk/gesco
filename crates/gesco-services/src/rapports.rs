@@ -1,17 +1,18 @@
-//! Rapports de rentrée de l'école (SPEC_PHASE_9 §3, §4, §8.6, §9.3) : le rapport succinct de
-//! rentrée et le rapport de rentrée, pour le fondamental. La direction rédige les textes et règle
+//! Rapports de l'école (SPEC_PHASE_9 §3, §4, §5, §8.6, §9.3) : le rapport succinct de rentrée,
+//! le rapport de rentrée et le rapport de fermeture, pour le fondamental. La direction rédige les textes et règle
 //! la date d'arrêt et la signature ; les tableaux se calculent à la date d'arrêt et ne se
 //! retouchent pas (règle 9). Un rapport sort toujours, même vide (règle 1). Arrêté, il est figé
 //! avec son document ; rouvert, il passe à sa version suivante (règle 10).
 
 use gesco_core::commun::{DateCivile, Id};
+use gesco_core::core::complements::Fonctionnement;
 use gesco_core::core::fiche::SEPARATEUR;
 use gesco_core::core::rapports::{
     QUALITE_PAR_DEFAUT, SectionModele, section_connue, verifier_reglage, verifier_texte,
 };
 use gesco_core::core::{AnneeScolaire, EtatRapport, Operation, StatutEtablissement, TypeRapport};
 use gesco_db::depots::document::{self, Document};
-use gesco_db::depots::rapports::{self, LigneRapport, NouveauRapport};
+use gesco_db::depots::rapports::{self, EffectifProbable, LigneRapport, NouveauRapport};
 use gesco_db::depots::{annee_scolaire, complements, etablissement, fiche};
 use gesco_db::unite::Durabilite;
 use serde::{Deserialize, Serialize};
@@ -20,7 +21,9 @@ use crate::documents::date_civile_longue;
 use crate::erreur::{ErreurService, Resultat};
 use crate::fraicheur::{self, Ligne};
 use crate::noyau::Noyau;
-use crate::rapports_tableaux::{self, Annexes, FONDAMENTAL, TableauRapport};
+use crate::rapports_tableaux::{
+    self, Annexes, AnnexesFermeture, EffectifProbableNiveau, FONDAMENTAL, TableauRapport,
+};
 use crate::session::Session;
 use crate::statistiques::{AnneeStatistiques, DemandeStatistiques, ServiceStatistiques};
 
@@ -108,6 +111,23 @@ pub struct DemandeTexteRapport {
     pub lue_le: i64,
 }
 
+/// Effectifs probables à la rentrée d'un niveau, saisis dans un rapport de fermeture : une case
+/// vide reprend le nombre proposé.
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+pub struct DemandeEffectifProbable {
+    /// RapportEcole.
+    pub id: String,
+    /// Niveau.
+    pub niveau_id: String,
+    /// Garçons ; rien pour garder le nombre proposé.
+    pub garcons: Option<u32>,
+    /// Filles ; rien pour garder le nombre proposé.
+    pub filles: Option<u32>,
+}
+
+/// Effectif probable le plus grand qu'on puisse saisir pour un niveau.
+const EFFECTIF_MAX: u32 = 100_000;
+
 /// Une ligne de l'en-tête administratif.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 pub struct LigneEntete {
@@ -189,6 +209,9 @@ pub struct RapportEcole {
     pub sections: Vec<SectionRapport>,
     /// Contenu imprimé : calculé à la date d'arrêt, ou figé si le rapport est arrêté.
     pub contenu: ContenuRapport,
+    /// Effectifs probables à la rentrée, proposés et saisis, par niveau : rapport de fermeture
+    /// en préparation seulement.
+    pub effectifs_probables: Vec<EffectifProbableNiveau>,
     /// Documents imprimés aux arrêts successifs, du plus ancien au plus récent.
     pub documents: Vec<Document>,
 }
@@ -292,9 +315,10 @@ impl<'n> ServiceRapports<'n> {
         } else {
             let rentree =
                 DateCivile::du_jour(annee.debut).ok_or(regle("commande.entree_invalide"))?;
+            let fin = DateCivile::du_jour(annee.fin).unwrap_or(rentree);
             let date_arret = demande
                 .type_rapport
-                .date_arret_proposee(rentree)
+                .date_arret_proposee(rentree, fin)
                 .to_string();
             let dernier = rapports::dernier_regle(unite.connexion(), &contexte).await?;
             let lieu = dernier.as_ref().map(|r| r.lieu.clone()).unwrap_or_default();
@@ -354,10 +378,19 @@ impl<'n> ServiceRapports<'n> {
             (EtatRapport::Arrete, Some(json)) => serde_json::from_str(json).ok(),
             _ => None,
         };
-        let (contenu, propose) = match fige {
-            Some(c) => (c, None),
+        let calcul = match fige {
+            Some(c) => Calcul {
+                contenu: c,
+                propositions: Vec::new(),
+                effectifs_probables: Vec::new(),
+            },
             None => self.calculer(session, &ligne, type_rapport).await?,
         };
+        let Calcul {
+            contenu,
+            propositions,
+            effectifs_probables,
+        } = calcul;
         let sections = type_rapport
             .sections()
             .iter()
@@ -372,7 +405,14 @@ impl<'n> ServiceRapports<'n> {
                         .iter()
                         .find(|x| x.section == s.code && !x.texte.is_empty())
                         .map(|x| x.texte.clone()),
-                    propose: if s.aidee { propose.clone() } else { None },
+                    propose: if s.aidee {
+                        propositions
+                            .iter()
+                            .find(|(code, _)| *code == s.code)
+                            .map(|(_, p)| p.clone())
+                    } else {
+                        None
+                    },
                 }
             })
             .collect();
@@ -392,6 +432,7 @@ impl<'n> ServiceRapports<'n> {
             qualite_signataire: ligne.qualite_signataire,
             sections,
             contenu,
+            effectifs_probables,
             documents,
         })
     }
@@ -428,13 +469,14 @@ impl<'n> ServiceRapports<'n> {
         }
     }
 
-    /// Contenu calculé à la date d'arrêt, et la phrase proposée pour l'introduction.
+    /// Contenu calculé à la date d'arrêt, phrases proposées pour les sections aidées et, pour le
+    /// rapport de fermeture, la grille des effectifs probables.
     async fn calculer(
         &self,
         session: &Session,
         ligne: &LigneRapport,
         type_rapport: TypeRapport,
-    ) -> Resultat<(ContenuRapport, Option<String>)> {
+    ) -> Resultat<Calcul> {
         let annee_id: Id<AnneeScolaire> =
             Id::analyser(&ligne.annee_id).map_err(|_| regle("commande.entree_invalide"))?;
         let date_arret =
@@ -456,26 +498,9 @@ impl<'n> ServiceRapports<'n> {
         let valeurs = fiche::valeurs(&mut cnx, &contexte).await?;
         let classes = complements::classes(&mut cnx, &ligne.annee_id, &contexte).await?;
         let textes = rapports::textes(&mut cnx, &ligne.id, &contexte).await?;
+        let probables = rapports::effectifs_probables(&mut cnx, &ligne.id, &contexte).await?;
         drop(cnx);
-        // Réponse de la fiche : celle de l'année pour une rubrique annuelle, sinon la permanente.
-        let reponse = |code: &str| -> String {
-            let Some(r) = rubriques.iter().find(|r| r.code.as_deref() == Some(code)) else {
-                return String::new();
-            };
-            let de = |annee: Option<&str>| {
-                valeurs
-                    .iter()
-                    .find(|v| {
-                        v.rubrique_id == r.id
-                            && v.annee_id.map(|a| a.vers_chaine()).as_deref() == annee
-                    })
-                    .and_then(|v| v.valeur.clone())
-            };
-            de(Some(&ligne.annee_id))
-                .or_else(|| de(None))
-                .unwrap_or_default()
-                .replace(SEPARATEUR, ", ")
-        };
+        let reponse = |code: &str| reponse_fiche(&rubriques, &valeurs, &ligne.annee_id, code);
         let annee = d
             .choisie
             .as_ref()
@@ -519,6 +544,22 @@ impl<'n> ServiceRapports<'n> {
                 ("École", ecole.nom.clone()),
                 ("Année scolaire", annee.clone()),
             ],
+            TypeRapport::Fermeture => vec![
+                ("Région", reponse("region")),
+                ("Académie", ecole.code_academie.clone()),
+                ("Cercle", reponse("cercle")),
+                ("CAP", ecole.code_cap.clone()),
+                ("Commune", reponse("commune")),
+                ("École", ecole.nom.clone()),
+                ("Année scolaire", annee.clone()),
+                ("Statut de l'école", statut_administratif(ecole.statut, "")),
+                ("Type de programme", reponse("type_enseignement")),
+                (
+                    "Type de l'école",
+                    type_ecole(&reponse("type_ecole"), &classes),
+                ),
+                ("Milieu", reponse("milieu")),
+            ],
         }
         .into_iter()
         .map(|(libelle, valeur)| LigneEntete {
@@ -535,6 +576,12 @@ impl<'n> ServiceRapports<'n> {
                     defauts: crate::complements::valeurs_par_defaut(&rubriques, &valeurs),
                 },
             ),
+            TypeRapport::Fermeture => rapports_tableaux::fermeture(
+                &d,
+                &AnnexesFermeture {
+                    probables: &probables,
+                },
+            ),
         };
         let sections = type_rapport
             .sections()
@@ -548,37 +595,20 @@ impl<'n> ServiceRapports<'n> {
                     .unwrap_or_default(),
             })
             .collect();
-        let (enseignants, eleves, filles) = rapports_tableaux::chiffres_du_jour(&d);
-        let mut propose = format!(
-            "Au {}, l'école compte {enseignants} {} et {eleves} {}, dont {filles} {}.",
-            date_civile_longue(date_arret),
-            if enseignants == 1 {
-                "enseignant"
-            } else {
-                "enseignants"
-            },
-            if eleves == 1 { "élève" } else { "élèves" },
-            if filles == 1 { "fille" } else { "filles" },
-        );
-        let (commune, cercle) = (reponse("commune"), reponse("cercle"));
-        match (commune.is_empty(), cercle.is_empty()) {
-            (false, false) => {
-                propose.push_str(&format!(
-                    " Elle est située dans la commune de {commune}, cercle de {cercle}."
-                ));
-            }
-            (false, true) => {
-                propose.push_str(&format!(" Elle est située dans la commune de {commune}."))
-            }
-            (true, false) => {
-                propose.push_str(&format!(" Elle est située dans le cercle de {cercle}."))
-            }
-            (true, true) => {}
-        }
-        let superficie = reponse("superficie");
-        if !superficie.is_empty() {
-            propose.push_str(&format!(" Le domaine scolaire couvre {superficie} m²."));
-        }
+        let propositions = match type_rapport {
+            TypeRapport::SuccinctRentree => Vec::new(),
+            TypeRapport::Rentree => vec![(
+                "introduction",
+                introduction_proposee(
+                    &d,
+                    date_arret,
+                    &reponse("commune"),
+                    &reponse("cercle"),
+                    &reponse("superficie"),
+                ),
+            )],
+            TypeRapport::Fermeture => propositions_fermeture(&d),
+        };
         let le = ligne
             .date_signature
             .as_deref()
@@ -590,8 +620,12 @@ impl<'n> ServiceRapports<'n> {
             (true, Some(le)) => format!("Fait à …, le {le}"),
             (true, None) => String::new(),
         };
-        Ok((
-            ContenuRapport {
+        let effectifs_probables = match type_rapport {
+            TypeRapport::Fermeture => rapports_tableaux::effectifs_probables(&d, &probables),
+            TypeRapport::SuccinctRentree | TypeRapport::Rentree => Vec::new(),
+        };
+        Ok(Calcul {
+            contenu: ContenuRapport {
                 titre: type_rapport.titre().to_owned(),
                 annee,
                 arret: date_civile_longue(date_arret),
@@ -601,8 +635,64 @@ impl<'n> ServiceRapports<'n> {
                 fait_a,
                 qualite: ligne.qualite_signataire.clone(),
             },
-            Some(propose),
-        ))
+            propositions,
+            effectifs_probables,
+        })
+    }
+
+    /// Règle les effectifs probables d'un niveau dans un rapport de fermeture en préparation.
+    pub async fn regler_effectif(
+        &self,
+        session: &Session,
+        demande: DemandeEffectifProbable,
+    ) -> Resultat<RapportEcole> {
+        if demande.garcons.is_some_and(|n| n > EFFECTIF_MAX)
+            || demande.filles.is_some_and(|n| n > EFFECTIF_MAX)
+        {
+            return Err(regle("rapports.effectif_trop_grand"));
+        }
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Ordinaire)
+            .await?;
+        let ligne = rapports::lire(unite.connexion(), &demande.id, &contexte).await?;
+        if EtatRapport::depuis_nom(&ligne.etat) == EtatRapport::Arrete {
+            return Err(regle("rapports.arrete"));
+        }
+        if TypeRapport::depuis_nom(&ligne.type_rapport) != Some(TypeRapport::Fermeture) {
+            return Err(regle("commande.entree_invalide"));
+        }
+        let effectif = EffectifProbable {
+            niveau_id: demande.niveau_id.clone(),
+            garcons: demande.garcons.map(i64::from),
+            filles: demande.filles.map(i64::from),
+        };
+        let avant = rapports::ecrire_effectif_probable(
+            unite.connexion(),
+            &demande.id,
+            &effectif,
+            &contexte,
+        )
+        .await?;
+        unite.auditer(
+            "rapport_ecole",
+            &demande.id,
+            Operation::Modification,
+            Some(serde_json::json!({
+                "niveau_id": demande.niveau_id,
+                "garcons": avant.as_ref().and_then(|a| a.garcons),
+                "filles": avant.as_ref().and_then(|a| a.filles),
+            })),
+            Some(serde_json::json!({
+                "niveau_id": demande.niveau_id,
+                "garcons": effectif.garcons,
+                "filles": effectif.filles,
+            })),
+            "rapports.regler_effectif",
+        );
+        self.noyau.terminer(unite).await?;
+        self.lire(session, &DemandeRapport { id: demande.id }).await
     }
 
     /// Règle la date d'arrêt et la signature d'un rapport en préparation.
@@ -779,6 +869,203 @@ impl<'n> ServiceRapports<'n> {
     }
 }
 
+/// Réponse de la fiche de l'établissement : celle de l'année pour une rubrique annuelle, sinon
+/// la permanente ; vide si rien n'est répondu.
+pub(crate) fn reponse_fiche(
+    rubriques: &[gesco_core::core::RubriqueFiche],
+    valeurs: &[fiche::ValeurFiche],
+    annee_id: &str,
+    code: &str,
+) -> String {
+    let Some(r) = rubriques.iter().find(|r| r.code.as_deref() == Some(code)) else {
+        return String::new();
+    };
+    let de = |annee: Option<&str>| {
+        valeurs
+            .iter()
+            .find(|v| {
+                v.rubrique_id == r.id && v.annee_id.map(|a| a.vers_chaine()).as_deref() == annee
+            })
+            .and_then(|v| v.valeur.clone())
+    };
+    de(Some(annee_id))
+        .or_else(|| de(None))
+        .unwrap_or_default()
+        .replace(SEPARATEUR, ", ")
+}
+
+/// Ce que le calcul d'un rapport rend.
+struct Calcul {
+    contenu: ContenuRapport,
+    propositions: Vec<(&'static str, String)>,
+    effectifs_probables: Vec<EffectifProbableNiveau>,
+}
+
+/// Un nombre suivi du nom au singulier ou au pluriel.
+fn nombre_de(n: usize, singulier: &str, pluriel: &str) -> String {
+    format!("{n} {}", if n == 1 { singulier } else { pluriel })
+}
+
+/// Joint une liste en français : « a », « a et b », « a, b et c ».
+fn joindre(parties: &[String]) -> String {
+    match parties {
+        [] => String::new(),
+        [seule] => seule.clone(),
+        [debut @ .., derniere] => format!("{} et {derniere}", debut.join(", ")),
+    }
+}
+
+fn du_cycle(c: gesco_core::scolarite::Cycle) -> &'static str {
+    if c == gesco_core::scolarite::Cycle::PremierCycle {
+        "au premier cycle"
+    } else {
+        "au second cycle"
+    }
+}
+
+/// Phrase proposée pour l'introduction du rapport de rentrée : les chiffres du jour.
+fn introduction_proposee(
+    d: &crate::statistiques::DonneesStat,
+    date_arret: DateCivile,
+    commune: &str,
+    cercle: &str,
+    superficie: &str,
+) -> String {
+    let (enseignants, eleves, filles) = rapports_tableaux::chiffres_du_jour(d);
+    let mut propose = format!(
+        "Au {}, l'école compte {enseignants} {} et {eleves} {}, dont {filles} {}.",
+        date_civile_longue(date_arret),
+        if enseignants == 1 {
+            "enseignant"
+        } else {
+            "enseignants"
+        },
+        if eleves == 1 { "élève" } else { "élèves" },
+        if filles == 1 { "fille" } else { "filles" },
+    );
+    match (commune.is_empty(), cercle.is_empty()) {
+        (false, false) => {
+            propose.push_str(&format!(
+                " Elle est située dans la commune de {commune}, cercle de {cercle}."
+            ));
+        }
+        (false, true) => {
+            propose.push_str(&format!(" Elle est située dans la commune de {commune}."))
+        }
+        (true, false) => propose.push_str(&format!(" Elle est située dans le cercle de {cercle}.")),
+        (true, true) => {}
+    }
+    if !superficie.is_empty() {
+        propose.push_str(&format!(" Le domaine scolaire couvre {superficie} m²."));
+    }
+    propose
+}
+
+/// Phrases proposées pour le rapport de fermeture : état des lieux (personnel et effectifs par
+/// cycle), besoins relevés à l'inventaire, taux d'admission en classe supérieure. Rien n'est
+/// proposé pour une partie qui n'a pas de chiffres.
+fn propositions_fermeture(d: &crate::statistiques::DonneesStat) -> Vec<(&'static str, String)> {
+    let (cycles, besoins) = rapports_tableaux::chiffres_fermeture(d);
+    let mut propositions = Vec::new();
+    let mut etat = Vec::new();
+    let enseignants: Vec<String> = cycles
+        .iter()
+        .filter(|c| c.enseignants > 0)
+        .map(|c| {
+            format!(
+                "{} {}",
+                nombre_de(c.enseignants, "enseignant", "enseignants"),
+                du_cycle(c.cycle)
+            )
+        })
+        .collect();
+    if !enseignants.is_empty() {
+        etat.push(format!("Personnel : {}.", joindre(&enseignants)));
+    }
+    for c in cycles.iter().filter(|c| c.total > 0) {
+        let mut phrase = format!(
+            "L'école compte {} {}, dont {} et {}",
+            nombre_de(c.total, "élève", "élèves"),
+            du_cycle(c.cycle),
+            nombre_de(c.filles, "fille", "filles"),
+            nombre_de(c.garcons, "garçon", "garçons"),
+        );
+        let niveaux: Vec<String> = c
+            .niveaux
+            .iter()
+            .map(|(libelle, n)| format!("{n} en {libelle}"))
+            .collect();
+        if !niveaux.is_empty() {
+            phrase.push_str(" : ");
+            phrase.push_str(&joindre(&niveaux));
+        }
+        phrase.push('.');
+        etat.push(phrase);
+    }
+    if !etat.is_empty() {
+        propositions.push(("etat_des_lieux", etat.join(" ")));
+    }
+    if !besoins.is_empty() {
+        let liste: Vec<String> = besoins
+            .iter()
+            .map(|(designation, n)| format!("{designation} : {n}"))
+            .collect();
+        propositions.push((
+            "besoins",
+            format!("Besoins relevés à l'inventaire : {}.", liste.join(" ; ")),
+        ));
+    }
+    let taux: Vec<String> = cycles
+        .iter()
+        .filter(|c| c.decides > 0)
+        .filter_map(|c| {
+            gesco_core::core::examens::taux(
+                u32::try_from(c.admis).unwrap_or(u32::MAX),
+                u32::try_from(c.decides).unwrap_or(u32::MAX),
+            )
+            .map(|t| format!("{t} {}", du_cycle(c.cycle)))
+        })
+        .collect();
+    if !taux.is_empty() {
+        propositions.push((
+            "resultats",
+            format!(
+                "Taux d'admission en classe supérieure : {}.",
+                joindre(&taux)
+            ),
+        ));
+    }
+    propositions
+}
+
+/// Type de l'école : la réponse de la fiche ; sinon, double division et double vacation
+/// d'après le fonctionnement saisi des classes.
+fn type_ecole(
+    reponse: &str,
+    classes: &[gesco_db::depots::complements::ClasseComplements],
+) -> String {
+    if !reponse.is_empty() {
+        return reponse.to_owned();
+    }
+    let a = |f: Fonctionnement| {
+        classes.iter().any(|c| {
+            c.fonctionnement
+                .as_deref()
+                .and_then(Fonctionnement::depuis_nom)
+                == Some(f)
+        })
+    };
+    [
+        (Fonctionnement::DoubleDivision, "Double division"),
+        (Fonctionnement::DoubleVacation, "Double vacation"),
+    ]
+    .into_iter()
+    .filter(|(f, _)| a(*f))
+    .map(|(_, t)| t)
+    .collect::<Vec<_>>()
+    .join(", ")
+}
+
 /// Statut administratif tel que le rapport succinct le nomme.
 fn statut_administratif(statut: StatutEtablissement, confession: &str) -> String {
     match statut {
@@ -812,6 +1099,41 @@ pub fn donnees_impression(contenu: &ContenuRapport) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn les_listes_se_joignent_en_francais() {
+        assert_eq!(joindre(&[]), "");
+        assert_eq!(joindre(&["a".to_owned()]), "a");
+        assert_eq!(
+            joindre(&["a".to_owned(), "b".to_owned(), "c".to_owned()]),
+            "a, b et c"
+        );
+        assert_eq!(nombre_de(1, "élève", "élèves"), "1 élève");
+        assert_eq!(nombre_de(0, "fille", "filles"), "0 filles");
+    }
+
+    #[test]
+    fn le_type_de_l_ecole_vient_de_la_fiche_sinon_des_classes() {
+        let classe = |f: Option<&str>| gesco_db::depots::complements::ClasseComplements {
+            id: "c".to_owned(),
+            libelle: "6e A".to_owned(),
+            cycle: "premier_cycle".to_owned(),
+            fonctionnement: f.map(str::to_owned),
+            pedagogie: None,
+        };
+        assert_eq!(type_ecole("Classe unique", &[]), "Classe unique");
+        assert_eq!(
+            type_ecole(
+                "",
+                &[
+                    classe(Some("double_vacation")),
+                    classe(Some("double_division"))
+                ]
+            ),
+            "Double division, Double vacation"
+        );
+        assert_eq!(type_ecole("", &[classe(None), classe(Some("simple"))]), "");
+    }
 
     #[test]
     fn le_statut_administratif_suit_le_statut_et_la_confession() {

@@ -320,3 +320,85 @@ pub async fn ecrire_texte(
         }
     }
 }
+
+/// Effectifs probables saisis pour un niveau, dans un rapport de fermeture.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct EffectifProbable {
+    /// Niveau.
+    pub niveau_id: String,
+    /// Garçons ; vide quand la direction garde le nombre proposé.
+    pub garcons: Option<i64>,
+    /// Filles ; vide quand la direction garde le nombre proposé.
+    pub filles: Option<i64>,
+}
+
+/// Effectifs probables saisis dans un rapport.
+pub async fn effectifs_probables(
+    cnx: &mut Connexion,
+    rapport_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<EffectifProbable>> {
+    Ok(sqlx::query_as::<_, EffectifProbable>(
+        "SELECT niveau_id, garcons, filles FROM effectif_probable
+         WHERE rapport_id = ?1 AND etablissement_id = ?2",
+    )
+    .bind(rapport_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Écrit les effectifs probables d'un niveau : la ligne existante est récrite, sinon elle est
+/// créée. Rend la ligne d'avant, pour l'audit.
+pub async fn ecrire_effectif_probable(
+    cnx: &mut Connexion,
+    rapport_id: &str,
+    effectif: &EffectifProbable,
+    contexte: &Contexte,
+) -> Resultat<Option<EffectifProbable>> {
+    let avant: Option<EffectifProbable> = sqlx::query_as(
+        "SELECT niveau_id, garcons, filles FROM effectif_probable
+         WHERE rapport_id = ?1 AND niveau_id = ?2 AND etablissement_id = ?3",
+    )
+    .bind(rapport_id)
+    .bind(&effectif.niveau_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_optional(&mut *cnx)
+    .await?;
+    if avant.is_some() {
+        sqlx::query(
+            "UPDATE effectif_probable SET garcons = ?1, filles = ?2, mis_a_jour_le = ?3,
+                mis_a_jour_par = ?4, identifiant_poste = ?5
+             WHERE rapport_id = ?6 AND niveau_id = ?7 AND etablissement_id = ?8",
+        )
+        .bind(effectif.garcons)
+        .bind(effectif.filles)
+        .bind(contexte.maintenant.millis_epoque())
+        .bind(contexte.auteur())
+        .bind(&contexte.poste.0)
+        .bind(rapport_id)
+        .bind(&effectif.niveau_id)
+        .bind(contexte.etablissement_id.vers_chaine())
+        .execute(cnx)
+        .await?;
+    } else {
+        let id: Id<EffectifProbable> = nouvel_id();
+        sqlx::query(
+            "INSERT INTO effectif_probable (id, etablissement_id, rapport_id, niveau_id, garcons,
+                filles, cree_le, cree_par, mis_a_jour_le, mis_a_jour_par, identifiant_poste)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?7, ?8, ?9)",
+        )
+        .bind(id.vers_chaine())
+        .bind(contexte.etablissement_id.vers_chaine())
+        .bind(rapport_id)
+        .bind(&effectif.niveau_id)
+        .bind(effectif.garcons)
+        .bind(effectif.filles)
+        .bind(contexte.maintenant.millis_epoque())
+        .bind(contexte.auteur())
+        .bind(&contexte.poste.0)
+        .execute(cnx)
+        .await?;
+    }
+    Ok(avant)
+}

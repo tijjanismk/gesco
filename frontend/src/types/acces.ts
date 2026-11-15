@@ -103,6 +103,8 @@ export const ACCES = {
   rapport_apercu: { type: "permission", permission: "school_reports:manage" },
   rapport_arreter: { type: "permission", permission: "school_reports:manage" },
   rapport_rouvrir: { type: "permission", permission: "school_reports:manage" },
+  rapport_effectif_regler: { type: "permission", permission: "school_reports:manage" },
+  fiche_scolaire_produire: { type: "permission", permission: "students:read" },
   fiche_ecole_lire: { type: "permission", permission: "statistics:read" },
   fiche_ecole_repondre: { type: "permission", permission: "school_profile:manage" },
   fiche_ecole_reprendre: { type: "permission", permission: "school_profile:manage" },

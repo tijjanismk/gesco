@@ -1,5 +1,5 @@
-//! Rapports de l'école (SPEC_PHASE_9 §3, §4, §8.6) : le rapport succinct de rentrée et le
-//! rapport de rentrée du fondamental. Un rapport tient ses textes rédigés par la direction ; ses
+//! Rapports de l'école (SPEC_PHASE_9 §3, §4, §5, §8.6) : le rapport succinct de rentrée, le
+//! rapport de rentrée et le rapport de fermeture du fondamental. Un rapport tient ses textes rédigés par la direction ; ses
 //! tableaux se calculent à sa date d'arrêt et ne se retouchent pas (règle 9). Arrêté, il ne bouge
 //! plus (règle 10) ; rouvert, il passe à sa version suivante et l'ancien document reste.
 
@@ -15,17 +15,20 @@ pub enum TypeRapport {
     SuccinctRentree,
     /// Rapport de rentrée : partie rédigée et tableaux.
     Rentree,
+    /// Rapport de fermeture : partie rédigée, résultats et tableaux de fin d'année.
+    Fermeture,
 }
 
 impl TypeRapport {
     /// Tous les types, dans l'ordre de l'écran.
-    pub const TOUS: &'static [Self] = &[Self::SuccinctRentree, Self::Rentree];
+    pub const TOUS: &'static [Self] = &[Self::SuccinctRentree, Self::Rentree, Self::Fermeture];
 
     /// Nom rangé dans la base.
     pub const fn nom(self) -> &'static str {
         match self {
             Self::SuccinctRentree => "succinct_rentree",
             Self::Rentree => "rentree",
+            Self::Fermeture => "fermeture",
         }
     }
 
@@ -39,6 +42,7 @@ impl TypeRapport {
         match self {
             Self::SuccinctRentree => "Rapport succinct de rentrée",
             Self::Rentree => "Rapport de rentrée",
+            Self::Fermeture => "Rapport de fermeture",
         }
     }
 
@@ -47,12 +51,17 @@ impl TypeRapport {
         match self {
             Self::SuccinctRentree => &[],
             Self::Rentree => SECTIONS_RENTREE,
+            Self::Fermeture => SECTIONS_FERMETURE,
         }
     }
 
-    /// Date d'arrêt proposée à la création : quinze jours après le premier jour de l'année.
-    pub fn date_arret_proposee(self, rentree: DateCivile) -> DateCivile {
-        rentree.decaler(15).unwrap_or(rentree)
+    /// Date d'arrêt proposée à la création : quinze jours après le premier jour de l'année pour
+    /// les rapports de rentrée, le dernier jour de l'année pour le rapport de fermeture.
+    pub fn date_arret_proposee(self, rentree: DateCivile, fin: DateCivile) -> DateCivile {
+        match self {
+            Self::SuccinctRentree | Self::Rentree => rentree.decaler(15).unwrap_or(rentree),
+            Self::Fermeture => fin,
+        }
     }
 }
 
@@ -110,6 +119,24 @@ const SECTIONS_RENTREE: &[SectionModele] = &[
     section("conclusion", "Conclusion", false),
 ];
 
+/// Sections rédigées du rapport de fermeture (SPEC_PHASE_9 §5.1), dans l'ordre du modèle.
+const SECTIONS_FERMETURE: &[SectionModele] = &[
+    section("introduction", "Introduction", false),
+    section(
+        "deroulement",
+        "Conditions de déroulement de l'année scolaire",
+        false,
+    ),
+    section("difficultes", "Difficultés", false),
+    section("solutions", "Solutions préconisées", false),
+    section("etat_des_lieux", "État des lieux", true),
+    section("besoins", "Besoins", true),
+    section("examens", "Organisation des examens", false),
+    section("partenaires", "Rapports avec les partenaires", false),
+    section("resultats", "Résultats scolaires", true),
+    section("conclusion", "Conclusion", false),
+];
+
 /// Vrai si le code est celui d'une section du type.
 pub fn section_connue(type_rapport: TypeRapport, code: &str) -> bool {
     type_rapport.sections().iter().any(|s| s.code == code)
@@ -147,19 +174,39 @@ mod tests {
         for t in TypeRapport::TOUS {
             assert_eq!(TypeRapport::depuis_nom(t.nom()), Some(*t));
         }
-        assert_eq!(TypeRapport::depuis_nom("fermeture"), None);
+        assert_eq!(
+            TypeRapport::depuis_nom("fermeture"),
+            Some(TypeRapport::Fermeture)
+        );
+        assert_eq!(TypeRapport::depuis_nom("enquete"), None);
         assert_eq!(EtatRapport::depuis_nom("arrete"), EtatRapport::Arrete);
         assert_eq!(EtatRapport::depuis_nom("?"), EtatRapport::Preparation);
     }
 
     #[test]
     fn la_date_proposee_est_quinze_jours_apres_la_rentree() {
-        let proposee = DateCivile::analyser("2026-10-01").map(|r| {
-            TypeRapport::SuccinctRentree
-                .date_arret_proposee(r)
-                .to_string()
-        });
-        assert_eq!(proposee.as_deref(), Some("2026-10-16"));
+        let dates = DateCivile::analyser("2026-10-01").zip(DateCivile::analyser("2027-06-30"));
+        let proposee = |t: TypeRapport| {
+            dates.map(|(rentree, fin)| t.date_arret_proposee(rentree, fin).to_string())
+        };
+        assert_eq!(
+            proposee(TypeRapport::SuccinctRentree).as_deref(),
+            Some("2026-10-16")
+        );
+        assert_eq!(
+            proposee(TypeRapport::Fermeture).as_deref(),
+            Some("2027-06-30")
+        );
+    }
+
+    #[test]
+    fn le_rapport_de_fermeture_suit_le_modele() {
+        let s = TypeRapport::Fermeture.sections();
+        assert_eq!(s.len(), 10);
+        let aidees: Vec<&str> = s.iter().filter(|x| x.aidee).map(|x| x.code).collect();
+        assert_eq!(aidees, ["etat_des_lieux", "besoins", "resultats"]);
+        assert!(section_connue(TypeRapport::Fermeture, "solutions"));
+        assert!(!section_connue(TypeRapport::Fermeture, "preparation"));
     }
 
     #[test]

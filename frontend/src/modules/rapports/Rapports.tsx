@@ -9,10 +9,10 @@ import { Bouton } from "../../composants/Bouton";
 import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { dateCivile, t } from "../../i18n";
-import type { RapportEcole, SectionRapport, TableauRapport, TypeRapport } from "../../types/gesco";
+import type { EffectifProbableNiveau, RapportEcole, SectionRapport, TableauRapport, TypeRapport } from "../../types/gesco";
 
-/** Rapports de rentrée (rapport succinct, rapport de rentrée) : la liste de l'année, puis un
- *  rapport ouvert — réglages, en-tête, textes rédigés, tableaux calculés à la date d'arrêt —,
+/** Rapports de l'école (rapport succinct, rapport de rentrée, rapport de fermeture) : la liste de
+ *  l'année, puis un rapport ouvert — réglages, en-tête, textes rédigés, tableaux calculés à la date d'arrêt —,
  *  avec l'aperçu, l'impression, l'export Excel des tableaux, l'arrêt et la réouverture. */
 export function Rapports({ surAller }: { surAller: (section: IdSection) => void }) {
   const [anneeId, setAnneeId] = useState<string | null>(null);
@@ -89,6 +89,10 @@ function RapportOuvert({ id, surFermer, surAller }: { id: string; surFermer: () 
   const apercu = useMutation({ mutationFn: () => appeler("rapport_apercu", { id }), onSuccess: (d) => setPdf(d.pdf) });
   const arreter = useMutation({ mutationFn: () => appeler("rapport_arreter", { id }), onSuccess: poser });
   const rouvrir = useMutation({ mutationFn: () => appeler("rapport_rouvrir", { id }), onSuccess: poser });
+  const probable = useMutation({
+    mutationFn: (v: { niveau_id: string; garcons: number | null; filles: number | null }) => appeler("rapport_effectif_regler", { id, ...v }),
+    onSuccess: poser,
+  });
   const r = rapport.data;
   if (r === undefined) return <MessageErreur erreur={rapport.error} />;
   const fige = r.etat === "arrete";
@@ -120,7 +124,7 @@ function RapportOuvert({ id, surFermer, surAller }: { id: string; surFermer: () 
           {t(`rapports.etat.${r.etat}`)} · {t("rapports.version", { n: String(r.version) })}
         </span>
       </div>
-      <MessageErreur erreur={rapport.error ?? regler.error ?? ecrire.error ?? apercu.error ?? arreter.error ?? rouvrir.error} />
+      <MessageErreur erreur={rapport.error ?? regler.error ?? ecrire.error ?? apercu.error ?? arreter.error ?? rouvrir.error ?? probable.error} />
       <Section titre={t("rapports.reglages")}>
         <div className="flex flex-wrap items-end gap-3">
           <Champ
@@ -174,6 +178,9 @@ function RapportOuvert({ id, surFermer, surAller }: { id: string; surFermer: () 
       {r.contenu.tableaux.map((tb) => (
         <TableauLu key={tb.code} tableau={tb} surAller={surAller} />
       ))}
+      {fige || r.effectifs_probables.length === 0 ? null : (
+        <EffectifsProbables niveaux={r.effectifs_probables} enCours={probable.isPending} surRegler={(v) => probable.mutate(v)} />
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <Bouton variante="secondaire" onClick={() => apercu.mutate()} disabled={apercu.isPending}>
           {fige ? t("rapports.reimprimer") : t("rapports.apercu")}
@@ -272,6 +279,80 @@ function TableauLu({ tableau, surAller }: { tableau: TableauRapport; surAller: (
         <Bouton variante="secondaire" onClick={() => surAller(tableau.lien === "inventaire" ? "inventaire" : "statistiques")}>
           {tableau.lien === "inventaire" ? t("rapports.corriger_inventaire") : t("rapports.corriger_statistiques")}
         </Bouton>
+      </div>
+    </Section>
+  );
+}
+
+/** Lit un nombre saisi : vide garde le nombre proposé ; un texte illisible aussi. */
+function nombreSaisi(v: string): number | null {
+  const n = Number.parseInt(v, 10);
+  return v.trim() === "" || Number.isNaN(n) || n < 0 ? null : n;
+}
+
+/** Effectifs probables à la rentrée, seuls chiffres saisis dans un rapport : le nombre proposé
+ *  est montré dans la case vide ; ce qu'on saisit l'emporte, enregistré en quittant la case. */
+function EffectifsProbables({
+  niveaux,
+  enCours,
+  surRegler,
+}: {
+  niveaux: EffectifProbableNiveau[];
+  enCours: boolean;
+  surRegler: (v: { niveau_id: string; garcons: number | null; filles: number | null }) => void;
+}) {
+  return (
+    <Section titre={t("rapports.probables.titre")}>
+      <p className="text-sm text-muet">{t("rapports.probables.aide")}</p>
+      <div className="overflow-x-auto">
+        <table className="border-collapse text-sm">
+          <thead>
+            <tr>
+              <th scope="col" className="border border-muet/40 px-2 py-1 text-left font-medium text-encre">
+                {t("rapports.probables.niveau")}
+              </th>
+              <th scope="col" className="border border-muet/40 px-2 py-1 font-medium text-encre">
+                {t("rapports.probables.garcons")}
+              </th>
+              <th scope="col" className="border border-muet/40 px-2 py-1 font-medium text-encre">
+                {t("rapports.probables.filles")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {niveaux.map((n) => (
+              <tr key={`${n.niveau_id}-${String(n.garcons)}-${String(n.filles)}`}>
+                <th scope="row" className="border border-muet/40 px-2 py-1 text-left font-normal text-encre">
+                  {n.niveau}
+                </th>
+                {(["garcons", "filles"] as const).map((champ) => {
+                  const propose = champ === "garcons" ? n.garcons_proposes : n.filles_proposees;
+                  const saisi = n[champ];
+                  return (
+                    <td key={champ} className="border border-muet/40 px-2 py-1">
+                      <input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        aria-label={`${n.niveau} · ${t(`rapports.probables.${champ}`)}`}
+                        title={t("rapports.probables.propose", { n: String(propose) })}
+                        placeholder={String(propose)}
+                        defaultValue={saisi === null ? "" : String(saisi)}
+                        disabled={enCours}
+                        className="w-24 rounded border border-muet bg-surface px-2 py-1 text-primaire focus:outline-2 focus:outline-primaire"
+                        onBlur={(e) => {
+                          const valeur = nombreSaisi(e.target.value);
+                          if (valeur === saisi) return;
+                          surRegler({ niveau_id: n.niveau_id, garcons: champ === "garcons" ? valeur : n.garcons, filles: champ === "filles" ? valeur : n.filles });
+                        }}
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Section>
   );
