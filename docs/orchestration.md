@@ -502,3 +502,7 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   réponse. Phase 12 lot 1 (étapes 1 à 10, avec reprise de la phase 9 en tête) lancée dans
   `local_b35dbff2-4688-4393-89c4-61f0b1d870b1`, avec relais autonome. T-123 (79 leçons en LaTeX,
   AN-09) attend un mot du porteur (rédaction arrêtée). Disque : 6,5 Go libres le 15 novembre.
+- 2026-11-15, porteur : « n'écris plus de cours » ; « on code la phase, après on intègre les
+  cours ». La session de reprise T-123 (`local_e8b5589a`) a été arrêtée dès son lancement. Plus
+  aucune rédaction ni reprise de leçon. Les cours existants seront intégrés une fois le code du
+  lot 1 fini (T-123 reportée à ce moment-là, sans réécriture).
