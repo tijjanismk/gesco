@@ -1975,6 +1975,18 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	bibliotheque_rechercher: Signature<DemandeRechercheBibliotheque, ResultatRechercheBibliotheque[]>,
 	/**  Signature de la commande du même nom. */
+	bibliotheque_retrait_apercu: Signature<DemandeRetrait, ApercuRetrait>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_retirer: Signature<DemandeRetrait, RetraitAffiche[]>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_remettre: Signature<DemandeRemiseBibliotheque, RetraitAffiche[]>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_retraits_lister: Signature<null, RetraitAffiche[]>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_correspondances_lire: Signature<null, CorrespondancesBibliotheque>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_correspondance_regler: Signature<DemandeCorrespondance, CorrespondancesBibliotheque>,
+	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
 	categorie_personnel_enregistrer: Signature<DemandeCategoriePersonnel, CategoriePersonnel>,
@@ -10859,6 +10871,8 @@ export type CatalogueBibliotheque = {
 	peut_ecrire: boolean,
 	/**  L'utilisateur valide. */
 	peut_valider: boolean,
+	/**  L'utilisateur gère la bibliothèque : il retire et remet. */
+	peut_gerer: boolean,
 	/**  Compte d'un maître qui ne valide pas. */
 	maitre: boolean,
 };
@@ -10920,4 +10934,72 @@ export type ResultatRechercheBibliotheque = {
 	chapitre: string,
 	/**  Les mots trouvés sont entre les caractères  et . */
 	extrait: string,
+};
+
+/**  À quel grain un retrait cache. */
+export type GrainRetrait = "contenu" | "chapitre" | "matiere" | "niveau" | "paquet";
+
+/**  Retirer, ou demander ce qu'un retrait cacherait. */
+export type DemandeRetrait = {
+	grain: GrainRetrait,
+	cible: string,
+	niveau_code: string | null,
+	serie_code: string | null,
+};
+
+/**  Ce qu'un retrait cacherait. */
+export type ApercuRetrait = {
+	lecons: number,
+	sujets: number,
+	corriges: number,
+	documents: number,
+};
+
+/**  Un retrait en cours. */
+export type RetraitAffiche = {
+	id: string,
+	grain: GrainRetrait,
+	cible: string,
+	niveau_code: string | null,
+	serie_code: string | null,
+	/**  Titre du contenu ou du chapitre, libellé de la matière ou du niveau ; vide pour un paquet. */
+	titre: string,
+	niveau: string | null,
+	retire_le: number,
+	retire_par: string,
+	/**  Autres retraits qui cachent aussi une part de ce que celui-ci cache. */
+	aussi: string[],
+};
+
+/**  Remettre un retrait. */
+export type DemandeRemiseBibliotheque = {
+	retrait_id: string,
+};
+
+/**  Une discipline de la bibliothèque dans un niveau, et la matière qui la reçoit. */
+export type CorrespondanceAffichee = {
+	discipline_code: string,
+	discipline: string,
+	niveau_code: string,
+	niveau: string,
+	matiere_id: string | null,
+};
+
+/**  Une matière de l'école qui peut recevoir une discipline. */
+export type MatiereChoisissable = {
+	id: string,
+	libelle: string,
+};
+
+/**  La correspondance des disciplines. */
+export type CorrespondancesBibliotheque = {
+	correspondances: CorrespondanceAffichee[],
+	matieres: MatiereChoisissable[],
+};
+
+/**  Régler la correspondance d'une discipline dans un niveau. */
+export type DemandeCorrespondance = {
+	discipline_code: string,
+	niveau_code: string,
+	matiere_id: string | null,
 };

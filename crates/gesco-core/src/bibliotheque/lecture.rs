@@ -63,6 +63,158 @@ pub struct EtatContenu {
     pub brouillon: bool,
 }
 
+/// À quel grain un retrait cache (ADR « retirer un contenu »).
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, specta::Type,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum GrainRetrait {
+    /// Un contenu, par sa clé.
+    Contenu,
+    /// Un chapitre, par sa clé.
+    Chapitre,
+    /// Une matière d'un niveau (avec sa série au lycée), par sa clé au catalogue.
+    Matiere,
+    /// Un niveau, par son code.
+    Niveau,
+    /// Tout un paquet livré, par son code.
+    Paquet,
+}
+
+impl GrainRetrait {
+    /// Nom persisté.
+    pub const fn nom(self) -> &'static str {
+        match self {
+            Self::Contenu => "contenu",
+            Self::Chapitre => "chapitre",
+            Self::Matiere => "matiere",
+            Self::Niveau => "niveau",
+            Self::Paquet => "paquet",
+        }
+    }
+
+    /// Grain d'après son nom persisté.
+    pub fn depuis_nom(nom: &str) -> Option<Self> {
+        Some(match nom {
+            "contenu" => Self::Contenu,
+            "chapitre" => Self::Chapitre,
+            "matiere" => Self::Matiere,
+            "niveau" => Self::Niveau,
+            "paquet" => Self::Paquet,
+            _ => return None,
+        })
+    }
+}
+
+/// Ce qu'un retrait en cours cache.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct CibleRetrait {
+    /// Grain.
+    pub grain: GrainRetrait,
+    /// Clé du contenu ou du chapitre, clé de la matière au catalogue (`m:…` ou `d:…`), code du
+    /// niveau ou du paquet.
+    pub cible: String,
+    /// Niveau d'une matière retirée.
+    pub niveau_code: Option<String>,
+    /// Série d'une matière retirée au lycée ; aucune : toutes les séries.
+    pub serie_code: Option<String>,
+}
+
+impl CibleRetrait {
+    /// Vrai si le retrait cache ce contenu à cette place.
+    pub fn couvre(&self, place: &PlaceContenu) -> bool {
+        match self.grain {
+            GrainRetrait::Contenu => place.contenu_cle == self.cible,
+            GrainRetrait::Chapitre => place.chapitre_cle == self.cible,
+            GrainRetrait::Matiere => {
+                place.matiere_cle == self.cible
+                    && self.niveau_code.as_deref() == Some(place.niveau_code.as_str())
+                    && (self.serie_code.is_none() || self.serie_code == place.serie_code)
+            }
+            GrainRetrait::Niveau => place.niveau_code == self.cible,
+            GrainRetrait::Paquet => {
+                place.origine == OrigineBibliotheque::Livre
+                    && place.paquet_code.as_deref() == Some(self.cible.as_str())
+            }
+        }
+    }
+}
+
+/// Où un contenu paraît au catalogue (un contenu sous deux séries a deux places).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlaceContenu {
+    /// Identifiant du contenu.
+    pub contenu_id: String,
+    /// Clé du contenu.
+    pub contenu_cle: String,
+    /// Nature.
+    pub nature: NatureContenu,
+    /// Origine du contenu.
+    pub origine: OrigineBibliotheque,
+    /// Paquet d'un contenu livré.
+    pub paquet_code: Option<String>,
+    /// Clé du chapitre.
+    pub chapitre_cle: String,
+    /// Titre du chapitre.
+    pub chapitre: String,
+    /// Clé de la matière au catalogue.
+    pub matiere_cle: String,
+    /// Libellé de la matière.
+    pub matiere: String,
+    /// Code du niveau.
+    pub niveau_code: String,
+    /// Libellé du niveau.
+    pub niveau: String,
+    /// Code de la série.
+    pub serie_code: Option<String>,
+    /// Titre du contenu.
+    pub titre: String,
+}
+
+/// Toutes les places des contenus d'un catalogue rangé, dans l'ordre du catalogue.
+pub fn places_du_catalogue(
+    niveaux: &[NiveauCatalogue],
+    contenus: &[ContenuBibliotheque],
+) -> Vec<PlaceContenu> {
+    let paquets: HashMap<&str, Option<&str>> = contenus
+        .iter()
+        .map(|c| (c.cle.as_str(), c.paquet_code.as_deref()))
+        .collect();
+    let mut places = Vec::new();
+    for n in niveaux {
+        for s in &n.series {
+            for m in &s.matieres {
+                for p in &m.parties {
+                    for c in &p.chapitres {
+                        for x in &c.contenus {
+                            places.push(PlaceContenu {
+                                contenu_id: x.id.clone(),
+                                contenu_cle: x.cle.clone(),
+                                nature: x.nature,
+                                origine: x.origine,
+                                paquet_code: paquets
+                                    .get(x.cle.as_str())
+                                    .copied()
+                                    .flatten()
+                                    .map(str::to_owned),
+                                chapitre_cle: c.cle.clone(),
+                                chapitre: c.titre.clone(),
+                                matiere_cle: m.cle.clone(),
+                                matiere: m.libelle.clone(),
+                                niveau_code: n.code.clone(),
+                                niveau: n.libelle.clone(),
+                                serie_code: s.code.clone(),
+                                titre: x.titre.clone(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    places
+}
+
 /// Tout ce que le catalogue range.
 pub struct EntreesCatalogue<'a> {
     /// Niveaux actifs de l'école, dans l'ordre.
@@ -87,6 +239,8 @@ pub struct EntreesCatalogue<'a> {
     pub paquets_presents: &'a HashSet<String>,
     /// Vrai pour le personnel qui écrit (`library:edit`).
     pub voit_le_travail: bool,
+    /// Retraits en cours.
+    pub retraits: &'a [CibleRetrait],
 }
 
 /// Un niveau du catalogue.
@@ -292,6 +446,12 @@ pub fn construire_catalogue(e: &EntreesCatalogue<'_>) -> Vec<NiveauCatalogue> {
         e.matieres.iter().map(|m| (m.id.as_str(), m)).collect();
     let mut niveaux = Vec::new();
     for niveau in e.niveaux {
+        if e.retraits
+            .iter()
+            .any(|r| r.grain == GrainRetrait::Niveau && r.cible == niveau.code)
+        {
+            continue;
+        }
         // Chapitres du niveau, rangés dans l'ordre du programme.
         let (mut livres, mut ecole): (Vec<&ChapitreBibliotheque>, Vec<&ChapitreBibliotheque>) = e
             .chapitres
@@ -299,6 +459,11 @@ pub fn construire_catalogue(e: &EntreesCatalogue<'_>) -> Vec<NiveauCatalogue> {
             .filter(|c| match c.origine {
                 OrigineBibliotheque::Livre => c.niveau_code == niveau.code,
                 OrigineBibliotheque::Ecole => c.niveau_id.as_deref() == Some(niveau.id.as_str()),
+            })
+            .filter(|c| {
+                !e.retraits
+                    .iter()
+                    .any(|r| r.grain == GrainRetrait::Chapitre && r.cible == c.cle)
             })
             .partition(|c| c.origine == OrigineBibliotheque::Livre);
         livres.sort_by_key(|c| c.ordre);
@@ -335,7 +500,14 @@ pub fn construire_catalogue(e: &EntreesCatalogue<'_>) -> Vec<NiveauCatalogue> {
 
         let mut series = Vec::new();
         for (serie, chapitres) in groupes {
-            let matieres_serie = ranger_matieres(e, &matieres, niveau, &chapitres, &par_chapitre);
+            let matieres_serie = ranger_matieres(
+                e,
+                &matieres,
+                niveau,
+                serie.map(|s| s.code.as_str()),
+                &chapitres,
+                &par_chapitre,
+            );
             if !matieres_serie.is_empty() {
                 series.push(SerieCatalogue {
                     code: serie.map(|s| s.code.clone()),
@@ -357,6 +529,16 @@ pub fn construire_catalogue(e: &EntreesCatalogue<'_>) -> Vec<NiveauCatalogue> {
 
 /// Vrai si le contenu paraît au catalogue.
 fn contenu_parait(e: &EntreesCatalogue<'_>, c: &ContenuBibliotheque) -> bool {
+    let retire = e.retraits.iter().any(|r| match r.grain {
+        GrainRetrait::Contenu => r.cible == c.cle,
+        GrainRetrait::Paquet => {
+            c.origine == OrigineBibliotheque::Livre && c.paquet_code.as_deref() == Some(&r.cible)
+        }
+        GrainRetrait::Chapitre | GrainRetrait::Matiere | GrainRetrait::Niveau => false,
+    });
+    if retire {
+        return false;
+    }
     let etat = e
         .etats
         .get(&c.id.vers_chaine())
@@ -381,9 +563,22 @@ fn ranger_matieres(
     e: &EntreesCatalogue<'_>,
     matieres: &HashMap<&str, &MatiereReference>,
     niveau: &NiveauReference,
+    serie: Option<&str>,
     chapitres: &[&ChapitreBibliotheque],
     par_chapitre: &HashMap<String, Vec<ContenuCatalogue>>,
 ) -> Vec<MatiereCatalogue> {
+    let matiere_retiree = |cle: &CleMatiere| -> bool {
+        let texte = match cle {
+            CleMatiere::Ecole(id) => format!("m:{id}"),
+            CleMatiere::Reference(code) => format!("d:{code}"),
+        };
+        e.retraits.iter().any(|r| {
+            r.grain == GrainRetrait::Matiere
+                && r.cible == texte
+                && r.niveau_code.as_deref() == Some(niveau.code.as_str())
+                && (r.serie_code.is_none() || r.serie_code.as_deref() == serie)
+        })
+    };
     let mut ordre_cles: Vec<CleMatiere> = Vec::new();
     let mut parties: HashMap<CleMatiere, Vec<PartieCatalogue>> = HashMap::new();
     let mut disciplines: HashMap<CleMatiere, String> = HashMap::new();
@@ -416,6 +611,9 @@ fn ranger_matieres(
                 CleMatiere::Ecole(c.matiere_id.clone().unwrap_or_default())
             }
         };
+        if matiere_retiree(&cle) {
+            continue;
+        }
         if !ordre_cles.contains(&cle) {
             ordre_cles.push(cle.clone());
         }
@@ -580,6 +778,7 @@ mod tests {
         contenus: Vec<ContenuBibliotheque>,
         etats: HashMap<String, EtatContenu>,
         presents: HashSet<String>,
+        retraits: Vec<CibleRetrait>,
     }
 
     impl Monde {
@@ -631,6 +830,7 @@ mod tests {
                 contenus: Vec::new(),
                 etats: HashMap::new(),
                 presents: ["p".to_owned()].into(),
+                retraits: Vec::new(),
             }
         }
 
@@ -647,6 +847,7 @@ mod tests {
                 etats: &self.etats,
                 paquets_presents: &self.presents,
                 voit_le_travail,
+                retraits: &self.retraits,
             })
         }
     }
@@ -777,6 +978,118 @@ mod tests {
         m.chapitres = vec![c1];
         assert!(m.catalogue(false).is_empty());
         assert_eq!(m.catalogue(true)[0].series[0].matieres[0].cle, "m:m-math");
+    }
+
+    fn retrait(
+        grain: GrainRetrait,
+        cible: &str,
+        niveau: Option<&str>,
+        serie: Option<&str>,
+    ) -> CibleRetrait {
+        CibleRetrait {
+            grain,
+            cible: cible.into(),
+            niveau_code: niveau.map(str::to_owned),
+            serie_code: serie.map(str::to_owned),
+        }
+    }
+
+    /// Une 9e de maths (deux leçons, deux chapitres) et une terminale de maths.
+    fn monde_a_retirer() -> Monde {
+        let mut m = Monde::nouveau();
+        let c1 = chapitre("9/math/racine", "9", "MATH", "", 1);
+        let c2 = chapitre("9/math/puissances", "9", "MATH", "", 2);
+        let c3 = chapitre("12/math/suites", "12", "MATH", "", 1);
+        m.contenus.push(contenu("9/math/racine/l1", &c1, 1));
+        m.contenus.push(contenu("9/math/racine/l2", &c1, 2));
+        m.contenus.push(contenu("9/math/puissances/l1", &c2, 1));
+        m.contenus.push(contenu("12/math/suites/l1", &c3, 1));
+        m.chapitres = vec![c1, c2, c3];
+        m
+    }
+
+    fn cles(cat: &[NiveauCatalogue], contenus: &[ContenuBibliotheque]) -> Vec<String> {
+        places_du_catalogue(cat, contenus)
+            .into_iter()
+            .map(|p| p.contenu_cle)
+            .collect()
+    }
+
+    #[test]
+    fn chaque_grain_de_retrait_cache_ce_qu_il_vise() {
+        let mut m = monde_a_retirer();
+        let toutes = cles(&m.catalogue(false), &m.contenus);
+        assert_eq!(toutes.len(), 5); // la terminale sous TSE et sous TSExp
+
+        m.retraits = vec![retrait(
+            GrainRetrait::Contenu,
+            "9/math/racine/l2",
+            None,
+            None,
+        )];
+        assert!(!cles(&m.catalogue(false), &m.contenus).contains(&"9/math/racine/l2".to_owned()));
+
+        m.retraits = vec![retrait(GrainRetrait::Chapitre, "9/math/racine", None, None)];
+        let restent = cles(&m.catalogue(false), &m.contenus);
+        assert!(restent.iter().all(|c| !c.starts_with("9/math/racine/")));
+        assert!(restent.contains(&"9/math/puissances/l1".to_owned()));
+
+        m.retraits = vec![retrait(GrainRetrait::Matiere, "m:m-math", Some("9"), None)];
+        let restent = cles(&m.catalogue(false), &m.contenus);
+        assert!(restent.iter().all(|c| c.starts_with("12/")));
+
+        m.retraits = vec![retrait(
+            GrainRetrait::Matiere,
+            "d:MATH",
+            Some("12"),
+            Some("TSE"),
+        )];
+        let cat = m.catalogue(false);
+        let terminale: Vec<&NiveauCatalogue> = cat.iter().filter(|n| n.code == "12").collect();
+        assert_eq!(terminale.len(), 1);
+        assert_eq!(terminale[0].series.len(), 1);
+        assert_eq!(terminale[0].series[0].code.as_deref(), Some("TSExp"));
+
+        m.retraits = vec![retrait(GrainRetrait::Niveau, "12", None, None)];
+        assert!(m.catalogue(false).iter().all(|n| n.code != "12"));
+
+        m.retraits = vec![retrait(GrainRetrait::Paquet, "p", None, None)];
+        assert!(m.catalogue(true).is_empty());
+    }
+
+    #[test]
+    fn un_retrait_de_bloc_couvre_ce_qu_une_mise_a_jour_ajoute() {
+        let mut m = monde_a_retirer();
+        m.retraits = vec![retrait(GrainRetrait::Chapitre, "9/math/racine", None, None)];
+        let c1 = m.chapitres[0].clone();
+        m.contenus.push(contenu("9/math/racine/l3", &c1, 3));
+        assert!(!cles(&m.catalogue(false), &m.contenus).contains(&"9/math/racine/l3".to_owned()));
+    }
+
+    #[test]
+    fn un_retrait_dit_les_places_qu_il_couvre() {
+        let m = monde_a_retirer();
+        let places = places_du_catalogue(&m.catalogue(false), &m.contenus);
+        let chapitre = retrait(GrainRetrait::Chapitre, "9/math/racine", None, None);
+        assert_eq!(places.iter().filter(|p| chapitre.couvre(p)).count(), 2);
+        let matiere = retrait(GrainRetrait::Matiere, "d:MATH", Some("12"), None);
+        assert_eq!(places.iter().filter(|p| matiere.couvre(p)).count(), 2);
+        let paquet = retrait(GrainRetrait::Paquet, "p", None, None);
+        assert_eq!(places.iter().filter(|p| paquet.couvre(p)).count(), 5);
+    }
+
+    #[test]
+    fn un_grain_se_relit_par_son_nom() {
+        for g in [
+            GrainRetrait::Contenu,
+            GrainRetrait::Chapitre,
+            GrainRetrait::Matiere,
+            GrainRetrait::Niveau,
+            GrainRetrait::Paquet,
+        ] {
+            assert_eq!(GrainRetrait::depuis_nom(g.nom()), Some(g));
+        }
+        assert_eq!(GrainRetrait::depuis_nom("eleve"), None);
     }
 
     #[test]

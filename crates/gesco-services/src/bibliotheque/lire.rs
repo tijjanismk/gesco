@@ -10,9 +10,10 @@ use std::collections::{HashMap, HashSet};
 use base64::Engine as _;
 use gesco_core::bibliotheque::paquet::nom_fichier_image;
 use gesco_core::bibliotheque::{
-    ContenuBibliotheque, EntreesCatalogue, EtatContenu, ExamenSujet, Lecon, MatiereReference,
-    NatureContenu, NiveauCatalogue, NiveauReference, OrigineBibliotheque, SerieReference,
-    SourceImage, analyser, construire_catalogue, requete_recherche,
+    CibleRetrait, ContenuBibliotheque, EntreesCatalogue, EtatContenu, ExamenSujet, GrainRetrait,
+    Lecon, MatiereReference, NatureContenu, NiveauCatalogue, NiveauReference, OrigineBibliotheque,
+    PlaceContenu, SerieReference, SourceImage, analyser, construire_catalogue, places_du_catalogue,
+    requete_recherche,
 };
 use gesco_core::core::Permission;
 use gesco_db::ErreurBase;
@@ -36,6 +37,8 @@ pub struct CatalogueBibliotheque {
     pub peut_ecrire: bool,
     /// L'utilisateur valide (`library:publish`).
     pub peut_valider: bool,
+    /// L'utilisateur gère la bibliothèque (`library:manage`) : il retire et remet.
+    pub peut_gerer: bool,
     /// Compte d'un maître qui ne valide pas : l'écran s'ouvre sur « Mes matières ».
     pub maitre: bool,
 }
@@ -140,18 +143,16 @@ pub struct ResultatRechercheBibliotheque {
     pub extrait: String,
 }
 
-/// Où un contenu paraît au catalogue.
-struct Place {
-    rang: usize,
-    niveau: String,
-    matiere: String,
-    chapitre: String,
-    nature: NatureContenu,
-    titre: String,
+/// Le catalogue rangé, avec ce qui a servi à le ranger.
+pub(super) struct CatalogueRange {
+    pub(super) niveaux: Vec<NiveauCatalogue>,
+    pub(super) contenus: Vec<ContenuBibliotheque>,
+    pub(super) chapitres: Vec<gesco_core::bibliotheque::ChapitreBibliotheque>,
+    pub(super) a_des_matieres: bool,
 }
 
 impl ServiceBibliotheque<'_> {
-    async fn permissions(&self, session: &Session) -> Resultat<(bool, bool)> {
+    pub(super) async fn permissions(&self, session: &Session) -> Resultat<(bool, bool)> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
         let permissions = self
@@ -164,12 +165,14 @@ impl ServiceBibliotheque<'_> {
         ))
     }
 
-    /// Le catalogue rangé pour l'utilisateur.
-    async fn niveaux_du_catalogue(
+    /// Le catalogue rangé pour l'utilisateur ; sans les retraits, pour dire ce qu'un retrait
+    /// cache.
+    pub(super) async fn ranger_catalogue(
         &self,
         session: &Session,
         voit_le_travail: bool,
-    ) -> Resultat<(Vec<NiveauCatalogue>, bool)> {
+        avec_retraits: bool,
+    ) -> Resultat<CatalogueRange> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
         let niveaux: Vec<NiveauReference> = academique::niveaux(&mut cnx, &contexte)
@@ -227,7 +230,23 @@ impl ServiceBibliotheque<'_> {
             }
         }
         let paquets_presents: HashSet<String> = self.paquets.tous().into_keys().collect();
-        let catalogue = construire_catalogue(&EntreesCatalogue {
+        let retraits: Vec<CibleRetrait> = if avec_retraits {
+            depot::retraits(&mut cnx, true, &contexte)
+                .await?
+                .into_iter()
+                .filter_map(|r| {
+                    Some(CibleRetrait {
+                        grain: GrainRetrait::depuis_nom(&r.grain)?,
+                        cible: r.cible,
+                        niveau_code: r.niveau_code,
+                        serie_code: r.serie_code,
+                    })
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let niveaux = construire_catalogue(&EntreesCatalogue {
             niveaux: &niveaux,
             series: &series,
             matieres: &matieres,
@@ -239,20 +258,39 @@ impl ServiceBibliotheque<'_> {
             etats: &etats,
             paquets_presents: &paquets_presents,
             voit_le_travail,
+            retraits: &retraits,
         });
-        Ok((catalogue, !mes_matieres.is_empty()))
+        Ok(CatalogueRange {
+            niveaux,
+            contenus,
+            chapitres,
+            a_des_matieres: !mes_matieres.is_empty(),
+        })
     }
 
     /// Le catalogue de la bibliothèque.
     pub async fn catalogue(&self, session: &Session) -> Resultat<CatalogueBibliotheque> {
         let (peut_ecrire, peut_valider) = self.permissions(session).await?;
-        let (niveaux, a_des_matieres) = self.niveaux_du_catalogue(session, peut_ecrire).await?;
+        let peut_gerer = self.peut_gerer(session).await?;
+        let range = self.ranger_catalogue(session, peut_ecrire, true).await?;
         Ok(CatalogueBibliotheque {
-            niveaux,
+            niveaux: range.niveaux,
             peut_ecrire,
             peut_valider,
-            maitre: a_des_matieres && !peut_valider,
+            peut_gerer,
+            maitre: range.a_des_matieres && !peut_valider,
         })
+    }
+
+    /// Vrai si l'utilisateur gère la bibliothèque (`library:manage`).
+    pub(super) async fn peut_gerer(&self, session: &Session) -> Resultat<bool> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut cnx = self.connexion().await?;
+        Ok(self
+            .noyau
+            .permissions_de(&mut cnx, session.utilisateur_id, &contexte)
+            .await?
+            .contains(&Permission::LIBRARY_MANAGE))
     }
 
     /// Ouvre un contenu.
@@ -393,8 +431,28 @@ impl ServiceBibliotheque<'_> {
             return Ok(Vec::new());
         }
         let (peut_ecrire, _) = self.permissions(session).await?;
-        let (niveaux, _) = self.niveaux_du_catalogue(session, peut_ecrire).await?;
-        let places = places_du_catalogue(&niveaux);
+        let range = self.ranger_catalogue(session, peut_ecrire, true).await?;
+        // Chaque contenu garde sa première place ; le rang est celui du groupe niveau, série et
+        // matière dans le catalogue.
+        let mut groupes: Vec<(String, Option<String>, String)> = Vec::new();
+        let mut places: HashMap<String, (usize, PlaceContenu)> = HashMap::new();
+        for place in places_du_catalogue(&range.niveaux, &range.contenus) {
+            let groupe = (
+                place.niveau_code.clone(),
+                place.serie_code.clone(),
+                place.matiere_cle.clone(),
+            );
+            let rang = match groupes.iter().position(|g| g == &groupe) {
+                Some(i) => i,
+                None => {
+                    groupes.push(groupe);
+                    groupes.len() - 1
+                }
+            };
+            places
+                .entry(place.contenu_id.clone())
+                .or_insert((rang, place));
+        }
         let trouves = {
             let mut cnx = self.connexion().await?;
             // Plus de lignes que l'on n'en montre : une part peut viser ce que le catalogue ne
@@ -405,9 +463,9 @@ impl ServiceBibliotheque<'_> {
             .into_iter()
             .enumerate()
             .filter_map(|(pertinence, (id, extrait))| {
-                let place = places.get(&id)?;
+                let (rang, place) = places.get(&id)?;
                 Some((
-                    place.rang,
+                    *rang,
                     pertinence,
                     ResultatRechercheBibliotheque {
                         contenu_id: id,
@@ -427,34 +485,6 @@ impl ServiceBibliotheque<'_> {
         resultats.sort_by_key(|(rang, pertinence, _)| (*rang, *pertinence));
         Ok(resultats.into_iter().map(|(_, _, r)| r).collect())
     }
-}
-
-/// Où paraît chaque contenu du catalogue ; un contenu sous plusieurs séries garde la première.
-fn places_du_catalogue(niveaux: &[NiveauCatalogue]) -> HashMap<String, Place> {
-    let mut places = HashMap::new();
-    let mut rang = 0;
-    for n in niveaux {
-        for s in &n.series {
-            for m in &s.matieres {
-                rang += 1;
-                for p in &m.parties {
-                    for c in &p.chapitres {
-                        for x in &c.contenus {
-                            places.entry(x.id.clone()).or_insert_with(|| Place {
-                                rang,
-                                niveau: n.libelle.clone(),
-                                matiere: m.libelle.clone(),
-                                chapitre: c.titre.clone(),
-                                nature: x.nature,
-                                titre: x.titre.clone(),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    }
-    places
 }
 
 /// Type MIME d'une image du paquet d'après son nom.

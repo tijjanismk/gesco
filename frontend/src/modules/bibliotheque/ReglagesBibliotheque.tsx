@@ -1,16 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { appeler } from "../../api";
 import { choisirPaquetBibliotheque } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { date, t } from "../../i18n";
+import { ConfirmerRetrait } from "./Retraits";
 
 /** Réglages de la bibliothèque de cours, pour la direction : la bibliothèque installée et
  *  l'installation d'une mise à jour depuis un fichier (une clé USB). Sans bibliothèque
  *  installée, l'écran le dit en une ligne ; rien ne bloque. */
 export function ReglagesBibliotheque() {
   const client = useQueryClient();
+  const [aRetirer, setARetirer] = useState<string | null>(null);
   const etat = useQuery({ queryKey: ["bibliotheque-etat"], queryFn: () => appeler("bibliotheque_etat", null) });
   const installation = useMutation({
     mutationFn: (chemin: string) => appeler("bibliotheque_installer", { chemin }),
@@ -42,6 +45,18 @@ export function ReglagesBibliotheque() {
             </p>
             {p.version_plus_recente === null ? null : (
               <p>{t("bibliotheque.reglages.plus_recente", { version: p.version_plus_recente })}</p>
+            )}
+            {aRetirer === p.code ? (
+              <ConfirmerRetrait
+                demande={{ grain: "paquet", cible: p.code, niveau_code: null, serie_code: null }}
+                surFin={() => setARetirer(null)}
+              />
+            ) : (
+              <div>
+                <Bouton variante="secondaire" onClick={() => setARetirer(p.code)}>
+                  {t("bibliotheque.retirer.paquet")}
+                </Bouton>
+              </div>
             )}
           </div>
         ))

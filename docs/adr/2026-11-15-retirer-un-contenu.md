@@ -1,7 +1,7 @@
 # Retirer un contenu : le cacher, à cinq grains, par sa clé stable, et le remettre quand on veut
 
 **Date** : 15 novembre 2026
-**Statut** : proposé le 15 novembre 2026 — décision 7 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
+**Statut** : accepté le 15 novembre 2026 (étape 6 du lot : retraits à cinq grains, liste et remise) ; proposé le 15 novembre 2026 — décision 7 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
 
 ## Contexte
 
@@ -86,3 +86,7 @@ GESCO : ce sont les vidéos de l'école qui prennent de la place, et elles se g�
 - Si des écoles demandent qu'un maître puisse retirer dans ses propres matières.
 - Si la liste « Retirés » devient illisible parce que les écoles retirent surtout contenu par
   contenu.
+
+## Mise en œuvre
+
+- 15 novembre 2026, étape 6 : la table `retrait_bibliotheque` (migration 0061) garde chaque retrait ; le noyau (`gesco-core/src/bibliotheque/lecture.rs`, `GrainRetrait`, `CibleRetrait`) cache au rangement du catalogue ce que visent les retraits en cours, et la recherche ne montre que ce que le catalogue montre. La cible d'une matière est sa clé au catalogue : `m:<identifiant>` pour la matière de l'école qui reçoit la discipline par la correspondance, `d:<code>` pour une discipline de référence sans correspondance ; à valider par le porteur du projet (si la direction change la correspondance après coup, le retrait suit la matière qu'elle voyait). Retirer tout le paquet cache les contenus livrés ; les contenus de l'école rangés dans un chapitre livré restent visibles (à valider). Un retrait identique déjà en cours n'est pas doublé. Commandes `bibliotheque_retrait_apercu`, `bibliotheque_retirer`, `bibliotheque_remettre`, `bibliotheque_retraits_lister` (`library:manage`), auditées, événements `BibliothequeRetiree` et `BibliothequeRemise`.

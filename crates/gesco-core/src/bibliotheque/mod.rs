@@ -13,9 +13,10 @@ pub use catalogue::{
 };
 pub use lecon::{Alignement, Bloc, Enligne, FormuleLecon, Lecon, SourceImage, analyser};
 pub use lecture::{
-    ChapitreCatalogue, ContenuCatalogue, EntreesCatalogue, EtatContenu, MatiereCatalogue,
-    MatiereReference, NiveauCatalogue, NiveauReference, PartieCatalogue, SerieCatalogue,
-    SerieReference, construire_catalogue, ranger, requete_recherche,
+    ChapitreCatalogue, CibleRetrait, ContenuCatalogue, EntreesCatalogue, EtatContenu, GrainRetrait,
+    MatiereCatalogue, MatiereReference, NiveauCatalogue, NiveauReference, PartieCatalogue,
+    PlaceContenu, SerieCatalogue, SerieReference, construire_catalogue, places_du_catalogue,
+    ranger, requete_recherche,
 };
 pub use paquet::{
     ChapitrePaquet, ContenuPaquet, DisciplinePaquet, ErreurPaquet, ExamenSujet, ManifestePaquet,

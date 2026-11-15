@@ -9,6 +9,7 @@ import { type Cle, libelleParametre, t } from "../../i18n";
 import type { ModuleEcole, Parametre, ValeurParametre } from "../../types/gesco";
 import { commandeAutorisee } from "../../app/navigation";
 import { DocumentEssai } from "../accueil/Accueil";
+import { CorrespondanceBibliotheque } from "../bibliotheque/CorrespondanceBibliotheque";
 import { ReglagesBibliotheque } from "../bibliotheque/ReglagesBibliotheque";
 import { CompetencesJardin } from "./CompetencesJardin";
 import { FicheEtablissement } from "./FicheEtablissement";
@@ -112,6 +113,7 @@ export function Parametres() {
       <ReglagesBulletin />
       {peutTenirJardin ? <CompetencesJardin /> : null}
       {peutTenirBibliotheque && bibliothequeActive ? <ReglagesBibliotheque /> : null}
+      {peutTenirBibliotheque && bibliothequeActive ? <CorrespondanceBibliotheque /> : null}
       <LargeursColonnes />
       {peutImporterProgramme ? <ImportReferentiel /> : null}
       {peutImporterProgramme ? <ImportProgramme /> : null}

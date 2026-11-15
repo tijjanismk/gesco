@@ -1213,6 +1213,12 @@ contrat! {
     bibliotheque_catalogue(()) -> crate::bibliotheque::CatalogueBibliotheque;
     bibliotheque_lire(crate::bibliotheque::DemandeLectureContenu) -> crate::bibliotheque::LectureContenu;
     bibliotheque_rechercher(crate::bibliotheque::DemandeRechercheBibliotheque) -> Vec<crate::bibliotheque::ResultatRechercheBibliotheque>;
+    bibliotheque_retrait_apercu(crate::bibliotheque::DemandeRetrait) -> crate::bibliotheque::ApercuRetrait;
+    bibliotheque_retirer(crate::bibliotheque::DemandeRetrait) -> Vec<crate::bibliotheque::RetraitAffiche>;
+    bibliotheque_remettre(crate::bibliotheque::DemandeRemiseBibliotheque) -> Vec<crate::bibliotheque::RetraitAffiche>;
+    bibliotheque_retraits_lister(()) -> Vec<crate::bibliotheque::RetraitAffiche>;
+    bibliotheque_correspondances_lire(()) -> crate::bibliotheque::CorrespondancesBibliotheque;
+    bibliotheque_correspondance_regler(crate::bibliotheque::DemandeCorrespondance) -> crate::bibliotheque::CorrespondancesBibliotheque;
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -4953,6 +4959,66 @@ impl Application {
     ) -> Resultat<Vec<crate::bibliotheque::ResultatRechercheBibliotheque>> {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .rechercher(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_retrait_apercu(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeRetrait,
+    ) -> Resultat<crate::bibliotheque::ApercuRetrait> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .apercu_retrait(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_retirer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeRetrait,
+    ) -> Resultat<Vec<crate::bibliotheque::RetraitAffiche>> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .retirer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_remettre(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeRemiseBibliotheque,
+    ) -> Resultat<Vec<crate::bibliotheque::RetraitAffiche>> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .remettre(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_retraits_lister(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<Vec<crate::bibliotheque::RetraitAffiche>> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .retraits(appel.session()?)
+            .await
+    }
+
+    async fn bibliotheque_correspondances_lire(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<crate::bibliotheque::CorrespondancesBibliotheque> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .correspondances(appel.session()?)
+            .await
+    }
+
+    async fn bibliotheque_correspondance_regler(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeCorrespondance,
+    ) -> Resultat<crate::bibliotheque::CorrespondancesBibliotheque> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .regler_correspondance(appel.session()?, &entree)
             .await
     }
 

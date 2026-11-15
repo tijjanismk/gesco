@@ -31,10 +31,15 @@ use crate::noyau::Noyau;
 use crate::session::Session;
 
 mod lire;
+mod retirer;
 
 pub use lire::{
     CatalogueBibliotheque, ContenuLie, DemandeLectureContenu, DemandeRechercheBibliotheque,
     ImageLecon, LectureContenu, ResultatRechercheBibliotheque, VueContenu,
+};
+pub use retirer::{
+    ApercuRetrait, CorrespondanceAffichee, CorrespondancesBibliotheque, DemandeCorrespondance,
+    DemandeRemiseBibliotheque, DemandeRetrait, MatiereChoisissable, RetraitAffiche,
 };
 
 /// Clé publique des paquets de la bibliothèque, distincte de celle des licences.

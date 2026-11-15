@@ -583,3 +583,265 @@ async fn un_maitre_lit_la_bibliotheque_et_arrive_sur_ses_matieres() {
     )
     .await;
 }
+
+// --- Retirer (étape 6) ----------------------------------------------------------------------
+
+fn retrait(grain: &str, cible: &str, niveau: Option<&str>) -> Value {
+    json!({ "grain": grain, "cible": cible, "niveau_code": niveau, "serie_code": null })
+}
+
+#[tokio::test]
+async fn une_matiere_retiree_disparait_du_catalogue_et_de_la_recherche_puis_revient() {
+    let dossier = tempfile::tempdir().unwrap();
+    let cle = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE, PUISSANCES]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(catalogue["peut_gerer"], true);
+    let matiere = catalogue["niveaux"][0]["series"][0]["matieres"][0]["cle"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // La confirmation dit ce qui sera caché.
+    let demande = retrait("matiere", &matiere, Some("9"));
+    let apercu = p
+        .ok("bibliotheque_retrait_apercu", Some(&admin), demande.clone())
+        .await;
+    assert_eq!(
+        apercu,
+        json!({ "lecons": 2, "sujets": 0, "corriges": 0, "documents": 0 })
+    );
+    let retraits = p
+        .ok("bibliotheque_retirer", Some(&admin), demande.clone())
+        .await;
+    assert_eq!(retraits.as_array().unwrap().len(), 1);
+    assert_eq!(retraits[0]["grain"], "matiere");
+    assert_eq!(retraits[0]["retire_par"], "Awa Traoré");
+    // Retirer deux fois la même chose ne double pas le retrait.
+    let retraits = p.ok("bibliotheque_retirer", Some(&admin), demande).await;
+    assert_eq!(retraits.as_array().unwrap().len(), 1);
+
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(catalogue["niveaux"], json!([]));
+    let trouves = p
+        .ok(
+            "bibliotheque_rechercher",
+            Some(&admin),
+            json!({ "texte": "racine" }),
+        )
+        .await;
+    assert_eq!(trouves, json!([]));
+
+    // Une mise à jour qui ajoute une leçon à la matière ne la fait pas paraître.
+    let fichier = ecrire(
+        cle.path(),
+        "maj.gbib",
+        &paquet("2026.12.1", &[RACINE, PUISSANCES, PYTHAGORE]),
+    );
+    p.ok(
+        "bibliotheque_installer",
+        Some(&admin),
+        json!({ "chemin": fichier.to_string_lossy() }),
+    )
+    .await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(catalogue["niveaux"], json!([]));
+
+    // Remise : tout revient, la leçon nouvelle comprise.
+    let id = retraits[0]["id"].clone();
+    let restants = p
+        .ok(
+            "bibliotheque_remettre",
+            Some(&admin),
+            json!({ "retrait_id": id }),
+        )
+        .await;
+    assert_eq!(restants, json!([]));
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(contenus_de(&catalogue).len(), 3);
+    // Une remise faite ne se refait pas.
+    let refus = p
+        .refus(
+            "bibliotheque_remettre",
+            Some(&admin),
+            json!({ "retrait_id": id }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.retrait_inconnu");
+}
+
+#[tokio::test]
+async fn un_contenu_cache_par_deux_retraits_le_dit() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE, PUISSANCES]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    p.ok(
+        "bibliotheque_retirer",
+        Some(&admin),
+        retrait("contenu", RACINE.0, None),
+    )
+    .await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(contenus_de(&catalogue).len(), 1);
+    let retraits = p
+        .ok(
+            "bibliotheque_retirer",
+            Some(&admin),
+            retrait("chapitre", "9/MATH/Algèbre/Racines", None),
+        )
+        .await;
+    let chapitre = retraits
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["grain"] == "chapitre")
+        .unwrap();
+    let contenu = retraits
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["grain"] == "contenu")
+        .unwrap();
+    assert_eq!(contenu["titre"], "La racine carrée");
+    assert_eq!(chapitre["titre"], "Racines carrées");
+    assert_eq!(contenu["aussi"], json!([chapitre["id"]]));
+    assert_eq!(chapitre["aussi"], json!([]));
+}
+
+#[tokio::test]
+async fn seule_la_direction_retire_et_regle_la_correspondance() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    p.ok(
+        "utilisateur_creer",
+        Some(&admin),
+        json!({ "identifiant": "awa", "nom_affiche": "Awa Diarra",
+            "mot_de_passe_initial": "secretaire-2026", "roles": ["secretaire"] }),
+    )
+    .await;
+    let secretaire = p.connecter("awa", "secretaire-2026").await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&secretaire), Value::Null)
+        .await;
+    assert_eq!(catalogue["peut_gerer"], false);
+    for (commande, entree) in [
+        ("bibliotheque_retirer", retrait("niveau", "9", None)),
+        ("bibliotheque_retrait_apercu", retrait("niveau", "9", None)),
+        ("bibliotheque_retraits_lister", Value::Null),
+        ("bibliotheque_correspondances_lire", Value::Null),
+    ] {
+        let refus = p.refus(commande, Some(&secretaire), entree).await;
+        assert_eq!(refus.cle, "erreur.permission_refusee", "{commande}");
+    }
+    // Une matière sans niveau ne se retire pas.
+    let refus = p
+        .refus(
+            "bibliotheque_retirer",
+            Some(&admin),
+            retrait("matiere", "d:MATH", None),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.retrait_incomplet");
+}
+
+#[tokio::test]
+async fn la_correspondance_range_la_discipline_sous_la_matiere_choisie() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let lues = p
+        .ok(
+            "bibliotheque_correspondances_lire",
+            Some(&admin),
+            Value::Null,
+        )
+        .await;
+    let ligne = lues["correspondances"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["discipline_code"] == "MATH" && c["niveau_code"] == "9")
+        .unwrap()
+        .clone();
+    assert!(ligne["matiere_id"].is_string(), "posée par code exact");
+    assert_eq!(ligne["discipline"], "Mathématiques");
+
+    // Sans matière : les leçons gardent le nom de la bibliothèque.
+    p.ok(
+        "bibliotheque_correspondance_regler",
+        Some(&admin),
+        json!({ "discipline_code": "MATH", "niveau_code": "9", "matiere_id": null }),
+    )
+    .await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let matiere = &catalogue["niveaux"][0]["series"][0]["matieres"][0];
+    assert_eq!(matiere["cle"], "d:MATH");
+    assert_eq!(matiere["libelle"], "Mathématiques");
+
+    // Une matière inconnue est refusée.
+    let refus = p
+        .refus(
+            "bibliotheque_correspondance_regler",
+            Some(&admin),
+            json!({ "discipline_code": "MATH", "niveau_code": "9",
+                "matiere_id": "01JZZZZZZZZZZZZZZZZZZZZZZZ" }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.matiere_inconnue");
+
+    // De retour sous la matière de l'école ; une mise à jour ne change plus ce choix.
+    p.ok(
+        "bibliotheque_correspondance_regler",
+        Some(&admin),
+        json!({ "discipline_code": "MATH", "niveau_code": "9",
+            "matiere_id": ligne["matiere_id"] }),
+    )
+    .await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    assert!(
+        catalogue["niveaux"][0]["series"][0]["matieres"][0]["cle"]
+            .as_str()
+            .unwrap()
+            .starts_with("m:")
+    );
+}

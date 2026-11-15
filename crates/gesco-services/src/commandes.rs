@@ -519,6 +519,19 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("bibliotheque_catalogue", Permission::LIBRARY_READ),
     Commande::permise("bibliotheque_lire", Permission::LIBRARY_READ),
     Commande::permise("bibliotheque_rechercher", Permission::LIBRARY_READ),
+    // Retirer et remettre, correspondance des disciplines : la direction.
+    Commande::permise("bibliotheque_retrait_apercu", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_retirer", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_remettre", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_retraits_lister", Permission::LIBRARY_MANAGE),
+    Commande::permise(
+        "bibliotheque_correspondances_lire",
+        Permission::LIBRARY_MANAGE,
+    ),
+    Commande::permise(
+        "bibliotheque_correspondance_regler",
+        Permission::LIBRARY_MANAGE,
+    ),
     // Résultats aux examens (SPEC_PHASE_9 §8.5) : tenus avec la fiche de l'établissement.
     Commande::permise("examens_lire", Permission::SCHOOL_PROFILE_MANAGE),
     Commande::permise("resultat_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),

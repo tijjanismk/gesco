@@ -7,6 +7,7 @@ import { MessageErreur } from "../../composants/Messages";
 import { t } from "../../i18n";
 import type { ExamenSujet, LectureContenu, NatureContenu, VueContenu } from "../../types/gesco";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
+import { type PlaceAuCatalogue, RetirerAutour } from "./Retraits";
 
 const CLE_TAILLE = "gesco.bibliotheque.taille";
 const TAILLE_MIN = 80;
@@ -107,7 +108,18 @@ function ModeClasse({ contenu, surFermer }: { contenu: LectureContenu; surFermer
 
 /** Un contenu ouvert : barre de la leçon (versions, contenu lié, taille du texte, mode classe)
  *  et le texte. */
-export function Lecture({ contenuId, surOuvrir }: { contenuId: string; surOuvrir: (id: string) => void }) {
+export function Lecture({
+  contenuId,
+  surOuvrir,
+  place,
+  peutGerer,
+}: {
+  contenuId: string;
+  surOuvrir: (id: string) => void;
+  /** Place du contenu au catalogue, pour la direction qui retire. */
+  place: PlaceAuCatalogue | null;
+  peutGerer: boolean;
+}) {
   const [vue, setVue] = useState<VueContenu | null>(null);
   const [taille, setTaille] = useState(tailleRetenue);
   const [classe, setClasse] = useState(false);
@@ -157,6 +169,7 @@ export function Lecture({ contenuId, surOuvrir }: { contenuId: string; surOuvrir
           <Bouton variante="secondaire" onClick={() => setClasse(true)}>
             {t("bibliotheque.mode_classe")}
           </Bouton>
+          {peutGerer && place !== null ? <RetirerAutour place={place} /> : null}
         </div>
       </header>
       <MessageErreur erreur={lecture.error} />

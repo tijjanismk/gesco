@@ -812,3 +812,140 @@ pub async fn rechercher(
     .fetch_all(cnx)
     .await?)
 }
+
+// --- Retraits et correspondance -------------------------------------------------------------
+
+/// Un retrait lu dans la base.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct LigneRetrait {
+    /// Identifiant.
+    pub id: String,
+    /// Grain (nom persisté).
+    pub grain: String,
+    /// Cible.
+    pub cible: String,
+    /// Niveau d'une matière.
+    pub niveau_code: Option<String>,
+    /// Série d'une matière.
+    pub serie_code: Option<String>,
+    /// Retiré le.
+    pub retire_le: i64,
+    /// Nom de qui a retiré.
+    pub retire_par: String,
+    /// Remis le.
+    pub remis_le: Option<i64>,
+}
+
+/// Retraits de l'établissement ; `en_cours` : ceux qui ne sont pas remis.
+pub async fn retraits(
+    cnx: &mut Connexion,
+    en_cours: bool,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneRetrait>> {
+    Ok(sqlx::query_as::<_, LigneRetrait>(
+        "SELECT r.id, r.grain, r.cible, r.niveau_code, r.serie_code, r.retire_le,
+                COALESCE(u.nom_affiche, '') AS retire_par, r.remis_le
+         FROM retrait_bibliotheque r LEFT JOIN utilisateur u ON u.id = r.retire_par
+         WHERE r.etablissement_id = ?1 AND (?2 = 0 OR r.remis_le IS NULL)
+         ORDER BY r.retire_le DESC, r.id DESC",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(i64::from(en_cours))
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Écrit un retrait.
+pub async fn inserer_retrait(
+    cnx: &mut Connexion,
+    grain: &str,
+    cible: &str,
+    niveau_code: Option<&str>,
+    serie_code: Option<&str>,
+    contexte: &Contexte,
+) -> Resultat<String> {
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    sqlx::query(
+        "INSERT INTO retrait_bibliotheque (id, etablissement_id, grain, cible, niveau_code,
+            serie_code, retire_le, retire_par, cree_le, cree_par, mis_a_jour_le, mis_a_jour_par,
+            identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?7, ?8, ?7, ?8, ?9)",
+    )
+    .bind(&id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(grain)
+    .bind(cible)
+    .bind(niveau_code)
+    .bind(serie_code)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(id)
+}
+
+/// Remet un retrait en cours ; faux s'il n'existe pas ou s'il est déjà remis.
+pub async fn remettre_retrait(
+    cnx: &mut Connexion,
+    id: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let maintenant = contexte.maintenant.millis_epoque();
+    let faite = sqlx::query(
+        "UPDATE retrait_bibliotheque SET remis_le = ?1, remis_par = ?2, mis_a_jour_le = ?1,
+            mis_a_jour_par = ?2, identifiant_poste = ?3
+         WHERE id = ?4 AND etablissement_id = ?5 AND remis_le IS NULL",
+    )
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .execute(cnx)
+    .await?;
+    Ok(faite.rows_affected() > 0)
+}
+
+/// Règle la correspondance d'une discipline dans un niveau (la crée si elle manque). Rend la
+/// matière d'avant.
+pub async fn regler_correspondance(
+    cnx: &mut Connexion,
+    discipline: &str,
+    niveau_code: &str,
+    matiere_id: Option<&str>,
+    contexte: &Contexte,
+) -> Resultat<Option<String>> {
+    let avant: Option<(Option<String>,)> = sqlx::query_as(
+        "SELECT matiere_id FROM correspondance_discipline
+         WHERE etablissement_id = ?1 AND discipline_code = ?2 AND niveau_code = ?3",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(discipline)
+    .bind(niveau_code)
+    .fetch_optional(&mut *cnx)
+    .await?;
+    let maintenant = contexte.maintenant.millis_epoque();
+    sqlx::query(
+        "INSERT INTO correspondance_discipline (id, etablissement_id, discipline_code,
+            niveau_code, matiere_id, cree_le, cree_par, mis_a_jour_le, mis_a_jour_par,
+            identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?6, ?7, ?8)
+         ON CONFLICT (etablissement_id, discipline_code, niveau_code) DO UPDATE SET
+            matiere_id = excluded.matiere_id, mis_a_jour_le = excluded.mis_a_jour_le,
+            mis_a_jour_par = excluded.mis_a_jour_par,
+            identifiant_poste = excluded.identifiant_poste",
+    )
+    .bind(nouvel_id::<ContenuBibliotheque>().vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(discipline)
+    .bind(niveau_code)
+    .bind(matiere_id)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(avant.and_then(|(m,)| m))
+}

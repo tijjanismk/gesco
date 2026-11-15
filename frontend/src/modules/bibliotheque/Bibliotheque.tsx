@@ -12,6 +12,7 @@ import type {
   ResultatRechercheBibliotheque,
 } from "../../types/gesco";
 import { Lecture, libelleNature } from "./Lecture";
+import { ListeRetraits, trouverPlace } from "./Retraits";
 
 interface Filtres {
   mesMatieres: boolean;
@@ -270,6 +271,7 @@ export function Bibliotheque() {
   const [choisi, setChoisi] = useState<string | null>(null);
   const [saisie, setSaisie] = useState("");
   const [cherche, setCherche] = useState("");
+  const [retires, setRetires] = useState(false);
   useEffect(() => {
     const minuterie = window.setTimeout(() => setCherche(saisie.trim()), 250);
     return () => window.clearTimeout(minuterie);
@@ -289,7 +291,20 @@ export function Bibliotheque() {
   const niveaux = useMemo(() => (donnees === undefined ? [] : filtrer(donnees.niveaux, enCours)), [donnees, enCours]);
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold text-marine">{t("bibliotheque.titre")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold text-marine">{t("bibliotheque.titre")}</h1>
+        {donnees?.peut_gerer === true ? (
+          <button
+            type="button"
+            onClick={() => setRetires(!retires)}
+            aria-pressed={retires}
+            className="rounded border border-muet px-3 py-1.5 text-sm text-encre hover:bg-fond focus-visible:outline-2 focus-visible:outline-primaire"
+          >
+            {retires ? t("bibliotheque.retires.retour") : t("bibliotheque.retires")}
+          </button>
+        ) : null}
+      </div>
+      {retires ? <ListeRetraits /> : null}
       <div className="flex flex-wrap items-end gap-2">
         <label htmlFor="bibliotheque-recherche" className="flex min-w-64 flex-1 flex-col gap-1 text-sm text-encre">
           <span>{t("bibliotheque.rechercher")}</span>
@@ -313,7 +328,7 @@ export function Bibliotheque() {
         )}
       </div>
       <MessageErreur erreur={catalogue.error} />
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={`grid gap-4 md:grid-cols-3 ${retires ? "hidden" : ""}`}>
         <div className="flex flex-col gap-3 md:col-span-1">
           {cherche !== "" ? (
             <>
@@ -337,7 +352,13 @@ export function Bibliotheque() {
           {choisi === null ? (
             <p className="text-sm text-muet">{t("bibliotheque.choisir")}</p>
           ) : (
-            <Lecture key={choisi} contenuId={choisi} surOuvrir={setChoisi} />
+            <Lecture
+              key={choisi}
+              contenuId={choisi}
+              surOuvrir={setChoisi}
+              place={donnees === undefined ? null : trouverPlace(donnees, choisi)}
+              peutGerer={donnees?.peut_gerer === true}
+            />
           )}
         </div>
       </div>
