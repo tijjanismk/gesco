@@ -475,3 +475,12 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   lancés depuis l'étape 2. `phase9-etapes-2-8` a passé la main (note « Reprise » dans
   `ETAT_AVANCEMENT.md`). Étapes 4 à 8 lancées dans `local_602fd3de-311d-4953-aa8f-19f8fc50df3d`.
   Sessions à archiver avec l'accord du porteur : `phase9-etape1`, `phase9-etapes-2-8`.
+- 2026-11-15 : **phase 9 finie**. Étapes 4 à 8 (`16cc278`, `68c12d4`, `a786f01`, `97fa7dd`,
+  `2085545`) et essais globaux verts avec corrections (`952b45c`), captures 180 à 202 montrées au
+  porteur. Les sessions se sont relayées seules (`phase9-etape6` → `etape7` → `etape8` →
+  `essais-globaux`). Environ 20 choix « à valider par le porteur » dans la section « Phase 9 » de
+  `ETAT_AVANCEMENT.md`. École d'essai refaite le 15 novembre en 2.0.0.
+  Lancées en parallèle, sans compilation : spécification de la sauvegarde hors de l'école
+  (`local_02f3cd32-bff7-44d7-b30e-a3a840af0f5d`, `SPEC_SAUVEGARDE_HORS_ECOLE.md`) et ADR et
+  spécification du lot 1 de la phase 12 (`local_52b3f98e-c531-4c47-b000-424c217c7275`,
+  `SPEC_PHASE_12_LOT_1.md`). Sessions de la phase 9 à archiver avec l'accord du porteur.
