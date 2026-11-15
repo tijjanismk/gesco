@@ -494,3 +494,11 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   en place (mêmes règles, mêmes formes d'écran et de nom qu'ailleurs), aligne ce qui s'en écarte
   (dont « Nom Prénoms » de la grille des examens) et reporte la validation dans
   `ETAT_AVANCEMENT.md`.
+- 2026-11-15 : spécifications commitées : sauvegarde hors de l'école (`5f23285`, T-130 à T-133),
+  phase 12 lot 1 (`771cde4`, T-116 à T-123, 8 ADR proposés), lots C et D (`0eefb8c`, T-150 à T-160,
+  4 ADR, §15 ce que seul le porteur fournit). 23 questions présentées au porteur avec
+  recommandations ; sa réponse : « on code la phase e-learning, après les tests globaux ».
+  Recommandations T-116 à T-123 retenues sauf avis contraire ; T-130 à T-133 et T-150 à T-160 sans
+  réponse. Phase 12 lot 1 (étapes 1 à 10, avec reprise de la phase 9 en tête) lancée dans
+  `local_b35dbff2-4688-4393-89c4-61f0b1d870b1`, avec relais autonome. T-123 (79 leçons en LaTeX,
+  AN-09) attend un mot du porteur (rédaction arrêtée). Disque : 6,5 Go libres le 15 novembre.
