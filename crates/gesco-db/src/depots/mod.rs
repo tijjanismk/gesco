@@ -42,6 +42,7 @@ pub mod parametre;
 pub mod pedagogie;
 pub mod personnel;
 pub mod personnes;
+pub mod rapports;
 pub mod recettes;
 pub mod remises;
 pub mod remises_documents;

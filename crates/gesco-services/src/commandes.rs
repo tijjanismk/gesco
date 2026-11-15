@@ -153,6 +153,7 @@ pub const COMMANDES_DE_FICHE: &[&str] = &[
     "fournisseur_enregistrer",
     "observation_saisir",
     "observations_colonne",
+    "rapport_texte_enregistrer",
 ];
 
 /// Pourquoi une commande qui modifie ne vérifie pas l'instant de dernière modification.
@@ -200,6 +201,7 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("total_examen_regler", SansControle::Grille),
     ("examens_entree_7e_regler", SansControle::Valeur),
     ("complement_eleve_regler", SansControle::Grille),
+    ("rapport_regler", SansControle::Reference),
     ("classe_rapports_regler", SansControle::Reference),
     ("difficulte_eleve_regler", SansControle::Valeur),
     ("complement_membre_regler", SansControle::Grille),
@@ -460,6 +462,19 @@ pub const COMMANDES: &[Commande] = &[
     // Statistiques de l'école (SPEC_PHASE_9 §9.1, §11) : elles ne font que lire.
     Commande::permise("statistiques_lire", Permission::STATISTICS_READ),
     Commande::permise("statistiques_exporter", Permission::STATISTICS_READ),
+    // Rapports de rentrée (SPEC_PHASE_9 §8.6, §9.3) : la direction les rédige, les arrête et
+    // les rouvre.
+    Commande::permise("rapports_lister", Permission::SCHOOL_REPORTS_MANAGE),
+    Commande::permise("rapport_preparer", Permission::SCHOOL_REPORTS_MANAGE),
+    Commande::permise("rapport_lire", Permission::SCHOOL_REPORTS_MANAGE),
+    Commande::permise("rapport_regler", Permission::SCHOOL_REPORTS_MANAGE),
+    Commande::permise(
+        "rapport_texte_enregistrer",
+        Permission::SCHOOL_REPORTS_MANAGE,
+    ),
+    Commande::permise("rapport_apercu", Permission::SCHOOL_REPORTS_MANAGE),
+    Commande::permise("rapport_arreter", Permission::SCHOOL_REPORTS_MANAGE),
+    Commande::permise("rapport_rouvrir", Permission::SCHOOL_REPORTS_MANAGE),
     // Fiche de l'établissement (SPEC_PHASE_9 §8.1) : lue avec les statistiques, tenue par qui
     // en a la charge ; une case à la fois, la dernière écriture gagne.
     Commande::permise("fiche_ecole_lire", Permission::STATISTICS_READ),

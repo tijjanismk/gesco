@@ -197,13 +197,13 @@ impl<'n> ServiceStatistiques<'n> {
         Self { noyau }
     }
 
-    /// Chiffres de l'école à la date demandée. Une école sans année, sans élève ou sans
-    /// personnel a ses tableaux vides, jamais un refus.
-    pub async fn lire(
+    /// Données brutes de l'année demandée, à la date d'arrêt : ce que les onglets et les
+    /// rapports comptent. Rien ne s'écrit.
+    pub(crate) async fn charger(
         &self,
         session: &Session,
         demande: &DemandeStatistiques,
-    ) -> Resultat<Statistiques> {
+    ) -> Resultat<DonneesStat> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let aujourd_hui = jour(contexte.maintenant)?;
         let mut cnx = self
@@ -277,37 +277,63 @@ impl<'n> ServiceStatistiques<'n> {
                 cycles.push(cycle);
             }
         }
-        let perimetre = Perimetre {
+        Ok(DonneesStat {
+            annees,
+            choisie,
+            rentree,
+            fin,
             date,
-            rentree: rentree.unwrap_or(date),
-            cycle: demande.cycle,
-            classes: classes.iter().map(|c| (c.id.as_str(), c)).collect(),
-        };
-        let eleves = onglet_eleves(&perimetre, &classes, &inscriptions, &complements);
+            cycles,
+            classes,
+            inscriptions,
+            affectations,
+            seances,
+            articles,
+            releves,
+            niveaux,
+            resultats,
+            totaux,
+            membres,
+            engagements,
+            complements,
+        })
+    }
+
+    /// Chiffres de l'école à la date demandée. Une école sans année, sans élève ou sans
+    /// personnel a ses tableaux vides, jamais un refus.
+    pub async fn lire(
+        &self,
+        session: &Session,
+        demande: &DemandeStatistiques,
+    ) -> Resultat<Statistiques> {
+        let d = self.charger(session, demande).await?;
+        let perimetre = d.perimetre(demande.cycle);
+        let eleves = onglet_eleves(&perimetre, &d.classes, &d.inscriptions, &d.complements);
         let personnel = onglet_personnel(
             &perimetre,
-            &membres,
-            &engagements,
-            &affectations,
-            &seances,
-            &complements,
+            &d.membres,
+            &d.engagements,
+            &d.affectations,
+            &d.seances,
+            &d.complements,
         );
-        let locaux = onglet_locaux(&articles, &releves, &niveaux, demande.cycle);
-        let examens = onglet_examens(&perimetre, &inscriptions, &resultats, &totaux);
+        let locaux = onglet_locaux(&d.articles, &d.releves, &d.niveaux, demande.cycle);
+        let examens = onglet_examens(&perimetre, &d.inscriptions, &d.resultats, &d.totaux);
         Ok(Statistiques {
-            annees: annees
+            annees: d
+                .annees
                 .iter()
                 .map(|a| AnneeStatistiques {
                     id: a.id,
                     libelle: a.libelle.clone(),
                 })
                 .collect(),
-            annee_id: choisie.map(|a| a.id),
-            rentree,
-            fin,
-            date,
+            annee_id: d.choisie.as_ref().map(|a| a.id),
+            rentree: d.rentree,
+            fin: d.fin,
+            date: d.date,
             cycle: demande.cycle,
-            cycles,
+            cycles: d.cycles.clone(),
             eleves,
             personnel,
             locaux,
@@ -397,22 +423,62 @@ impl<'n> ServiceStatistiques<'n> {
     }
 }
 
+/// Données brutes d'une année, chargées une fois pour les onglets et les rapports.
+pub(crate) struct DonneesStat {
+    /// Années, de la plus récente à la plus ancienne.
+    pub(crate) annees: Vec<AnneeScolaire>,
+    /// Année retenue.
+    pub(crate) choisie: Option<AnneeScolaire>,
+    /// Premier jour de l'année.
+    pub(crate) rentree: Option<DateCivile>,
+    /// Dernier jour de l'année.
+    pub(crate) fin: Option<DateCivile>,
+    /// Date d'arrêt.
+    pub(crate) date: DateCivile,
+    /// Cycles qui ont une classe.
+    pub(crate) cycles: Vec<Cycle>,
+    pub(crate) classes: Vec<ClasseStat>,
+    pub(crate) inscriptions: Vec<InscriptionStat>,
+    pub(crate) affectations: Vec<AffectationStat>,
+    pub(crate) seances: Vec<statistiques::SeanceStat>,
+    pub(crate) articles: Vec<gesco_core::core::ArticleInventaire>,
+    pub(crate) releves: Vec<gesco_core::core::ReleveInventaire>,
+    pub(crate) niveaux: Vec<gesco_core::scolarite::Niveau>,
+    pub(crate) resultats: Vec<examens::ResultatExamen>,
+    pub(crate) totaux: Vec<examens::TotalExamen>,
+    pub(crate) membres: Vec<MembreStat>,
+    pub(crate) engagements: Vec<EngagementStat>,
+    pub(crate) complements: ComplementsStat,
+}
+
+impl DonneesStat {
+    /// Périmètre des chiffres : la date, la rentrée, un cycle ou toute l'école.
+    pub(crate) fn perimetre(&self, cycle: Option<Cycle>) -> Perimetre<'_> {
+        Perimetre {
+            date: self.date,
+            rentree: self.rentree.unwrap_or(self.date),
+            cycle,
+            classes: self.classes.iter().map(|c| (c.id.as_str(), c)).collect(),
+        }
+    }
+}
+
 /// Ce que les fiches disent en plus pour les rapports (étape 3).
-struct ComplementsStat {
+pub(crate) struct ComplementsStat {
     /// Année de recrutement par élève : saisie, sinon déduite.
-    annees_recrutement: HashMap<String, i32>,
+    pub(crate) annees_recrutement: HashMap<String, i32>,
     /// Élèves pris en charge par l'État cette année.
     pris_en_charge: HashSet<String>,
     /// Difficultés des élèves, pour qui a le droit de les lire.
     difficultes: Option<Vec<DifficulteEleve>>,
     /// Compléments saisis du personnel, par membre.
-    membres: HashMap<String, MembreComplete>,
+    pub(crate) membres: HashMap<String, MembreComplete>,
 }
 
 /// Statut, spécialité et diplôme saisis d'un membre du personnel.
-struct MembreComplete {
-    statut: Option<StatutRapport>,
-    specialite: Option<Specialite>,
+pub(crate) struct MembreComplete {
+    pub(crate) statut: Option<StatutRapport>,
+    pub(crate) specialite: Option<Specialite>,
     diplome: Option<DiplomeEleve>,
 }
 
@@ -420,11 +486,11 @@ struct MembreComplete {
 const CLE_SANS_SEXE: &str = "statistiques.hors.eleves_sans_sexe";
 
 /// Ce qui borne les chiffres : la date, la rentrée, le cycle, les classes de l'année.
-struct Perimetre<'a> {
-    date: DateCivile,
-    rentree: DateCivile,
-    cycle: Option<Cycle>,
-    classes: HashMap<&'a str, &'a ClasseStat>,
+pub(crate) struct Perimetre<'a> {
+    pub(crate) date: DateCivile,
+    pub(crate) rentree: DateCivile,
+    pub(crate) cycle: Option<Cycle>,
+    pub(crate) classes: HashMap<&'a str, &'a ClasseStat>,
 }
 
 impl Perimetre<'_> {
@@ -434,7 +500,7 @@ impl Perimetre<'_> {
     }
 }
 
-fn date(texte: Option<&str>) -> Option<DateCivile> {
+pub(crate) fn date(texte: Option<&str>) -> Option<DateCivile> {
     texte.and_then(DateCivile::analyser)
 }
 
@@ -556,12 +622,12 @@ fn tableau_par_sexe(
 }
 
 /// Une inscription retenue : présente à la date, entrée ou partie depuis la rentrée.
-struct Retenue<'a> {
-    inscription: &'a InscriptionStat,
-    classe: &'a ClasseStat,
-    presente: bool,
+pub(crate) struct Retenue<'a> {
+    pub(crate) inscription: &'a InscriptionStat,
+    pub(crate) classe: &'a ClasseStat,
+    pub(crate) presente: bool,
     entree: bool,
-    depart: Option<DateCivile>,
+    pub(crate) depart: Option<DateCivile>,
 }
 
 /// Jour du départ d'une inscription close : celui qui est noté, sinon le jour où elle a été
@@ -583,7 +649,10 @@ fn classe_le(i: &InscriptionStat, jour: DateCivile) -> &str {
     }
 }
 
-fn retenir<'a>(p: &Perimetre<'a>, inscriptions: &'a [InscriptionStat]) -> Vec<Retenue<'a>> {
+pub(crate) fn retenir<'a>(
+    p: &Perimetre<'a>,
+    inscriptions: &'a [InscriptionStat],
+) -> Vec<Retenue<'a>> {
     let mut presents: HashSet<&str> = HashSet::new();
     let mut retenues = Vec::new();
     for i in inscriptions {
@@ -913,7 +982,7 @@ fn onglet_eleves(
 
 /// Engagement en cours à la date : commencé, pas encore arrêté ; le plus récent s'il y en a
 /// plusieurs.
-fn engagement_le<'a>(
+pub(crate) fn engagement_le<'a>(
     engagements: &'a [EngagementStat],
     membre: &str,
     jour: DateCivile,

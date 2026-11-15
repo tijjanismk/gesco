@@ -1,0 +1,15 @@
+{
+  "id": "rapport_ecole",
+  "version": 1,
+  "libelle": "Rapport de l'école (rentrée)",
+  "variables": [
+    { "nom": "titre", "requise": true },
+    { "nom": "annee", "requise": true },
+    { "nom": "arret", "requise": true },
+    { "nom": "entete", "requise": true },
+    { "nom": "sections", "requise": true },
+    { "nom": "tableaux", "requise": true },
+    { "nom": "fait_a", "requise": true },
+    { "nom": "qualite", "requise": true }
+  ]
+}

@@ -1641,6 +1641,22 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	statistiques_exporter: Signature<DemandeExportStatistiques, FichierEcrit>,
 	/**  Signature de la commande du même nom. */
+	rapports_lister: Signature<DemandeRapports, ListeRapports>,
+	/**  Signature de la commande du même nom. */
+	rapport_preparer: Signature<DemandePreparationRapport, RapportEcole>,
+	/**  Signature de la commande du même nom. */
+	rapport_lire: Signature<DemandeRapport, RapportEcole>,
+	/**  Signature de la commande du même nom. */
+	rapport_regler: Signature<DemandeReglageRapport, RapportEcole>,
+	/**  Signature de la commande du même nom. */
+	rapport_texte_enregistrer: Signature<DemandeTexteRapport, RapportEcole>,
+	/**  Signature de la commande du même nom. */
+	rapport_apercu: Signature<DemandeRapport, PdfRapport>,
+	/**  Signature de la commande du même nom. */
+	rapport_arreter: Signature<DemandeRapport, RapportEcole>,
+	/**  Signature de la commande du même nom. */
+	rapport_rouvrir: Signature<DemandeRapport, RapportEcole>,
+	/**  Signature de la commande du même nom. */
 	fiche_ecole_lire: Signature<DemandeFicheEcole, FicheEcole>,
 	/**  Signature de la commande du même nom. */
 	fiche_ecole_repondre: Signature<DemandeReponseFiche, FicheEcole>,
@@ -10116,4 +10132,182 @@ export type DemandeTotalExamen = {
 /**  Réglage de l'examen d'entrée en 7e. */
 export type DemandeEntree7e = {
 	actif: boolean,
+};
+
+/**  Type d'un rapport. */
+export type TypeRapport = "succinct_rentree" | "rentree";
+
+/**  État d'un rapport. */
+export type EtatRapport = "preparation" | "arrete";
+
+/**  Les rapports d'une année. */
+export type DemandeRapports = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
+};
+
+/**  Un rapport de la liste : préparé ou pas encore. */
+export type ResumeRapport = {
+	/**  Type. */
+	type_rapport: TypeRapport,
+	/**  Identifiant, s'il est préparé. */
+	id: string | null,
+	/**  État, s'il est préparé. */
+	etat: EtatRapport | null,
+	/**  Version, s'il est préparé. */
+	version: number | null,
+	/**  Date d'arrêt, s'il est préparé. */
+	date_arret: string | null,
+};
+
+/**  Rapports d'une année. */
+export type ListeRapports = {
+	/**  Années qu'on peut choisir, de la plus récente à la plus ancienne. */
+	annees: AnneeStatistiques[],
+	/**  Année retenue. */
+	annee_id: string | null,
+	/**  Un résumé par type de rapport. */
+	rapports: ResumeRapport[],
+};
+
+/**  Préparer le rapport d'un type pour une année : il est créé s'il n'existe pas. */
+export type DemandePreparationRapport = {
+	/**  Année. */
+	annee_id: string,
+	/**  Type. */
+	type_rapport: TypeRapport,
+};
+
+/**  Désigne un rapport. */
+export type DemandeRapport = {
+	/**  Rapport. */
+	id: string,
+};
+
+/**  Réglages d'un rapport en préparation. */
+export type DemandeReglageRapport = {
+	/**  Rapport. */
+	id: string,
+	/**  Date d'arrêt des chiffres. */
+	date_arret: string,
+	/**  Lieu de « Fait à ». */
+	lieu: string,
+	/**  Date de signature. */
+	date_signature: string | null,
+	/**  Qualité du signataire. */
+	qualite_signataire: string,
+};
+
+/**  Texte d'une section, avec l'instant lu avec lui. */
+export type DemandeTexteRapport = {
+	/**  Rapport. */
+	id: string,
+	/**  Code de la section. */
+	section: string,
+	/**  Texte. */
+	texte: string,
+	/**  Instant de dernière modification lu avec la section. */
+	lue_le: number,
+};
+
+/**  Une ligne de l'en-tête administratif. */
+export type LigneEntete = {
+	/**  Rubrique. */
+	libelle: string,
+	/**  Valeur ; vide quand elle n'est pas connue. */
+	valeur: string,
+};
+
+/**  Une section rédigée, telle qu'imprimée. */
+export type SectionImprimee = {
+	/**  Titre. */
+	titre: string,
+	/**  Texte. */
+	texte: string,
+};
+
+/**  Un tableau d'un rapport, prêt à montrer, imprimer et exporter. */
+export type TableauRapport = {
+	/**  Code stable. */
+	code: string,
+	/**  Titre, tel que le modèle le nomme. */
+	titre: string,
+	/**  En-têtes des colonnes ; la première est celle des libellés. */
+	colonnes: string[],
+	/**  Lignes, chacune aussi large que les en-têtes ; une case vide est une chaîne vide. */
+	lignes: string[][],
+	/**  Vrai pour un tableau large, imprimé en paysage. */
+	paysage: boolean,
+	/**  Écran où se corrige la donnée : `statistiques` ou `inventaire`. */
+	lien: string,
+};
+
+/**  Contenu d'un rapport : ce qui s'imprime. Figé à l'arrêt. */
+export type ContenuRapport = {
+	/**  Titre. */
+	titre: string,
+	/**  Année scolaire. */
+	annee: string,
+	/**  Date d'arrêt des chiffres, en toutes lettres. */
+	arret: string,
+	/**  En-tête administratif. */
+	entete: LigneEntete[],
+	/**  Sections rédigées. */
+	sections: SectionImprimee[],
+	/**  Tableaux. */
+	tableaux: TableauRapport[],
+	/**  « Fait à … le … ». */
+	fait_a: string,
+	/**  Qualité du signataire. */
+	qualite: string,
+};
+
+/**  Une section rédigée à l'écran. */
+export type SectionRapport = {
+	/**  Code. */
+	code: string,
+	/**  Titre. */
+	titre: string,
+	/**  Texte. */
+	texte: string,
+	/**  Instant de dernière modification ; zéro si rien n'est encore écrit. */
+	lue_le: number,
+	/**  Texte de la même section dans le rapport de l'an dernier, s'il y en a un. */
+	an_dernier: string | null,
+	/**  Chiffres du jour proposés à insérer (section aidée). */
+	propose: string | null,
+};
+
+/**  Un rapport ouvert. */
+export type RapportEcole = {
+	/**  Identifiant. */
+	id: string,
+	/**  Année. */
+	annee_id: string,
+	/**  Type. */
+	type_rapport: TypeRapport,
+	/**  État. */
+	etat: EtatRapport,
+	/**  Version. */
+	version: number,
+	/**  Date d'arrêt des chiffres. */
+	date_arret: string,
+	/**  Lieu de « Fait à ». */
+	lieu: string,
+	/**  Date de signature. */
+	date_signature: string | null,
+	/**  Qualité du signataire. */
+	qualite_signataire: string,
+	/**  Sections rédigées, dans l'ordre du modèle. */
+	sections: SectionRapport[],
+	/**  Contenu imprimé : calculé à la date d'arrêt, ou figé si le rapport est arrêté. */
+	contenu: ContenuRapport,
+	/**  Documents imprimés aux arrêts successifs, du plus ancien au plus récent. */
+	documents: Document[],
+};
+
+/**  PDF d'un rapport : l'aperçu d'un rapport en préparation, ou le document de son arrêt. */
+export type PdfRapport = {
+	/**  PDF en base64. */
+	pdf: string,
 };

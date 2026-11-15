@@ -54,6 +54,7 @@ mod pedagogie;
 mod personnel;
 mod plusieurs;
 mod postes;
+mod rapports;
 mod recettes;
 mod reseau_local;
 mod scolarite;

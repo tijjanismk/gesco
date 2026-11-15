@@ -246,6 +246,20 @@ impl<'a> ServiceDocuments<'a> {
         .await
     }
 
+    /// Compose un document en mémoire, sans l'écrire ni l'enregistrer : l'aperçu d'un rapport
+    /// en préparation, qui changera encore.
+    pub async fn composer_en_memoire(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        type_document: &str,
+        donnees: serde_json::Value,
+    ) -> Resultat<Vec<u8>> {
+        Ok(self
+            .composer(etablissement_id, type_document, donnees, Vec::new())
+            .await?
+            .pdf)
+    }
+
     /// Comme [`Self::produire`], avec des pièces jointes (photo). Un modèle qui déclare la
     /// variable `qr` reçoit aussi la référence du document et son QR code de vérification
     /// (§25.9), sous `reference` et `qr`.

@@ -49,6 +49,7 @@ import { Guichet } from "../modules/scolarite/Guichet";
 import { Remises } from "../modules/scolarite/Remises";
 import { Statistiques } from "../modules/statistiques/Statistiques";
 import { Inventaire } from "../modules/inventaire/Inventaire";
+import { Rapports } from "../modules/rapports/Rapports";
 import { BandeauPoste } from "./BandeauPoste";
 import { commandeAutorisee, GROUPES_REPLIES, type IdSection, sectionsAutorisees } from "./navigation";
 import { RechercheGlobale } from "./RechercheGlobale";
@@ -225,6 +226,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
                 setEleveOuvert(id);
                 setSection("eleves");
               }}
+              surAller={setSection}
             />
           )}
         </main>
@@ -249,11 +251,13 @@ function Contenu({
   nom,
   eleveOuvert,
   surOuvrirEleve,
+  surAller,
 }: {
   section: IdSection;
   nom: string;
   eleveOuvert: string | null;
   surOuvrirEleve: (id: string) => void;
+  surAller: (section: IdSection) => void;
 }) {
   switch (section) {
     case "accueil":
@@ -262,6 +266,8 @@ function Contenu({
       return <Statistiques surOuvrirEleve={surOuvrirEleve} />;
     case "inventaire":
       return <Inventaire />;
+    case "rapports":
+      return <Rapports surAller={surAller} />;
     case "compte":
       return <MonCompte changementExige={false} />;
     case "utilisateurs":

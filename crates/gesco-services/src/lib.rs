@@ -84,6 +84,8 @@ pub mod paiements_personnel;
 pub mod pedagogie;
 pub mod personnel;
 pub mod postes;
+pub mod rapports;
+pub mod rapports_tableaux;
 pub mod recettes;
 pub mod recouvrement;
 pub mod referentiel;

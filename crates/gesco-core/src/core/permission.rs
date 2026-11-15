@@ -137,6 +137,7 @@ catalogue! {
     SCHOOL_PROFILE_MANAGE = "school_profile:manage",
     STUDENTS_DISABILITY = "students:disability",
     INVENTORY_MANAGE = "inventory:manage",
+    SCHOOL_REPORTS_MANAGE = "school_reports:manage",
 }
 
 /// Version de la composition des rôles livrés. Une phase qui ajoute des permissions à
@@ -188,7 +189,9 @@ catalogue! {
 /// Version 15 (SPEC_PHASE_9 §11) : `inventory:manage`, nouvelle, pour le Directeur et le
 /// Secrétaire : tenir l'inventaire de l'école ; l'administrateur la donne à qui l'école charge
 /// de l'inventaire.
-pub const COMPOSITION_ROLES_LIVRES: i64 = 15;
+/// Version 16 (SPEC_PHASE_9 §11) : `school_reports:manage`, nouvelle, pour le Directeur seul :
+/// rédiger, arrêter et rouvrir les rapports de l'école.
+pub const COMPOSITION_ROLES_LIVRES: i64 = 16;
 
 /// Rôles livrés avec le produit (§11.4), composés selon SPEC_PHASE_1 §5.2 (Q-44).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -280,6 +283,7 @@ impl RoleSysteme {
                 P::SCHOOL_PROFILE_MANAGE,
                 P::STUDENTS_DISABILITY,
                 P::INVENTORY_MANAGE,
+                P::SCHOOL_REPORTS_MANAGE,
                 P::STUDENTS_READ,
                 P::ENROLLMENTS_VALIDATE,
                 P::ENROLLMENTS_EXPEL,

@@ -230,6 +230,10 @@ use crate::postes::{
     AppairageConclu, DemandePoste, EtatReseau, ReseauAServir, ReseauVivant, RolePoste,
     ServicePostes,
 };
+use crate::rapports::{
+    DemandePreparationRapport, DemandeRapport, DemandeRapports, DemandeReglageRapport,
+    DemandeTexteRapport, ListeRapports, RapportEcole, ServiceRapports,
+};
 use crate::recettes::{
     DemandeAnnulationRecette, DemandeMoisRecettes, DemandeRecette, RecettesDuMois, ServiceRecettes,
 };
@@ -775,6 +779,13 @@ pub struct DocumentAffiche {
     pub pdf: String,
 }
 
+/// PDF d'un rapport : l'aperçu d'un rapport en préparation, ou le document de son arrêt.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct PdfRapport {
+    /// PDF en base64.
+    pub pdf: String,
+}
+
 fn base64(octets: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(octets)
 }
@@ -1058,6 +1069,14 @@ contrat! {
     exporter_xlsx(DemandeExport) -> FichierEcrit;
     statistiques_lire(DemandeStatistiques) -> Statistiques;
     statistiques_exporter(DemandeExportStatistiques) -> FichierEcrit;
+    rapports_lister(DemandeRapports) -> ListeRapports;
+    rapport_preparer(DemandePreparationRapport) -> RapportEcole;
+    rapport_lire(DemandeRapport) -> RapportEcole;
+    rapport_regler(DemandeReglageRapport) -> RapportEcole;
+    rapport_texte_enregistrer(DemandeTexteRapport) -> RapportEcole;
+    rapport_apercu(DemandeRapport) -> PdfRapport;
+    rapport_arreter(DemandeRapport) -> RapportEcole;
+    rapport_rouvrir(DemandeRapport) -> RapportEcole;
     fiche_ecole_lire(DemandeFicheEcole) -> FicheEcole;
     fiche_ecole_repondre(DemandeReponseFiche) -> FicheEcole;
     fiche_ecole_reprendre(DemandeRepriseFiche) -> FicheEcole;
@@ -3202,6 +3221,123 @@ impl Application {
     ) -> Resultat<FichierEcrit> {
         ServiceStatistiques::nouveau(&appel.ouverte()?.noyau)
             .exporter(entree)
+            .await
+    }
+
+    async fn rapports_lister(
+        &self,
+        appel: Appel,
+        entree: DemandeRapports,
+    ) -> Resultat<ListeRapports> {
+        ServiceRapports::nouveau(&appel.ouverte()?.noyau)
+            .lister(appel.session()?, &entree)
+            .await
+    }
+
+    async fn rapport_preparer(
+        &self,
+        appel: Appel,
+        entree: DemandePreparationRapport,
+    ) -> Resultat<RapportEcole> {
+        ServiceRapports::nouveau(&appel.ouverte()?.noyau)
+            .preparer(appel.session()?, entree)
+            .await
+    }
+
+    async fn rapport_lire(&self, appel: Appel, entree: DemandeRapport) -> Resultat<RapportEcole> {
+        ServiceRapports::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn rapport_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeReglageRapport,
+    ) -> Resultat<RapportEcole> {
+        ServiceRapports::nouveau(&appel.ouverte()?.noyau)
+            .regler(appel.session()?, entree)
+            .await
+    }
+
+    async fn rapport_texte_enregistrer(
+        &self,
+        appel: Appel,
+        entree: DemandeTexteRapport,
+    ) -> Resultat<RapportEcole> {
+        ServiceRapports::nouveau(&appel.ouverte()?.noyau)
+            .enregistrer_texte(appel.session()?, entree)
+            .await
+    }
+
+    /// Aperçu : un rapport arrêté rend le document de son arrêt, tel quel ; un rapport en
+    /// préparation est composé en mémoire, sans rien enregistrer.
+    async fn rapport_apercu(&self, appel: Appel, entree: DemandeRapport) -> Resultat<PdfRapport> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let (contenu, document) = ServiceRapports::nouveau(&ouverte.noyau)
+            .a_imprimer(session, &entree)
+            .await?;
+        let pdf = match document {
+            Some(chemin) => std::fs::read(chemin)?,
+            None => {
+                ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+                    .composer_en_memoire(
+                        session.etablissement_id,
+                        "rapport_ecole",
+                        crate::rapports::donnees_impression(&contenu),
+                    )
+                    .await?
+            }
+        };
+        Ok(PdfRapport { pdf: base64(&pdf) })
+    }
+
+    /// Arrêter : le contenu est calculé une dernière fois, imprimé et enregistré comme
+    /// document, puis figé avec le rapport.
+    async fn rapport_arreter(
+        &self,
+        appel: Appel,
+        entree: DemandeRapport,
+    ) -> Resultat<RapportEcole> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let service = ServiceRapports::nouveau(&ouverte.noyau);
+        let (contenu, deja) = service.a_imprimer(session, &entree).await?;
+        if deja.is_some() {
+            return Err(ErreurService::Regle {
+                cle: "rapports.deja_arrete",
+            });
+        }
+        let contexte = ouverte
+            .noyau
+            .contexte(session.etablissement_id, Some(session));
+        let produit = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+            .produire(
+                contexte,
+                "rapport_ecole",
+                "rapport_ecole",
+                &entree.id,
+                crate::rapports::donnees_impression(&contenu),
+            )
+            .await?;
+        service
+            .marquer_arrete(
+                session,
+                &entree.id,
+                &produit.document.id.vers_chaine(),
+                &contenu,
+            )
+            .await
+    }
+
+    async fn rapport_rouvrir(
+        &self,
+        appel: Appel,
+        entree: DemandeRapport,
+    ) -> Resultat<RapportEcole> {
+        ServiceRapports::nouveau(&appel.ouverte()?.noyau)
+            .rouvrir(appel.session()?, &entree)
             .await
     }
 
