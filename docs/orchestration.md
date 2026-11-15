@@ -506,3 +506,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   cours ». La session de reprise T-123 (`local_e8b5589a`) a été arrêtée dès son lancement. Plus
   aucune rédaction ni reprise de leçon. Les cours existants seront intégrés une fois le code du
   lot 1 fini (T-123 reportée à ce moment-là, sans réécriture).
+- 2026-11-15 : `cargo clean` à la demande du porteur (15 Go libérés). Phase 12 lot 1 : étapes 1 à 9
+  commitées (`7274841` … `aa65fec`), étape 10 à moitié (`da768fd`, `e8b89df` : essais, Playwright
+  94 scénarios, captures 210 à 227) ; les sessions se relaient seules (dernière :
+  `local_fcca0ca2`). T-116 changée par le porteur : « relu / pas relu » affiché nulle part.
+  Recherche d'images libres (environ 180, Wikimedia Commons d'abord, source, auteur et licence
+  notés) lancée dans `local_f40629f5-08dd-4d60-83b3-e3bf062aa48a`, sur l'accord du porteur.
+  Disque : 6,3 Go libres après recompilation.
