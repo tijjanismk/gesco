@@ -6,8 +6,8 @@ mod commun;
 
 mod absences;
 mod annuelle;
-mod bulletins;
 mod bibliotheque;
+mod bulletins;
 mod caisse;
 mod changement_classe;
 mod charge;

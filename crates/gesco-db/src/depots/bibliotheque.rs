@@ -688,3 +688,127 @@ pub async fn indexer(
     .await?;
     Ok(())
 }
+
+// --- Lecture --------------------------------------------------------------------------------
+
+/// Versions de l'école qui comptent pour le catalogue : (contenu, état, retour à la version
+/// livrée), pour les états publiée, soumise et brouillon.
+pub async fn etats_versions(
+    cnx: &mut Connexion,
+    contexte: &Contexte,
+) -> Resultat<Vec<(String, String, bool)>> {
+    let lignes: Vec<(String, String, i64)> = sqlx::query_as(
+        "SELECT contenu_id, etat, retour_livre FROM version_contenu
+         WHERE etablissement_id = ?1 AND etat IN ('publiee', 'soumise', 'brouillon')",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?;
+    Ok(lignes
+        .into_iter()
+        .map(|(id, etat, retour)| (id, etat, booleen(retour)))
+        .collect())
+}
+
+/// Matières de l'utilisateur : (matière, code du niveau) des affectations de l'année courante
+/// de l'enseignant lié à son compte.
+pub async fn matieres_du_compte(
+    cnx: &mut Connexion,
+    utilisateur_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<(String, String)>> {
+    Ok(sqlx::query_as(
+        "SELECT DISTINCT a.matiere_id, n.code
+         FROM affectation_enseignement a
+         JOIN enseignant e ON e.id = a.enseignant_id
+         JOIN classe c ON c.id = a.classe_id
+         JOIN niveau n ON n.id = c.niveau_id
+         JOIN annee_scolaire y ON y.id = a.annee_id
+         WHERE e.utilisateur_id = ?1 AND e.actif = 1 AND a.etablissement_id = ?2
+           AND y.est_courante = 1 AND c.supprime_le IS NULL",
+    )
+    .bind(utilisateur_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Un contenu de l'établissement.
+pub async fn contenu(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Option<ContenuBibliotheque>> {
+    sqlx::query_as::<_, LigneContenu>(
+        "SELECT id, cle, origine, nature, chapitre_id, titre, presentation, ordre, apres_cle,
+                langue, lie_cle, examen, serie_code, session, paquet_code, fichier,
+                empreinte_sha256, faits, plus_livre_le
+         FROM contenu WHERE etablissement_id = ?1 AND id = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu_id)
+    .fetch_optional(cnx)
+    .await?
+    .map(LigneContenu::vers_entite)
+    .transpose()
+}
+
+/// Version d'un contenu dans un état unique (`publiee` ou `brouillon`) : (texte, retour à la
+/// version livrée).
+pub async fn version_dans_etat(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    etat: &str,
+    contexte: &Contexte,
+) -> Resultat<Option<(String, bool)>> {
+    let ligne: Option<(String, i64)> = sqlx::query_as(
+        "SELECT texte, retour_livre FROM version_contenu
+         WHERE etablissement_id = ?1 AND contenu_id = ?2 AND etat = ?3",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu_id)
+    .bind(etat)
+    .fetch_optional(cnx)
+    .await?;
+    Ok(ligne.map(|(texte, retour)| (texte, booleen(retour))))
+}
+
+/// Images de l'école appelées par leur empreinte : (empreinte, type MIME, contenu).
+pub async fn images_par_empreinte(
+    cnx: &mut Connexion,
+    empreintes: &[String],
+    contexte: &Contexte,
+) -> Resultat<Vec<(String, String, Vec<u8>)>> {
+    let mut images = Vec::new();
+    for e in empreintes {
+        let ligne: Option<(String, String, Vec<u8>)> = sqlx::query_as(
+            "SELECT empreinte_sha256, type_mime, contenu FROM fichier_bibliotheque
+             WHERE etablissement_id = ?1 AND empreinte_sha256 = ?2 AND nature = 'image'",
+        )
+        .bind(contexte.etablissement_id.vers_chaine())
+        .bind(e)
+        .fetch_optional(&mut *cnx)
+        .await?;
+        images.extend(ligne);
+    }
+    Ok(images)
+}
+
+/// Cherche dans l'index : (contenu, extrait), les meilleurs d'abord. L'extrait marque les mots
+/// trouvés entre les caractères `\u{2}` et `\u{3}`. `requete` est déjà une requête FTS5 sûre.
+pub async fn rechercher(
+    cnx: &mut Connexion,
+    requete: &str,
+    limite: u32,
+) -> Resultat<Vec<(String, String)>> {
+    Ok(sqlx::query_as(
+        "SELECT contenu_id,
+                snippet(recherche_bibliotheque, 2, char(2), char(3), '…', 14)
+         FROM recherche_bibliotheque WHERE recherche_bibliotheque MATCH ?1
+         ORDER BY bm25(recherche_bibliotheque, 0.0, 6.0, 1.0) LIMIT ?2",
+    )
+    .bind(requete)
+    .bind(i64::from(limite))
+    .fetch_all(cnx)
+    .await?)
+}

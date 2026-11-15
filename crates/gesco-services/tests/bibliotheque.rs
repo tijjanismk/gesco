@@ -1,8 +1,11 @@
-//! Bibliothèque de cours, installation du paquet (phase 12, lot 1, étape 4) : le paquet déposé
+//! Bibliothèque de cours, installation du paquet (phase 12, lot 1, étape 4) et lecture (étape 5) :
+//! le paquet déposé
 //! par l'installeur s'installe avec l'école ; une mise à jour plus ancienne, déjà installée ou
 //! abîmée est refusée et la bibliothèque en place reste (critère 3) ; une mise à jour réécrit le
 //! livré par sa clé ; après une restauration sur un poste qui n'a qu'un paquet plus ancien,
-//! l'index se refait depuis celui-ci et l'écran dit qu'une mise à jour existe.
+//! l'index se refait depuis celui-ci et l'écran dit qu'une mise à jour existe. Le catalogue range
+//! les leçons sous la matière de l'école ; une leçon s'ouvre en arbre de blocs ; la recherche ignore
+//! accents et majuscules.
 
 #![allow(
     clippy::unwrap_used,
@@ -13,10 +16,10 @@
 
 use std::path::{Path, PathBuf};
 
+use gesco_core::bibliotheque::NatureContenu;
 use gesco_core::bibliotheque::paquet::{
     ChapitrePaquet, ContenuPaquet, DisciplinePaquet, ManifestePaquet, fabriquer_paquet,
 };
-use gesco_core::bibliotheque::NatureContenu;
 use serde_json::{Value, json};
 
 use crate::commun::{GRAINE_BIBLIOTHEQUE, MOT_DE_PASSE, poste_vierge};
@@ -203,9 +206,7 @@ async fn un_maitre_n_installe_pas_de_mise_a_jour() {
     let commande = gesco_services::commandes::Commande::par_nom("bibliotheque_installer").unwrap();
     assert_eq!(
         commande.acces,
-        gesco_services::commandes::Acces::Permission(
-            gesco_core::core::Permission::LIBRARY_MANAGE
-        )
+        gesco_services::commandes::Acces::Permission(gesco_core::core::Permission::LIBRARY_MANAGE)
     );
 }
 
@@ -254,4 +255,331 @@ async fn apres_une_restauration_l_index_se_refait_depuis_le_paquet_present() {
     assert_eq!(etat["paquets"][0]["present"], true);
     assert_eq!(etat["paquets"][0]["lecons"], 2);
     assert_eq!(etat["paquets"][0]["version_plus_recente"], "2026.12.1");
+}
+
+// --- Lire (étape 5) -------------------------------------------------------------------------
+
+const NOTE: LeconEssai<'static> = (
+    "9e-annee/mathematiques/theoreme",
+    "Le théorème de Thalès",
+    "# Le théorème de Thalès\n\nDeux droites parallèles coupent deux sécantes.\n\n\
+     > Note pour le maître : faire tracer la figure au tableau.\n\n\
+     $$\\frac{AM}{AB} = \\frac{AN}{AC}$$\n",
+);
+
+fn contenus_de(catalogue: &Value) -> Vec<Value> {
+    let mut contenus = Vec::new();
+    for n in catalogue["niveaux"].as_array().unwrap() {
+        for s in n["series"].as_array().unwrap() {
+            for m in s["matieres"].as_array().unwrap() {
+                for p in m["parties"].as_array().unwrap() {
+                    for c in p["chapitres"].as_array().unwrap() {
+                        contenus.extend(c["contenus"].as_array().unwrap().iter().cloned());
+                    }
+                }
+            }
+        }
+    }
+    contenus
+}
+
+fn types_des_blocs(lecture: &Value) -> Vec<String> {
+    lecture["lecon"]["blocs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["type"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[tokio::test]
+async fn le_catalogue_range_les_lecons_du_niveau_sous_la_matiere_de_l_ecole() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE, PUISSANCES, NOTE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(catalogue["peut_ecrire"], true);
+    assert_eq!(catalogue["peut_valider"], true);
+    assert_eq!(catalogue["maitre"], false);
+    let neuvieme = catalogue["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .expect("la 9e paraît");
+    let matiere = &neuvieme["series"][0]["matieres"][0];
+    assert!(matiere["cle"].as_str().unwrap().starts_with("m:"));
+    assert_eq!(matiere["discipline_code"], "MATH");
+    assert_eq!(matiere["parties"][0]["titre"], "Algèbre");
+    let titres: Vec<&str> = matiere["parties"][0]["chapitres"][0]["contenus"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["titre"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        titres,
+        [
+            "La racine carrée",
+            "Les puissances",
+            "Le théorème de Thalès"
+        ]
+    );
+    // Aucun autre niveau ne montre ces leçons de 9e.
+    assert_eq!(contenus_de(&catalogue).len(), 3);
+}
+
+#[tokio::test]
+async fn une_lecon_s_ouvre_en_arbre_de_blocs_et_la_note_reste_au_personnel_qui_ecrit() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[NOTE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let id = contenus_de(&catalogue)[0]["id"].clone();
+    let lecture = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": null }),
+        )
+        .await;
+    assert_eq!(lecture["vue"], "visible");
+    assert_eq!(lecture["vues"], json!(["visible"]));
+    assert_eq!(lecture["version_ecole"], false);
+    assert_eq!(
+        types_des_blocs(&lecture),
+        ["titre", "paragraphe", "note_maitre", "formule"]
+    );
+    // Une version demandée qui n'existe pas rend la version visible.
+    let livree = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": "livree" }),
+        )
+        .await;
+    assert_eq!(livree["vue"], "visible");
+
+    // La secrétaire lit, sans la note pour le maître.
+    let compte = p
+        .ok(
+            "utilisateur_creer",
+            Some(&admin),
+            json!({ "identifiant": "awa", "nom_affiche": "Awa Diarra",
+                "mot_de_passe_initial": "secretaire-2026", "roles": ["secretaire"] }),
+        )
+        .await;
+    assert!(compte["id"].is_string());
+    let secretaire = p.connecter("awa", "secretaire-2026").await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&secretaire), Value::Null)
+        .await;
+    assert_eq!(catalogue["peut_ecrire"], false);
+    let lecture = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&secretaire),
+            json!({ "contenu_id": id, "vue": null }),
+        )
+        .await;
+    assert_eq!(
+        types_des_blocs(&lecture),
+        ["titre", "paragraphe", "formule"]
+    );
+
+    // Un contenu inconnu est introuvable.
+    let refus = p
+        .refus(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": "01JZZZZZZZZZZZZZZZZZZZZZZZ", "vue": null }),
+        )
+        .await;
+    assert_eq!(refus.cle, "erreur.introuvable");
+}
+
+#[tokio::test]
+async fn la_recherche_ignore_accents_et_majuscules_et_ne_montre_que_le_catalogue() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE, PYTHAGORE, NOTE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let trouves = p
+        .ok(
+            "bibliotheque_rechercher",
+            Some(&admin),
+            json!({ "texte": "THEOREME" }),
+        )
+        .await;
+    let titres: Vec<&str> = trouves
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["titre"].as_str().unwrap())
+        .collect();
+    assert_eq!(titres.len(), 2);
+    assert!(titres.contains(&"Le théorème de Pythagore"));
+    assert!(titres.contains(&"Le théorème de Thalès"));
+    assert_eq!(trouves[0]["chapitre"], "Racines carrées");
+    assert!(trouves[0]["extrait"].as_str().unwrap().contains('\u{2}'));
+    // Un préfixe suffit ; la note pour le maître n'est pas dans l'index.
+    let racine = p
+        .ok(
+            "bibliotheque_rechercher",
+            Some(&admin),
+            json!({ "texte": "racin" }),
+        )
+        .await;
+    assert_eq!(racine.as_array().unwrap().len(), 1);
+    let note = p
+        .ok(
+            "bibliotheque_rechercher",
+            Some(&admin),
+            json!({ "texte": "tableau" }),
+        )
+        .await;
+    assert_eq!(note, json!([]));
+    // Les signes de la syntaxe de recherche sont des mots comme les autres.
+    let signes = p
+        .ok(
+            "bibliotheque_rechercher",
+            Some(&admin),
+            json!({ "texte": "\"racine\" OR NEAR(" }),
+        )
+        .await;
+    assert_eq!(signes, json!([]));
+    let vide = p
+        .ok(
+            "bibliotheque_rechercher",
+            Some(&admin),
+            json!({ "texte": " ; " }),
+        )
+        .await;
+    assert_eq!(vide, json!([]));
+}
+
+#[tokio::test]
+async fn sans_paquet_la_bibliotheque_est_vide_et_rien_ne_bloque() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(catalogue["niveaux"], json!([]));
+    let trouves = p
+        .ok(
+            "bibliotheque_rechercher",
+            Some(&admin),
+            json!({ "texte": "racine" }),
+        )
+        .await;
+    assert_eq!(trouves, json!([]));
+}
+
+#[tokio::test]
+async fn un_maitre_lit_la_bibliotheque_et_arrive_sur_ses_matieres() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let annee = p
+        .ok(
+            "annee_creer",
+            Some(&admin),
+            json!({ "libelle": "2026-2027", "debut": crate::commun::RENTREE_2026,
+                "fin": crate::commun::FIN_2027 }),
+        )
+        .await;
+    p.ok("annee_activer", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    let trouver = |liste: &Value, code: &str| -> Value {
+        liste
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["code"] == code)
+            .unwrap()["id"]
+            .clone()
+    };
+    let classe = p
+        .ok(
+            "classe_creer",
+            Some(&admin),
+            json!({ "annee_id": annee["id"], "niveau_id": trouver(&ped["niveaux"], "9"),
+                "serie_id": null, "libelle": "9e A" }),
+        )
+        .await;
+    let compte = p
+        .ok(
+            "utilisateur_creer",
+            Some(&admin),
+            json!({ "identifiant": "sekou", "nom_affiche": "Sékou Traoré",
+                "mot_de_passe_initial": "enseignant-2026", "roles": ["enseignant"] }),
+        )
+        .await;
+    let sekou = p
+        .ok(
+            "enseignant_enregistrer",
+            Some(&admin),
+            json!({ "id": null, "nom": "Traoré", "prenoms": "Sékou", "telephones": [],
+                "statut": "titulaire", "utilisateur_id": compte["id"], "actif": true }),
+        )
+        .await;
+    p.ok(
+        "affectation_ajouter",
+        Some(&admin),
+        json!({ "classe_id": classe["id"], "matiere_id": trouver(&ped["matieres"], "MATH"),
+            "enseignant_id": sekou["enseignant"]["id"] }),
+    )
+    .await;
+    p.admettre_les_maitres(&admin).await;
+    let jeton = p.connecter("sekou", "enseignant-2026").await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&jeton), Value::Null)
+        .await;
+    assert_eq!(catalogue["maitre"], true);
+    assert_eq!(catalogue["peut_ecrire"], true);
+    assert_eq!(catalogue["peut_valider"], false);
+    assert_eq!(
+        catalogue["niveaux"][0]["series"][0]["matieres"][0]["mienne"],
+        true
+    );
+    let id = contenus_de(&catalogue)[0]["id"].clone();
+    p.ok(
+        "bibliotheque_lire",
+        Some(&jeton),
+        json!({ "contenu_id": id, "vue": null }),
+    )
+    .await;
 }

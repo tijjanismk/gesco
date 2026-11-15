@@ -30,8 +30,15 @@ use crate::espace::EspaceDonnees;
 use crate::noyau::Noyau;
 use crate::session::Session;
 
+mod lire;
+
+pub use lire::{
+    CatalogueBibliotheque, ContenuLie, DemandeLectureContenu, DemandeRechercheBibliotheque,
+    ImageLecon, LectureContenu, ResultatRechercheBibliotheque, VueContenu,
+};
+
 /// Clé publique des paquets de la bibliothèque, distincte de celle des licences.
-const CLE_PUBLIQUE_PAQUETS_HEX: &str = include_str!("../cle-publique-bibliotheque.txt");
+const CLE_PUBLIQUE_PAQUETS_HEX: &str = include_str!("../../cle-publique-bibliotheque.txt");
 
 /// Extension d'un paquet de la bibliothèque.
 pub const EXTENSION_PAQUET: &str = "gbib";

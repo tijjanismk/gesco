@@ -119,6 +119,9 @@ export const ACCES = {
   article_inventaire_activer: { type: "permission", permission: "inventory:manage" },
   bibliotheque_etat: { type: "permission", permission: "library:manage" },
   bibliotheque_installer: { type: "permission", permission: "library:manage" },
+  bibliotheque_catalogue: { type: "permission", permission: "library:read" },
+  bibliotheque_lire: { type: "permission", permission: "library:read" },
+  bibliotheque_rechercher: { type: "permission", permission: "library:read" },
   examens_lire: { type: "permission", permission: "school_profile:manage" },
   resultat_examen_regler: { type: "permission", permission: "school_profile:manage" },
   total_examen_regler: { type: "permission", permission: "school_profile:manage" },
@@ -463,4 +466,7 @@ export const COMMANDES_DU_MAITRE: readonly NomCommande[] = [
   "absences_periode_lire",
   "absences_seances_lire",
   "absences_seances_enregistrer",
+  "bibliotheque_catalogue",
+  "bibliotheque_lire",
+  "bibliotheque_rechercher",
 ];

@@ -330,6 +330,10 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "absences_periode_lire",
     "absences_seances_lire",
     "absences_seances_enregistrer",
+    // La bibliothèque de cours.
+    "bibliotheque_catalogue",
+    "bibliotheque_lire",
+    "bibliotheque_rechercher",
 ];
 
 /// Commandes publiques, énumérées une seule fois : le test d'exhaustivité refuse toute commande
@@ -511,6 +515,10 @@ pub const COMMANDES: &[Commande] = &[
     // direction.
     Commande::permise("bibliotheque_etat", Permission::LIBRARY_MANAGE),
     Commande::permise("bibliotheque_installer", Permission::LIBRARY_MANAGE),
+    // Lire la bibliothèque : catalogue, contenu, recherche.
+    Commande::permise("bibliotheque_catalogue", Permission::LIBRARY_READ),
+    Commande::permise("bibliotheque_lire", Permission::LIBRARY_READ),
+    Commande::permise("bibliotheque_rechercher", Permission::LIBRARY_READ),
     // Résultats aux examens (SPEC_PHASE_9 §8.5) : tenus avec la fiche de l'établissement.
     Commande::permise("examens_lire", Permission::SCHOOL_PROFILE_MANAGE),
     Commande::permise("resultat_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),

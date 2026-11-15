@@ -26,6 +26,7 @@ import { Enseignants } from "../modules/pedagogie/Enseignants";
 import { Absences } from "../modules/pedagogie/Absences";
 import { Bulletins } from "../modules/pedagogie/Bulletins";
 import { EmploiDuTemps } from "../modules/pedagogie/EmploiDuTemps";
+import { Bibliotheque } from "../modules/bibliotheque/Bibliotheque";
 import { Conduite } from "../modules/scolarite/Conduite";
 import { Discipline } from "../modules/scolarite/Discipline";
 import { FinAnnee } from "../modules/scolarite/FinAnnee";
@@ -304,6 +305,8 @@ function Contenu({
       return <FinAnnee />;
     case "emploi-du-temps":
       return <EmploiDuTemps />;
+    case "bibliotheque":
+      return <Bibliotheque />;
     case "discipline":
       return <Discipline />;
     case "conduite":

@@ -1969,6 +1969,12 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	bibliotheque_installer: Signature<DemandeInstallationBibliotheque, InstallationBibliotheque>,
 	/**  Signature de la commande du même nom. */
+	bibliotheque_catalogue: Signature<null, CatalogueBibliotheque>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_lire: Signature<DemandeLectureContenu, LectureContenu>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_rechercher: Signature<DemandeRechercheBibliotheque, ResultatRechercheBibliotheque[]>,
+	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
 	categorie_personnel_enregistrer: Signature<DemandeCategoriePersonnel, CategoriePersonnel>,
@@ -10740,4 +10746,178 @@ export type VersionElement = {
 	calcul: Calcul,
 	/**  Retenues salariales retranchées du brut pour former l'assiette d'un taux ou d'un barème. */
 	assiette_deduit: string[],
+};
+
+/**  D'où vient un chapitre ou un contenu. */
+export type OrigineBibliotheque = "livre" | "ecole";
+
+/**  Nature d'un contenu. */
+export type NatureContenu = "lecon" | "sujet" | "corrige" | "document";
+
+/**  Examen d'un sujet. */
+export type ExamenSujet = "DEF" | "BAC";
+
+/**  Alignement d'une colonne de tableau. */
+export type Alignement = "aucun" | "gauche" | "centre" | "droite";
+
+/**  D'où vient une image. */
+export type SourceImage = { type: "paquet"; nom: string } | { type: "ecole"; empreinte: string };
+
+/**  Un élément du texte d'un bloc. */
+export type Enligne =
+	| { type: "texte"; texte: string }
+	| { type: "code"; texte: string }
+	| { type: "gras"; contenu: Enligne[] }
+	| { type: "italique"; contenu: Enligne[] }
+	| { type: "formule"; latex: string; seule: boolean }
+	| { type: "image"; source: SourceImage; description: string }
+	| { type: "video"; empreinte: string; titre: string }
+	| { type: "saut" };
+
+/**  Un bloc d'une leçon. */
+export type Bloc =
+	| { type: "titre"; niveau: number; contenu: Enligne[] }
+	| { type: "paragraphe"; contenu: Enligne[] }
+	| { type: "formule"; latex: string }
+	| { type: "liste"; numerotee: boolean; debut: number | null; elements: Bloc[][] }
+	| { type: "tableau"; alignements: Alignement[]; entete: Enligne[][]; lignes: Enligne[][][] }
+	| { type: "citation"; blocs: Bloc[] }
+	| { type: "note_maitre"; blocs: Bloc[] }
+	| { type: "texte_brut"; texte: string }
+	| { type: "filet" };
+
+/**  Une leçon analysée : la suite de ses blocs. */
+export type Lecon = {
+	/**  Blocs dans l'ordre du texte. */
+	blocs: Bloc[],
+};
+
+/**  Un contenu du catalogue. */
+export type ContenuCatalogue = {
+	id: string,
+	cle: string,
+	titre: string,
+	nature: NatureContenu,
+	examen: ExamenSujet | null,
+	session: number | null,
+	origine: OrigineBibliotheque,
+	/**  La version visible est celle de l'école. */
+	version_ecole: boolean,
+	/**  Une version attend la validation. */
+	en_attente: boolean,
+	/**  Un brouillon est en cours. */
+	brouillon: boolean,
+	/**  Le contenu lié (le corrigé d'un sujet, et l'inverse). */
+	lie_id: string | null,
+};
+
+/**  Un chapitre du catalogue. */
+export type ChapitreCatalogue = {
+	id: string,
+	cle: string,
+	titre: string,
+	origine: OrigineBibliotheque,
+	contenus: ContenuCatalogue[],
+};
+
+/**  Une partie (« Algèbre », « Examens »…). */
+export type PartieCatalogue = {
+	titre: string,
+	chapitres: ChapitreCatalogue[],
+};
+
+/**  Une matière du catalogue. */
+export type MatiereCatalogue = {
+	/**  `m:<identifiant>` ou `d:<code>`. */
+	cle: string,
+	libelle: string,
+	matiere_id: string | null,
+	discipline_code: string | null,
+	/**  Une matière des affectations de l'utilisateur, dans ce niveau. */
+	mienne: boolean,
+	parties: PartieCatalogue[],
+};
+
+/**  Une série du catalogue. */
+export type SerieCatalogue = {
+	code: string | null,
+	libelle: string | null,
+	matieres: MatiereCatalogue[],
+};
+
+/**  Un niveau du catalogue. */
+export type NiveauCatalogue = {
+	code: string,
+	libelle: string,
+	series: SerieCatalogue[],
+};
+
+/**  Le catalogue tel que l'écran le montre. */
+export type CatalogueBibliotheque = {
+	niveaux: NiveauCatalogue[],
+	/**  L'utilisateur écrit. */
+	peut_ecrire: boolean,
+	/**  L'utilisateur valide. */
+	peut_valider: boolean,
+	/**  Compte d'un maître qui ne valide pas. */
+	maitre: boolean,
+};
+
+/**  Quelle version d'un contenu lire. */
+export type VueContenu = "visible" | "livree" | "brouillon";
+
+/**  Lire un contenu. */
+export type DemandeLectureContenu = {
+	contenu_id: string,
+	vue: VueContenu | null,
+};
+
+/**  Une image appelée par la leçon, prête à afficher. */
+export type ImageLecon = {
+	/**  Nom du fichier du paquet, ou empreinte d'une image de l'école. */
+	cle: string,
+	type_mime: string,
+	/**  Contenu en base 64. */
+	donnees: string,
+};
+
+/**  Le contenu lié (le corrigé d'un sujet, et l'inverse). */
+export type ContenuLie = {
+	id: string,
+	titre: string,
+	nature: NatureContenu,
+};
+
+/**  Un contenu ouvert. */
+export type LectureContenu = {
+	id: string,
+	titre: string,
+	nature: NatureContenu,
+	examen: ExamenSujet | null,
+	session: number | null,
+	origine: OrigineBibliotheque,
+	presentation: string,
+	vue: VueContenu,
+	vues: VueContenu[],
+	version_ecole: boolean,
+	lecon: Lecon,
+	images: ImageLecon[],
+	lie: ContenuLie | null,
+};
+
+/**  Chercher dans la bibliothèque. */
+export type DemandeRechercheBibliotheque = {
+	texte: string,
+};
+
+/**  Un contenu trouvé. */
+export type ResultatRechercheBibliotheque = {
+	contenu_id: string,
+	titre: string,
+	nature: NatureContenu,
+	niveau: string,
+	matiere: string,
+	chapitre: string,
+	/**  Les mots trouvés sont entre les caractères  et . */
+	extrait: string,
 };

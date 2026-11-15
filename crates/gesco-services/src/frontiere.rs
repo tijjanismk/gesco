@@ -1210,6 +1210,9 @@ contrat! {
     licence_installer(DemandeLicence) -> EtatLicenceAffiche;
     bibliotheque_etat(()) -> crate::bibliotheque::EtatBibliotheque;
     bibliotheque_installer(crate::bibliotheque::DemandeInstallationBibliotheque) -> crate::bibliotheque::InstallationBibliotheque;
+    bibliotheque_catalogue(()) -> crate::bibliotheque::CatalogueBibliotheque;
+    bibliotheque_lire(crate::bibliotheque::DemandeLectureContenu) -> crate::bibliotheque::LectureContenu;
+    bibliotheque_rechercher(crate::bibliotheque::DemandeRechercheBibliotheque) -> Vec<crate::bibliotheque::ResultatRechercheBibliotheque>;
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -4921,6 +4924,36 @@ impl Application {
                 .installer_fichier(appel.session()?, Path::new(&entree.chemin)),
         )
         .await
+    }
+
+    async fn bibliotheque_catalogue(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<crate::bibliotheque::CatalogueBibliotheque> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .catalogue(appel.session()?)
+            .await
+    }
+
+    async fn bibliotheque_lire(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeLectureContenu,
+    ) -> Resultat<crate::bibliotheque::LectureContenu> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_rechercher(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeRechercheBibliotheque,
+    ) -> Resultat<Vec<crate::bibliotheque::ResultatRechercheBibliotheque>> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .rechercher(appel.session()?, &entree)
+            .await
     }
 
     async fn personnel_referentiel_lire(
