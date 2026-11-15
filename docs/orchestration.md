@@ -520,3 +520,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   et `gesco-essai-remplissage` (environ 1,5 Go, rendus quand le porteur vide la Corbeille).
   14,3 Go libres. La prochaine compilation repart de zéro, et il faut recompiler pour ouvrir
   l'école d'essai par `target\debug\gesco-app.exe`.
+- 2026-11-15 : sauvegarde hors de l'école lancée en code (`local_162a9d46-bfab-4a9f-8414-8f6cd3af8b2d`,
+  relais autonome, T-130 à T-133 sur recommandations). Archivées avec l'accord du porteur : les
+  sessions de l'e-learning lot 1, les trois spécifications, la reprise des cours arrêtée, les sujets
+  du DEF et du BAC, le changement de classe. Reste `local_fcca0ca2` (tâche de fond en cours ; prié
+  de s'arrêter), à archiver ensuite.
