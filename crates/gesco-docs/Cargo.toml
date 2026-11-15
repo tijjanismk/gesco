@@ -25,6 +25,7 @@ rust_xlsxwriter.workspace = true
 apercu-svg = ["dep:typst-svg"]
 
 [dev-dependencies]
+gesco-core.workspace = true
 calamine.workspace = true
 tempfile.workspace = true
 

@@ -90,6 +90,9 @@ qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 rust_xlsxwriter = "0.99.1"
 # Lecture des classeurs : import des élèves (SPEC_PHASE_2 §10) et relecture des exports en test.
 calamine = "0.36.1"
+# Leçons de la bibliothèque (ADR « format des leçons ») : Markdown restreint lu une fois par le
+# noyau, sans le rendu HTML. Version épinglée : la plus récente qui avait un mois le jour de l'ajout.
+pulldown-cmark = { version = "=0.13.4", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

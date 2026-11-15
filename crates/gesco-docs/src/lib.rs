@@ -8,6 +8,7 @@
 
 pub mod catalogue;
 pub mod erreur;
+pub mod formules;
 pub mod lot;
 mod monde;
 pub mod moteur;

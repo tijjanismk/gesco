@@ -1,7 +1,7 @@
 # Le format d'une leçon : Markdown restreint et LaTeX, lu une fois par le noyau, affiché par KaTeX, imprimé par Typst
 
 **Date** : 15 novembre 2026
-**Statut** : proposé le 15 novembre 2026 — décision 4 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
+**Statut** : accepté le 15 novembre 2026 (étape 1 du lot : `pulldown-cmark` 0.13.4 ajouté au noyau, police mathématique dans `gesco-docs/polices`) ; proposé le 15 novembre 2026 — décision 4 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
 
 ## Contexte
 
@@ -115,3 +115,7 @@ l'aperçu côte à côte donnent l'essentiel de son confort.
 - Si plus de 1 % des formules livrées ne passent pas la conversion vers Typst.
 - Si KaTeX cesse d'être maintenu (aucune sortie pendant dix-huit mois).
 - Si le lot 4 demande un rendu que l'arbre de blocs ne porte pas.
+
+## Mise en œuvre
+
+- 15 novembre 2026, étape 1 : `pulldown-cmark` épinglé à 0.13.4 (la 0.13.5 et la 0.13.6 n'avaient pas un mois). La police New Computer Modern Math est la copie que livre `typst-assets` 0.15.1, déjà au verrou par Typst, et non la 8.1.1 de CTAN : même famille, aucun téléchargement ; à valider par le porteur du projet.
