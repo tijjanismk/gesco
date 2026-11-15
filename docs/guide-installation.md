@@ -96,11 +96,18 @@ Téléchargez la nouvelle version et installez-la **par-dessus** l'ancienne, de 
 données de l'école sont gardées : au démarrage suivant, GESCO fait d'abord une sauvegarde, puis
 met sa base à niveau. Ne désinstallez pas l'ancienne version avant.
 
+La version 2.0 apporte la bibliothèque de cours : l'installeur la dépose, GESCO la copie dans le
+dossier des données au démarrage et l'installe à l'ouverture de l'école. Une version plus
+récente de la bibliothèque, livrée par une mise à jour de GESCO, s'installe de la même façon ;
+une mise à jour reçue à part s'installe depuis Paramètres → « Bibliothèque installée ».
+
 ## 9. Désinstaller
 
 Paramètres de Windows → Applications → GESCO → Désinstaller. Les données de l'école ne sont pas
-effacées : elles restent dans le dossier `%APPDATA%\ml.gesco.poste`. Avant de changer
-d'ordinateur, faites une dernière sauvegarde sur la clé USB.
+effacées : elles restent dans le dossier `%APPDATA%\ml.gesco.poste`, avec la bibliothèque de
+cours (`bibliotheque\`) et les vidéos de l'école (`videos\`). Avant de changer d'ordinateur,
+faites une dernière sauvegarde sur la clé USB, et copiez les vidéos sur une clé (Paramètres →
+« Vidéos de l'école ») : elles ne sont pas dans la sauvegarde.
 
 La fenêtre de désinstallation porte une case « Supprimer les données de l'application ».
 **Jusqu'à la version 1.2.7, ne la cochez jamais** : elle efface l'école. À partir de la
@@ -118,6 +125,8 @@ Pour plusieurs ordinateurs dans la même école (version 2.0), voir
 3. Saisissez la **phrase de secours** de douze mots.
 4. Réinstallez la licence : elle s'attache au nouvel ordinateur (demandez-la à l'éditeur si
    besoin).
+5. Reprenez les vidéos de l'école depuis la clé : Paramètres → « Vidéos de l'école » →
+   « Reprendre des vidéos depuis une clé ».
 
 ## 11. En cas de souci
 

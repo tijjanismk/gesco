@@ -283,7 +283,7 @@ async fn apres_une_restauration_l_index_se_refait_depuis_le_paquet_present() {
 const NOTE: LeconEssai<'static> = (
     "9e-annee/mathematiques/theoreme",
     "Le théorème de Thalès",
-    "# Le théorème de Thalès\n\nDeux droites parallèles coupent deux sécantes.\n\n\
+    "# Le théorème de Thalès\n\nDeux droites parallèles coupent deux sécantes au cœur de la figure.\n\n\
      > Note pour le maître : faire tracer la figure au tableau.\n\n\
      $$\\frac{AM}{AB} = \\frac{AN}{AC}$$\n",
 );
@@ -464,6 +464,15 @@ async fn la_recherche_ignore_accents_et_majuscules_et_ne_montre_que_le_catalogue
     assert!(titres.contains(&"Le théorème de Thalès"));
     assert_eq!(trouves[0]["chapitre"], "Racines carrées");
     assert!(trouves[0]["extrait"].as_str().unwrap().contains('\u{2}'));
+    // « coeur » tapé au clavier trouve « cœur ».
+    let coeur = p
+        .ok(
+            "bibliotheque_rechercher",
+            Some(&admin),
+            json!({ "texte": "coeur figure" }),
+        )
+        .await;
+    assert_eq!(coeur.as_array().unwrap().len(), 1, "{coeur}");
     // Un préfixe suffit ; la note pour le maître n'est pas dans l'index.
     let racine = p
         .ok(
@@ -2603,6 +2612,14 @@ async fn une_lecon_un_chapitre_et_les_faits_s_impriment_en_pdf() {
     )
     .await;
     assert!(std::fs::read(&faits).unwrap().starts_with(b"%PDF-"));
+    // Aucune composition n'a dû repartir sans images ni sans formules converties.
+    let journal = std::fs::read_to_string(
+        dossier
+            .path()
+            .join(gesco_services::journal_technique::FICHIER),
+    )
+    .unwrap_or_default();
+    assert!(!journal.contains("impression reprise"), "{journal}");
 
     // Les faits à vérifier ne s'impriment qu'avec le droit d'écrire ; la leçon, avec celui de
     // lire.

@@ -5239,7 +5239,10 @@ impl Application {
         )
         .await?;
         let documents = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier);
-        let pdf = Box::pin(impression.composer(&documents, session)).await?;
+        let pdf = Box::pin(impression.composer(&documents, session, &|t| {
+            self.noter_au_journal_technique(t);
+        }))
+        .await?;
         crate::bibliotheque::ecrire_pdf(&entree.chemin, &pdf)
     }
 
@@ -5256,7 +5259,10 @@ impl Application {
         )
         .await?;
         let documents = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier);
-        let pdf = Box::pin(impression.composer(&documents, session)).await?;
+        let pdf = Box::pin(impression.composer(&documents, session, &|t| {
+            self.noter_au_journal_technique(t);
+        }))
+        .await?;
         crate::bibliotheque::ecrire_pdf(&entree.chemin, &pdf)
     }
 
@@ -5273,7 +5279,10 @@ impl Application {
         )
         .await?;
         let documents = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier);
-        let pdf = Box::pin(impression.composer(&documents, session)).await?;
+        let pdf = Box::pin(impression.composer(&documents, session, &|t| {
+            self.noter_au_journal_technique(t);
+        }))
+        .await?;
         crate::bibliotheque::ecrire_pdf(&entree.chemin, &pdf)
     }
 

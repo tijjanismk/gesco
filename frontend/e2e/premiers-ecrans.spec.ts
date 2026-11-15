@@ -3,7 +3,7 @@
 // donne un espace de données et un dossier WebView2 jetables : l'établissement du poste n'est
 // pas touché. Les captures sont écrites dans `e2e/captures/`.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -76,6 +76,15 @@ test.beforeAll(async () => {
   // `GESCO_ECOLE_ESSAI` garde l'école construite par les scénarios dans ce dossier, pour l'ouvrir
   // ensuite à la main ; sans elle, un dossier jetable.
   dossier = process.env["GESCO_ECOLE_ESSAI"] ?? mkdtempSync(join(tmpdir(), "gesco-essai-"));
+  // La bibliothèque de cours livrée : le paquet signé, fabriqué hors du dépôt, est déposé dans le
+  // dossier des données comme le fait l'installeur ; GESCO l'installe à l'ouverture de la base.
+  const paquets = process.env["GESCO_PAQUETS_BIBLIOTHEQUE"] ?? join(import.meta.dirname, "..", "..", "..", "..", "gesco-bibliotheque-paquets");
+  if (existsSync(paquets)) {
+    mkdirSync(join(dossier, "donnees", "bibliotheque"), { recursive: true });
+    for (const nom of readdirSync(paquets).filter((n) => n.endsWith(".gbib"))) {
+      copyFileSync(join(paquets, nom), join(dossier, "donnees", "bibliotheque", nom));
+    }
+  }
   application = spawn(EXECUTABLE, [], {
     env: {
       ...process.env,
@@ -288,7 +297,8 @@ test("année scolaire : préparer puis ouvrir", async () => {
   await capturer("22-annee-en-preparation");
 
   await page.getByRole("button", { name: texte("annees.ouvrir") }).click();
-  await expect(page.getByText(texte("bandeau.annee").replace("{annee}", "2026-2027"), { exact: false })).toBeVisible();
+  // L'ouverture commence par une sauvegarde, qui porte aussi la bibliothèque installée.
+  await expect(page.getByText(texte("bandeau.annee").replace("{annee}", "2026-2027"), { exact: false })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(texte("avertissement.annee_absente"))).toBeHidden();
   await capturer("23-annee-ouverte");
 });
@@ -1572,7 +1582,9 @@ test("phase 6 : heures des vacataires du mois, saisies au clavier, visées puis 
   // La vacation du fonctionnaire : 6 heures par semaine, soit 24 heures prévues.
   const ligne = page.getByRole("row").filter({ hasText: "Bakary Sangaré" });
   await expect(ligne.getByRole("textbox", { name: /Heures prévues/ })).toHaveValue("24");
-  await ligne.getByRole("textbox", { name: /Observation/ }).fill("Cours du 21 manqué, rattrapé le 28 pour moitié");
+  // L'observation s'enregistre en quittant la case et la ligne se redessine : on la laisse faire
+  // avant de taper les heures, que le redessin effacerait.
+  await saisirEtQuitter(ligne.getByRole("textbox", { name: /Observation/ }), "Cours du 21 manqué, rattrapé le 28 pour moitié");
   await ligne.getByRole("textbox", { name: /Heures faites/ }).fill("22,5");
   await ligne.getByRole("textbox", { name: /Heures faites/ }).press("Enter");
   // Le montant se recalcule après l'enregistrement de la ligne : sur un poste chargé, plus de cinq
@@ -3501,5 +3513,194 @@ test("phase 9 : le tableau libre croise ce que l'école veut compter ; les donn�
     await page.locator("#bulletins-classe").selectOption({ label: "PS · Petite section" });
     await page.locator("#bulletins-periode").selectOption({ label: "2e trimestre" });
     await expect(page.getByText(texte("bulletins.statut.publie"), { exact: true })).toHaveCount(0);
+  }
+});
+
+// --- Phase 12, lot 1 : la bibliothèque de cours ---------------------------------------------
+
+/** Le dialogue « Ouvrir » du système rend ce chemin, jusqu'à `rendreDialogues`. */
+async function substituerOuverture(chemin: string) {
+  await page.evaluate((c) => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    const original = fenetre.fetchOriginal ?? window.fetch.bind(window);
+    fenetre.fetchOriginal = original;
+    window.fetch = (entree, options) => {
+      const url = decodeURIComponent(typeof entree === "string" ? entree : entree instanceof URL ? entree.href : entree.url);
+      if (url.includes("ipc.localhost/plugin:dialog|open")) {
+        return Promise.resolve(new Response(JSON.stringify(c), { status: 200, headers: { "Tauri-Response": "ok", "content-type": "application/json" } }));
+      }
+      return original(entree, options);
+    };
+  }, chemin);
+}
+
+const RACINE_CARREE = "La racine carrée d'un nombre positif";
+
+/** Ouvre un contenu de la bibliothèque par la recherche ; rend le temps de réponse de la recherche. */
+async function chercherEtOuvrir(mots: string, titre: string | RegExp): Promise<number> {
+  const champ = page.locator("#bibliotheque-recherche");
+  await champ.fill("");
+  const debut = Date.now();
+  await champ.fill(mots);
+  const resultat = page.getByRole("button").filter({ hasText: titre }).first();
+  await resultat.waitFor();
+  const duree = Date.now() - debut;
+  await resultat.click();
+  return duree;
+}
+
+test("bibliothèque : le catalogue livré, une leçon avec ses formules, la recherche, le mode classe et les faits à vérifier", async () => {
+  await allerA("nav.bibliotheque");
+  await expect(page.getByRole("heading", { name: texte("bibliotheque.titre"), exact: true })).toBeVisible();
+  const arbre = page.getByRole("navigation", { name: texte("bibliotheque.titre") });
+  await expect(arbre.locator("summary").first()).toBeVisible({ timeout: 30_000 });
+  await capturer("210-bibliotheque-catalogue");
+
+  // Recherche sans accents : la leçon de la racine carrée de 9e.
+  const recherche = await chercherEtOuvrir("racine carree", RACINE_CARREE);
+  test.info().annotations.push({ type: "recherche_bibliotheque_ms", description: String(recherche) });
+  expect(recherche).toBeLessThan(1_250);
+  await expect(page.getByRole("heading", { name: RACINE_CARREE, exact: true })).toBeVisible();
+  await expect(page.locator("mark").first()).toBeVisible();
+  await capturer("211-bibliotheque-recherche");
+  // Cette leçon écrit ses calculs en caractères ordinaires ; les formules KaTeX sont vérifiées sur
+  // la leçon de terminale plus bas.
+  const lecon = page.locator("article");
+  await expect(lecon.getByRole("table").first()).toBeVisible();
+  await expect(lecon.locator(".katex-error")).toHaveCount(0);
+  await capturer("212-bibliotheque-lecon");
+
+  // Les faits à vérifier, à côté du texte, pour qui écrit : une leçon de biologie en a.
+  await chercherEtOuvrir("coeur vaisseaux sanguins", "Le cœur et les vaisseaux sanguins");
+  await page.getByRole("button", { name: texte("bibliotheque.faits"), exact: true }).click();
+  await expect(page.getByRole("complementary", { name: texte("bibliotheque.faits") })).toBeVisible();
+  await capturer("213-bibliotheque-faits-a-verifier");
+  await page.getByRole("button", { name: texte("bibliotheque.faits"), exact: true }).click();
+
+  // Le mode classe : en grand, sans les notes pour le maître ; Échap en sort.
+  await chercherEtOuvrir("racine carree", RACINE_CARREE);
+  await page.getByRole("button", { name: texte("bibliotheque.mode_classe"), exact: true }).click();
+  const classe = page.getByRole("dialog", { name: RACINE_CARREE });
+  await expect(classe).toBeVisible();
+  await capturer("214-bibliotheque-mode-classe");
+  await page.keyboard.press("Escape");
+  await expect(classe).toHaveCount(0);
+
+  // La plus grosse leçon livrée s'ouvre en moins de deux secondes.
+  await chercherEtOuvrir("probleme baccalaureat etude complete", /Le problème du baccalauréat/);
+  const debut = Date.now();
+  await expect(page.getByRole("heading", { name: /Le problème du baccalauréat/ })).toBeVisible();
+  await expect(lecon.locator(".katex").nth(20)).toBeVisible();
+  const ouverture = Date.now() - debut;
+  test.info().annotations.push({ type: "grosse_lecon_ms", description: String(ouverture) });
+  writeFileSync(
+    join(CAPTURES, "bibliotheque-chronometre.txt"),
+    `Recherche « racine carree » : ${recherche} ms, de la saisie au premier résultat (saisie retardée de 250 ms comprise ; cible : moins d'une seconde).\nPlus grosse leçon livrée : ${ouverture} ms, du clic au texte rendu avec ses formules (cible : moins de 2 secondes).\n`,
+    "utf8",
+  );
+  expect(ouverture).toBeLessThan(2_000);
+  await expect(lecon.locator(".katex-error")).toHaveCount(0);
+  await capturer("215-bibliotheque-grosse-lecon");
+});
+
+test("bibliothèque : la direction retire les mathématiques de 9e, elles quittent catalogue et recherche, puis reviennent d'un geste", async () => {
+  await allerA("nav.bibliotheque");
+  await chercherEtOuvrir("racine carree", RACINE_CARREE);
+  await page.getByRole("button", { name: texte("bibliotheque.retirer"), exact: true }).click();
+  await page.getByRole("button", { name: /^Mathématiques en 9/ }).click();
+  await expect(page.getByText(/ne seront plus montrés/)).toBeVisible();
+  await capturer("216-bibliotheque-retirer-apercu");
+  await page.getByRole("button", { name: texte("bibliotheque.retirer.confirmer"), exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: texte("bibliotheque.retirer.fait") })).toBeVisible();
+
+  // La recherche ne la trouve plus.
+  await page.locator("#bibliotheque-recherche").fill("racine carree nombre positif");
+  await page.waitForTimeout(1_000);
+  await expect(page.getByRole("button").filter({ hasText: RACINE_CARREE })).toHaveCount(0);
+  await page.locator("#bibliotheque-recherche").fill("");
+
+  // La liste des retirés, puis la remise.
+  await page.getByRole("button", { name: texte("bibliotheque.retires"), exact: true }).click();
+  await expect(page.getByRole("button", { name: texte("bibliotheque.retires.remettre"), exact: true }).first()).toBeVisible();
+  await capturer("217-bibliotheque-retires");
+  await page.getByRole("button", { name: texte("bibliotheque.retires.remettre"), exact: true }).first().click();
+  await expect(page.getByText(texte("bibliotheque.retires.aucun"))).toBeVisible();
+  await page.getByRole("button", { name: texte("bibliotheque.retires.retour"), exact: true }).click();
+  await chercherEtOuvrir("racine carree", RACINE_CARREE);
+  await expect(page.getByRole("heading", { name: RACINE_CARREE, exact: true })).toBeVisible();
+});
+
+test("bibliothèque : la direction écrit une version de l'école avec une vidéo, la publie ; l'historique la garde et la compare", async () => {
+  await allerA("nav.bibliotheque");
+  await chercherEtOuvrir("racine carree", RACINE_CARREE);
+  await page.getByRole("button", { name: texte("bibliotheque.mode.ecrire"), exact: true }).click();
+  await page.getByRole("button", { name: texte("bibliotheque.editeur.commencer"), exact: true }).click();
+  const editeur = page.locator("#bibliotheque-editeur");
+  await expect(editeur).not.toHaveValue("");
+  await editeur.press("Control+End");
+  await editeur.pressSequentially("\n\nUn exemple de l'école : $\\sqrt{49} = 7$.\n\n");
+
+  // Une vidéo courte, appelée là où est le curseur ; la première vidéo de l'école le dit.
+  await substituerOuverture(join(import.meta.dirname, "video-essai.mp4"));
+  await page.getByRole("button", { name: texte("bibliotheque.editeur.video"), exact: true }).click();
+  await expect(page.getByText(texte("bibliotheque.video.premiere"))).toBeVisible({ timeout: 30_000 });
+  await rendreDialogues();
+  await expect(editeur).toHaveValue(/video:[0-9a-f]{64}/);
+  await capturer("218-bibliotheque-editeur");
+  await page.getByRole("alertdialog").getByRole("button", { name: texte("commun.fermer"), exact: true }).click();
+
+  await page.getByRole("button", { name: texte("bibliotheque.editeur.enregistrer"), exact: true }).click();
+  await page.getByRole("button", { name: texte("bibliotheque.editeur.publier"), exact: true }).first().click();
+  await expect(page.getByRole("button", { name: texte("bibliotheque.editeur.commencer"), exact: true })).toBeVisible();
+
+  // La version visible est celle de l'école ; la vidéo se lit.
+  await page.getByRole("button", { name: texte("bibliotheque.mode.lire"), exact: true }).click();
+  await expect(page.locator("article").getByText("Un exemple de l'école")).toBeVisible();
+  await expect(page.locator("article .katex").first()).toBeVisible();
+  await page.getByRole("button", { name: /^Lire la vidéo/ }).click();
+  await expect(page.locator("article video")).toBeVisible({ timeout: 30_000 });
+  await capturer("219-bibliotheque-version-ecole-et-video");
+
+  // L'historique : la version publiée, qui l'a écrite, la comparaison avec la livrée.
+  await page.getByRole("button", { name: texte("bibliotheque.mode.historique"), exact: true }).click();
+  await expect(page.getByText(/Version 1/).first()).toBeVisible();
+  await page.getByRole("button", { name: texte("bibliotheque.comparer"), exact: true }).first().click();
+  await expect(page.getByText("Un exemple de l'école", { exact: false }).first()).toBeVisible();
+  await capturer("220-bibliotheque-historique-comparaison");
+
+  // Les écrans de la validation : la file vide, le droit de publier des maîtres.
+  await page.getByRole("button", { name: texte("bibliotheque.en_attente"), exact: true }).click();
+  await expect(page.getByText(texte("bibliotheque.en_attente.vide"))).toBeVisible();
+  await page.getByRole("button", { name: texte("bibliotheque.droits.titre"), exact: true }).click();
+  await capturer("221-bibliotheque-validation-et-droits");
+});
+
+test("bibliothèque : la leçon, sans les corrigés, tout le chapitre et les faits à vérifier s'enregistrent en PDF", async () => {
+  await allerA("nav.bibliotheque");
+  await chercherEtOuvrir("racine carree", RACINE_CARREE);
+  await page.getByRole("button", { name: texte("bibliotheque.imprimer"), exact: true }).click();
+  const imprimer = page.getByRole("group", { name: texte("bibliotheque.imprimer") });
+  const enregistrer = async (bouton: Locator, nom: string) => {
+    const chemin = join(dossier, nom);
+    await substituerEnregistrement(chemin);
+    await bouton.click();
+    await expect.poll(() => existsSync(chemin), { timeout: 60_000 }).toBe(true);
+    await expect(imprimer.getByRole("status").filter({ hasText: texte("bibliotheque.imprimer.fait") })).toBeVisible({ timeout: 60_000 });
+    await rendreDialogues();
+    expect(readFileSync(chemin).subarray(0, 4).toString("latin1")).toBe("%PDF");
+  };
+  await enregistrer(imprimer.getByRole("button", { name: texte("bibliotheque.imprimer.contenu"), exact: true }), "lecon-complete.pdf");
+  await imprimer.getByText(texte("bibliotheque.imprimer.sans_corriges")).click();
+  await enregistrer(imprimer.getByRole("button", { name: texte("bibliotheque.imprimer.contenu"), exact: true }), "lecon-sans-corriges.pdf");
+  await enregistrer(imprimer.getByRole("button", { name: texte("bibliotheque.imprimer.chapitre"), exact: true }), "chapitre.pdf");
+  await capturer("222-bibliotheque-imprimer");
+  // Les faits à vérifier d'une leçon de biologie.
+  await chercherEtOuvrir("coeur vaisseaux sanguins", "Le cœur et les vaisseaux sanguins");
+  await page.getByRole("button", { name: texte("bibliotheque.imprimer"), exact: true }).click();
+  await enregistrer(imprimer.getByRole("button", { name: texte("bibliotheque.imprimer.faits"), exact: true }), "faits.pdf");
+  expect(readFileSync(join(dossier, "lecon-sans-corriges.pdf")).length).toBeLessThan(readFileSync(join(dossier, "lecon-complete.pdf")).length);
+  // Les PDF restent à côté des captures, pour les regarder en image.
+  for (const nom of ["lecon-complete.pdf", "lecon-sans-corriges.pdf", "chapitre.pdf", "faits.pdf"]) {
+    copyFileSync(join(dossier, nom), join(CAPTURES, `223-bibliotheque-${nom}`));
   }
 });

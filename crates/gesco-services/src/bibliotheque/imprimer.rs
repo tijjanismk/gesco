@@ -384,11 +384,13 @@ impl Impression {
     }
 
     /// Compose le PDF. Si la composition échoue, recommence sans les images, puis avec les
-    /// formules telles qu'elles sont écrites : une leçon s'imprime toujours.
+    /// formules telles qu'elles sont écrites : une leçon s'imprime toujours. Chaque reprise est
+    /// notée par `noter` (journal technique), pour qu'une erreur du modèle ne passe pas inaperçue.
     pub(crate) async fn composer(
         &self,
         documents: &ServiceDocuments<'_>,
         session: &Session,
+        noter: &(dyn Fn(&str) + Sync),
     ) -> Resultat<Vec<u8>> {
         let essais = [
             Options {
@@ -412,7 +414,13 @@ impl Impression {
                 .await
             {
                 Ok(pdf) => return Ok(pdf),
-                Err(e) => derniere = Some(e),
+                Err(e) => {
+                    noter(&format!(
+                        "bibliotheque impression reprise (images {}, formules {}) : {e:?}",
+                        options.images, options.formules
+                    ));
+                    derniere = Some(e);
+                }
             }
         }
         Err(derniere.unwrap_or(regle("bibliotheque.impression_impossible")))

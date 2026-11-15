@@ -6,6 +6,9 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "e2e",
   timeout: 120_000,
+  // Plusieurs gestes commencent par une sauvegarde (ouverture de l'année, imports) ; depuis que la
+  // base porte la bibliothèque de cours, elle dépasse les cinq secondes ordinaires en débogage.
+  expect: { timeout: 15_000 },
   workers: 1,
   reporter: "list",
   webServer: { command: "pnpm dev", port: 1420, reuseExistingServer: true },

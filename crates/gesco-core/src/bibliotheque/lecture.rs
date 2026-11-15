@@ -690,16 +690,36 @@ fn ranger_matieres(
 }
 
 /// Requête plein texte d'après ce que l'utilisateur tape : chaque mot devient un préfixe entre
-/// guillemets, tous les mots sont exigés. Rien de ce qui est tapé n'est lu comme un opérateur.
+/// guillemets, tous les mots sont exigés (`AND` écrit : FTS5 le veut après une parenthèse). Rien de ce qui est tapé n'est lu comme un opérateur.
 /// Vide si aucun mot.
 pub fn requete_recherche(texte: &str) -> String {
     texte
         .split(|c: char| !c.is_alphanumeric())
         .filter(|m| !m.is_empty())
         .take(12)
-        .map(|m| format!("\"{m}\"*"))
+        .map(terme_recherche)
         .collect::<Vec<_>>()
-        .join(" ")
+        .join(" AND ")
+}
+
+/// Un mot de la recherche. Les ligatures ne sont pas des accents : « coeur » tapé au clavier
+/// cherche aussi « cœur », et l'inverse ; de même « ae » et « æ ».
+fn terme_recherche(mot: &str) -> String {
+    let minuscule = mot.to_lowercase();
+    let mut formes = vec![mot.to_owned()];
+    for forme in [
+        minuscule.replace('œ', "oe").replace('æ', "ae"),
+        minuscule.replace("oe", "œ").replace("ae", "æ"),
+    ] {
+        if forme != minuscule && !formes.contains(&forme) {
+            formes.push(forme);
+        }
+    }
+    if formes.len() == 1 {
+        return format!("\"{mot}\"*");
+    }
+    let alternatives: Vec<String> = formes.iter().map(|f| format!("\"{f}\"*")).collect();
+    format!("({})", alternatives.join(" OR "))
 }
 
 #[cfg(test)]
@@ -1110,9 +1130,16 @@ mod tests {
     fn la_requete_ne_garde_que_des_mots() {
         assert_eq!(
             requete_recherche("racine carrée"),
-            "\"racine\"* \"carrée\"*"
+            "\"racine\"* AND \"carrée\"*"
         );
-        assert_eq!(requete_recherche("\"a\" OR b*"), "\"a\"* \"OR\"* \"b\"*");
+        assert_eq!(
+            requete_recherche("\"a\" OR b*"),
+            "\"a\"* AND \"OR\"* AND \"b\"*"
+        );
         assert_eq!(requete_recherche("  ;; "), "");
+        assert_eq!(
+            requete_recherche("coeur sœur"),
+            "(\"coeur\"* OR \"cœur\"*) AND (\"sœur\"* OR \"soeur\"*)"
+        );
     }
 }
