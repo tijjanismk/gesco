@@ -3704,3 +3704,65 @@ test("bibliothèque : la leçon, sans les corrigés, tout le chapitre et les fai
     copyFileSync(join(dossier, nom), join(CAPTURES, `223-bibliotheque-${nom}`));
   }
 });
+
+test("bibliothèque, école d'essai : un maître soumet sa leçon à la direction ; un cours reste retiré", async () => {
+  test.skip(process.env["GESCO_ECOLE_ESSAI"] === undefined, "réservé à l'école d'essai");
+  test.setTimeout(300_000);
+  // Un compte de maître n'entre que si les maîtres saisissent leurs notes.
+  await allerA("nav.parametres");
+  const reglage = page.locator('[id="param-notes.saisie_maitres"]');
+  const ligne = reglage.locator("xpath=ancestor::div[contains(@class,'py-2')][1]");
+  await reglage.check();
+  await ligne.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(ligne.getByText(/Enregistré/)).toBeVisible({ timeout: 20_000 });
+
+  // Le compte du maître, sa fiche d'enseignant, les mathématiques de la 7e A.
+  await allerA("nav.utilisateurs");
+  await page.locator("#nouvel-identifiant").fill("ousmane");
+  await page.locator("#nouveau-nom").fill("Ousmane Sidibé");
+  await page.locator("#nouveau-mdp-initial").fill("maitre-rentree-2026");
+  await page.locator("#nouveau-role-enseignant").check();
+  await page.getByRole("button", { name: texte("utilisateurs.creer") }).click();
+  await expect(page.getByRole("cell", { name: "Ousmane Sidibé" })).toBeVisible({ timeout: 20_000 });
+  await allerA("nav.enseignants");
+  await page.locator("#enseignant-prenoms").fill("Ousmane");
+  await page.locator("#enseignant-nom").fill("Sidibé");
+  await page.locator("#enseignant-telephone").fill("76 52 41 30");
+  await page.locator("#enseignant-statut").selectOption("titulaire");
+  await page.locator("#enseignant-compte").selectOption({ label: "Ousmane Sidibé" });
+  await page.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  await expect(page.getByRole("cell", { name: "Ousmane", exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.locator("#affectations-classe").selectOption({ label: "7e A · 7ème année" });
+  const maths = page.getByRole("row").filter({ hasText: "Mathématiques" }).first();
+  await maths.locator("select").selectOption({ label: "Ousmane Sidibé" });
+  await maths.getByRole("button", { name: texte("enseignants.confier") }).click();
+  await expect(maths.getByRole("listitem").filter({ hasText: "Ousmane Sidibé" })).toBeVisible({ timeout: 20_000 });
+
+  // Le maître écrit sa version d'une leçon de 7e et la soumet.
+  await premiereConnexion("ousmane", "maitre-rentree-2026", "maitre-ecole-2026");
+  await allerA("nav.bibliotheque");
+  await chercherEtOuvrir("caracteres divisibilite", "Les caractères de divisibilité");
+  await page.getByRole("button", { name: texte("bibliotheque.mode.ecrire"), exact: true }).click();
+  await page.getByRole("button", { name: texte("bibliotheque.editeur.commencer"), exact: true }).click();
+  const editeur = page.locator("#bibliotheque-editeur");
+  await expect(editeur).not.toHaveValue("");
+  await editeur.press("Control+End");
+  await editeur.pressSequentially("\n\nExemple de la classe : 4 512 est divisible par 2, par 3 et par 4.\n");
+  await page.getByRole("button", { name: texte("bibliotheque.editeur.enregistrer"), exact: true }).click();
+  await page.getByRole("button", { name: texte("bibliotheque.editeur.soumettre"), exact: true }).first().click();
+  await expect(page.getByText(/Vous avez soumis cette version le/)).toBeVisible({ timeout: 20_000 });
+
+  // La direction la trouve dans la file ; elle retire un cours et le laisse retiré.
+  await revenirALaDirection();
+  // L'entrée de la barre latérale porte le nombre de leçons en attente : « Bibliothèque 1 ».
+  await page.getByRole("navigation").getByRole("button", { name: new RegExp(`^${texte("nav.bibliotheque")}`) }).click();
+  await expect(page.getByRole("button", { name: texte("bibliotheque.en_attente.compte").replace("{nombre}", "1"), exact: true })).toBeVisible({ timeout: 20_000 });
+  await chercherEtOuvrir("puissance nombre naturel", "Puissance d'un nombre naturel");
+  await page.getByRole("button", { name: texte("bibliotheque.retirer"), exact: true }).click();
+  await page.getByRole("button", { name: texte("bibliotheque.retirer.contenu"), exact: true }).click();
+  await page.getByRole("button", { name: texte("bibliotheque.retirer.confirmer"), exact: true }).click();
+  // Le cours retiré quitte le catalogue ; la liste des retirés le montre.
+  await page.getByRole("button", { name: texte("bibliotheque.retires"), exact: true }).click();
+  await expect(page.getByText("Cours : Puissance d'un nombre naturel")).toBeVisible();
+  await page.getByRole("button", { name: texte("bibliotheque.retires.retour"), exact: true }).click();
+});

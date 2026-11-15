@@ -10,7 +10,8 @@
     clippy::expect_used,
     clippy::panic,
     clippy::indexing_slicing,
-    clippy::print_stdout
+    clippy::print_stdout,
+    clippy::cast_precision_loss
 )]
 
 use std::time::{Duration, Instant};
@@ -261,4 +262,99 @@ async fn une_ecole_de_1500_eleves_tient_dans_des_temps_bornes() {
     let fin = p.ok("fin_annee_lire", Some(&admin), Value::Null).await;
     assert_eq!(fin["classes"].as_array().unwrap().len(), 40);
     mesurer("Fin d'année", debut, Duration::from_secs(30));
+}
+
+/// Ouverture d'une année sur une école qui porte la bibliothèque livrée : le vrai paquet signé,
+/// fabriqué hors du dépôt, est déposé comme le fait l'installeur. L'ouverture commence par une
+/// sauvegarde, plus lourde depuis que la base porte la bibliothèque.
+///
+/// `cargo test -p gesco-services --release --test services charge::ouvrir -- --ignored --nocapture`
+/// (paquets lus dans `GESCO_PAQUETS_BIBLIOTHEQUE`, sinon dans `gesco-bibliotheque-paquets` à côté
+/// du dossier du dépôt ; absents, l'essai ne mesure rien).
+#[tokio::test]
+#[ignore = "mesure, à lancer en --release avec --ignored"]
+async fn ouvrir_l_annee_avec_la_bibliotheque_livree() {
+    use std::sync::Arc;
+
+    use gesco_core::commun::Horodatage;
+    use gesco_services::cles::TrousseauMemoire;
+
+    let paquets = std::env::var_os("GESCO_PAQUETS_BIBLIOTHEQUE").map_or_else(
+        || {
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../../gesco-bibliotheque-paquets")
+        },
+        std::path::PathBuf::from,
+    );
+    let Ok(entrees) = std::fs::read_dir(&paquets) else {
+        println!("Aucun paquet dans {} : rien à mesurer", paquets.display());
+        return;
+    };
+    let dossier = tempfile::tempdir().unwrap();
+    let cible = dossier.path().join("bibliotheque");
+    std::fs::create_dir_all(&cible).unwrap();
+    for entree in entrees.flatten() {
+        let nom = entree.file_name();
+        if nom.to_string_lossy().ends_with(".gbib") {
+            std::fs::copy(entree.path(), cible.join(&nom)).unwrap();
+        }
+    }
+    let trousseau: Arc<dyn gesco_services::cles::Trousseau> = Arc::new(TrousseauMemoire::default());
+    let horloge = Arc::new(gesco_services::HorlogeFixe::a(
+        Horodatage::depuis_millis_epoque(DEBUT),
+    ));
+    let application = gesco_services::Application::demarrer(gesco_services::OptionsApplication {
+        racine: dossier.path().to_path_buf(),
+        poste: gesco_core::core::Poste("secretariat".to_owned()),
+        empreinte_machine: "machine-test".to_owned(),
+        trousseau: Arc::clone(&trousseau),
+        horloge: horloge.clone(),
+        politique_session: gesco_services::session::PolitiqueSession::default(),
+        version_applicative: "2.0.0".to_owned(),
+        cle_licence: gesco_core::core::licence::cle_publique(&GRAINE_EDITEUR),
+        cle_bibliotheque: gesco_services::bibliotheque::cle_publique_paquets().unwrap(),
+    })
+    .await
+    .unwrap();
+    let p = Poste_ {
+        application,
+        horloge,
+        trousseau,
+        racine: dossier.path().to_path_buf(),
+    };
+    let debut = Instant::now();
+    p.installer().await;
+    mesurer(
+        "Premier démarrage, bibliothèque installée",
+        debut,
+        Duration::from_secs(60),
+    );
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let etat = p.ok("bibliotheque_etat", Some(&admin), Value::Null).await;
+    println!(
+        "Bibliothèque {} : {} leçons, {} sujets",
+        etat["paquets"][0]["version"], etat["paquets"][0]["lecons"], etat["paquets"][0]["sujets"]
+    );
+    assert!(etat["paquets"][0]["lecons"].as_u64().unwrap() > 0);
+    let base =
+        std::fs::metadata(gesco_services::espace::EspaceDonnees::nouveau(dossier.path()).base())
+            .map(|m| m.len())
+            .unwrap_or(0);
+    println!("Base : {:.1} Mo", base as f64 / 1_048_576.0);
+
+    let annee = p
+        .ok(
+            "annee_creer",
+            Some(&admin),
+            json!({ "libelle": "2026-2027", "debut": RENTREE_2026, "fin": FIN_2027 }),
+        )
+        .await;
+    let debut = Instant::now();
+    p.ok("annee_activer", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    mesurer(
+        "Ouverture de l'année (sauvegarde comprise)",
+        debut,
+        Duration::from_secs(30),
+    );
 }
