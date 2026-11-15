@@ -7645,7 +7645,12 @@ export type ModuleEcole =
  *  Note de conduite du 2e cycle, du lycée et du technique (porteur du projet, 24 octobre
  *  2026).
  */
-"conduite";
+"conduite" | 
+/**
+ *  Bibliothèque de cours (phase 12) : allumée à la livraison ; éteinte, elle quitte la barre
+ *  latérale, le tableau de bord et la recherche, ses contenus et ses versions restent.
+ */
+"bibliotheque";
 
 /**  Bulletin de paie d'un membre, dans « Mon compte ». */
 export type MonBulletinPaie = {

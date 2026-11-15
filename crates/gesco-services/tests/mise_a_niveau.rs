@@ -859,6 +859,108 @@ async fn une_base_de_la_composition_15_recoit_le_droit_des_rapports() {
 }
 
 #[tokio::test]
+async fn une_base_de_la_composition_16_recoit_les_droits_de_la_bibliotheque() {
+    let (noyau, etablissement_id, _dossier) = installer().await;
+    executer(
+        &noyau,
+        "DELETE FROM role_permission WHERE permission_code LIKE 'library:%'",
+    )
+    .await;
+    executer(&noyau, "UPDATE role SET composition_livree = 16").await;
+    mise_a_niveau::completer_roles(&noyau, etablissement_id)
+        .await
+        .unwrap();
+    for role in RoleSysteme::TOUS {
+        let obtenues = permissions(&noyau, etablissement_id, *role).await;
+        let lire = !matches!(
+            role,
+            RoleSysteme::Caissier | RoleSysteme::Comptable | RoleSysteme::GestionnaireRh
+        );
+        let ecrire = matches!(
+            role,
+            RoleSysteme::Administrateur
+                | RoleSysteme::Directeur
+                | RoleSysteme::DirecteurDesEtudes
+                | RoleSysteme::Enseignant
+        );
+        let publier = matches!(
+            role,
+            RoleSysteme::Administrateur | RoleSysteme::Directeur | RoleSysteme::DirecteurDesEtudes
+        );
+        let gerer = matches!(role, RoleSysteme::Administrateur | RoleSysteme::Directeur);
+        assert_eq!(
+            obtenues.contains(&Permission::LIBRARY_READ),
+            lire,
+            "{role:?}"
+        );
+        assert_eq!(
+            obtenues.contains(&Permission::LIBRARY_EDIT),
+            ecrire,
+            "{role:?}"
+        );
+        assert_eq!(
+            obtenues.contains(&Permission::LIBRARY_PUBLISH),
+            publier,
+            "{role:?}"
+        );
+        assert_eq!(
+            obtenues.contains(&Permission::LIBRARY_MANAGE),
+            gerer,
+            "{role:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn une_base_de_la_1_2_ou_de_la_2_0_trouve_la_bibliotheque_allumee() {
+    let (noyau, etablissement_id, _dossier) = installer().await;
+    // Une base d'avant la bibliothèque n'a aucun de ses réglages.
+    executer(
+        &noyau,
+        "DELETE FROM parametre WHERE cle = 'module.bibliotheque' OR cle LIKE 'bibliotheque.%'",
+    )
+    .await;
+    assert_eq!(
+        mise_a_niveau::completer_parametres(&noyau, etablissement_id)
+            .await
+            .unwrap(),
+        3
+    );
+    let contexte = noyau.contexte(etablissement_id, None);
+    let mut cnx = noyau.base().pool().acquire().await.unwrap();
+    for cle in ["module.bibliotheque", "bibliotheque.suivi_eleves"] {
+        assert!(
+            gesco_db::depots::parametre::booleen_param(&mut cnx, cle, false, &contexte)
+                .await
+                .unwrap(),
+            "{cle}"
+        );
+    }
+    let taille = gesco_db::depots::parametre::entier(
+        &mut cnx,
+        "bibliotheque.taille_video_conseillee",
+        0,
+        &contexte,
+    )
+    .await
+    .unwrap();
+    assert_eq!(taille, 200);
+    // Les tables de la bibliothèque sont là, et l'index de recherche répond.
+    let contenus: i64 = sqlx::query_scalar("SELECT count(*) FROM contenu")
+        .fetch_one(&mut *cnx)
+        .await
+        .unwrap();
+    assert_eq!(contenus, 0);
+    let trouves: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM recherche_bibliotheque WHERE recherche_bibliotheque MATCH 'racine'",
+    )
+    .fetch_one(&mut *cnx)
+    .await
+    .unwrap();
+    assert_eq!(trouves, 0);
+}
+
+#[tokio::test]
 async fn les_rubriques_livrees_de_la_fiche_ne_sont_posees_qu_une_fois() {
     let (noyau, etablissement_id, _dossier) = installer().await;
     // L'installation les a posées ; la mise à niveau n'en ajoute aucune de plus.

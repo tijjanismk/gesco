@@ -138,6 +138,10 @@ catalogue! {
     STUDENTS_DISABILITY = "students:disability",
     INVENTORY_MANAGE = "inventory:manage",
     SCHOOL_REPORTS_MANAGE = "school_reports:manage",
+    LIBRARY_READ = "library:read",
+    LIBRARY_EDIT = "library:edit",
+    LIBRARY_PUBLISH = "library:publish",
+    LIBRARY_MANAGE = "library:manage",
 }
 
 /// Version de la composition des rôles livrés. Une phase qui ajoute des permissions à
@@ -191,7 +195,12 @@ catalogue! {
 /// de l'inventaire.
 /// Version 16 (SPEC_PHASE_9 §11) : `school_reports:manage`, nouvelle, pour le Directeur seul :
 /// rédiger, arrêter et rouvrir les rapports de l'école.
-pub const COMPOSITION_ROLES_LIVRES: i64 = 16;
+/// Version 17 (bibliothèque de cours, phase 12) : `library:read`, `library:edit`,
+/// `library:publish` et `library:manage`, nouvelles. Lire : tous les rôles livrés sauf le
+/// Caissier, le Comptable et le Gestionnaire RH ; écrire : le Directeur, le Directeur des études
+/// et l'Enseignant (dans ses matières) ; publier : le Directeur et le Directeur des études ;
+/// gérer (retirer, installer, régler) : le Directeur.
+pub const COMPOSITION_ROLES_LIVRES: i64 = 17;
 
 /// Rôles livrés avec le produit (§11.4), composés selon SPEC_PHASE_1 §5.2 (Q-44).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -330,6 +339,10 @@ impl RoleSysteme {
                 P::FEES_MANAGE,
                 P::INVOICES_DISCOUNT,
                 P::CASHBOX_RECONCILE,
+                P::LIBRARY_READ,
+                P::LIBRARY_EDIT,
+                P::LIBRARY_PUBLISH,
+                P::LIBRARY_MANAGE,
             ],
             Self::DirecteurDesEtudes => vec![
                 P::STUDENTS_READ,
@@ -346,6 +359,9 @@ impl RoleSysteme {
                 P::CONVOCATIONS_UPDATE,
                 P::IMPORT_GRADES,
                 P::TIMETABLE_MANAGE,
+                P::LIBRARY_READ,
+                P::LIBRARY_EDIT,
+                P::LIBRARY_PUBLISH,
             ],
             Self::Secretaire => vec![
                 P::STUDENTS_CREATE,
@@ -374,6 +390,7 @@ impl RoleSysteme {
                 P::STATISTICS_READ,
                 P::SCHOOL_PROFILE_MANAGE,
                 P::INVENTORY_MANAGE,
+                P::LIBRARY_READ,
             ],
             Self::Caissier => vec![
                 P::STUDENTS_READ,
@@ -410,6 +427,8 @@ impl RoleSysteme {
                 P::GRADES_CREATE,
                 P::GRADES_UPDATE,
                 P::ATTENDANCE_CREATE,
+                P::LIBRARY_READ,
+                P::LIBRARY_EDIT,
             ],
             Self::Surveillant => vec![
                 P::STUDENTS_READ,
@@ -423,6 +442,7 @@ impl RoleSysteme {
                 P::CONVOCATIONS_CLOSE,
                 P::NOTIFICATIONS_READ,
                 P::NOTIFICATIONS_SEND_MANUAL,
+                P::LIBRARY_READ,
             ],
             Self::GestionnaireRh => vec![
                 P::EMPLOYEES_READ,
@@ -442,6 +462,7 @@ impl RoleSysteme {
                 P::LICENCE_READ,
                 P::TREASURY_READ,
                 P::NOTIFICATIONS_READ,
+                P::LIBRARY_READ,
             ],
         }
     }

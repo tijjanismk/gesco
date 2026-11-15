@@ -1,7 +1,7 @@
 # La bibliothèque dans toute licence, et un module de l'école allumé à la livraison
 
 **Date** : 15 novembre 2026
-**Statut** : proposé le 15 novembre 2026 — décision 13 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
+**Statut** : accepté le 15 novembre 2026 (étape 3 du lot : module `Bibliotheque` et réglages) ; proposé le 15 novembre 2026 — décision 13 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
 
 ## Contexte
 
@@ -83,3 +83,7 @@ l'e-learning un pilier, et qu'un pilier caché derrière un réglage que personn
 - Si le porteur décide de vendre la bibliothèque, ou des paquets, à part.
 - Si des écoles se plaignent de la bibliothèque allumée sans l'avoir demandée.
 - Si le lot 4 montre que le suivi doit être réglé autrement (par classe, par maître).
+
+## Mise en œuvre
+
+- 15 novembre 2026, étape 3 : huitième module `ModuleEcole::Bibliotheque`, réglage `module.bibliotheque` allumé ; `bibliotheque.suivi_eleves` allumé et `bibliotheque.taille_video_conseillee` (200 Mo, de 10 à 10 000) posés à l'installation et à l'ouverture d'une base plus ancienne, donc allumés pour une école qui passe de la 1.2 à la 2.0. Les deux réglages s'affichent dans Paramètres, bloc « Bibliothèque de cours », tant que le module est allumé ; le suivi porte la ligne neutre dans son libellé. Aucune vérification de licence.

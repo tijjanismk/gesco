@@ -3,6 +3,7 @@
 
 pub mod lecon;
 pub mod paquet;
+pub mod reglages;
 
 pub use lecon::{Alignement, Bloc, Enligne, FormuleLecon, Lecon, SourceImage, analyser};
 pub use paquet::{

@@ -107,6 +107,10 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
         (cle, ValeurParametre::Texte(t)) if cle.starts_with("jardin.echelle_") => {
             crate::pedagogie::jardin::echelle_hors_bornes(cle, t).unwrap_or(true)
         }
+        // Bibliothèque : la taille conseillée d'une vidéo, en mégaoctets.
+        (crate::bibliotheque::reglages::TAILLE_VIDEO_CONSEILLEE, ValeurParametre::Entier(n)) => {
+            !crate::bibliotheque::reglages::TAILLE_VIDEO_CONSEILLEE_BORNES.contains(n)
+        }
         ("montant.multiple_arrondi", ValeurParametre::Entier(n)) => {
             ![1, 5, 10, 25, 50, 100].contains(n)
         }
@@ -366,6 +370,19 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         // Note de conduite (porteur du projet, 24 octobre 2026) : un module que l'école active,
         // saisie par défaut, comptée avec le coefficient 1.
         p("module.conduite", ValeurParametre::Booleen(false), true),
+        // Bibliothèque de cours (phase 12) : allumée, pour une école neuve comme pour une école
+        // qui passe à la 2.0 ; le suivi des élèves allumé ; 200 Mo conseillés par vidéo.
+        p("module.bibliotheque", ValeurParametre::Booleen(true), true),
+        p(
+            crate::bibliotheque::reglages::SUIVI_ELEVES,
+            ValeurParametre::Booleen(true),
+            true,
+        ),
+        p(
+            crate::bibliotheque::reglages::TAILLE_VIDEO_CONSEILLEE,
+            ValeurParametre::Entier(crate::bibliotheque::reglages::TAILLE_VIDEO_CONSEILLEE_DEFAUT),
+            true,
+        ),
         p(
             crate::pedagogie::conduite::parametres::MODE,
             ValeurParametre::Texte(

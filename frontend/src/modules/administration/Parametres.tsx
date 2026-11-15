@@ -26,6 +26,7 @@ const THEMES: readonly { titre: Cle; prefixes: readonly string[] }[] = [
   { titre: "parametres.theme.personnel", prefixes: ["conge."] },
   { titre: "parametres.theme.conduite", prefixes: ["conduite."] },
   { titre: "parametres.theme.messages", prefixes: ["sms."] },
+  { titre: "parametres.theme.bibliotheque", prefixes: ["bibliotheque."] },
   { titre: "parametres.theme.documents", prefixes: ["numerotation.", "document.format."] },
 ];
 
@@ -84,6 +85,9 @@ export function Parametres() {
   // Les messages aux familles éteints, seule leur case d'activation reste.
   const sms = (parametres.data ?? []).find((p) => p.cle === "sms.actif")?.valeur;
   const smsActif = sms?.type === "booleen" && sms.valeur;
+  // De même pour la bibliothèque de cours : éteinte, ses réglages quittent l'écran.
+  const bibliotheque = (parametres.data ?? []).find((p) => p.cle === "module.bibliotheque")?.valeur;
+  const bibliothequeActive = bibliotheque?.type !== "booleen" || bibliotheque.valeur;
   return (
     <div className="flex max-w-3xl flex-col gap-4">
       <h1 className="text-xl font-semibold text-encre">{t("parametres.titre")}</h1>
@@ -93,7 +97,7 @@ export function Parametres() {
       {titres.map((titre) => {
         // Les réglages du bulletin, par cycle, la largeur des colonnes imprimées et l'échelle du
         // jardin ont leur bloc à eux.
-        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("colonnes.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && !p.cle.startsWith("module.") && !p.cle.startsWith("jardin.") && p.cle !== "sms.actif" && (smsActif || !p.cle.startsWith("sms.")) && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
+        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("colonnes.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && !p.cle.startsWith("module.") && !p.cle.startsWith("jardin.") && p.cle !== "sms.actif" && (smsActif || !p.cle.startsWith("sms.")) && (bibliothequeActive || !p.cle.startsWith("bibliotheque.")) && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
         return lignes.length === 0 ? null : (
           <Section key={titre} titre={t(titre)}>
             {lignes.map((p) => (
@@ -161,6 +165,7 @@ const MODULES: readonly { module: ModuleEcole; cle: string; aide: Cle }[] = [
   { module: "emploi_du_temps", cle: "module.emploi_du_temps", aide: "modules.aide.emploi_du_temps" },
   { module: "discipline", cle: "module.discipline", aide: "modules.aide.discipline" },
   { module: "conduite", cle: "module.conduite", aide: "modules.aide.conduite" },
+  { module: "bibliotheque", cle: "module.bibliotheque", aide: "modules.aide.bibliotheque" },
 ];
 
 /** Modules de l'école : la direction allume ou éteint chacun, pour tout le monde. Un module éteint

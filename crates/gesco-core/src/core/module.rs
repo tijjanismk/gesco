@@ -23,11 +23,14 @@ pub enum ModuleEcole {
     /// Note de conduite du 2e cycle, du lycée et du technique (porteur du projet, 24 octobre
     /// 2026).
     Conduite,
+    /// Bibliothèque de cours (phase 12) : allumée à la livraison ; éteinte, elle quitte la barre
+    /// latérale, le tableau de bord et la recherche, ses contenus et ses versions restent.
+    Bibliotheque,
 }
 
 impl ModuleEcole {
     /// Tous les modules, dans l'ordre de l'écran des paramètres.
-    pub const TOUS: [Self; 7] = [
+    pub const TOUS: [Self; 8] = [
         Self::Sms,
         Self::Cantine,
         Self::Personnel,
@@ -35,6 +38,7 @@ impl ModuleEcole {
         Self::EmploiDuTemps,
         Self::Discipline,
         Self::Conduite,
+        Self::Bibliotheque,
     ];
 
     /// Réglage qui l'active. La cantine et les SMS gardent le leur, antérieur à cet écran.
@@ -47,6 +51,7 @@ impl ModuleEcole {
             Self::EmploiDuTemps => "module.emploi_du_temps",
             Self::Discipline => "module.discipline",
             Self::Conduite => "module.conduite",
+            Self::Bibliotheque => "module.bibliotheque",
         }
     }
 
@@ -75,5 +80,6 @@ mod tests {
         }
         assert!(!ModuleEcole::Sms.actif_par_defaut());
         assert!(ModuleEcole::Personnel.actif_par_defaut());
+        assert!(ModuleEcole::Bibliotheque.actif_par_defaut());
     }
 }

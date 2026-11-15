@@ -247,12 +247,15 @@ impl Base {
 
     /// Empreinte SHA-256 du contenu logique : chaque ligne de chaque table, valeurs citées par
     /// SQLite et triées. Deux bases de même contenu ont la même empreinte, quelle que soit la
-    /// disposition des pages ; c'est ce que compare la restauration (assertion 9).
+    /// disposition des pages ; c'est ce que compare la restauration (assertion 9). L'index de
+    /// recherche de la bibliothèque (table FTS5 et ses tables cachées) n'en est pas : il se
+    /// refait d'après le reste, et ses pages internes dépendent de l'ordre des écritures.
     pub async fn empreinte_contenu(&self) -> Resultat<String> {
         let mut cnx = self.pool_ordinaire.acquire().await?;
         let tables: Vec<String> = sqlx::query_scalar(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
-             AND name <> '_sqlx_migrations' ORDER BY name",
+             AND name <> '_sqlx_migrations' AND name NOT LIKE 'recherche_bibliotheque%'
+             ORDER BY name",
         )
         .fetch_all(&mut *cnx)
         .await?;

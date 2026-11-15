@@ -1,7 +1,7 @@
 # Les tables de la bibliothèque : le programme comme colonne, un contenu et ses versions, l'état de l'école à part
 
 **Date** : 15 novembre 2026
-**Statut** : proposé le 15 novembre 2026 — décision 6 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
+**Statut** : accepté le 15 novembre 2026 (étape 3 du lot : migration 0061) ; proposé le 15 novembre 2026 — décision 6 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
 
 ## Contexte
 
@@ -110,3 +110,7 @@ ajoutée au bon moment.
 - Si le lot 3 ou le lot 4 doit changer une colonne de `contenu` ou de `version_contenu`.
 - Si des écoles demandent plusieurs brouillons concurrents d'une même leçon.
 - Si l'index plein texte ralentit une publication de plus d'une seconde sur un vieux poste.
+
+## Mise en œuvre
+
+- 15 novembre 2026, étape 3 : migration 0061 `bibliotheque`, onze tables et l'index FTS5 `recherche_bibliotheque` (diacritiques ignorés). Écarts à valider par le porteur du projet : (1) une table de plus, `fichier_contenu`, range les fichiers d'un document de l'école dans l'ordre (un même fichier, gardé une fois par son empreinte, peut servir à plusieurs documents) ; (2) l'état `abandonnee` s'ajoute aux cinq états d'une version (« Abandonner le brouillon » de la spécification) ; (3) un chapitre ou un contenu de l'école se range après la clé d'un autre (`apres_cle`), pour garder sa place quand une mise à jour réordonne les chapitres livrés ; (4) les séries d'un chapitre (`chapitre_serie`) ne se suppriment pas non plus : une série qu'une mise à jour retire est marquée `retiree_le` ; (5) les libellés de référence des disciplines du paquet sont gardés en JSON dans `bibliotheque_paquet.disciplines` ; (6) l'index de recherche est le seul à perdre et reprendre ses lignes, et l'empreinte du contenu d'une base (que compare la restauration) ne le compte pas. Un déclencheur refuse de changer le texte d'une version qui n'est plus brouillon ; deux index uniques partiels tiennent « un brouillon » et « une version publiée » à la fois par contenu.

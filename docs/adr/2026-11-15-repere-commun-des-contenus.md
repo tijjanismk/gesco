@@ -1,7 +1,7 @@
 # Le repère commun : un contenu livré vise des codes nationaux, et une correspondance de l'école le place sous ses matières
 
 **Date** : 15 novembre 2026
-**Statut** : proposé le 15 novembre 2026 — décision 9 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
+**Statut** : accepté le 15 novembre 2026 (étape 3 du lot : table `correspondance_discipline`, migration 0061) ; proposé le 15 novembre 2026 — décision 9 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
 
 ## Contexte
 
@@ -99,3 +99,7 @@ interdit.
   orthographe, rédaction).
 - Si des contenus d'un autre pays sont livrés : il faudra une correspondance des séries.
 - Si aucune école ne règle jamais la correspondance : la simplifier en code exact.
+
+## Mise en œuvre
+
+- 15 novembre 2026, étape 3 : table `correspondance_discipline` (discipline de référence, code du niveau, matière de l'école ou rien), une ligne par discipline et par niveau. Un chapitre livré porte les codes nationaux (`niveau_code`, `discipline_code`, séries dans `chapitre_serie`) ; un chapitre de l'école porte en plus son niveau et sa matière (`niveau_id`, `matiere_id`). La pose par code exact se fait à l'installation du paquet (étape 4).
