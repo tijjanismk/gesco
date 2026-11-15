@@ -513,3 +513,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   Recherche d'images libres (environ 180, Wikimedia Commons d'abord, source, auteur et licence
   notés) lancée dans `local_f40629f5-08dd-4d60-83b3-e3bf062aa48a`, sur l'accord du porteur.
   Disque : 6,3 Go libres après recompilation.
+- 2026-11-15 : **phase 12 lot 1 finie** (étape 10 `ab41718` : installeur 2.0.0 avec la bibliothèque
+  dans `Documents\GESCO-2.0.0-bibliotheque`, école d'essai refaite, 94 scénarios Playwright verts).
+  Ménage du disque sur accord du porteur : `cargo clean` (projet 5,7 Go, `gesco-insertion` 2,1 Go),
+  cache npm, et à la Corbeille les installeurs 1.2.4, 1.2.5, 1.2.6, 1.2.6-poste, `GESCO-poste-essai`
+  et `gesco-essai-remplissage` (environ 1,5 Go, rendus quand le porteur vide la Corbeille).
+  14,3 Go libres. La prochaine compilation repart de zéro, et il faut recompiler pour ouvrir
+  l'école d'essai par `target\debug\gesco-app.exe`.
