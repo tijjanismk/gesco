@@ -484,3 +484,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (`local_02f3cd32-bff7-44d7-b30e-a3a840af0f5d`, `SPEC_SAUVEGARDE_HORS_ECOLE.md`) et ADR et
   spécification du lot 1 de la phase 12 (`local_52b3f98e-c531-4c47-b000-424c217c7275`,
   `SPEC_PHASE_12_LOT_1.md`). Sessions de la phase 9 à archiver avec l'accord du porteur.
+- 2026-11-15 : sessions de la phase 9 archivées. Spécification des lots C et D lancée
+  (`local_97a85b71-1e3b-4c7c-beb3-d5eb38ac98ee`, `SPEC_LOTS_C_D.md`). Trois sessions de
+  rédaction tournent, aucune ne compile. À reporter par la prochaine session de code : la grille
+  des examens écrit « Nom Prénoms » alors que les autres écrans écrivent « Prénoms Nom » (à aligner
+  sur « Prénoms Nom », principe de cohérence).
