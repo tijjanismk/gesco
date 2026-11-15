@@ -34,6 +34,7 @@ pub mod eleves;
 pub mod emploi_du_temps;
 pub mod encaissement;
 pub mod engagements;
+pub mod enquete;
 pub mod enseignants;
 pub mod erreur;
 pub mod espace;
@@ -100,6 +101,7 @@ pub mod session;
 mod seul;
 pub mod statistiques;
 pub mod tableau;
+pub mod tableau_libre;
 pub mod tresorerie;
 
 pub use erreur::{ErreurService, Resultat};

@@ -95,6 +95,8 @@ export const ACCES = {
   exporter_xlsx: { type: "connecte" },
   statistiques_lire: { type: "permission", permission: "statistics:read" },
   statistiques_exporter: { type: "permission", permission: "statistics:read" },
+  statistiques_enquete: { type: "permission", permission: "statistics:read" },
+  statistiques_tableau_libre: { type: "permission", permission: "statistics:read" },
   rapports_lister: { type: "permission", permission: "school_reports:manage" },
   rapport_preparer: { type: "permission", permission: "school_reports:manage" },
   rapport_lire: { type: "permission", permission: "school_reports:manage" },

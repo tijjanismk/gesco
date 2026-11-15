@@ -117,20 +117,39 @@ recherches (C-9) et de noter le plus lent. Cible : moins d'une seconde dans 95 c
 ## D. Le jardin d'enfants, à jouer par le porteur du projet sur l'école d'essai
 
 Sur l'école d'essai (`Documents\gesco-ecole-essai`, ouverte par son lanceur), connecté comme
-direction. La petite section y compte quarante enfants, observés au 1er et au 2e trimestre, et
-leurs livrets sont publiés.
+direction. La petite section y compte quarante enfants, observés au 1er trimestre, et leurs
+livrets du 1er trimestre sont publiés. L'école d'essai vit le 14 octobre 2026 : elle n'a rien du
+2e trimestre.
 
 | N° | Faire | Attendu |
 |---|---|---|
 | D-1 | Paramètres → Compétences du jardin | Un onglet par section ; la liste livrée ; renommer, monter, retirer puis remettre une compétence fonctionnent |
-| D-2 | Notes → classe « PS », 3e trimestre, domaine Langage | La grille des quarante enfants, avec les photos ; aucune case remplie ; aucun compteur |
+| D-2 | Notes → classe « PS », 2e trimestre, domaine Langage | La grille des quarante enfants, avec les photos ; aucune case remplie ; aucun compteur |
 | D-3 | « Toute la colonne… » → Acquis sur une compétence, puis A, E, N sur quelques cases | Le niveau suit aussitôt ; le curseur descend ; Suppr vide la case |
 | D-4 | Commentaire et appréciation d'un enfant, quitter le champ | « Enregistré à … » |
-| D-5 | Bulletins → classe « PS », 2e trimestre, Ouvrir un enfant | Ses domaines, une colonne pour le 1er et une pour le 2e trimestre |
+| D-5 | Bulletins → classe « PS », 1er trimestre, Ouvrir un enfant | Ses domaines, la colonne du 1er trimestre |
 | D-6 | Imprimer ce livret, puis l'imprimer en noir et blanc ou le photocopier | Une page A4 lisible : niveaux en lettres et ronds noirs ; ni case de photo vide, ni « non observé » |
 | D-7 | Remise des bulletins → classe « PS », 1er trimestre | Les livrets à remettre ; une remise et une signature fonctionnent |
 | D-8 | Paramètres → Enseignants → classe « PS » | « Lui confier la classe » ; la maîtresse figure parmi les maîtres de la classe |
 
+
+## E. Statistiques et rapports de l'école, à jouer par le porteur du projet sur l'école d'essai
+
+Sur l'école d'essai, connecté comme direction, puis comme secrétaire et comme caissier.
+
+| N° | Faire | Attendu |
+|---|---|---|
+| E-1 | Général → Statistiques | Les effectifs au 14 octobre 2026 ; le total de « Élèves par classe » égale le nombre d'élèves inscrits |
+| E-2 | Changer la date d'arrêt au 1er octobre 2026 | Les chiffres changent ; « Chiffres arrêtés au 1er octobre 2026 » |
+| E-3 | Cliquer un chiffre | La liste des élèves qu'il compte ; un nom mène à la fiche |
+| E-4 | « Exporter tout l'onglet en Excel », ouvrir le classeur | Une feuille par tableau, sans la ligne discrète des fiches hors colonnes |
+| E-5 | Onglet Tableau libre : élèves, classe en lignes, sexe en colonnes ; puis personnel par statut ; puis les rubriques de la fiche | Les tableaux se composent aussitôt ; le total compte aussi les fiches sans sexe |
+| E-6 | « Données pour l'enquête », ouvrir le classeur | Quatorze feuilles, de « I. Identification » à « XIII. Observations », dans l'ordre ; « À remplir à la main » pour ce que GESCO ne tient pas |
+| E-7 | Onglet Établissement : répondre à une rubrique, ajouter une rubrique de l'école | La réponse est gardée ; la rubrique ajoutée paraît dans le tableau libre et dans le classeur de l'enquête |
+| E-8 | Général → Inventaire : saisir les salles de classe, « Reprendre l'an dernier » | Les lignes se gardent ; l'onglet Locaux et équipements les montre |
+| E-9 | Général → Rapports : préparer le rapport de rentrée, rédiger une partie, aperçu, arrêter | Le PDF a les tableaux remplis ; arrêté, il ne bouge plus ; rouvrir crée une version 2 |
+| E-10 | Fiche d'un élève → Fiche scolaire | Le PDF s'ouvre ; aucune case ne dit qu'une donnée manque |
+| E-11 | Se connecter comme caissier | Ni Statistiques, ni Inventaire, ni Rapports dans le menu |
 
 ## Ce qu'il faut rapporter
 

@@ -254,6 +254,7 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("journal_archive_verifier", Fichier::Lu("chemin")),
     ("exporter_xlsx", Fichier::Ecrit("chemin")),
     ("statistiques_exporter", Fichier::Ecrit("chemin")),
+    ("statistiques_enquete", Fichier::Ecrit("chemin")),
     ("import_eleves_analyser", Fichier::Lu("chemin")),
     ("notes_import_analyser", Fichier::Lu("chemin")),
     ("notes_importer", Fichier::Lu("chemin")),
@@ -463,6 +464,8 @@ pub const COMMANDES: &[Commande] = &[
     // Statistiques de l'école (SPEC_PHASE_9 §9.1, §11) : elles ne font que lire.
     Commande::permise("statistiques_lire", Permission::STATISTICS_READ),
     Commande::permise("statistiques_exporter", Permission::STATISTICS_READ),
+    Commande::permise("statistiques_enquete", Permission::STATISTICS_READ),
+    Commande::permise("statistiques_tableau_libre", Permission::STATISTICS_READ),
     // Rapports de rentrée (SPEC_PHASE_9 §8.6, §9.3) : la direction les rédige, les arrête et
     // les rouvre.
     Commande::permise("rapports_lister", Permission::SCHOOL_REPORTS_MANAGE),

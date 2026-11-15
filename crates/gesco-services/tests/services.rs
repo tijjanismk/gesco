@@ -20,6 +20,7 @@ mod droits_personnel;
 mod effets_documents;
 mod emploi_du_temps;
 mod engagements;
+mod enquete;
 mod enseignants;
 mod evaluations;
 mod examens;

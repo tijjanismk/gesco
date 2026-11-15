@@ -188,7 +188,7 @@ fn maitres(d: &DonneesStat) -> Vec<(&MembreStat, Vec<Cycle>)> {
         .collect()
 }
 
-fn statut(d: &DonneesStat, m: &MembreStat) -> StatutRapport {
+pub(crate) fn statut(d: &DonneesStat, m: &MembreStat) -> StatutRapport {
     d.complements
         .membres
         .get(&m.id)
@@ -201,7 +201,7 @@ fn statut(d: &DonneesStat, m: &MembreStat) -> StatutRapport {
         })
 }
 
-fn specialite(d: &DonneesStat, m: &MembreStat) -> Specialite {
+pub(crate) fn specialite(d: &DonneesStat, m: &MembreStat) -> Specialite {
     d.complements
         .membres
         .get(&m.id)
@@ -236,7 +236,7 @@ fn releve(
 }
 
 /// Relevé d'inventaire d'un article, additionné sur les lignes dont le cycle est retenu.
-fn releve_si(
+pub(crate) fn releve_si(
     d: &DonneesStat,
     article: &ArticleInventaire,
     retenir: impl Fn(Option<Cycle>) -> bool,
@@ -258,7 +258,7 @@ fn releve_si(
     somme.map(|s| (s, observations))
 }
 
-fn article<'a>(d: &'a DonneesStat, code: &str) -> Option<&'a ArticleInventaire> {
+pub(crate) fn article<'a>(d: &'a DonneesStat, code: &str) -> Option<&'a ArticleInventaire> {
     d.articles.iter().find(|a| a.code.as_deref() == Some(code))
 }
 
@@ -397,7 +397,7 @@ fn effectifs(retenues: &[Retenue<'_>], niveau_id: &str) -> (Sexes, Sexes) {
 }
 
 /// Libellé d'un statut dans les tableaux du rapport de rentrée.
-fn titre_statut(s: StatutRapport) -> &'static str {
+pub(crate) fn titre_statut(s: StatutRapport) -> &'static str {
     match s {
         StatutRapport::FonctionnaireEtat => "Fonctionnaire de l'État",
         StatutRapport::FonctionnaireCollectivites => "Fonctionnaire des collectivités",
@@ -913,7 +913,7 @@ fn titre_situation(s: Option<&str>) -> String {
     .to_owned()
 }
 
-fn titre_diplome(d: DiplomeEleve) -> &'static str {
+pub(crate) fn titre_diplome(d: DiplomeEleve) -> &'static str {
     match d {
         DiplomeEleve::Doctorat => "Doctorat",
         DiplomeEleve::Master => "Master",

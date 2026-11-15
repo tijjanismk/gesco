@@ -26,6 +26,8 @@ pub struct ClasseStat {
     pub cycle: String,
     /// Classe retirée.
     pub supprimee: bool,
+    /// Libellé de la série de la classe, aux niveaux qui en ont.
+    pub serie: Option<String>,
 }
 
 /// Une inscription de l'année, avec ce qu'il faut savoir de l'élève.
@@ -151,9 +153,21 @@ pub async fn classes(
     annee_id: Id<AnneeScolaire>,
     contexte: &Contexte,
 ) -> Resultat<Vec<ClasseStat>> {
-    let lignes: Vec<(String, String, String, String, i64, String, i64)> = sqlx::query_as(
-        "SELECT c.id, c.libelle, n.id, n.libelle, n.ordre, n.cycle, c.supprime_le IS NOT NULL
+    #[allow(clippy::type_complexity)]
+    let lignes: Vec<(
+        String,
+        String,
+        String,
+        String,
+        i64,
+        String,
+        i64,
+        Option<String>,
+    )> = sqlx::query_as(
+        "SELECT c.id, c.libelle, n.id, n.libelle, n.ordre, n.cycle, c.supprime_le IS NOT NULL,
+                    s.libelle
          FROM classe c JOIN niveau n ON n.id = c.niveau_id
+         LEFT JOIN serie s ON s.id = c.serie_id
          WHERE c.annee_id = ?1 AND c.etablissement_id = ?2
          ORDER BY n.ordre, c.libelle",
     )
@@ -164,7 +178,7 @@ pub async fn classes(
     Ok(lignes
         .into_iter()
         .map(
-            |(id, libelle, niveau_id, niveau, ordre, cycle, supprimee)| ClasseStat {
+            |(id, libelle, niveau_id, niveau, ordre, cycle, supprimee, serie)| ClasseStat {
                 id,
                 libelle,
                 niveau_id,
@@ -172,6 +186,7 @@ pub async fn classes(
                 ordre,
                 cycle,
                 supprimee: supprimee != 0,
+                serie,
             },
         )
         .collect())
@@ -404,5 +419,53 @@ pub async fn seances(
                 minutes,
             },
         )
+        .collect())
+}
+
+/// Frais de scolarité annuels d'un niveau (et d'une série) dans la grille en vigueur d'une année.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FraisNiveau {
+    /// Libellé du niveau.
+    pub niveau: String,
+    /// Ordre du niveau.
+    pub ordre: i64,
+    /// Cycle du niveau, nom stable.
+    pub cycle: String,
+    /// Libellé de la série, s'il y en a une.
+    pub serie: Option<String>,
+    /// Somme des lignes de scolarité, en francs.
+    pub montant: i64,
+}
+
+/// Frais de scolarité de la grille en vigueur de l'année, par niveau et série ; rien sans grille.
+pub async fn frais_scolarite(
+    cnx: &mut Connexion,
+    annee_id: Id<AnneeScolaire>,
+    contexte: &Contexte,
+) -> Resultat<Vec<FraisNiveau>> {
+    let lignes: Vec<(String, i64, String, Option<String>, i64)> = sqlx::query_as(
+        "SELECT n.libelle, n.ordre, n.cycle, s.libelle, SUM(l.montant)
+         FROM ligne_tarifaire l
+         JOIN grille_tarifaire g ON g.id = l.grille_id
+         JOIN niveau n ON n.id = l.niveau_id
+         LEFT JOIN serie s ON s.id = l.serie_id
+         WHERE g.annee_id = ?1 AND g.etablissement_id = ?2 AND g.etat = 'en_vigueur'
+           AND l.type_frais = 'scolarite' AND l.supprime_le IS NULL
+         GROUP BY n.id, l.serie_id
+         ORDER BY n.ordre, s.libelle",
+    )
+    .bind(annee_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?;
+    Ok(lignes
+        .into_iter()
+        .map(|(niveau, ordre, cycle, serie, montant)| FraisNiveau {
+            niveau,
+            ordre,
+            cycle,
+            serie,
+            montant,
+        })
         .collect())
 }

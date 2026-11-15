@@ -35,6 +35,17 @@ const TABLEAUX: Readonly<Record<string, readonly [Cle, Cle]>> = {
   resultats_examens: ["statistiques.tableau.resultats_examens", "examens.examen"],
   taux_admis_par_cycle: ["statistiques.tableau.taux_admis_par_cycle", "statistiques.premiere.eleves_par_cycle"],
   effectifs_probables: ["statistiques.tableau.effectifs_probables", "statistiques.premiere.eleves_par_niveau"],
+  libre_classe: ["statistiques.tableau.libre", "statistiques.libre.critere.classe"],
+  libre_niveau: ["statistiques.tableau.libre", "statistiques.libre.critere.niveau"],
+  libre_cycle: ["statistiques.tableau.libre", "statistiques.libre.critere.cycle"],
+  libre_sexe: ["statistiques.tableau.libre", "statistiques.libre.critere.sexe"],
+  libre_age: ["statistiques.tableau.libre", "statistiques.libre.critere.age"],
+  libre_annee_recrutement: ["statistiques.tableau.libre", "statistiques.libre.critere.annee_recrutement"],
+  libre_statut: ["statistiques.tableau.libre", "statistiques.libre.critere.statut"],
+  libre_categorie: ["statistiques.tableau.libre", "statistiques.libre.critere.categorie"],
+  libre_specialite: ["statistiques.tableau.libre", "statistiques.libre.critere.specialite"],
+  libre_diplome: ["statistiques.tableau.libre", "statistiques.libre.critere.diplome"],
+  libre_rubrique: ["statistiques.tableau.libre", "statistiques.libre.rubrique"],
 };
 
 /** Titre de chaque colonne, par code de colonne. */
@@ -96,6 +107,7 @@ const COLONNES: Readonly<Record<string, Cle>> = {
   decides: "statistiques.colonne.decides",
   admis: "statistiques.colonne.admis",
   taux: "statistiques.colonne.taux",
+  reponse: "statistiques.colonne.reponse",
 };
 
 /** Titre d'un tableau. */
@@ -110,8 +122,11 @@ export function titrePremiere(code: string): string {
   return cles === undefined ? "" : t(cles[1]);
 }
 
-/** Titre d'une colonne. */
+/** Titre d'une colonne. Le tableau libre nomme ses colonnes d'une clé de texte (`cle:…`) ou d'un
+ *  libellé tiré des données (`libre:…`). */
 export function titreColonne(code: string): string {
+  if (code.startsWith("cle:")) return texteDeCle(code.slice(4));
+  if (code.startsWith("libre:")) return code.slice(6);
   const cle = COLONNES[code];
   return cle === undefined ? code : t(cle);
 }

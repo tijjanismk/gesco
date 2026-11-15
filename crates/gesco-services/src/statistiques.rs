@@ -468,9 +468,9 @@ pub(crate) struct ComplementsStat {
     /// Année de recrutement par élève : saisie, sinon déduite.
     pub(crate) annees_recrutement: HashMap<String, i32>,
     /// Élèves pris en charge par l'État cette année.
-    pris_en_charge: HashSet<String>,
+    pub(crate) pris_en_charge: HashSet<String>,
     /// Difficultés des élèves, pour qui a le droit de les lire.
-    difficultes: Option<Vec<DifficulteEleve>>,
+    pub(crate) difficultes: Option<Vec<DifficulteEleve>>,
     /// Compléments saisis du personnel, par membre.
     pub(crate) membres: HashMap<String, MembreComplete>,
 }

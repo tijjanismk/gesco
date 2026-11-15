@@ -1641,6 +1641,10 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	statistiques_exporter: Signature<DemandeExportStatistiques, FichierEcrit>,
 	/**  Signature de la commande du même nom. */
+	statistiques_enquete: Signature<DemandeEnquete, FichierEcrit>,
+	/**  Signature de la commande du même nom. */
+	statistiques_tableau_libre: Signature<DemandeTableauLibre, TableauLibre>,
+	/**  Signature de la commande du même nom. */
 	rapports_lister: Signature<DemandeRapports, ListeRapports>,
 	/**  Signature de la commande du même nom. */
 	rapport_preparer: Signature<DemandePreparationRapport, RapportEcole>,
@@ -10358,4 +10362,44 @@ export type DemandeFicheScolaire = {
 export type PdfRapport = {
 	/**  PDF en base64. */
 	pdf: string,
+};
+
+/**  Ce que l'écran demande : l'année, la date d'arrêt, le classeur à écrire. */
+export type DemandeEnquete = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
+	/**  Date d'arrêt des chiffres ; aujourd'hui si rien n'est donné, ramené dans l'année. */
+	date: string | null,
+	/**  Chemin du classeur à écrire, extension `.xlsx`. */
+	chemin: string,
+};
+
+/**  Ce que le tableau compte. */
+export type PopulationLibre = "eleves" | "personnel" | "fiche";
+
+/**  Ce qui fait les lignes ou les colonnes. */
+export type CritereLibre = "classe" | "niveau" | "cycle" | "sexe" | "age" | "annee_recrutement" | "statut" | "categorie" | "specialite" | "diplome";
+
+/**  Ce que l'écran demande. */
+export type DemandeTableauLibre = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
+	/**  Date d'arrêt ; aujourd'hui si rien n'est donné, ramené dans l'année. */
+	date: string | null,
+	/**  Un seul cycle ; toute l'école si rien n'est donné. */
+	cycle: Cycle | null,
+	/**  Ce que le tableau compte. */
+	population: PopulationLibre,
+	/**  Ce qui fait les lignes. */
+	lignes: CritereLibre,
+	/**  Ce qui fait les colonnes ; une seule colonne, le total, si rien n'est donné. */
+	colonnes: CritereLibre | null,
+};
+
+/**  Le tableau composé et les fiches qu'il compte. */
+export type TableauLibre = {
+	/**  Fiches comptées ; les cases les désignent par leur place. */
+	fiches: FicheStatistique[],
+	/**  Le tableau, au format des statistiques. */
+	tableau: TableauStatistique,
 };

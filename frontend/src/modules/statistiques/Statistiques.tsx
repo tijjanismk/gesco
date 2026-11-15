@@ -8,20 +8,21 @@ import { Bouton } from "../../composants/Bouton";
 import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { dateCivile, t, texteDeCle } from "../../i18n";
-import type { Cycle, FeuilleStatistique, FicheStatistique, LigneStatistique, OngletStatistique, TableauStatistique } from "../../types/gesco";
+import type { CritereLibre, Cycle, FeuilleStatistique, FicheStatistique, LigneStatistique, OngletStatistique, PopulationLibre, TableauStatistique } from "../../types/gesco";
 import { OngletEtablissement } from "./FicheEcole";
 import { PourLesRapports } from "./PourLesRapports";
 import { ResultatsExamens } from "./ResultatsExamens";
 import { feuilleDe, libelleLigne, texteCellule, titreColonne, titrePremiere, titreTableau } from "./mise-en-forme";
+import { ChoixTableauLibre } from "./TableauLibre";
 
-type Onglet = "eleves" | "personnel" | "locaux" | "examens" | "etablissement" | "rapports";
+type Onglet = "eleves" | "personnel" | "locaux" | "examens" | "libre" | "etablissement" | "rapports";
 
-const TITRES_ONGLETS = { eleves: "statistiques.onglet.eleves", personnel: "statistiques.onglet.personnel", locaux: "statistiques.onglet.locaux", examens: "statistiques.onglet.examens", etablissement: "statistiques.onglet.etablissement", rapports: "statistiques.onglet.rapports" } as const;
+const TITRES_ONGLETS = { eleves: "statistiques.onglet.eleves", personnel: "statistiques.onglet.personnel", locaux: "statistiques.onglet.locaux", examens: "statistiques.onglet.examens", libre: "statistiques.onglet.libre", etablissement: "statistiques.onglet.etablissement", rapports: "statistiques.onglet.rapports" } as const;
 
 /** Fiches désignées par un chiffre cliqué. */
 interface Detail {
   titre: string;
-  onglet: "eleves" | "personnel" | "examens";
+  onglet: "eleves" | "personnel" | "examens" | "libre";
   membres: readonly number[];
 }
 
@@ -37,11 +38,19 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
   const [onglet, setOnglet] = useState<Onglet>("eleves");
   const [detail, setDetail] = useState<Detail | null>(null);
   const [exportation, setExportation] = useState<Exportation>(null);
+  const [population, setPopulation] = useState<PopulationLibre>("eleves");
+  const [lignes, setLignes] = useState<CritereLibre>("classe");
+  const [colonnes, setColonnes] = useState<CritereLibre | null>("sexe");
   const stats = useQuery({
     queryKey: ["statistiques", anneeId, date, cycle],
     queryFn: () => appeler("statistiques_lire", { annee_id: anneeId, date, cycle }),
   });
   const s = stats.data;
+  const libre = useQuery({
+    queryKey: ["statistiques-libre", s?.annee_id ?? null, s?.date ?? null, cycle, population, lignes, colonnes],
+    queryFn: () => appeler("statistiques_tableau_libre", { annee_id: s?.annee_id ?? null, date: s?.date ?? null, cycle, population, lignes, colonnes }),
+    enabled: onglet === "libre" && s !== undefined,
+  });
   const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
   const peutSaisirExamens = commandeAutorisee("examens_lire", session.data?.permissions ?? []);
   const exporter = async (titre: string, feuilles: FeuilleStatistique[]) => {
@@ -55,10 +64,29 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
       setExportation({ erreur });
     }
   };
-  const contenu: OngletStatistique | undefined = onglet === "etablissement" || onglet === "rapports" ? undefined : s?.[onglet];
+  const enquete = async () => {
+    setExportation(null);
+    try {
+      const titre = t("statistiques.enquete");
+      const chemin = await choisirClasseur(titre, t("commun.classeur_excel"));
+      if (chemin === null || s === undefined) return;
+      const ecrit = await appeler("statistiques_enquete", { annee_id: s.annee_id, date: s.date, chemin });
+      setExportation({ chemin: ecrit.chemin });
+    } catch (erreur) {
+      setExportation({ erreur });
+    }
+  };
+  const contenu: OngletStatistique | undefined =
+    onglet === "etablissement" || onglet === "rapports"
+      ? undefined
+      : onglet === "libre"
+        ? libre.data === undefined
+          ? undefined
+          : { fiches: libre.data.fiches, tableaux: [libre.data.tableau] }
+        : s?.[onglet];
   const arret = s === undefined ? "" : dateCivile(s.date);
   const ouvrir = (titre: string, membres: readonly number[]) => {
-    if (onglet === "eleves" || onglet === "personnel" || onglet === "examens") setDetail({ titre, onglet, membres });
+    if (onglet === "eleves" || onglet === "personnel" || onglet === "examens" || onglet === "libre") setDetail({ titre, onglet, membres });
   };
   return (
     <div className="flex flex-col gap-4">
@@ -93,9 +121,12 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
               surChangement={(v) => setCycle(v === "" ? null : (v as Cycle))}
               options={[{ valeur: "", libelle: t("statistiques.toute_ecole") }, ...s.cycles.map((c) => ({ valeur: c, libelle: t(`niveaux.cycle.${c}`) }))]}
             />
+            <Bouton variante="secondaire" onClick={() => void enquete()}>
+              {t("statistiques.enquete")}
+            </Bouton>
           </div>
           <div role="tablist" className="flex gap-2 border-b border-muet">
-            {(["eleves", "personnel", "locaux", "examens", "etablissement", "rapports"] as const).map((o) => (
+            {(["eleves", "personnel", "locaux", "examens", "libre", "etablissement", "rapports"] as const).map((o) => (
               <button
                 key={o}
                 type="button"
@@ -120,6 +151,22 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
           ) : null}
           {onglet === "rapports" ? <PourLesRapports anneeId={s.annee_id} /> : null}
           {onglet === "examens" && peutSaisirExamens ? <ResultatsExamens anneeId={s.annee_id} /> : null}
+          {onglet === "libre" ? (
+            <>
+              <ChoixTableauLibre
+                population={population}
+                lignes={lignes}
+                colonnes={colonnes}
+                surChanger={(p, l, c) => {
+                  setPopulation(p);
+                  setLignes(l);
+                  setColonnes(c);
+                  setDetail(null);
+                }}
+              />
+              <MessageErreur erreur={libre.error} />
+            </>
+          ) : null}
           {contenu === undefined ? null : (
             <>
               <div className="flex flex-wrap items-center gap-2">
@@ -136,7 +183,7 @@ export function Statistiques({ surOuvrirEleve }: { surOuvrirEleve: (id: string) 
               </div>
               <MessageErreur erreur={exportation !== null && "erreur" in exportation ? exportation.erreur : null} />
               {detail === null || detail.onglet !== onglet ? null : (
-                <ListeDetail detail={detail} fiches={contenu.fiches} surFermer={() => setDetail(null)} surOuvrirEleve={onglet === "eleves" || onglet === "examens" ? surOuvrirEleve : null} />
+                <ListeDetail detail={detail} fiches={contenu.fiches} surFermer={() => setDetail(null)} surOuvrirEleve={onglet === "eleves" || onglet === "examens" || (onglet === "libre" && population === "eleves") ? surOuvrirEleve : null} />
               )}
               {contenu.tableaux.map((x) => (
                 <TableauStat key={x.code} tableau={x} surOuvrir={ouvrir} surExporter={() => void exporter(`${titreTableau(x.code)} ${s.date}`, [feuilleDe(x)])} />

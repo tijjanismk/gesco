@@ -1019,6 +1019,94 @@ impl Ecole {
     /// Décisions de fin d'année validées, puis clôture, les deux derniers jours de l'année : après
     /// la paie de juillet, dernier geste de l'année. Rend la décision de chaque élève avec le
     /// niveau de sa classe.
+    /// La fiche de l'établissement et l'inventaire de l'année en cours, pour les statistiques et
+    /// les rapports.
+    async fn fiche_et_inventaire(&self, annee_id: &Value) -> R<()> {
+        let fiche = self
+            .appel("fiche_ecole_lire", json!({ "annee_id": annee_id }))
+            .await?;
+        for (code, valeur) in [
+            ("region", "District de Bamako"),
+            ("cercle", "Commune IV"),
+            ("commune", "Commune IV"),
+            ("quartier", "Hamdallaye"),
+            ("type_commune", "Urbaine"),
+            ("cloture", "oui"),
+            ("point_eau", "oui"),
+            ("lavage_mains", "oui"),
+            ("latrines", "oui"),
+            ("latrines_separees", "oui"),
+            ("electricite", "oui"),
+            ("bibliotheque", "oui"),
+            ("terrain_sport", "oui"),
+            ("comite_gestion", "oui"),
+            ("association_parents", "oui"),
+            ("acces_route", "oui"),
+        ] {
+            let Some(r) = liste(&fiche["rubriques"])
+                .iter()
+                .find(|r| r["code"] == code)
+            else {
+                continue;
+            };
+            let choix: Vec<&str> = liste(&r["choix"])
+                .iter()
+                .filter_map(Value::as_str)
+                .collect();
+            if !choix.is_empty() && !choix.contains(&valeur) {
+                continue;
+            }
+            let annee = if r["annuelle"] == true {
+                annee_id.clone()
+            } else {
+                Value::Null
+            };
+            self.appel(
+                "fiche_ecole_repondre",
+                json!({ "rubrique_id": r["id"], "annee_id": annee, "valeur": valeur }),
+            )
+            .await?;
+        }
+        let inventaire = self
+            .appel(
+                "inventaire_lire",
+                json!({ "annee_id": annee_id, "cycle": null }),
+            )
+            .await?;
+        let lignes: [(&str, Value, u32, u32, u32); 7] = [
+            ("salle_classe", json!("premier_cycle"), 6, 5, 0),
+            ("salle_classe", json!("second_cycle"), 3, 3, 0),
+            ("salle_classe", json!("lycee"), 3, 2, 1),
+            ("bureau_direction", Value::Null, 1, 1, 0),
+            ("table_banc_2", Value::Null, 320, 290, 40),
+            ("point_eau", Value::Null, 2, 1, 1),
+            ("bibliotheque", Value::Null, 1, 1, 0),
+        ];
+        for (code, cycle, existant, bon_etat, besoins) in lignes {
+            let Some(article) = liste(&inventaire["articles"])
+                .iter()
+                .find(|a| a["code"] == code)
+            else {
+                continue;
+            };
+            self.appel(
+                "inventaire_releve_enregistrer",
+                json!({ "annee_id": annee_id, "releve": { "article_id": article["id"],
+                    "cycle": cycle, "quantites": {
+                        "existant": existant, "bon_etat": bon_etat, "besoins": besoins,
+                        "dur": null, "semi_dur": null, "banco": null, "autre_construction": null,
+                        "neufs": null, "en_location": null, "murs_bons": null,
+                        "murs_mauvais": null, "toits_bons": null, "toits_mauvais": null,
+                        "cabines_filles": null, "cabines_garcons": null,
+                        "cabines_enseignants": null },
+                    "observation": "" } }),
+            )
+            .await?;
+        }
+        dire("  Fiche de l'établissement et inventaire de l'année remplis");
+        Ok(())
+    }
+
     async fn clore(&mut self, annee: &Annee) -> R<HashMap<String, (String, &'static str)>> {
         self.aller_au(decaler(annee.fin, -2)?).await?;
         let inscriptions: HashMap<String, String> = liste(
@@ -1194,6 +1282,7 @@ async fn lancer() -> R<()> {
 
     let limite = date(JOUR_FINAL)?;
     let mut precedente: Option<HashMap<String, (String, &'static str)>> = None;
+    let mut en_cours: Option<Value> = None;
     for (libelle, rentree, fin) in ANNEES {
         dire(&format!("Année {libelle}"));
         let (rentree, fin) = (date(rentree)?, date(fin)?);
@@ -1206,11 +1295,15 @@ async fn lancer() -> R<()> {
             }
         };
         ecole.vivre(&annee, limite).await?;
+        en_cours = Some(annee.id.clone());
         if annee.fin.jours_depuis_epoque() < limite.jours_depuis_epoque() {
             precedente = Some(ecole.clore(&annee).await?);
         }
     }
     ecole.aller_au(limite).await?;
+    if let Some(annee_id) = &en_cours {
+        ecole.fiche_et_inventaire(annee_id).await?;
+    }
     ecole
         .application
         .fermer()

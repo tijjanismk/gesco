@@ -108,6 +108,7 @@ use crate::engagements::{
     DemandeClotureEngagement, DemandeEngagement, DemandeEngagementProposee, DemandeIdEngagement,
     DemandeMoisPayes, EngagementAEcheance, EngagementAffiche, ServiceEngagements,
 };
+use crate::enquete::{DemandeEnquete, ServiceEnquete};
 use crate::enseignants::{
     AffectationAffichee, DemandeAffectation, DemandeEnseignant, DemandeIdAffectation,
     DemandeIdMaitreJardin, DemandeMaitre, FicheEnseignant, MaitreJardinAffiche, ServiceEnseignants,
@@ -261,6 +262,7 @@ use crate::statistiques::{
     DemandeExportStatistiques, DemandeStatistiques, ServiceStatistiques, Statistiques,
 };
 use crate::tableau::{ServiceTableau, TableauDeBord};
+use crate::tableau_libre::{DemandeTableauLibre, ServiceTableauLibre, TableauLibre};
 use crate::tresorerie::{
     DemandeCategorieTresorerie, DemandeCompteTresorerie, ReglagesTresorerie, ServiceTresorerie,
     Tresorerie,
@@ -1070,6 +1072,8 @@ contrat! {
     exporter_xlsx(DemandeExport) -> FichierEcrit;
     statistiques_lire(DemandeStatistiques) -> Statistiques;
     statistiques_exporter(DemandeExportStatistiques) -> FichierEcrit;
+    statistiques_enquete(DemandeEnquete) -> FichierEcrit;
+    statistiques_tableau_libre(DemandeTableauLibre) -> TableauLibre;
     rapports_lister(DemandeRapports) -> ListeRapports;
     rapport_preparer(DemandePreparationRapport) -> RapportEcole;
     rapport_lire(DemandeRapport) -> RapportEcole;
@@ -3224,6 +3228,26 @@ impl Application {
     ) -> Resultat<FichierEcrit> {
         ServiceStatistiques::nouveau(&appel.ouverte()?.noyau)
             .exporter(entree)
+            .await
+    }
+
+    async fn statistiques_enquete(
+        &self,
+        appel: Appel,
+        entree: DemandeEnquete,
+    ) -> Resultat<FichierEcrit> {
+        ServiceEnquete::nouveau(&appel.ouverte()?.noyau)
+            .exporter(appel.session()?, entree)
+            .await
+    }
+
+    async fn statistiques_tableau_libre(
+        &self,
+        appel: Appel,
+        entree: DemandeTableauLibre,
+    ) -> Resultat<TableauLibre> {
+        ServiceTableauLibre::nouveau(&appel.ouverte()?.noyau)
+            .composer(appel.session()?, &entree)
             .await
     }
 

@@ -2930,6 +2930,8 @@ test("phase 11, lot B : les livrets de la petite section se préparent, se valid
 });
 
 test("phase 11, lot B : au 2e trimestre, la petite section est observée de nouveau et son livret suit l'année", async () => {
+  // L'école d'essai vit le 14 octobre 2026 : elle n'a ni observation ni livret du 2e trimestre.
+  test.skip(process.env["GESCO_ECOLE_ESSAI"] !== undefined, "l'école d'essai n'a rien du 2e trimestre");
   // Le 2e trimestre observé par les commandes : toute la classe, puis huit enfants encore en cours
   // sur la première compétence de chaque domaine.
   await parCommandes<unknown>(`
