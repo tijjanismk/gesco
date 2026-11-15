@@ -489,3 +489,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   rédaction tournent, aucune ne compile. À reporter par la prochaine session de code : la grille
   des examens écrit « Nom Prénoms » alors que les autres écrans écrivent « Prénoms Nom » (à aligner
   sur « Prénoms Nom », principe de cohérence).
+- 2026-11-15, porteur, sur les choix de la phase 9 : « si ça suit la logique depuis le début ».
+  Choix validés à cette condition. La prochaine session de code les relit contre la logique déjà
+  en place (mêmes règles, mêmes formes d'écran et de nom qu'ailleurs), aligne ce qui s'en écarte
+  (dont « Nom Prénoms » de la grille des examens) et reporte la validation dans
+  `ETAT_AVANCEMENT.md`.
