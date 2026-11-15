@@ -11,6 +11,7 @@ import type {
   NiveauCatalogue,
   ResultatRechercheBibliotheque,
 } from "../../types/gesco";
+import { Ajouter } from "./Ajouter";
 import { Lecture, libelleNature } from "./Lecture";
 import { ListeRetraits, trouverPlace } from "./Retraits";
 
@@ -272,6 +273,17 @@ export function Bibliotheque() {
   const [saisie, setSaisie] = useState("");
   const [cherche, setCherche] = useState("");
   const [retires, setRetires] = useState(false);
+  const [ajout, setAjout] = useState(false);
+  const [enEcriture, setEnEcriture] = useState(false);
+  const ouvrir = (id: string) => {
+    setEnEcriture(false);
+    setChoisi(id);
+  };
+  const ecrire = (id: string) => {
+    setAjout(false);
+    setEnEcriture(true);
+    setChoisi(id);
+  };
   useEffect(() => {
     const minuterie = window.setTimeout(() => setCherche(saisie.trim()), 250);
     return () => window.clearTimeout(minuterie);
@@ -293,6 +305,17 @@ export function Bibliotheque() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold text-marine">{t("bibliotheque.titre")}</h1>
+        <div className="flex flex-wrap gap-2">
+        {donnees?.peut_ecrire === true ? (
+          <button
+            type="button"
+            onClick={() => setAjout(!ajout)}
+            aria-pressed={ajout}
+            className="rounded border border-muet px-3 py-1.5 text-sm text-encre hover:bg-fond focus-visible:outline-2 focus-visible:outline-primaire"
+          >
+            {t("bibliotheque.ajouter")}
+          </button>
+        ) : null}
         {donnees?.peut_gerer === true ? (
           <button
             type="button"
@@ -303,7 +326,9 @@ export function Bibliotheque() {
             {retires ? t("bibliotheque.retires.retour") : t("bibliotheque.retires")}
           </button>
         ) : null}
+        </div>
       </div>
+      {ajout && donnees !== undefined ? <Ajouter catalogue={donnees} surOuvrir={ecrire} surFermer={() => setAjout(false)} /> : null}
       {retires ? <ListeRetraits /> : null}
       <div className="flex flex-wrap items-end gap-2">
         <label htmlFor="bibliotheque-recherche" className="flex min-w-64 flex-1 flex-col gap-1 text-sm text-encre">
@@ -333,7 +358,7 @@ export function Bibliotheque() {
           {cherche !== "" ? (
             <>
               <MessageErreur erreur={recherche.error} />
-              {recherche.data === undefined ? null : <Resultats resultats={recherche.data} choisi={choisi} surOuvrir={setChoisi} />}
+              {recherche.data === undefined ? null : <Resultats resultats={recherche.data} choisi={choisi} surOuvrir={ouvrir} />}
             </>
           ) : donnees === undefined ? null : (
             <>
@@ -343,7 +368,7 @@ export function Bibliotheque() {
                   {donnees.niveaux.length === 0 ? t("bibliotheque.vide") : t("bibliotheque.vide.filtre")}
                 </p>
               ) : (
-                <Arbre niveaux={niveaux} peutEcrire={donnees.peut_ecrire} choisi={choisi} surOuvrir={setChoisi} />
+                <Arbre niveaux={niveaux} peutEcrire={donnees.peut_ecrire} choisi={choisi} surOuvrir={ouvrir} />
               )}
             </>
           )}
@@ -353,9 +378,11 @@ export function Bibliotheque() {
             <p className="text-sm text-muet">{t("bibliotheque.choisir")}</p>
           ) : (
             <Lecture
-              key={choisi}
+              key={`${choisi}-${enEcriture ? "e" : "l"}`}
               contenuId={choisi}
-              surOuvrir={setChoisi}
+              surOuvrir={ouvrir}
+              surEcrire={ecrire}
+              modeInitial={enEcriture ? "ecrire" : "lire"}
               place={donnees === undefined ? null : trouverPlace(donnees, choisi)}
               peutGerer={donnees?.peut_gerer === true}
             />

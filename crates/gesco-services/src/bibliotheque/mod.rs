@@ -30,8 +30,18 @@ use crate::espace::EspaceDonnees;
 use crate::noyau::Noyau;
 use crate::session::Session;
 
+mod ecrire;
 mod lire;
 mod retirer;
+
+pub use ecrire::{
+    ApercuLecon, BrouillonOuvert, ChapitreAjoute, ChoixEcriture, ComparaisonTextes,
+    DemandeAjoutContenu, DemandeApercuLecon, DemandeBrouillon, DemandeBrouillonCommencer,
+    DemandeBrouillonVersion, DemandeChapitreBibliotheque, DemandeComparaison,
+    DemandeContenuBibliotheque, DepartBrouillon, EcritureOuverte, HistoriqueContenu,
+    MouvementContenu, NiveauChoisissable, PlaceEcriture, SerieChoisissable, SorteMouvement,
+    TexteCompare, VersionAffichee,
+};
 
 pub use lire::{
     CatalogueBibliotheque, ContenuLie, DemandeLectureContenu, DemandeRechercheBibliotheque,

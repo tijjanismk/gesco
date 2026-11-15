@@ -1219,6 +1219,18 @@ contrat! {
     bibliotheque_retraits_lister(()) -> Vec<crate::bibliotheque::RetraitAffiche>;
     bibliotheque_correspondances_lire(()) -> crate::bibliotheque::CorrespondancesBibliotheque;
     bibliotheque_correspondance_regler(crate::bibliotheque::DemandeCorrespondance) -> crate::bibliotheque::CorrespondancesBibliotheque;
+    bibliotheque_ecriture_lire(crate::bibliotheque::DemandeContenuBibliotheque) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_ecriture_choix(()) -> crate::bibliotheque::ChoixEcriture;
+    bibliotheque_brouillon_commencer(crate::bibliotheque::DemandeBrouillonCommencer) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_brouillon_enregistrer(crate::bibliotheque::DemandeBrouillon) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_brouillon_reprendre(crate::bibliotheque::DemandeBrouillonVersion) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_brouillon_abandonner(crate::bibliotheque::DemandeBrouillonVersion) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_retour_livree(crate::bibliotheque::DemandeContenuBibliotheque) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_apercu(crate::bibliotheque::DemandeApercuLecon) -> crate::bibliotheque::ApercuLecon;
+    bibliotheque_chapitre_ajouter(crate::bibliotheque::DemandeChapitreBibliotheque) -> crate::bibliotheque::ChapitreAjoute;
+    bibliotheque_contenu_ajouter(crate::bibliotheque::DemandeAjoutContenu) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_historique(crate::bibliotheque::DemandeContenuBibliotheque) -> crate::bibliotheque::HistoriqueContenu;
+    bibliotheque_comparer(crate::bibliotheque::DemandeComparaison) -> crate::bibliotheque::ComparaisonTextes;
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -5019,6 +5031,126 @@ impl Application {
     ) -> Resultat<crate::bibliotheque::CorrespondancesBibliotheque> {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .regler_correspondance(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_ecriture_lire(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeContenuBibliotheque,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .ecriture(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_ecriture_choix(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<crate::bibliotheque::ChoixEcriture> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .choix_ecriture(appel.session()?)
+            .await
+    }
+
+    async fn bibliotheque_brouillon_commencer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeBrouillonCommencer,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .commencer_brouillon(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_brouillon_enregistrer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeBrouillon,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .enregistrer_brouillon(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_brouillon_reprendre(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeBrouillonVersion,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .reprendre_brouillon(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_brouillon_abandonner(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeBrouillonVersion,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .abandonner_brouillon(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_retour_livree(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeContenuBibliotheque,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .retour_livree(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_apercu(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeApercuLecon,
+    ) -> Resultat<crate::bibliotheque::ApercuLecon> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .apercu(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_chapitre_ajouter(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeChapitreBibliotheque,
+    ) -> Resultat<crate::bibliotheque::ChapitreAjoute> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .ajouter_chapitre(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_contenu_ajouter(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeAjoutContenu,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .ajouter_contenu(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_historique(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeContenuBibliotheque,
+    ) -> Resultat<crate::bibliotheque::HistoriqueContenu> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .historique(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_comparer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeComparaison,
+    ) -> Resultat<crate::bibliotheque::ComparaisonTextes> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .comparer(appel.session()?, &entree)
             .await
     }
 

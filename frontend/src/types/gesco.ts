@@ -1987,6 +1987,30 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	bibliotheque_correspondance_regler: Signature<DemandeCorrespondance, CorrespondancesBibliotheque>,
 	/**  Signature de la commande du même nom. */
+	bibliotheque_ecriture_lire: Signature<DemandeContenuBibliotheque, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_ecriture_choix: Signature<null, ChoixEcriture>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_brouillon_commencer: Signature<DemandeBrouillonCommencer, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_brouillon_enregistrer: Signature<DemandeBrouillon, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_brouillon_reprendre: Signature<DemandeBrouillonVersion, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_brouillon_abandonner: Signature<DemandeBrouillonVersion, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_retour_livree: Signature<DemandeContenuBibliotheque, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_apercu: Signature<DemandeApercuLecon, ApercuLecon>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_chapitre_ajouter: Signature<DemandeChapitreBibliotheque, ChapitreAjoute>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_contenu_ajouter: Signature<DemandeAjoutContenu, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_historique: Signature<DemandeContenuBibliotheque, HistoriqueContenu>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_comparer: Signature<DemandeComparaison, ComparaisonTextes>,
+	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
 	categorie_personnel_enregistrer: Signature<DemandeCategoriePersonnel, CategoriePersonnel>,
@@ -10875,6 +10899,8 @@ export type CatalogueBibliotheque = {
 	peut_gerer: boolean,
 	/**  Compte d'un maître qui ne valide pas. */
 	maitre: boolean,
+	/**  L'utilisateur écrit dans toutes les matières ; sinon, dans celles marquées « mienne ». */
+	ecrit_partout: boolean,
 };
 
 /**  Quelle version d'un contenu lire. */
@@ -10917,6 +10943,8 @@ export type LectureContenu = {
 	lecon: Lecon,
 	images: ImageLecon[],
 	lie: ContenuLie | null,
+	/**  L'utilisateur peut écrire ce contenu. */
+	peut_modifier: boolean,
 };
 
 /**  Chercher dans la bibliothèque. */
@@ -11002,4 +11030,203 @@ export type DemandeCorrespondance = {
 	discipline_code: string,
 	niveau_code: string,
 	matiere_id: string | null,
+};
+
+/**  État d'une version de l'école. */
+export type EtatVersion = "brouillon" | "soumise" | "renvoyee" | "publiee" | "remplacee" | "abandonnee";
+
+/**  Une ligne numérotée d'un des deux textes comparés. */
+export type LigneNumerotee = {
+	numero: number,
+	texte: string,
+};
+
+/**  Une rangée de la comparaison côte à côte. */
+export type RangeeComparaison = {
+	gauche: LigneNumerotee | null,
+	droite: LigneNumerotee | null,
+	change: boolean,
+};
+
+/**  Désigner un contenu. */
+export type DemandeContenuBibliotheque = {
+	contenu_id: string,
+};
+
+/**  Le brouillon en cours d'un contenu. */
+export type BrouillonOuvert = {
+	version_id: string,
+	numero: number,
+	texte: string,
+	revision: number,
+	auteur: string,
+	mien: boolean,
+	retour_livre: boolean,
+	enregistre_le: number,
+};
+
+/**  Un contenu ouvert pour l'écriture. */
+export type EcritureOuverte = {
+	contenu_id: string,
+	titre: string,
+	nature: NatureContenu,
+	origine: OrigineBibliotheque,
+	peut_ecrire: boolean,
+	peut_valider: boolean,
+	brouillon: BrouillonOuvert | null,
+	texte_depart: string,
+	a_une_version_livree: boolean,
+	version_ecole: boolean,
+	livree_plus_recente: boolean,
+};
+
+/**  D'où part un brouillon nouveau. */
+export type DepartBrouillon = { type: "visible" } | { type: "livree" } | { type: "version"; version_id: string };
+
+/**  Commencer un brouillon. */
+export type DemandeBrouillonCommencer = {
+	contenu_id: string,
+	depart: DepartBrouillon,
+};
+
+/**  Enregistrer un brouillon. */
+export type DemandeBrouillon = {
+	contenu_id: string,
+	version_id: string,
+	revision: number,
+	texte: string,
+};
+
+/**  Reprendre ou abandonner un brouillon. */
+export type DemandeBrouillonVersion = {
+	contenu_id: string,
+	version_id: string,
+};
+
+/**  Aperçu d'un texte dans l'éditeur. */
+export type DemandeApercuLecon = {
+	contenu_id: string,
+	texte: string,
+};
+
+/**  L'aperçu, rendu comme la lecture, avec les notes de l'auteur. */
+export type ApercuLecon = {
+	lecon: Lecon,
+	images: ImageLecon[],
+	formules_brutes: string[],
+	images_a_ajouter: string[],
+};
+
+/**  Ajouter un chapitre de l'école. */
+export type DemandeChapitreBibliotheque = {
+	niveau_id: string,
+	matiere_id: string,
+	series: string[],
+	partie: string,
+	titre: string,
+	apres_cle: string | null,
+};
+
+/**  Un chapitre ajouté. */
+export type ChapitreAjoute = {
+	id: string,
+	cle: string,
+};
+
+/**  Ajouter une leçon, un sujet, un corrigé ou un document de l'école. */
+export type DemandeAjoutContenu = {
+	nature: NatureContenu,
+	chapitre_id: string | null,
+	niveau_id: string | null,
+	matiere_id: string | null,
+	titre: string,
+	presentation: string,
+	examen: ExamenSujet | null,
+	serie_code: string | null,
+	session: number | null,
+	sujet_id: string | null,
+	apres_cle: string | null,
+};
+
+/**  Une version, telle que l'historique la montre. */
+export type VersionAffichee = {
+	id: string,
+	numero: number,
+	etat: EtatVersion,
+	retour_livre: boolean,
+	auteur: string,
+	cree_le: number,
+	enregistre_le: number,
+	soumise_le: number | null,
+	decidee_le: number | null,
+	decidee_par: string | null,
+	commentaire: string,
+	depart_numero: number | null,
+	depart_livree: boolean,
+};
+
+/**  Ce qui est arrivé à un contenu hors de ses versions. */
+export type SorteMouvement = "retrait" | "remise";
+
+/**  Un retrait ou une remise du contenu. */
+export type MouvementContenu = {
+	sorte: SorteMouvement,
+	quand: number,
+	qui: string,
+};
+
+/**  L'historique d'un contenu. */
+export type HistoriqueContenu = {
+	contenu_id: string,
+	titre: string,
+	versions: VersionAffichee[],
+	mouvements: MouvementContenu[],
+	a_une_version_livree: boolean,
+	livree_plus_recente: boolean,
+	peut_ecrire: boolean,
+};
+
+/**  Un des deux textes d'une comparaison. */
+export type TexteCompare = { type: "livree" } | { type: "visible" } | { type: "version"; version_id: string };
+
+/**  Comparer deux versions d'un contenu. */
+export type DemandeComparaison = {
+	contenu_id: string,
+	gauche: TexteCompare,
+	droite: TexteCompare,
+};
+
+/**  Deux textes comparés côte à côte. */
+export type ComparaisonTextes = {
+	rangees: RangeeComparaison[],
+	retirees: number,
+	ajoutees: number,
+};
+
+/**  Une série d'un niveau, pour les formulaires d'ajout. */
+export type SerieChoisissable = {
+	code: string,
+	libelle: string,
+};
+
+/**  Un niveau de l'école, pour les formulaires d'ajout. */
+export type NiveauChoisissable = {
+	id: string,
+	code: string,
+	libelle: string,
+	series: SerieChoisissable[],
+};
+
+/**  Une matière d'un niveau où l'utilisateur écrit. */
+export type PlaceEcriture = {
+	matiere_id: string,
+	niveau_code: string,
+};
+
+/**  Ce qu'on peut choisir en ajoutant un chapitre ou un sujet. */
+export type ChoixEcriture = {
+	niveaux: NiveauChoisissable[],
+	matieres: MatiereChoisissable[],
+	partout: boolean,
+	places: PlaceEcriture[],
 };

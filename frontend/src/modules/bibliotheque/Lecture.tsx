@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { appeler } from "../../api";
@@ -6,6 +6,8 @@ import { Bouton } from "../../composants/Bouton";
 import { MessageErreur } from "../../composants/Messages";
 import { t } from "../../i18n";
 import type { ExamenSujet, LectureContenu, NatureContenu, VueContenu } from "../../types/gesco";
+import { Editeur } from "./Editeur";
+import { Historique } from "./Historique";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
 import { type PlaceAuCatalogue, RetirerAutour } from "./Retraits";
 
@@ -106,20 +108,63 @@ function ModeClasse({ contenu, surFermer }: { contenu: LectureContenu; surFermer
   );
 }
 
+type Mode = "lire" | "ecrire" | "historique";
+
+/** « Ajouter le corrigé » d'un sujet de l'école qui n'en a pas : il s'ouvre dans l'éditeur. */
+function AjouterCorrige({ contenu, surEcrire }: { contenu: LectureContenu; surEcrire: (id: string) => void }) {
+  const client = useQueryClient();
+  const ajouter = useMutation({
+    mutationFn: () =>
+      appeler("bibliotheque_contenu_ajouter", {
+        nature: "corrige",
+        chapitre_id: null,
+        niveau_id: null,
+        matiere_id: null,
+        titre: t("bibliotheque.corrige_de", { titre: contenu.titre }),
+        presentation: "",
+        examen: null,
+        serie_code: null,
+        session: null,
+        sujet_id: contenu.id,
+        apres_cle: null,
+      }),
+    onSuccess: (e) => {
+      client.setQueryData(["bibliotheque", "ecriture", e.contenu_id], e);
+      void client.invalidateQueries({ queryKey: ["bibliotheque"] });
+      surEcrire(e.contenu_id);
+    },
+  });
+  return (
+    <>
+      <Bouton variante="secondaire" onClick={() => ajouter.mutate()} disabled={ajouter.isPending}>
+        {t("bibliotheque.ajouter_corrige")}
+      </Bouton>
+      <MessageErreur erreur={ajouter.error} />
+    </>
+  );
+}
+
 /** Un contenu ouvert : barre de la leçon (versions, contenu lié, taille du texte, mode classe)
- *  et le texte. */
+ *  et le texte ; pour qui écrit, l'éditeur et l'historique. */
 export function Lecture({
   contenuId,
   surOuvrir,
+  surEcrire,
   place,
   peutGerer,
+  modeInitial = "lire",
 }: {
   contenuId: string;
   surOuvrir: (id: string) => void;
+  /** Ouvre un contenu dans l'éditeur. */
+  surEcrire: (id: string) => void;
   /** Place du contenu au catalogue, pour la direction qui retire. */
   place: PlaceAuCatalogue | null;
   peutGerer: boolean;
+  modeInitial?: Mode;
 }) {
+  const [mode, setMode] = useState<Mode>(modeInitial);
+  const [comparerLivree, setComparerLivree] = useState(false);
   const [vue, setVue] = useState<VueContenu | null>(null);
   const [taille, setTaille] = useState(tailleRetenue);
   const [classe, setClasse] = useState(false);
@@ -170,17 +215,53 @@ export function Lecture({
             {t("bibliotheque.mode_classe")}
           </Bouton>
           {peutGerer && place !== null ? <RetirerAutour place={place} /> : null}
+          {contenu.nature === "sujet" && contenu.lie === null && contenu.peut_modifier ? (
+            <AjouterCorrige contenu={contenu} surEcrire={surEcrire} />
+          ) : null}
         </div>
+        {contenu.peut_modifier ? (
+          <div role="group" aria-label={t("bibliotheque.mode")} className="flex flex-wrap gap-1">
+            {(["lire", "ecrire", "historique"] as const).map((m) => (
+              <Bouton
+                key={m}
+                variante={m === mode ? "principal" : "secondaire"}
+                aria-pressed={m === mode}
+                onClick={() => {
+                  setComparerLivree(false);
+                  setMode(m);
+                }}
+              >
+                {m === "lire" ? t("bibliotheque.mode.lire") : m === "ecrire" ? t("bibliotheque.mode.ecrire") : t("bibliotheque.mode.historique")}
+              </Bouton>
+            ))}
+          </div>
+        ) : null}
       </header>
+      {mode === "ecrire" && contenu.peut_modifier ? (
+        <Editeur
+          contenuId={contenu.id}
+          surComparer={() => {
+            setComparerLivree(true);
+            setMode("historique");
+          }}
+        />
+      ) : null}
+      {mode === "historique" && contenu.peut_modifier ? (
+        <Historique contenuId={contenu.id} comparerLivree={comparerLivree} surEcrire={() => setMode("ecrire")} />
+      ) : null}
       <MessageErreur erreur={lecture.error} />
-      {contenu.presentation === "" ? null : <p className="text-encre">{contenu.presentation}</p>}
-      <div style={{ fontSize: `${taille}%` }}>
-        {contenu.lecon.blocs.length === 0 ? (
-          <p className="text-muet">{t("bibliotheque.contenu_vide")}</p>
-        ) : (
-          <RenduLecon lecon={contenu.lecon} images={images} />
-        )}
-      </div>
+      {mode !== "lire" && contenu.peut_modifier ? null : (
+        <>
+          {contenu.presentation === "" ? null : <p className="text-encre">{contenu.presentation}</p>}
+          <div style={{ fontSize: `${taille}%` }}>
+            {contenu.lecon.blocs.length === 0 ? (
+              <p className="text-muet">{t("bibliotheque.contenu_vide")}</p>
+            ) : (
+              <RenduLecon lecon={contenu.lecon} images={images} />
+            )}
+          </div>
+        </>
+      )}
       {classe ? <ModeClasse contenu={contenu} surFermer={() => setClasse(false)} /> : null}
     </article>
   );

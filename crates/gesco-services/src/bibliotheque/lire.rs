@@ -41,6 +41,8 @@ pub struct CatalogueBibliotheque {
     pub peut_gerer: bool,
     /// Compte d'un maître qui ne valide pas : l'écran s'ouvre sur « Mes matières ».
     pub maitre: bool,
+    /// L'utilisateur écrit dans toutes les matières ; sinon, dans celles marquées « mienne ».
+    pub ecrit_partout: bool,
 }
 
 /// Quelle version d'un contenu lire.
@@ -115,6 +117,8 @@ pub struct LectureContenu {
     pub images: Vec<ImageLecon>,
     /// Contenu lié.
     pub lie: Option<ContenuLie>,
+    /// L'utilisateur peut écrire ce contenu (ses matières pour un maître).
+    pub peut_modifier: bool,
 }
 
 /// Chercher dans la bibliothèque.
@@ -273,12 +277,14 @@ impl ServiceBibliotheque<'_> {
         let (peut_ecrire, peut_valider) = self.permissions(session).await?;
         let peut_gerer = self.peut_gerer(session).await?;
         let range = self.ranger_catalogue(session, peut_ecrire, true).await?;
+        let ecrit_partout = peut_ecrire && self.portee(session).await?.partout();
         Ok(CatalogueBibliotheque {
             niveaux: range.niveaux,
             peut_ecrire,
             peut_valider,
             peut_gerer,
             maitre: range.a_des_matieres && !peut_valider,
+            ecrit_partout,
         })
     }
 
@@ -300,6 +306,11 @@ impl ServiceBibliotheque<'_> {
         demande: &DemandeLectureContenu,
     ) -> Resultat<LectureContenu> {
         let (peut_ecrire, _) = self.permissions(session).await?;
+        let portee = if peut_ecrire {
+            Some(self.portee(session).await?)
+        } else {
+            None
+        };
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
         let contenu = depot::contenu(&mut cnx, &demande.contenu_id, &contexte)
@@ -348,41 +359,9 @@ impl ServiceBibliotheque<'_> {
             lecon = lecon.pour_les_eleves();
         }
 
-        let mut images = Vec::new();
-        let mut empreintes = Vec::new();
-        let paquet = contenu
-            .paquet_code
-            .as_deref()
-            .and_then(|p| self.paquets.paquet(p));
-        for source in lecon.images() {
-            match source {
-                SourceImage::Paquet { nom } => {
-                    let Some(paquet) = &paquet else { continue };
-                    let fichier = nom_fichier_image(&contenu.cle, nom);
-                    if let Some(octets) = paquet.fichiers.get(&fichier) {
-                        images.push(ImageLecon {
-                            cle: nom.clone(),
-                            type_mime: type_mime(nom).to_owned(),
-                            donnees: base64::engine::general_purpose::STANDARD.encode(octets),
-                        });
-                    }
-                }
-                SourceImage::Ecole { empreinte } => empreintes.push(empreinte.clone()),
-            }
-        }
-        empreintes.sort();
-        empreintes.dedup();
-        for (empreinte, type_mime, octets) in
-            depot::images_par_empreinte(&mut cnx, &empreintes, &contexte).await?
-        {
-            images.push(ImageLecon {
-                cle: empreinte,
-                type_mime,
-                donnees: base64::engine::general_purpose::STANDARD.encode(octets),
-            });
-        }
-        images.sort_by(|a, b| a.cle.cmp(&b.cle));
-        images.dedup_by(|a, b| a.cle == b.cle);
+        let images = self
+            .images_de(&mut cnx, Some(&contenu), &lecon, &contexte)
+            .await?;
 
         let lie = match contenu.lie_cle.as_deref() {
             Some(cle) => depot::contenus(&mut cnx, &contexte)
@@ -397,7 +376,12 @@ impl ServiceBibliotheque<'_> {
             None => None,
         };
 
+        let peut_modifier = match &portee {
+            Some(p) => Self::peut_modifier(&mut cnx, p, &contenu, &contexte).await?,
+            None => false,
+        };
         Ok(LectureContenu {
+            peut_modifier,
             id: contenu.id.vers_chaine(),
             titre: contenu.titre,
             nature: contenu.nature,
@@ -414,8 +398,56 @@ impl ServiceBibliotheque<'_> {
         })
     }
 
+    /// Images appelées par une leçon : celles du paquet du contenu, et celles de l'école par leur
+    /// empreinte. Une image introuvable est passée (la leçon s'ouvre sans elle).
+    pub(super) async fn images_de(
+        &self,
+        cnx: &mut gesco_db::Connexion,
+        contenu: Option<&ContenuBibliotheque>,
+        lecon: &Lecon,
+        contexte: &gesco_db::contexte::Contexte,
+    ) -> Resultat<Vec<ImageLecon>> {
+        let mut images = Vec::new();
+        let mut empreintes = Vec::new();
+        let paquet = contenu
+            .and_then(|c| c.paquet_code.as_deref())
+            .and_then(|p| self.paquets.paquet(p));
+        for source in lecon.images() {
+            match source {
+                SourceImage::Paquet { nom } => {
+                    let (Some(paquet), Some(contenu)) = (&paquet, contenu) else {
+                        continue;
+                    };
+                    let fichier = nom_fichier_image(&contenu.cle, nom);
+                    if let Some(octets) = paquet.fichiers.get(&fichier) {
+                        images.push(ImageLecon {
+                            cle: nom.clone(),
+                            type_mime: type_mime(nom).to_owned(),
+                            donnees: base64::engine::general_purpose::STANDARD.encode(octets),
+                        });
+                    }
+                }
+                SourceImage::Ecole { empreinte } => empreintes.push(empreinte.clone()),
+            }
+        }
+        empreintes.sort();
+        empreintes.dedup();
+        for (empreinte, type_mime, octets) in
+            depot::images_par_empreinte(cnx, &empreintes, contexte).await?
+        {
+            images.push(ImageLecon {
+                cle: empreinte,
+                type_mime,
+                donnees: base64::engine::general_purpose::STANDARD.encode(octets),
+            });
+        }
+        images.sort_by(|a, b| a.cle.cmp(&b.cle));
+        images.dedup_by(|a, b| a.cle == b.cle);
+        Ok(images)
+    }
+
     /// Texte livré d'un contenu, si son paquet est chargé sur ce poste.
-    fn texte_livre(&self, contenu: &ContenuBibliotheque) -> Option<String> {
+    pub(super) fn texte_livre(&self, contenu: &ContenuBibliotheque) -> Option<String> {
         let paquet = self.paquets.paquet(contenu.paquet_code.as_deref()?)?;
         paquet.texte(contenu.fichier.as_deref()?).map(str::to_owned)
     }

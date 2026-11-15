@@ -5,7 +5,9 @@
 //! livré par sa clé ; après une restauration sur un poste qui n'a qu'un paquet plus ancien,
 //! l'index se refait depuis celui-ci et l'écran dit qu'une mise à jour existe. Le catalogue range
 //! les leçons sous la matière de l'école ; une leçon s'ouvre en arbre de blocs ; la recherche ignore
-//! accents et majuscules.
+//! accents et majuscules. Écrire (étape 7) : brouillon unique et compteur de révision, aperçu,
+//! abandon, comparaison, repartir d'une version, ligne « version plus récente », chapitres,
+//! leçons, sujets et corrigés de l'école, portée d'un maître et reprise d'un brouillon.
 
 #![allow(
     clippy::unwrap_used,
@@ -843,5 +845,640 @@ async fn la_correspondance_range_la_discipline_sous_la_matiere_choisie() {
             .as_str()
             .unwrap()
             .starts_with("m:")
+    );
+}
+
+// --- Écrire (étape 7) -----------------------------------------------------------------------
+
+/// Le premier contenu du catalogue de l'administrateur.
+async fn premier_contenu(
+    p: &crate::commun::Poste_,
+    jeton: &gesco_services::session::Jeton,
+) -> Value {
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(jeton), Value::Null)
+        .await;
+    contenus_de(&catalogue)[0]["id"].clone()
+}
+
+fn commencer(contenu: &Value, depart: Value) -> Value {
+    json!({ "contenu_id": contenu, "depart": depart })
+}
+
+fn enregistrer(contenu: &Value, ouverte: &Value, texte: &str) -> Value {
+    json!({
+        "contenu_id": contenu,
+        "version_id": ouverte["brouillon"]["version_id"],
+        "revision": ouverte["brouillon"]["revision"],
+        "texte": texte,
+    })
+}
+
+#[tokio::test]
+async fn un_brouillon_s_ecrit_et_refuse_un_enregistrement_depasse() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let id = premier_contenu(&p, &admin).await;
+
+    let ouverte = p
+        .ok(
+            "bibliotheque_ecriture_lire",
+            Some(&admin),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(ouverte["brouillon"], Value::Null);
+    assert_eq!(ouverte["peut_ecrire"], true);
+    assert_eq!(ouverte["a_une_version_livree"], true);
+    assert_eq!(ouverte["texte_depart"], RACINE.2);
+
+    // Le brouillon part de la version livrée, qui ne change pas.
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(&admin),
+            commencer(&id, json!({ "type": "livree" })),
+        )
+        .await;
+    assert_eq!(ouverte["brouillon"]["numero"], 1);
+    assert_eq!(ouverte["brouillon"]["revision"], 1);
+    assert_eq!(ouverte["brouillon"]["mien"], true);
+    assert_eq!(ouverte["brouillon"]["texte"], RACINE.2);
+    // Un seul brouillon à la fois.
+    let refus = p
+        .refus(
+            "bibliotheque_brouillon_commencer",
+            Some(&admin),
+            commencer(&id, json!({ "type": "visible" })),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.brouillon_existe");
+
+    let texte = "# La racine carrée\n\nLa racine carrée de $9$ est $3$.\n";
+    let apres = p
+        .ok(
+            "bibliotheque_brouillon_enregistrer",
+            Some(&admin),
+            enregistrer(&id, &ouverte, texte),
+        )
+        .await;
+    assert_eq!(apres["brouillon"]["revision"], 2);
+    assert_eq!(apres["brouillon"]["texte"], texte);
+    // Un enregistrement fait sur la révision lue avant est refusé ; le brouillon ne bouge pas.
+    let refus = p
+        .refus(
+            "bibliotheque_brouillon_enregistrer",
+            Some(&admin),
+            enregistrer(&id, &ouverte, "autre texte"),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.modifiee_ailleurs");
+
+    // Le brouillon se lit dans la vue « Brouillon » ; la version visible reste la livrée.
+    let lecture = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": "brouillon" }),
+        )
+        .await;
+    assert_eq!(lecture["vue"], "brouillon");
+    assert_eq!(lecture["peut_modifier"], true);
+    let visible = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": null }),
+        )
+        .await;
+    assert_eq!(visible["version_ecole"], false);
+
+    // L'aperçu rend l'arbre de blocs et dit ce qui s'imprimera tel quel.
+    let apercu = p
+        .ok(
+            "bibliotheque_apercu",
+            Some(&admin),
+            json!({ "contenu_id": id, "texte": "Texte $\\commandeinconnue{x}$.\n\n> **Note pour le maître** : Image à ajouter ici : une pirogue.\n" }),
+        )
+        .await;
+    assert_eq!(apercu["formules_brutes"], json!(["\\commandeinconnue{x}"]));
+    assert_eq!(apercu["images_a_ajouter"], json!(["une pirogue."]));
+
+    // Abandonner : le brouillon reste dans l'historique.
+    let abandonne = p
+        .ok(
+            "bibliotheque_brouillon_abandonner",
+            Some(&admin),
+            json!({ "contenu_id": id, "version_id": ouverte["brouillon"]["version_id"] }),
+        )
+        .await;
+    assert_eq!(abandonne["brouillon"], Value::Null);
+    let historique = p
+        .ok(
+            "bibliotheque_historique",
+            Some(&admin),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(historique["versions"][0]["etat"], "abandonnee");
+    assert_eq!(historique["versions"][0]["depart_livree"], true);
+    assert_eq!(historique["livree_plus_recente"], false);
+    // Rien à rendre visible : la version visible est déjà la livrée.
+    let refus = p
+        .refus(
+            "bibliotheque_retour_livree",
+            Some(&admin),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.deja_livree");
+}
+
+#[tokio::test]
+async fn comparer_deux_versions_et_repartir_d_une_ancienne() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let id = premier_contenu(&p, &admin).await;
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(&admin),
+            commencer(&id, json!({ "type": "visible" })),
+        )
+        .await;
+    let texte = "# La racine carrée\n\nLa racine carrée de $81$ est $9$.\n";
+    p.ok(
+        "bibliotheque_brouillon_enregistrer",
+        Some(&admin),
+        enregistrer(&id, &ouverte, texte),
+    )
+    .await;
+    let version = ouverte["brouillon"]["version_id"].clone();
+    let comparaison = p
+        .ok(
+            "bibliotheque_comparer",
+            Some(&admin),
+            json!({ "contenu_id": id, "gauche": { "type": "livree" },
+                "droite": { "type": "version", "version_id": version } }),
+        )
+        .await;
+    assert_eq!(comparaison["retirees"], 1);
+    assert_eq!(comparaison["ajoutees"], 1);
+    let changee = comparaison["rangees"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["change"] == true)
+        .unwrap();
+    assert_eq!(changee["gauche"]["numero"], 3);
+    assert_eq!(
+        changee["droite"]["texte"],
+        "La racine carrée de $81$ est $9$."
+    );
+
+    // Repartir de la version abandonnée : un brouillon nouveau, numéro 2, avec son texte.
+    p.ok(
+        "bibliotheque_brouillon_abandonner",
+        Some(&admin),
+        json!({ "contenu_id": id, "version_id": version }),
+    )
+    .await;
+    let reparti = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(&admin),
+            commencer(&id, json!({ "type": "version", "version_id": version })),
+        )
+        .await;
+    assert_eq!(reparti["brouillon"]["numero"], 2);
+    assert_eq!(reparti["brouillon"]["texte"], texte);
+    let historique = p
+        .ok(
+            "bibliotheque_historique",
+            Some(&admin),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(historique["versions"][0]["depart_numero"], 1);
+    assert_eq!(historique["versions"][1]["etat"], "abandonnee");
+}
+
+#[tokio::test]
+async fn une_mise_a_jour_du_paquet_dit_qu_une_version_livree_plus_recente_existe() {
+    let dossier = tempfile::tempdir().unwrap();
+    let cle = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let id = premier_contenu(&p, &admin).await;
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(&admin),
+            commencer(&id, json!({ "type": "livree" })),
+        )
+        .await;
+    let chemin = ecrire(
+        cle.path(),
+        "mise-a-jour.gbib",
+        &paquet("2026.12.1", &[RACINE_REVUE]),
+    );
+    p.ok(
+        "bibliotheque_installer",
+        Some(&admin),
+        json!({ "chemin": chemin }),
+    )
+    .await;
+    let apres = p
+        .ok(
+            "bibliotheque_ecriture_lire",
+            Some(&admin),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    // Le brouillon de l'école ne change pas ; la ligne « version plus récente » paraît.
+    assert_eq!(apres["brouillon"]["texte"], ouverte["brouillon"]["texte"]);
+    assert_eq!(apres["livree_plus_recente"], true);
+    let historique = p
+        .ok(
+            "bibliotheque_historique",
+            Some(&admin),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(historique["livree_plus_recente"], true);
+}
+
+#[tokio::test]
+async fn l_ecole_ajoute_un_chapitre_une_lecon_un_sujet_et_son_corrige() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let choix = p
+        .ok("bibliotheque_ecriture_choix", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(choix["partout"], true);
+    let neuvieme = choix["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .unwrap()["id"]
+        .clone();
+    // La matière de l'école qui reçoit les mathématiques de la bibliothèque.
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let math = catalogue["niveaux"][0]["series"][0]["matieres"][0]["matiere_id"].clone();
+    assert!(math.is_string());
+
+    let chapitre = p
+        .ok(
+            "bibliotheque_chapitre_ajouter",
+            Some(&admin),
+            json!({ "niveau_id": neuvieme, "matiere_id": math, "series": [],
+                "partie": "Algèbre", "titre": "Les équations",
+                "apres_cle": "9/MATH/Algèbre/Racines" }),
+        )
+        .await;
+    assert!(chapitre["cle"].as_str().unwrap().starts_with("ecole/"));
+    let refus = p
+        .refus(
+            "bibliotheque_chapitre_ajouter",
+            Some(&admin),
+            json!({ "niveau_id": neuvieme, "matiere_id": math, "series": [],
+                "partie": "", "titre": "   ", "apres_cle": null }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.titre_invalide");
+
+    // Une leçon naît brouillon, avec le plan des leçons livrées.
+    let lecon = p
+        .ok(
+            "bibliotheque_contenu_ajouter",
+            Some(&admin),
+            json!({ "nature": "lecon", "chapitre_id": chapitre["id"], "niveau_id": null,
+                "matiere_id": null, "titre": "Résoudre une équation", "presentation": "",
+                "examen": null, "serie_code": null, "session": null, "sujet_id": null,
+                "apres_cle": null }),
+        )
+        .await;
+    assert_eq!(lecon["origine"], "ecole");
+    assert!(
+        lecon["brouillon"]["texte"]
+            .as_str()
+            .unwrap()
+            .contains("## L'essentiel")
+    );
+    // Le chapitre de l'école paraît, rangé après le chapitre livré, pour qui écrit.
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let chapitres: Vec<&str> =
+        catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"][0]["chapitres"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["titre"].as_str().unwrap())
+            .collect();
+    assert_eq!(chapitres, ["Racines carrées", "Les équations"]);
+    assert!(
+        contenus_de(&catalogue)
+            .iter()
+            .any(|c| c["titre"] == "Résoudre une équation" && c["brouillon"] == true)
+    );
+    // La secrétaire ne voit pas une leçon de l'école pas encore publiée.
+    p.ok(
+        "utilisateur_creer",
+        Some(&admin),
+        json!({ "identifiant": "awa", "nom_affiche": "Awa Diarra",
+            "mot_de_passe_initial": "secretaire-2026", "roles": ["secretaire"] }),
+    )
+    .await;
+    let secretaire = p.connecter("awa", "secretaire-2026").await;
+    let vu = p
+        .ok("bibliotheque_catalogue", Some(&secretaire), Value::Null)
+        .await;
+    assert!(
+        !contenus_de(&vu)
+            .iter()
+            .any(|c| c["titre"] == "Résoudre une équation")
+    );
+    let refus = p
+        .refus(
+            "bibliotheque_brouillon_commencer",
+            Some(&secretaire),
+            commencer(&lecon["contenu_id"], json!({ "type": "visible" })),
+        )
+        .await;
+    assert_eq!(refus.cle, "erreur.permission_refusee");
+
+    // Un sujet sans chapitre va sous « Sujets du DEF », créé une fois.
+    let sujet = |titre: &str, session: u16| {
+        json!({ "nature": "sujet", "chapitre_id": null, "niveau_id": neuvieme,
+            "matiere_id": math, "titre": titre, "presentation": "", "examen": "DEF",
+            "serie_code": null, "session": session, "sujet_id": null, "apres_cle": null })
+    };
+    let s2025 = p
+        .ok(
+            "bibliotheque_contenu_ajouter",
+            Some(&admin),
+            sujet("Sujet de mathématiques", 2025),
+        )
+        .await;
+    p.ok(
+        "bibliotheque_contenu_ajouter",
+        Some(&admin),
+        sujet("Sujet de mathématiques", 2024),
+    )
+    .await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let mut sujets_du_def = 0;
+    for partie in catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"]
+        .as_array()
+        .unwrap()
+    {
+        for c in partie["chapitres"].as_array().unwrap() {
+            if c["titre"] == "Sujets du DEF" {
+                sujets_du_def += 1;
+                assert_eq!(partie["titre"], "Examens");
+                assert_eq!(c["contenus"].as_array().unwrap().len(), 2);
+            }
+        }
+    }
+    assert_eq!(sujets_du_def, 1);
+    let refus = p
+        .refus(
+            "bibliotheque_contenu_ajouter",
+            Some(&admin),
+            json!({ "nature": "sujet", "chapitre_id": null, "niveau_id": neuvieme,
+                "matiere_id": math, "titre": "Sans examen", "presentation": "",
+                "examen": null, "serie_code": null, "session": null, "sujet_id": null,
+                "apres_cle": null }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.examen_manquant");
+
+    // Le corrigé se lie à son sujet, dans les deux sens.
+    let corrige = p
+        .ok(
+            "bibliotheque_contenu_ajouter",
+            Some(&admin),
+            json!({ "nature": "corrige", "chapitre_id": null, "niveau_id": null,
+                "matiere_id": null, "titre": "Corrigé", "presentation": "", "examen": null,
+                "serie_code": null, "session": null, "sujet_id": s2025["contenu_id"],
+                "apres_cle": null }),
+        )
+        .await;
+    assert_eq!(corrige["nature"], "corrige");
+    let lu = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": s2025["contenu_id"], "vue": null }),
+        )
+        .await;
+    assert_eq!(lu["lie"]["id"], corrige["contenu_id"]);
+    assert_eq!(lu["session"], 2025);
+}
+
+#[tokio::test]
+async fn un_maitre_n_ecrit_que_dans_ses_matieres_et_reprend_le_brouillon_d_un_collegue() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let annee = p
+        .ok(
+            "annee_creer",
+            Some(&admin),
+            json!({ "libelle": "2026-2027", "debut": crate::commun::RENTREE_2026,
+                "fin": crate::commun::FIN_2027 }),
+        )
+        .await;
+    p.ok("annee_activer", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee["id"] }))
+        .await;
+    let trouver = |liste: &Value, code: &str| -> Value {
+        liste
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["code"] == code)
+            .unwrap()["id"]
+            .clone()
+    };
+    let math = trouver(&ped["matieres"], "MATH");
+    let autre = ped["matieres"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["code"] != "MATH")
+        .unwrap()["id"]
+        .clone();
+    let neuvieme = trouver(&ped["niveaux"], "9");
+    let classe = p
+        .ok(
+            "classe_creer",
+            Some(&admin),
+            json!({ "annee_id": annee["id"], "niveau_id": neuvieme, "serie_id": null,
+                "libelle": "9e A" }),
+        )
+        .await;
+    for (identifiant, nom, prenoms) in [("sekou", "Traoré", "Sékou"), ("fanta", "Keïta", "Fanta")]
+    {
+        let compte = p
+            .ok(
+                "utilisateur_creer",
+                Some(&admin),
+                json!({ "identifiant": identifiant, "nom_affiche": format!("{prenoms} {nom}"),
+                    "mot_de_passe_initial": "enseignant-2026", "roles": ["enseignant"] }),
+            )
+            .await;
+        let enseignant = p
+            .ok(
+                "enseignant_enregistrer",
+                Some(&admin),
+                json!({ "id": null, "nom": nom, "prenoms": prenoms, "telephones": [],
+                    "statut": "titulaire", "utilisateur_id": compte["id"], "actif": true }),
+            )
+            .await;
+        p.ok(
+            "affectation_ajouter",
+            Some(&admin),
+            json!({ "classe_id": classe["id"], "matiere_id": math,
+                "enseignant_id": enseignant["enseignant"]["id"] }),
+        )
+        .await;
+    }
+    p.admettre_les_maitres(&admin).await;
+    let sekou = p.connecter("sekou", "enseignant-2026").await;
+    let fanta = p.connecter("fanta", "enseignant-2026").await;
+
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&sekou), Value::Null)
+        .await;
+    assert_eq!(catalogue["ecrit_partout"], false);
+    let id = contenus_de(&catalogue)[0]["id"].clone();
+    let choix = p
+        .ok("bibliotheque_ecriture_choix", Some(&sekou), Value::Null)
+        .await;
+    assert_eq!(choix["partout"], false);
+    assert_eq!(
+        choix["places"],
+        json!([{ "matiere_id": math, "niveau_code": "9" }])
+    );
+    // Hors de ses matières, rien ne s'écrit.
+    let refus = p
+        .refus(
+            "bibliotheque_chapitre_ajouter",
+            Some(&sekou),
+            json!({ "niveau_id": neuvieme, "matiere_id": autre, "series": [], "partie": "",
+                "titre": "Un chapitre", "apres_cle": null }),
+        )
+        .await;
+    assert_eq!(refus.cle, "erreur.portee_refusee");
+    p.ok(
+        "bibliotheque_chapitre_ajouter",
+        Some(&sekou),
+        json!({ "niveau_id": neuvieme, "matiere_id": math, "series": [], "partie": "",
+            "titre": "Exercices de la classe", "apres_cle": null }),
+    )
+    .await;
+
+    // Sékou commence un brouillon ; Fanta, de la même matière, le voit chez lui et le reprend.
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(&sekou),
+            commencer(&id, json!({ "type": "visible" })),
+        )
+        .await;
+    let chez_fanta = p
+        .ok(
+            "bibliotheque_ecriture_lire",
+            Some(&fanta),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(chez_fanta["brouillon"]["mien"], false);
+    assert_eq!(chez_fanta["brouillon"]["auteur"], "Sékou Traoré");
+    let refus = p
+        .refus(
+            "bibliotheque_brouillon_enregistrer",
+            Some(&fanta),
+            enregistrer(&id, &chez_fanta, "texte"),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.brouillon_d_un_autre");
+    let reprise = p
+        .ok(
+            "bibliotheque_brouillon_reprendre",
+            Some(&fanta),
+            json!({ "contenu_id": id, "version_id": ouverte["brouillon"]["version_id"] }),
+        )
+        .await;
+    assert_eq!(reprise["brouillon"]["mien"], true);
+    // L'éditeur de Sékou ne peut plus enregistrer par-dessus.
+    let refus = p
+        .refus(
+            "bibliotheque_brouillon_enregistrer",
+            Some(&sekou),
+            enregistrer(&id, &ouverte, "texte de Sékou"),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.modifiee_ailleurs");
+    p.ok(
+        "bibliotheque_brouillon_enregistrer",
+        Some(&fanta),
+        enregistrer(&id, &reprise, "texte de Fanta"),
+    )
+    .await;
+    // Revenir à la version livrée demande le droit de valider.
+    let refus = p
+        .refus(
+            "bibliotheque_retour_livree",
+            Some(&fanta),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert!(
+        ["erreur.permission_refusee", "maitre.commande_refusee"].contains(&refus.cle.as_str()),
+        "{}",
+        refus.cle
     );
 }

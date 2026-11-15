@@ -218,6 +218,11 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("compte_tresorerie_enregistrer", SansControle::Reference),
     ("tresorerie_reglages_enregistrer", SansControle::Reference),
     ("journee_regler", SansControle::Reference),
+    (
+        "bibliotheque_correspondance_regler",
+        SansControle::Reference,
+    ),
+    ("bibliotheque_brouillon_enregistrer", SansControle::Etat),
 ];
 
 /// Terminaisons des noms de commandes qui modifient ce qui existe.
@@ -334,6 +339,17 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "bibliotheque_catalogue",
     "bibliotheque_lire",
     "bibliotheque_rechercher",
+    "bibliotheque_ecriture_lire",
+    "bibliotheque_ecriture_choix",
+    "bibliotheque_brouillon_commencer",
+    "bibliotheque_brouillon_enregistrer",
+    "bibliotheque_brouillon_reprendre",
+    "bibliotheque_brouillon_abandonner",
+    "bibliotheque_apercu",
+    "bibliotheque_chapitre_ajouter",
+    "bibliotheque_contenu_ajouter",
+    "bibliotheque_historique",
+    "bibliotheque_comparer",
 ];
 
 /// Commandes publiques, énumérées une seule fois : le test d'exhaustivité refuse toute commande
@@ -532,6 +548,26 @@ pub const COMMANDES: &[Commande] = &[
         "bibliotheque_correspondance_regler",
         Permission::LIBRARY_MANAGE,
     ),
+    // Écrire : brouillons, ajouts, historique et comparaison ; revenir à la version livrée,
+    // pour qui valide.
+    Commande::permise("bibliotheque_ecriture_lire", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_ecriture_choix", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_brouillon_commencer", Permission::LIBRARY_EDIT),
+    Commande::permise(
+        "bibliotheque_brouillon_enregistrer",
+        Permission::LIBRARY_EDIT,
+    ),
+    Commande::permise("bibliotheque_brouillon_reprendre", Permission::LIBRARY_EDIT),
+    Commande::permise(
+        "bibliotheque_brouillon_abandonner",
+        Permission::LIBRARY_EDIT,
+    ),
+    Commande::permise("bibliotheque_retour_livree", Permission::LIBRARY_PUBLISH),
+    Commande::permise("bibliotheque_apercu", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_chapitre_ajouter", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_contenu_ajouter", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_historique", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_comparer", Permission::LIBRARY_EDIT),
     // Résultats aux examens (SPEC_PHASE_9 §8.5) : tenus avec la fiche de l'établissement.
     Commande::permise("examens_lire", Permission::SCHOOL_PROFILE_MANAGE),
     Commande::permise("resultat_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),

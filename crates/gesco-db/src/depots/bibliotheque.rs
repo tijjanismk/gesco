@@ -834,6 +834,8 @@ pub struct LigneRetrait {
     pub retire_par: String,
     /// Remis le.
     pub remis_le: Option<i64>,
+    /// Nom de qui a remis.
+    pub remis_par: String,
 }
 
 /// Retraits de l'établissement ; `en_cours` : ceux qui ne sont pas remis.
@@ -844,8 +846,10 @@ pub async fn retraits(
 ) -> Resultat<Vec<LigneRetrait>> {
     Ok(sqlx::query_as::<_, LigneRetrait>(
         "SELECT r.id, r.grain, r.cible, r.niveau_code, r.serie_code, r.retire_le,
-                COALESCE(u.nom_affiche, '') AS retire_par, r.remis_le
+                COALESCE(u.nom_affiche, '') AS retire_par, r.remis_le,
+                COALESCE(m.nom_affiche, '') AS remis_par
          FROM retrait_bibliotheque r LEFT JOIN utilisateur u ON u.id = r.retire_par
+         LEFT JOIN utilisateur m ON m.id = r.remis_par
          WHERE r.etablissement_id = ?1 AND (?2 = 0 OR r.remis_le IS NULL)
          ORDER BY r.retire_le DESC, r.id DESC",
     )
@@ -948,4 +952,361 @@ pub async fn regler_correspondance(
     .execute(cnx)
     .await?;
     Ok(avant.and_then(|(m,)| m))
+}
+
+// --- Écriture : chapitres, contenus et versions de l'école ----------------------------------
+
+/// Un chapitre ajouté par l'école.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NouveauChapitre<'a> {
+    /// Clé stable (`ecole/<identifiant>`).
+    pub cle: &'a str,
+    /// Niveau de l'école.
+    pub niveau_id: &'a str,
+    /// Code du niveau.
+    pub niveau_code: &'a str,
+    /// Matière de l'école.
+    pub matiere_id: &'a str,
+    /// Partie (« Algèbre »…), vide si aucune.
+    pub partie: &'a str,
+    /// Titre.
+    pub titre: &'a str,
+    /// Clé du chapitre après lequel il se range ; aucune : en tête.
+    pub apres_cle: Option<&'a str>,
+    /// Séries du lycée ; aucune : toutes.
+    pub series: &'a [String],
+}
+
+/// Écrit un chapitre de l'école ; rend son identifiant.
+pub async fn inserer_chapitre_ecole(
+    cnx: &mut Connexion,
+    c: &NouveauChapitre<'_>,
+    contexte: &Contexte,
+) -> Resultat<String> {
+    let id = nouvel_id::<ChapitreBibliotheque>().vers_chaine();
+    let etablissement = contexte.etablissement_id.vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    let (ordre,): (i64,) = sqlx::query_as(
+        "SELECT COALESCE(MAX(ordre), 0) + 1 FROM chapitre_programme
+         WHERE etablissement_id = ?1 AND origine = 'ecole'",
+    )
+    .bind(&etablissement)
+    .fetch_one(&mut *cnx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO chapitre_programme (id, etablissement_id, cle, origine, niveau_code,
+            niveau_id, matiere_id, partie, titre, ordre, apres_cle, cree_le, cree_par,
+            mis_a_jour_le, mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, 'ecole', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?11, ?12, ?13)",
+    )
+    .bind(&id)
+    .bind(&etablissement)
+    .bind(c.cle)
+    .bind(c.niveau_code)
+    .bind(c.niveau_id)
+    .bind(c.matiere_id)
+    .bind(c.partie)
+    .bind(c.titre)
+    .bind(ordre)
+    .bind(c.apres_cle)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(&mut *cnx)
+    .await?;
+    ecrire_series(cnx, &id, c.series, contexte).await?;
+    Ok(id)
+}
+
+/// Un contenu ajouté par l'école.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NouveauContenu<'a> {
+    /// Clé stable (`ecole/<identifiant>`).
+    pub cle: &'a str,
+    /// Nature.
+    pub nature: NatureContenu,
+    /// Chapitre.
+    pub chapitre_id: &'a str,
+    /// Titre.
+    pub titre: &'a str,
+    /// Phrase de présentation d'un document.
+    pub presentation: &'a str,
+    /// Clé du contenu après lequel il se range ; aucune : en tête.
+    pub apres_cle: Option<&'a str>,
+    /// Clé du contenu lié (le sujet d'un corrigé).
+    pub lie_cle: Option<&'a str>,
+    /// Examen d'un sujet ou d'un corrigé.
+    pub examen: Option<ExamenSujet>,
+    /// Série au lycée.
+    pub serie_code: Option<&'a str>,
+    /// Session.
+    pub session: Option<u16>,
+}
+
+/// Écrit un contenu de l'école ; rend son identifiant.
+pub async fn inserer_contenu_ecole(
+    cnx: &mut Connexion,
+    c: &NouveauContenu<'_>,
+    contexte: &Contexte,
+) -> Resultat<String> {
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let etablissement = contexte.etablissement_id.vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    let (ordre,): (i64,) = sqlx::query_as(
+        "SELECT COALESCE(MAX(ordre), 0) + 1 FROM contenu
+         WHERE etablissement_id = ?1 AND origine = 'ecole'",
+    )
+    .bind(&etablissement)
+    .fetch_one(&mut *cnx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO contenu (id, etablissement_id, cle, origine, nature, chapitre_id, titre,
+            presentation, ordre, apres_cle, lie_cle, examen, serie_code, session, cree_le,
+            cree_par, mis_a_jour_le, mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, 'ecole', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?14,
+            ?15, ?16)",
+    )
+    .bind(&id)
+    .bind(&etablissement)
+    .bind(c.cle)
+    .bind(c.nature.nom())
+    .bind(c.chapitre_id)
+    .bind(c.titre)
+    .bind(c.presentation)
+    .bind(ordre)
+    .bind(c.apres_cle)
+    .bind(c.lie_cle)
+    .bind(c.examen.map(nom_examen))
+    .bind(c.serie_code)
+    .bind(c.session.map(i64::from))
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(id)
+}
+
+/// Lie un contenu de l'école à un autre par sa clé (le sujet à son corrigé). Un contenu livré
+/// n'est jamais touché ; faux si le contenu n'est pas de l'école.
+pub async fn lier_contenu_ecole(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    lie_cle: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let faite = sqlx::query(
+        "UPDATE contenu SET lie_cle = ?1, mis_a_jour_le = ?2, mis_a_jour_par = ?3,
+            identifiant_poste = ?4
+         WHERE id = ?5 AND etablissement_id = ?6 AND origine = 'ecole'",
+    )
+    .bind(lie_cle)
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(contenu_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .execute(cnx)
+    .await?;
+    Ok(faite.rows_affected() > 0)
+}
+
+/// Une version d'un contenu, avec le nom de son auteur et de qui a décidé.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct LigneVersion {
+    /// Identifiant.
+    pub id: String,
+    /// Contenu.
+    pub contenu_id: String,
+    /// Numéro, à partir de 1.
+    pub numero: i64,
+    /// Texte Markdown (vide pour un retour à la version livrée).
+    pub texte: String,
+    /// Empreinte SHA-256 du texte.
+    pub empreinte_sha256: String,
+    /// État (nom persisté).
+    pub etat: String,
+    /// Retour à la version livrée (0 ou 1).
+    pub retour_livre: i64,
+    /// Version de l'école dont elle est partie.
+    pub depart_version_id: Option<String>,
+    /// Empreinte du texte livré dont elle est partie.
+    pub depart_livre_sha256: Option<String>,
+    /// Compteur de révision du brouillon.
+    pub revision: i64,
+    /// Auteur.
+    pub auteur_id: String,
+    /// Nom de l'auteur.
+    pub auteur: String,
+    /// Soumise le.
+    pub soumise_le: Option<i64>,
+    /// Décidée le.
+    pub decidee_le: Option<i64>,
+    /// Nom de qui a décidé.
+    pub decidee_par: Option<String>,
+    /// Commentaire d'un renvoi.
+    pub commentaire: String,
+    /// Créée le.
+    pub cree_le: i64,
+    /// Dernier enregistrement.
+    pub mis_a_jour_le: i64,
+}
+
+const COLONNES_VERSION: &str = "v.id, v.contenu_id, v.numero, v.texte, v.empreinte_sha256,
+    v.etat, v.retour_livre, v.depart_version_id, v.depart_livre_sha256, v.revision, v.auteur_id,
+    COALESCE(a.nom_affiche, '') AS auteur, v.soumise_le, v.decidee_le,
+    d.nom_affiche AS decidee_par, v.commentaire, v.cree_le, v.mis_a_jour_le
+    FROM version_contenu v
+    LEFT JOIN utilisateur a ON a.id = v.auteur_id
+    LEFT JOIN utilisateur d ON d.id = v.decidee_par";
+
+/// Versions d'un contenu, de la plus ancienne à la plus récente.
+pub async fn versions(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneVersion>> {
+    Ok(
+        sqlx::query_as::<_, LigneVersion>(sqlx::AssertSqlSafe(format!(
+            "SELECT {COLONNES_VERSION}
+         WHERE v.etablissement_id = ?1 AND v.contenu_id = ?2 ORDER BY v.numero"
+        )))
+        .bind(contexte.etablissement_id.vers_chaine())
+        .bind(contenu_id)
+        .fetch_all(cnx)
+        .await?,
+    )
+}
+
+/// Une version nouvelle.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NouvelleVersion<'a> {
+    /// Contenu.
+    pub contenu_id: &'a str,
+    /// Texte Markdown.
+    pub texte: &'a str,
+    /// Empreinte SHA-256 du texte.
+    pub empreinte: &'a str,
+    /// Retour à la version livrée (texte vide).
+    pub retour_livre: bool,
+    /// Version de l'école dont elle part.
+    pub depart_version_id: Option<&'a str>,
+    /// Empreinte du texte livré dont elle part.
+    pub depart_livre_sha256: Option<&'a str>,
+    /// Auteur.
+    pub auteur_id: &'a str,
+}
+
+/// Écrit un brouillon nouveau, numéroté après la dernière version du contenu ; rend son
+/// identifiant et son numéro. L'index unique refuse un second brouillon.
+pub async fn inserer_brouillon(
+    cnx: &mut Connexion,
+    v: &NouvelleVersion<'_>,
+    contexte: &Contexte,
+) -> Resultat<(String, i64)> {
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    let (numero,): (i64,) = sqlx::query_as(
+        "SELECT COALESCE(MAX(numero), 0) + 1 FROM version_contenu WHERE contenu_id = ?1",
+    )
+    .bind(v.contenu_id)
+    .fetch_one(&mut *cnx)
+    .await?;
+    sqlx::query(
+        "INSERT INTO version_contenu (id, etablissement_id, contenu_id, numero, texte,
+            empreinte_sha256, etat, retour_livre, depart_version_id, depart_livre_sha256,
+            revision, auteur_id, cree_le, cree_par, mis_a_jour_le, mis_a_jour_par,
+            identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'brouillon', ?7, ?8, ?9, 1, ?10, ?11, ?12, ?11, ?12, ?13)",
+    )
+    .bind(&id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(v.contenu_id)
+    .bind(numero)
+    .bind(v.texte)
+    .bind(v.empreinte)
+    .bind(i64::from(v.retour_livre))
+    .bind(v.depart_version_id)
+    .bind(v.depart_livre_sha256)
+    .bind(v.auteur_id)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok((id, numero))
+}
+
+/// Réécrit le texte d'un brouillon lu à la révision `revision` ; faux s'il n'est plus brouillon
+/// ou s'il a été enregistré depuis. La révision avance d'un.
+pub async fn reecrire_brouillon(
+    cnx: &mut Connexion,
+    version_id: &str,
+    revision: i64,
+    texte: &str,
+    empreinte: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let faite = sqlx::query(
+        "UPDATE version_contenu SET texte = ?1, empreinte_sha256 = ?2, revision = revision + 1,
+            mis_a_jour_le = ?3, mis_a_jour_par = ?4, identifiant_poste = ?5
+         WHERE id = ?6 AND etablissement_id = ?7 AND etat = 'brouillon' AND revision = ?8",
+    )
+    .bind(texte)
+    .bind(empreinte)
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(version_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(revision)
+    .execute(cnx)
+    .await?;
+    Ok(faite.rows_affected() > 0)
+}
+
+/// Donne un brouillon à un autre auteur (« Reprendre ce brouillon ») ; la révision avance, pour
+/// que l'éditeur de l'ancien auteur ne puisse plus enregistrer par-dessus.
+pub async fn reprendre_brouillon(
+    cnx: &mut Connexion,
+    version_id: &str,
+    auteur_id: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let faite = sqlx::query(
+        "UPDATE version_contenu SET auteur_id = ?1, revision = revision + 1,
+            mis_a_jour_le = ?2, mis_a_jour_par = ?3, identifiant_poste = ?4
+         WHERE id = ?5 AND etablissement_id = ?6 AND etat = 'brouillon'",
+    )
+    .bind(auteur_id)
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(version_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .execute(cnx)
+    .await?;
+    Ok(faite.rows_affected() > 0)
+}
+
+/// Passe un brouillon à « abandonnée » ; faux s'il n'est plus brouillon.
+pub async fn abandonner_brouillon(
+    cnx: &mut Connexion,
+    version_id: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let maintenant = contexte.maintenant.millis_epoque();
+    let faite = sqlx::query(
+        "UPDATE version_contenu SET etat = 'abandonnee', decidee_le = ?1, decidee_par = ?2,
+            mis_a_jour_le = ?1, mis_a_jour_par = ?2, identifiant_poste = ?3
+         WHERE id = ?4 AND etablissement_id = ?5 AND etat = 'brouillon'",
+    )
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(version_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .execute(cnx)
+    .await?;
+    Ok(faite.rows_affected() > 0)
 }
