@@ -19,6 +19,7 @@ import type {
   StatutRapport,
   TypeDifficulte,
 } from "../../types/gesco";
+import { TITRES_DEGRES, TITRES_DIFFICULTES, TITRES_DIPLOMES, TITRES_FONCTIONNEMENTS, TITRES_PEDAGOGIES, TITRES_SPECIALITES, TITRES_STATUTS } from "./libelles";
 
 const FONCTIONNEMENTS: readonly Fonctionnement[] = [
   "simple",
@@ -191,13 +192,13 @@ function GrilleEleves({
                       valeur: "",
                       libelle: t("complements.par_defaut", {
                         valeur: t(
-                          `complements.fonctionnement.${d.fonctionnement_defaut}`,
+                          TITRES_FONCTIONNEMENTS[d.fonctionnement_defaut],
                         ),
                       }),
                     },
                     ...FONCTIONNEMENTS.map((f) => ({
                       valeur: f,
-                      libelle: t(`complements.fonctionnement.${f}`),
+                      libelle: t(TITRES_FONCTIONNEMENTS[f]),
                     })),
                   ]}
                 />
@@ -216,13 +217,13 @@ function GrilleEleves({
                       valeur: "",
                       libelle: t("complements.par_defaut", {
                         valeur: t(
-                          `complements.pedagogie.${d.pedagogie_defaut}`,
+                          TITRES_PEDAGOGIES[d.pedagogie_defaut],
                         ),
                       }),
                     },
                     ...PEDAGOGIES.map((p) => ({
                       valeur: p,
-                      libelle: t(`complements.pedagogie.${p}`),
+                      libelle: t(TITRES_PEDAGOGIES[p]),
                     })),
                   ]}
                 />
@@ -230,11 +231,11 @@ function GrilleEleves({
             ) : (
               <p className="text-sm text-encre">
                 {t(
-                  `complements.fonctionnement.${choisie.fonctionnement ?? d.fonctionnement_defaut}`,
+                  TITRES_FONCTIONNEMENTS[choisie.fonctionnement ?? d.fonctionnement_defaut],
                 )}{" "}
                 ·{" "}
                 {t(
-                  `complements.pedagogie.${choisie.pedagogie ?? d.pedagogie_defaut}`,
+                  TITRES_PEDAGOGIES[choisie.pedagogie ?? d.pedagogie_defaut],
                 )}
               </p>
             )}
@@ -430,7 +431,7 @@ function Difficultes({
           <Selection
             key={ty}
             id={`difficulte-${ty}`}
-            libelle={t(`complements.difficulte.${ty}`)}
+            libelle={t(TITRES_DIFFICULTES[ty])}
             valeur={
               liste.data?.find((x) => x.type_difficulte === ty)?.degre ?? ""
             }
@@ -444,7 +445,7 @@ function Difficultes({
               { valeur: "", libelle: "" },
               ...DEGRES.map((de) => ({
                 valeur: de,
-                libelle: t(`complements.degre.${de}`),
+                libelle: t(TITRES_DEGRES[de]),
               })),
             ]}
           />
@@ -554,7 +555,7 @@ function GrillePersonnel({ peutModifier }: { peutModifier: boolean }) {
                         STATUTS,
                         "statut",
                         t("complements.statut_deduit", {
-                          valeur: t(`complements.statut.${m.statut_deduit}`),
+                          valeur: t(TITRES_STATUTS[m.statut_deduit]),
                         }),
                       ).map((o) => (
                         <option key={o.valeur} value={o.valeur}>
@@ -585,7 +586,7 @@ function GrillePersonnel({ peutModifier }: { peutModifier: boolean }) {
                           ? ""
                           : t("complements.proposee", {
                               valeur: t(
-                                `complements.specialite.${m.specialite_proposee}`,
+                                TITRES_SPECIALITES[m.specialite_proposee],
                               ),
                             }),
                       ).map((o) => (
@@ -617,7 +618,7 @@ function GrillePersonnel({ peutModifier }: { peutModifier: boolean }) {
                           ? ""
                           : t("complements.proposee", {
                               valeur: t(
-                                `complements.diplome.${m.diplome_propose}`,
+                                TITRES_DIPLOMES[m.diplome_propose],
                               ),
                             }),
                       ).map((o) => (

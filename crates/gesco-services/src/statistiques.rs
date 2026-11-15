@@ -1528,14 +1528,7 @@ fn tableaux_complements_eleves(
         let mut groupes: Vec<Groupe> = Vec::new();
         for t in TypeDifficulte::TOUS {
             for d in DegreDifficulte::TOUS {
-                let mut g = Groupe::nouveau(
-                    "",
-                    Some(format!(
-                        "complements.ligne_difficulte.{}.{}",
-                        t.nom(),
-                        d.nom()
-                    )),
-                );
+                let mut g = Groupe::nouveau("", Some(cle_ligne_difficulte(*t, *d).to_owned()));
                 for (m, r) in &presentes {
                     if difficultes.iter().any(|x| {
                         x.eleve_id == r.inscription.eleve_id
@@ -2026,5 +2019,51 @@ fn onglet_examens(
     OngletStatistique {
         fiches,
         tableaux: vec![decisions, resultats_examens, taux_par_cycle, probables],
+    }
+}
+
+/// Clé du libellé d'une ligne du tableau des élèves handicapés, écrite en toutes lettres : le
+/// catalogue de l'écran vérifie qu'aucune de ses clés ne dort.
+const fn cle_ligne_difficulte(t: TypeDifficulte, d: DegreDifficulte) -> &'static str {
+    use DegreDifficulte as D;
+    use TypeDifficulte as T;
+    match (t, d) {
+        (T::Vue, D::Quelques) => "complements.ligne_difficulte.vue.quelques",
+        (T::Vue, D::Beaucoup) => "complements.ligne_difficulte.vue.beaucoup",
+        (T::Vue, D::Impossible) => "complements.ligne_difficulte.vue.impossible",
+        (T::Ouie, D::Quelques) => "complements.ligne_difficulte.ouie.quelques",
+        (T::Ouie, D::Beaucoup) => "complements.ligne_difficulte.ouie.beaucoup",
+        (T::Ouie, D::Impossible) => "complements.ligne_difficulte.ouie.impossible",
+        (T::MotriciteGlobale, D::Quelques) => {
+            "complements.ligne_difficulte.motricite_globale.quelques"
+        }
+        (T::MotriciteGlobale, D::Beaucoup) => {
+            "complements.ligne_difficulte.motricite_globale.beaucoup"
+        }
+        (T::MotriciteGlobale, D::Impossible) => {
+            "complements.ligne_difficulte.motricite_globale.impossible"
+        }
+        (T::MotriciteFine, D::Quelques) => "complements.ligne_difficulte.motricite_fine.quelques",
+        (T::MotriciteFine, D::Beaucoup) => "complements.ligne_difficulte.motricite_fine.beaucoup",
+        (T::MotriciteFine, D::Impossible) => {
+            "complements.ligne_difficulte.motricite_fine.impossible"
+        }
+        (T::Intellect, D::Quelques) => "complements.ligne_difficulte.intellect.quelques",
+        (T::Intellect, D::Beaucoup) => "complements.ligne_difficulte.intellect.beaucoup",
+        (T::Intellect, D::Impossible) => "complements.ligne_difficulte.intellect.impossible",
+        (T::Communication, D::Quelques) => "complements.ligne_difficulte.communication.quelques",
+        (T::Communication, D::Beaucoup) => "complements.ligne_difficulte.communication.beaucoup",
+        (T::Communication, D::Impossible) => {
+            "complements.ligne_difficulte.communication.impossible"
+        }
+        (T::Comportement, D::Quelques) => "complements.ligne_difficulte.comportement.quelques",
+        (T::Comportement, D::Beaucoup) => "complements.ligne_difficulte.comportement.beaucoup",
+        (T::Comportement, D::Impossible) => "complements.ligne_difficulte.comportement.impossible",
+        (T::Multiple, D::Quelques) => "complements.ligne_difficulte.multiple.quelques",
+        (T::Multiple, D::Beaucoup) => "complements.ligne_difficulte.multiple.beaucoup",
+        (T::Multiple, D::Impossible) => "complements.ligne_difficulte.multiple.impossible",
+        (T::Autre, D::Quelques) => "complements.ligne_difficulte.autre.quelques",
+        (T::Autre, D::Beaucoup) => "complements.ligne_difficulte.autre.beaucoup",
+        (T::Autre, D::Impossible) => "complements.ligne_difficulte.autre.impossible",
     }
 }

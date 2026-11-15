@@ -38,16 +38,23 @@ pub fn classeur(liste: &Liste<'_>) -> Result<Vec<u8>, ErreurDocument> {
 pub fn classeur_feuilles(titre: &str, listes: &[Liste<'_>]) -> Result<Vec<u8>, ErreurDocument> {
     let mut classeur = Workbook::new();
     classeur.set_properties(&DocProperties::new().set_title(titre));
+    let mut pris: Vec<String> = Vec::new();
     for liste in listes {
-        ecrire_feuille(&mut classeur, liste)?;
+        let nom = nom_libre(&nom_feuille(liste.titre), &pris);
+        pris.push(nom.to_lowercase());
+        ecrire_feuille(&mut classeur, liste, &nom)?;
     }
     Ok(classeur.save_to_buffer()?)
 }
 
-fn ecrire_feuille(classeur: &mut Workbook, liste: &Liste<'_>) -> Result<(), ErreurDocument> {
+fn ecrire_feuille(
+    classeur: &mut Workbook,
+    liste: &Liste<'_>,
+    nom: &str,
+) -> Result<(), ErreurDocument> {
     verifier(liste)?;
     let feuille = classeur.add_worksheet();
-    feuille.set_name(nom_feuille(liste.titre))?;
+    feuille.set_name(nom)?;
     let entete = Format::new()
         .set_bold()
         .set_border_bottom(FormatBorder::Thin);
@@ -117,6 +124,25 @@ pub fn nom_feuille(titre: &str) -> String {
     } else {
         nom
     }
+}
+
+/// Nom de feuille encore libre dans le classeur : Excel refuse deux feuilles du même nom, sans
+/// égard à la casse ; deux titres longs coupés à 31 caractères peuvent se confondre. Le second
+/// reçoit « (2) », le suivant « (3) », pris sur la fin du nom pour rester dans la limite.
+fn nom_libre(nom: &str, pris: &[String]) -> String {
+    let libre = |n: &str| !pris.contains(&n.to_lowercase());
+    if libre(nom) {
+        return nom.to_owned();
+    }
+    (2..)
+        .map(|rang| {
+            let suffixe = format!(" ({rang})");
+            let garde = NOM_FEUILLE_MAX.saturating_sub(suffixe.chars().count());
+            let debut: String = nom.chars().take(garde).collect();
+            format!("{}{suffixe}", debut.trim_end())
+        })
+        .find(|n| libre(n))
+        .unwrap_or_else(|| nom.to_owned())
 }
 
 /// Valeur numérique d'une cellule qui n'est qu'un nombre : chiffres, signe, séparateur décimal
@@ -227,6 +253,29 @@ mod tests {
         let long = nom_feuille("Liste des inscriptions validées de l'année 2026");
         assert_eq!(long.chars().count(), 31);
         assert_eq!(long, "Liste des inscriptions validées");
+    }
+
+    #[test]
+    fn deux_titres_qui_se_confondent_donnent_deux_feuilles() {
+        let entetes = vec!["Niveau".to_owned()];
+        let lignes = vec![vec!["1re année".to_owned()]];
+        let a = Liste {
+            titre: "Effectifs par année d'études et par sexe",
+            entetes: &entetes,
+            lignes: &lignes,
+        };
+        let b = Liste {
+            titre: "Effectifs par année d'études et par âge",
+            entetes: &entetes,
+            lignes: &lignes,
+        };
+        assert!(classeur_feuilles("Essai", &[a, b]).is_ok());
+        let pris = vec!["effectifs par année d'études e".to_owned()];
+        assert_eq!(
+            nom_libre("Effectifs par année d'études e", &pris),
+            "Effectifs par année d'étude (2)"
+        );
+        assert_eq!(nom_libre("Locaux", &pris), "Locaux");
     }
 
     #[test]

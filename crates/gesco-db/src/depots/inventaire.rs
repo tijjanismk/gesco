@@ -298,7 +298,7 @@ pub async fn ecrire_releve(
                 {COLONNES_QUANTITES}, observation, cree_le, cree_par, mis_a_jour_le,
                 mis_a_jour_par, identifiant_poste)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17,
-                ?18, ?19, ?20, ?21, ?22, ?23, ?22, ?23, ?24)"
+                ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?23, ?24, ?25)"
         )))
         .bind(id.vers_chaine())
         .bind(contexte.etablissement_id.vers_chaine())

@@ -69,10 +69,22 @@ async fn inscrire(
                 "date_naissance": "2019-03-02", "date_naissance_estimee": false,
                 "lieu_naissance": "Kati", "nationalite": "Malienne", "adresse": "",
                 "telephones": [] },
-                "matricule_interne": "", "matricule_national": "", "acte_nature": "acte",
+                "matricule_interne": "", "matricule_national": matricule_national(), "acte_nature": "acte",
                 "acte_numero": "", "acte_date": "", "ecole_origine": "" }),
         )
         .await;
+    p.ok(
+        "responsable_rattacher",
+        Some(admin),
+        json!({ "eleve_id": fiche["eleve"]["id"], "responsable_id": null,
+            "saisie": { "identite": { "nom": "Coulibaly", "prenoms": "Mariam",
+                "sexe": "feminin", "date_naissance": "", "date_naissance_estimee": false,
+                "lieu_naissance": "", "nationalite": "", "adresse": "", "telephones": ["76 12 34 56"] },
+                "profession": "", "employeur": "" },
+            "qualites": { "lien": "mere", "est_responsable_legal": true, "est_payeur": true,
+                "recoit_notifications": true, "vient_chercher": false, "ordre_priorite": 1 } }),
+    )
+    .await;
     let inscription = p
         .ok(
             "inscription_creer",
@@ -90,6 +102,28 @@ async fn inscrire(
     )
     .await;
     (fiche["eleve"]["id"].clone(), inscription)
+}
+
+/// Exporte les tableaux d'un rapport comme l'écran les envoie : une feuille par tableau.
+async fn exporter_tableaux(
+    p: &Poste_,
+    admin: &gesco_services::session::Jeton,
+    rapport: &Value,
+    dossier: &std::path::Path,
+) {
+    let feuilles: Vec<Value> = rapport["contenu"]["tableaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| json!({ "titre": t["titre"], "entetes": t["colonnes"], "lignes": t["lignes"] }))
+        .collect();
+    let chemin = dossier.join("tableaux.xlsx");
+    p.ok(
+        "statistiques_exporter",
+        Some(admin),
+        json!({ "chemin": chemin.to_string_lossy(), "titre": "Rapport", "feuilles": feuilles }),
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -113,6 +147,7 @@ async fn les_rapports_de_rentree_se_preparent_s_arretent_et_se_rouvrent() {
         .await;
     p.ok("annee_activer", Some(&admin), json!({ "id": annee["id"] }))
         .await;
+    poser_grille(&p, &admin, &annee["id"]).await;
     let ped = p
         .ok("pedagogie_lire", Some(&admin), json!({ "id": annee["id"] }))
         .await;
@@ -273,6 +308,7 @@ async fn les_rapports_de_rentree_se_preparent_s_arretent_et_se_rouvrent() {
         "Fait à Kati, le 17 octobre 2026"
     );
     assert_eq!(regle["contenu"]["qualite"], "La Directrice");
+    exporter_tableaux(&p, &admin, &regle, dossier.path()).await;
 
     // Le rapport succinct reprend le lieu et la qualité du dernier rapport réglé.
     let succinct = p
@@ -478,6 +514,7 @@ async fn le_rapport_de_fermeture_compte_la_fin_d_annee_et_garde_les_effectifs_sa
         .await;
     p.ok("annee_activer", Some(&admin), json!({ "id": annee["id"] }))
         .await;
+    poser_grille(&p, &admin, &annee["id"]).await;
     let ped = p
         .ok("pedagogie_lire", Some(&admin), json!({ "id": annee["id"] }))
         .await;
@@ -680,6 +717,12 @@ async fn le_rapport_de_fermeture_compte_la_fin_d_annee_et_garde_les_effectifs_sa
         .cle,
         "rapports.effectif_trop_grand"
     );
+
+    // Les tableaux s'exportent en Excel.
+    let lu = p
+        .ok("rapport_lire", Some(&admin), json!({ "id": id }))
+        .await;
+    exporter_tableaux(&p, &admin, &lu, dossier.path()).await;
 
     // Aperçu, arrêt : les effectifs ne se saisissent plus.
     let apercu = p

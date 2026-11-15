@@ -7,7 +7,7 @@ import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { t } from "../../i18n";
 import type { ArticleInventaire, Cycle, FamilleInventaire, Inventaire as Donnees, QuantitesInventaire, ReleveInventaire } from "../../types/gesco";
-import { COLONNES_FAMILLE, COLONNES_LATRINES, FAMILLES, QUANTITES_VIDES, libelleArticle, lireQuantite, type NomQuantite } from "./colonnes";
+import { COLONNES_FAMILLE, COLONNES_LATRINES, FAMILLES, QUANTITES_VIDES, TITRES_FAMILLES, libelleArticle, lireQuantite, type NomQuantite } from "./colonnes";
 
 /** Inventaire de l'école : un onglet par famille, une ligne par article, les quantités de
  *  l'année saisies sur place pour toute l'école ou pour un cycle. La valeur de l'an dernier est
@@ -65,7 +65,7 @@ export function Inventaire() {
             className={`-mb-px border-b-2 px-3 py-1.5 text-sm ${famille === f ? "border-primaire font-medium text-encre" : "border-transparent text-muet hover:text-encre"}`}
             onClick={() => setFamille(f)}
           >
-            {t(`inventaire.famille.${f}`)}
+            {t(TITRES_FAMILLES[f])}
           </button>
         ))}
       </div>

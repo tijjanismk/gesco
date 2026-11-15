@@ -16,6 +16,7 @@ pub const ENTREE_7E: &str = "examens.entree_7e";
 #[serde(rename_all = "snake_case")]
 pub enum Examen {
     /// Examen d'entrée en 7e année, en 6e année, quand l'école l'organise.
+    #[serde(rename = "entree_7e")]
     Entree7e,
     /// Diplôme d'études fondamentales, en 9e année.
     Def,

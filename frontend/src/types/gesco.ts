@@ -467,6 +467,30 @@ export type ArrondiMoyenne =
 /**  Par excès : 13,351 donne 13,36. */
 "par_exces";
 
+/**  Un article du catalogue. */
+export type ArticleInventaire = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement propriétaire. */
+	etablissement_id: string,
+	/**  Code stable d'un article livré, que les rapports lisent ; vide pour un article de l'école. */
+	code: string | null,
+	/**  Famille. */
+	famille: FamilleInventaire,
+	/**  Désignation : « Salles de classe », « Tables-bancs à 2 places », titre d'un manuel. */
+	designation: string,
+	/**  Matière d'un manuel ; vide sinon. */
+	matiere: string,
+	/**  Niveau d'un manuel, s'il est donné. */
+	niveau_id: string | null,
+	/**  Vrai pour un article livré : il ne se renomme pas, il se retire. */
+	livre: boolean,
+	/**  Ordre dans sa famille. */
+	ordre: number,
+	/**  Instant du retrait ; vide pour un article en service. */
+	retire_le: number | null,
+};
+
 /**  Gain ou retenue attribué à un membre, avec son montant propre, chaque mois de sa période. */
 export type Attribution = {
 	/**  Identifiant technique. */
@@ -1038,15 +1062,25 @@ export type ClasseEmploi = {
 	matieres: MatiereDeClasse[],
 };
 
+/**  Une classe dont les élèves passent un examen. */
+export type ClasseExamen = {
+	/**  Classe. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Examen. */
+	examen: Examen,
+};
+
 /**  Une classe de l'année et ses compléments. */
 export type ClasseRapports = {
 	/**  Classe. */
 	id: string,
 	/**  Libellé. */
 	libelle: string,
-	/**  Fonctionnement saisi. */
+	/**  Fonctionnement saisi ; la valeur par défaut sinon. */
 	fonctionnement: Fonctionnement | null,
-	/**  Pédagogie saisie. */
+	/**  Pédagogie saisie ; la valeur par défaut sinon. */
 	pedagogie: PedagogieClasse | null,
 };
 
@@ -1153,7 +1187,7 @@ export type ComplementEleve = {
 	nom: string,
 	/**  Année de recrutement saisie. */
 	annee_recrutement: number | null,
-	/**  Année proposée. */
+	/**  Année proposée d'après la première inscription dans l'école, quand aucune n'est saisie. */
 	annee_proposee: number | null,
 	/**  Pris en charge par l'État cette année. */
 	prise_en_charge_etat: boolean,
@@ -1169,31 +1203,31 @@ export type ComplementMembre = {
 	parti: boolean,
 	/**  Statut saisi. */
 	statut: StatutRapport | null,
-	/**  Statut déduit. */
+	/**  Statut déduit de la fiche, qui vaut tant qu'aucun n'est saisi. */
 	statut_deduit: StatutRapport,
 	/**  Spécialité saisie. */
 	specialite: Specialite | null,
-	/**  Spécialité proposée. */
+	/**  Spécialité proposée d'après les matières enseignées cette année. */
 	specialite_proposee: Specialite | null,
-	/**  Diplôme saisi. */
+	/**  Diplôme le plus élevé saisi. */
 	diplome: DiplomeEleve | null,
-	/**  Diplôme proposé. */
+	/**  Diplôme proposé d'après les diplômes saisis en texte. */
 	diplome_propose: DiplomeEleve | null,
 };
 
-/**  Compléments d'une année. */
+/**  Compléments d'une année : ses classes, et les élèves de la classe choisie. */
 export type ComplementsEleves = {
 	/**  Classes de l'année. */
 	classes: ClasseRapports[],
-	/**  Fonctionnement par défaut. */
+	/**  Fonctionnement par défaut, tiré de la fiche de l'établissement. */
 	fonctionnement_defaut: Fonctionnement,
-	/**  Pédagogie par défaut. */
+	/**  Pédagogie par défaut, tirée de la fiche de l'établissement. */
 	pedagogie_defaut: PedagogieClasse,
 	/**  Classe choisie. */
 	classe_id: string | null,
-	/**  Vrai pour le lycée et le technique. */
+	/**  Vrai si la classe est d'un cycle où l'État prend des élèves en charge. */
 	prise_en_charge_possible: boolean,
-	/**  Élèves de la classe choisie. */
+	/**  Élèves de la classe choisie, par nom. */
 	eleves: ComplementEleve[],
 };
 
@@ -1426,6 +1460,26 @@ export type ContenuLivret = {
 	absences_relevees: boolean,
 	/**  Décision de fin d'année, au livret de la dernière période quand elle est posée. */
 	decision: string | null,
+};
+
+/**  Contenu d'un rapport : ce qui s'imprime. Figé à l'arrêt. */
+export type ContenuRapport = {
+	/**  Titre. */
+	titre: string,
+	/**  Année scolaire. */
+	annee: string,
+	/**  Date d'arrêt des chiffres, en toutes lettres. */
+	arret: string,
+	/**  En-tête administratif. */
+	entete: LigneEntete[],
+	/**  Sections rédigées. */
+	sections: SectionImprimee[],
+	/**  Tableaux. */
+	tableaux: TableauRapport[],
+	/**  « Fait à … le … ». */
+	fait_a: string,
+	/**  Qualité du signataire. */
+	qualite: string,
 };
 
 /**  Contenu d'une règle d'évaluation. */
@@ -2266,6 +2320,29 @@ export type Convocations = {
 	droits: DroitsConvocations,
 };
 
+/**  Ce qui fait les lignes ou les colonnes. */
+export type CritereLibre = 
+/**  Classe de l'élève. */
+"classe" | 
+/**  Niveau de l'élève. */
+"niveau" | 
+/**  Cycle de l'élève ; pour le personnel, le premier cycle où il tient une classe. */
+"cycle" | 
+/**  Sexe. */
+"sexe" | 
+/**  Âge de l'élève à la rentrée. */
+"age" | 
+/**  Année de recrutement de l'élève. */
+"annee_recrutement" | 
+/**  Statut du membre du personnel. */
+"statut" | 
+/**  Catégorie du membre du personnel. */
+"categorie" | 
+/**  Spécialité de l'enseignant. */
+"specialite" | 
+/**  Diplôme le plus élevé du membre du personnel. */
+"diplome";
+
 /**  Cumuls de l'année civile. */
 export type Cumuls = {
 	/**  Brut. */
@@ -2349,7 +2426,13 @@ export type Decoupe =
 "nom_en_dernier";
 
 /**  Degré d'une difficulté. */
-export type DegreDifficulte = "quelques" | "beaucoup" | "impossible";
+export type DegreDifficulte = 
+/**  Quelques difficultés. */
+"quelques" | 
+/**  Beaucoup de difficultés. */
+"beaucoup" | 
+/**  N'y parvient pas. */
+"impossible";
 
 /**  Abandon, avec son motif. */
 export type DemandeAbandon = {
@@ -2399,6 +2482,14 @@ export type DemandeAccuse = {
 	id: string,
 	/**  Réception. */
 	accuse: AccuseConvocation,
+};
+
+/**  Retrait ou remise en service d'un article. */
+export type DemandeActivationArticle = {
+	/**  Article. */
+	id: string,
+	/**  Vrai pour le remettre en service. */
+	actif: boolean,
 };
 
 /**  Désactivation ou réactivation d'une rubrique. */
@@ -2564,6 +2655,20 @@ export type DemandeArchive = {
 	chemin: string,
 };
 
+/**  Article ajouté ou modifié par l'école. */
+export type DemandeArticleInventaire = {
+	/**  Article de l'école à modifier ; un nouveau si rien n'est donné. */
+	id: string | null,
+	/**  Famille, pour un nouvel article ; ignorée pour un article existant. */
+	famille: FamilleInventaire,
+	/**  Désignation ou titre. */
+	designation: string,
+	/**  Matière d'un manuel. */
+	matiere: string,
+	/**  Niveau d'un manuel. */
+	niveau_id: string | null,
+};
+
 /**  Attribution saisie ; sans `id`, une création. */
 export type DemandeAttribution = {
 	/**  Attribution modifiée ; absente pour une création. */
@@ -2715,9 +2820,9 @@ export type DemandeClasseFinAnnee = {
 export type DemandeClasseRapports = {
 	/**  Classe. */
 	classe_id: string,
-	/**  Fonctionnement. */
+	/**  Fonctionnement ; vide pour reprendre la valeur par défaut. */
 	fonctionnement: Fonctionnement | null,
-	/**  Pédagogie. */
+	/**  Pédagogie ; vide pour reprendre la valeur par défaut. */
 	pedagogie: PedagogieClasse | null,
 };
 
@@ -2794,17 +2899,17 @@ export type DemandeCompetence = {
 export type DemandeComplementEleve = {
 	/**  Inscription. */
 	inscription_id: string,
-	/**  Année de recrutement. */
+	/**  Année de recrutement ; vide pour la vider. */
 	annee_recrutement: number | null,
 	/**  Prise en charge par l'État. */
 	prise_en_charge_etat: boolean,
 };
 
-/**  Compléments d'un membre saisis. */
+/**  Compléments d'un membre du personnel saisis. */
 export type DemandeComplementMembre = {
 	/**  Membre. */
 	membre_id: string,
-	/**  Statut. */
+	/**  Statut ; vide pour revenir au statut déduit. */
 	statut: StatutRapport | null,
 	/**  Spécialité. */
 	specialite: Specialite | null,
@@ -2814,9 +2919,9 @@ export type DemandeComplementMembre = {
 
 /**  Ce que la grille demande. */
 export type DemandeComplementsEleves = {
-	/**  Année. */
+	/**  Année ; l'année courante si rien n'est donné. */
 	annee_id: string | null,
-	/**  Classe. */
+	/**  Classe ; la première de l'année si rien n'est donné. */
 	classe_id: string | null,
 };
 
@@ -3102,7 +3207,7 @@ export type DemandeDifficulte = {
 	eleve_id: string,
 	/**  Type. */
 	type_difficulte: TypeDifficulte,
-	/**  Degré ; vide pour retirer. */
+	/**  Degré ; vide pour retirer la difficulté. */
 	degre: DegreDifficulte | null,
 	/**  Note libre. */
 	note: string,
@@ -3140,6 +3245,21 @@ export type DemandeDoublons = {
 	date_naissance: string,
 	/**  Fiche à écarter : celle que l'on modifie. */
 	sauf: string | null,
+};
+
+/**
+ *  Effectifs probables à la rentrée d'un niveau, saisis dans un rapport de fermeture : une case
+ *  vide reprend le nombre proposé.
+ */
+export type DemandeEffectifProbable = {
+	/**  RapportEcole. */
+	id: string,
+	/**  Niveau. */
+	niveau_id: string,
+	/**  Garçons ; rien pour garder le nombre proposé. */
+	garcons: number | null,
+	/**  Filles ; rien pour garder le nombre proposé. */
+	filles: number | null,
 };
 
 /**  Élément saisi ; sans `id`, une création avec son premier calcul, en vigueur ce mois. */
@@ -3247,6 +3367,16 @@ export type DemandeEngagementProposee = {
 	renouvelle: string,
 };
 
+/**  Ce que l'écran demande : l'année, la date d'arrêt, le classeur à écrire. */
+export type DemandeEnquete = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
+	/**  Date d'arrêt des chiffres ; aujourd'hui si rien n'est donné, ramené dans l'année. */
+	date: string | null,
+	/**  Chemin du classeur à écrire, extension `.xlsx`. */
+	chemin: string,
+};
+
 /**  Enregistrement du relevé d'un jour. */
 export type DemandeEnregistrementReleve = {
 	/**  Classe. */
@@ -3280,6 +3410,12 @@ export type DemandeEnseignant = {
 	lue_le?: number | null,
 };
 
+/**  Réglage de l'examen d'entrée en 7e. */
+export type DemandeEntree7e = {
+	/**  Vrai si l'école présente ses élèves de 6e année à l'examen. */
+	actif: boolean,
+};
+
 /**  SMS d'essai vers un numéro saisi. */
 export type DemandeEssai = {
 	/**  Numéro, sous une forme quelconque. */
@@ -3310,6 +3446,14 @@ export type DemandeEvaluations = {
 	classe_id: string,
 	/**  Période. */
 	periode_id: string,
+};
+
+/**  Ce que l'écran demande : l'année et la classe. */
+export type DemandeExamens = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
+	/**  Classe d'examen ; la première si rien n'est donné. */
+	classe_id: string | null,
 };
 
 /**  Exclusion décidée par la direction. */
@@ -3391,6 +3535,14 @@ export type DemandeFamille = {
 export type DemandeFicheEcole = {
 	/**  Année ; l'année courante si rien n'est donné. */
 	annee_id: string | null,
+};
+
+/**  Les fiches à imprimer : celle d'un élève, ou celles des élèves d'une classe. */
+export type DemandeFicheScolaire = {
+	/**  Élève. */
+	eleve_id: string | null,
+	/**  Classe : une fiche par élève inscrit. */
+	classe_id: string | null,
 };
 
 /**  Messages d'un état à lire ; aucun : tous. */
@@ -3600,6 +3752,14 @@ export type DemandeInscription = {
 	redoublant: boolean,
 	/**  École d'où vient l'élève, pour une arrivée par transfert. */
 	etablissement_origine: string,
+};
+
+/**  Ce que l'écran demande : l'année et la partie de l'école. */
+export type DemandeInventaire = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
+	/**  Cycle ; toute l'école si rien n'est donné. */
+	cycle: Cycle | null,
 };
 
 /**  Jour d'échéance propre à un élève : un parent payé le 10 paie le 10. */
@@ -4180,6 +4340,14 @@ export type DemandePreparation = {
 	montant: Montant | null,
 };
 
+/**  Préparer le rapport d'un type pour une année : il est créé s'il n'existe pas. */
+export type DemandePreparationRapport = {
+	/**  Année. */
+	annee_id: string,
+	/**  Type. */
+	type_rapport: TypeRapport,
+};
+
 /**  Programme d'un niveau (et d'une série) saisi par l'école. */
 export type DemandeProgramme = {
 	/**  Année. */
@@ -4190,6 +4358,18 @@ export type DemandeProgramme = {
 	serie_id: string | null,
 	/**  Matières au programme, dans l'ordre du bulletin. */
 	lignes: SaisieProgramme[],
+};
+
+/**  Désigne un rapport. */
+export type DemandeRapport = {
+	/**  RapportEcole. */
+	id: string,
+};
+
+/**  Les rapports d'une année. */
+export type DemandeRapports = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
 };
 
 /**  Lien d'un responsable existant ou nouveau à un élève. */
@@ -4244,6 +4424,20 @@ export type DemandeRegeneration = {
 	mot_de_passe: string,
 };
 
+/**  Réglages d'un rapport en préparation. */
+export type DemandeReglageRapport = {
+	/**  RapportEcole. */
+	id: string,
+	/**  Date d'arrêt des chiffres. */
+	date_arret: string,
+	/**  Lieu de « Fait à ». */
+	lieu: string,
+	/**  Date de signature. */
+	date_signature: string | null,
+	/**  Qualité du signataire. */
+	qualite_signataire: string,
+};
+
 /**  Règle d'un cycle saisie par l'école. */
 export type DemandeRegle = {
 	/**  Année. */
@@ -4278,6 +4472,14 @@ export type DemandeReleve = {
 	classe_id: string,
 	/**  Jour. */
 	date: string,
+};
+
+/**  Une ligne saisie. */
+export type DemandeReleveInventaire = {
+	/**  Année. */
+	annee_id: string,
+	/**  Ligne : article, cycle, quantités, observation. */
+	releve: ReleveInventaire,
 };
 
 /**  Relevé par séance à enregistrer. */
@@ -4410,6 +4612,14 @@ export type DemandeRepriseFiche = {
 	rubriques: string[] | null,
 };
 
+/**  Reprise des lignes de l'an dernier. */
+export type DemandeRepriseInventaire = {
+	/**  Année qui reçoit les lignes. */
+	annee_id: string,
+	/**  Partie de l'école ; toute l'école si rien n'est donné. */
+	cycle: Cycle | null,
+};
+
 /**  Restauration d'une archive. */
 export type DemandeRestauration = {
 	/**  Chemin du fichier. */
@@ -4422,6 +4632,20 @@ export type DemandeRestauration = {
 export type DemandeResteDuMois = {
 	/**  Mois. */
 	mois: string,
+};
+
+/**  Résultat saisi d'un élève. */
+export type DemandeResultatExamen = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Inscrit. */
+	inscrit: boolean | null,
+	/**  Présent. */
+	present: boolean | null,
+	/**  Admis. */
+	admis: boolean | null,
+	/**  Mention. */
+	mention: string,
 };
 
 /**  Retrait de la note saisie d'un élève. */
@@ -4570,6 +4794,50 @@ export type DemandeStatistiques = {
 	date: string | null,
 	/**  Un seul cycle ; toute l'école si rien n'est donné. */
 	cycle: Cycle | null,
+};
+
+/**  Ce que l'écran demande. */
+export type DemandeTableauLibre = {
+	/**  Année ; l'année courante si rien n'est donné. */
+	annee_id: string | null,
+	/**  Date d'arrêt ; aujourd'hui si rien n'est donné, ramené dans l'année. */
+	date: string | null,
+	/**  Un seul cycle ; toute l'école si rien n'est donné. */
+	cycle: Cycle | null,
+	/**  Ce que le tableau compte. */
+	population: PopulationLibre,
+	/**  Ce qui fait les lignes. */
+	lignes: CritereLibre,
+	/**  Ce qui fait les colonnes ; une seule colonne, le total, si rien n'est donné. */
+	colonnes: CritereLibre | null,
+};
+
+/**  Texte d'une section, avec l'instant lu avec lui. */
+export type DemandeTexteRapport = {
+	/**  RapportEcole. */
+	id: string,
+	/**  Code de la section. */
+	section: string,
+	/**  Texte. */
+	texte: string,
+	/**  Instant de dernière modification lu avec la section. */
+	lue_le: number,
+};
+
+/**  Totaux saisis d'un examen pour un sexe. */
+export type DemandeTotalExamen = {
+	/**  Année. */
+	annee_id: string,
+	/**  Examen. */
+	examen: Examen,
+	/**  Sexe. */
+	sexe: Sexe,
+	/**  Inscrits. */
+	inscrits: number | null,
+	/**  Présentés. */
+	presentes: number | null,
+	/**  Admis. */
+	admis: number | null,
 };
 
 /**  Transfert d'un élève vers une autre école. */
@@ -4765,7 +5033,10 @@ export type Destination = {
 	amovible: boolean,
 };
 
-/**  Difficulté notée pour un élève. */
+/**
+ *  Difficulté notée pour un élève. Confidentielle : lue et écrite avec un droit propre, jamais
+ *  dans une liste nominative.
+ */
 export type DifficulteEleve = {
 	/**  Établissement. */
 	etablissement_id: string,
@@ -4789,8 +5060,34 @@ export type Diplome = {
 	annee: number | null,
 };
 
-/**  Diplôme le plus élevé, dans la liste de l'enquête. */
-export type DiplomeEleve = "doctorat" | "master" | "dea" | "ensup" | "ingenieur" | "maitrise" | "licence" | "deug_bts" | "bt" | "baccalaureat" | "cap" | "ifm" | "autre";
+/**  Diplôme le plus élevé, dans la liste de l'enquête, du plus haut au plus bas. */
+export type DiplomeEleve = 
+/**  Doctorat. */
+"doctorat" | 
+/**  Master. */
+"master" | 
+/**  DEA. */
+"dea" | 
+/**  Diplôme de l'ENSUP. */
+"ensup" | 
+/**  Ingénieur. */
+"ingenieur" | 
+/**  Maîtrise. */
+"maitrise" | 
+/**  Licence. */
+"licence" | 
+/**  DEUG ou BTS. */
+"deug_bts" | 
+/**  BT. */
+"bt" | 
+/**  Baccalauréat. */
+"baccalaureat" | 
+/**  CAP. */
+"cap" | 
+/**  Diplôme d'IFM. */
+"ifm" | 
+/**  Autre. */
+"autre";
 
 /**  Diplôme qui termine un niveau. */
 export type DiplomeTerminal = 
@@ -5046,6 +5343,22 @@ export type EffectifCycle = {
 	eleves: number,
 };
 
+/**  Un niveau du fondamental et ses effectifs probables à la rentrée, pour la saisie. */
+export type EffectifProbableNiveau = {
+	/**  Niveau. */
+	niveau_id: string,
+	/**  Libellé du niveau. */
+	niveau: string,
+	/**  Garçons proposés. */
+	garcons_proposes: number,
+	/**  Filles proposées. */
+	filles_proposees: number,
+	/**  Garçons saisis par la direction. */
+	garcons: number | null,
+	/**  Filles saisies par la direction. */
+	filles: number | null,
+};
+
 /**  Effectifs de l'année. */
 export type Effectifs = {
 	/**  Élèves inscrits. */
@@ -5128,6 +5441,26 @@ export type Eleve = {
 	ecole_origine: string,
 	/**  Fiche conservée qui a absorbé celle-ci par une fusion (SPEC_PHASE_2 §8). */
 	fusionne_dans: string | null,
+};
+
+/**  Le résultat d'un élève, tel que la grille le montre. */
+export type EleveExamen = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  Sexe, s'il est connu. */
+	sexe: Sexe | null,
+	/**  Inscrit à l'examen. */
+	inscrit: boolean | null,
+	/**  Présent. */
+	present: boolean | null,
+	/**  Admis. */
+	admis: boolean | null,
+	/**  Mention. */
+	mention: string,
 };
 
 /**  Élève du relevé par séance. */
@@ -5534,6 +5867,13 @@ export type EtatMessage =
 /**  Resté trop longtemps en attente. */
 "expire";
 
+/**  État d'un rapport. */
+export type EtatRapport = 
+/**  En préparation : textes et réglages se modifient, les tableaux suivent les données. */
+"preparation" | 
+/**  Arrêté : chiffres et textes figés avec le document. */
+"arrete";
+
 /**  État du réseau local, pour l'écran « Postes de l'école ». */
 export type EtatReseau = {
 	/**  Le poste principal écoute les postes reliés. */
@@ -5606,6 +5946,41 @@ export type EvaluationAffichee = {
 	saisies: number,
 	/**  Élèves de la classe. */
 	effectif: number,
+};
+
+/**  Examen dont l'école note les résultats. */
+export type Examen = 
+/**  Examen d'entrée en 7e année, en 6e année, quand l'école l'organise. */
+"entree_7e" | 
+/**  Diplôme d'études fondamentales, en 9e année. */
+"def" | 
+/**  Baccalauréat. */
+"bac" | 
+/**  Certificat d'aptitude professionnelle. */
+"cap" | 
+/**  Brevet de technicien. */
+"bt";
+
+/**  Les résultats d'une année. */
+export type Examens = {
+	/**  Années qu'on peut choisir, de la plus récente à la plus ancienne. */
+	annees: AnneeStatistiques[],
+	/**  Année, s'il y en a une. */
+	annee_id: string | null,
+	/**  Vrai si l'école présente ses élèves de 6e année à l'examen d'entrée en 7e. */
+	entree_7e: boolean,
+	/**  Examens que passent les élèves de l'école cette année. */
+	examens: Examen[],
+	/**  Classes d'examen de l'année. */
+	classes: ClasseExamen[],
+	/**  Classe montrée. */
+	classe_id: string | null,
+	/**  Élèves de la classe montrée et leurs résultats. */
+	eleves: EleveExamen[],
+	/**  Totaux saisis de l'année. */
+	totaux: TotalAffiche[],
+	/**  Examens qui ont des résultats par élève : leur détail l'emporte sur les totaux. */
+	avec_detail: Examen[],
 };
 
 /**  Exclusion d'un élève. */
@@ -5738,6 +6113,19 @@ export type FactureFournisseurAffichee = {
 	/**  Paiements, refusés et annulés compris. */
 	reglements: ReglementFacture[],
 };
+
+/**  Famille d'un article : l'onglet de l'écran d'inventaire. */
+export type FamilleInventaire = 
+/**  Salles, bureaux, latrines, points d'eau. */
+"local" | 
+/**  Tables-bancs, bureaux, armoires. */
+"mobilier" | 
+/**  Matériel didactique. */
+"materiel" | 
+/**  Manuels, créés par l'école. */
+"manuel" | 
+/**  Équipement adapté aux élèves handicapés. */
+"adapte";
 
 /**  Feuille lue. */
 export type FeuilleAnalysee = {
@@ -5988,7 +6376,13 @@ export type FonctionPersonnel = {
 };
 
 /**  Fonctionnement d'une classe. */
-export type Fonctionnement = "simple" | "double_division" | "double_vacation";
+export type Fonctionnement = 
+/**  Une classe, un maître, une salle. */
+"simple" | 
+/**  Deux années d'études dans la même classe. */
+"double_division" | 
+/**  Deux groupes qui se partagent la salle dans la journée. */
+"double_vacation";
 
 /**  Colonnes d'un relevé, comptées à partir de zéro dans la ligne d'en-tête. */
 export type FormatReleve = {
@@ -6262,6 +6656,26 @@ export type InscriptionAffichee = {
 	annee: string,
 	/**  Instant de dernière modification, à renvoyer avec la modification. */
 	modifiee_le: number,
+};
+
+/**  L'inventaire d'une année, pour une partie de l'école. */
+export type Inventaire = {
+	/**  Années qu'on peut choisir, de la plus récente à la plus ancienne. */
+	annees: AnneeStatistiques[],
+	/**  Année du relevé, s'il y en a une. */
+	annee_id: string | null,
+	/**  Partie de l'école : un cycle, ou toute l'école. */
+	cycle: Cycle | null,
+	/**  Cycles des niveaux enseignés, qu'on peut choisir. */
+	cycles: Cycle[],
+	/**  Niveaux enseignés, pour les manuels. */
+	niveaux: NiveauInventaire[],
+	/**  Articles, retirés compris, par famille puis dans leur ordre. */
+	articles: ArticleInventaire[],
+	/**  Lignes de l'année pour cette partie de l'école. */
+	lignes: ReleveInventaire[],
+	/**  Lignes de l'année d'avant pour la même partie, montrées à côté des cases. */
+	an_dernier: ReleveInventaire[],
 };
 
 /**  Ce qu'il est advenu d'un SMS reçu. */
@@ -6557,6 +6971,14 @@ export type LigneDecision = {
 	proposee: DecisionFinAnnee,
 	/**  Décision posée par la direction. */
 	decision: DecisionFinAnnee,
+};
+
+/**  Une ligne de l'en-tête administratif. */
+export type LigneEntete = {
+	/**  Rubrique. */
+	libelle: string,
+	/**  Valeur ; vide quand elle n'est pas connue. */
+	valeur: string,
 };
 
 /**  Ligne d'une facture : un frais de la grille. */
@@ -6909,6 +7331,16 @@ export type ListeImpayes = {
 	echu: Montant,
 	/**  Reste dû total de ces élèves. */
 	total: Montant,
+};
+
+/**  Rapports d'une année. */
+export type ListeRapports = {
+	/**  Années qu'on peut choisir, de la plus récente à la plus ancienne. */
+	annees: AnneeStatistiques[],
+	/**  Année retenue. */
+	annee_id: string | null,
+	/**  Un résumé par type de rapport. */
+	rapports: ResumeRapport[],
 };
 
 /**  Livre d'un compte pour un mois. */
@@ -7501,6 +7933,16 @@ export type NiveauAcquisition =
 /**  Pas encore acquise. */
 "non_acquis";
 
+/**  Un niveau qu'on peut donner à un manuel. */
+export type NiveauInventaire = {
+	/**  Niveau. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Cycle du niveau. */
+	cycle: Cycle,
+};
+
 /**
  *  Note de conduite saisie pour un élève et une période : la note du mode manuel, ou la
  *  correction d'une note calculée.
@@ -7809,6 +8251,12 @@ export type PayeurPropose = {
 	telephones: string[],
 };
 
+/**  PDF d'un rapport : l'aperçu d'un rapport en préparation, ou le document de son arrêt. */
+export type PdfRapport = {
+	/**  PDF en base64. */
+	pdf: string,
+};
+
 /**  Référentiel pédagogique d'une année. */
 export type Pedagogie = {
 	/**  Matières de l'établissement. */
@@ -7826,7 +8274,13 @@ export type Pedagogie = {
 };
 
 /**  Pédagogie appliquée dans une classe. */
-export type PedagogieClasse = "classique" | "pedagogie_convergente" | "curriculum";
+export type PedagogieClasse = 
+/**  Classique. */
+"classique" | 
+/**  Pédagogie convergente. */
+"pedagogie_convergente" | 
+/**  Curriculum. */
+"curriculum";
 
 /**  Période de notes d'un niveau. */
 export type Periode = {
@@ -7975,6 +8429,15 @@ export type PlanPropose = {
 	libelle: string,
 };
 
+/**  Ce que le tableau compte. */
+export type PopulationLibre = 
+/**  Les élèves présents à la date d'arrêt. */
+"eleves" | 
+/**  Le personnel présent à la date d'arrêt. */
+"personnel" | 
+/**  Les rubriques de la fiche de l'établissement et leurs réponses. */
+"fiche";
+
 /**  Port où brancher la clé. */
 export type PortDisponible = {
 	/**  Nom du port : `COM3`, ou `simule`. */
@@ -8095,6 +8558,45 @@ export type Qualites = {
 	ordre_priorite: number,
 };
 
+/**
+ *  Quantités d'une ligne de relevé ; chacune facultative. Les colonnes de construction, d'état
+ *  des murs et des toits ne servent qu'aux locaux ; les cabines, qu'aux latrines.
+ */
+export type QuantitesInventaire = {
+	/**  Quantité existante. */
+	existant: number | null,
+	/**  Dont en bon état. */
+	bon_etat: number | null,
+	/**  Besoins. */
+	besoins: number | null,
+	/**  Locaux en dur. */
+	dur: number | null,
+	/**  Locaux en semi-dur. */
+	semi_dur: number | null,
+	/**  Locaux en banco. */
+	banco: number | null,
+	/**  Locaux d'une autre construction (paillote, tôle…). */
+	autre_construction: number | null,
+	/**  Dont neufs de l'année. */
+	neufs: number | null,
+	/**  Dont en location. */
+	en_location: number | null,
+	/**  Murs en bon état. */
+	murs_bons: number | null,
+	/**  Murs en mauvais état. */
+	murs_mauvais: number | null,
+	/**  Toits en bon état. */
+	toits_bons: number | null,
+	/**  Toits en mauvais état. */
+	toits_mauvais: number | null,
+	/**  Cabines des filles. */
+	cabines_filles: number | null,
+	/**  Cabines des garçons. */
+	cabines_garcons: number | null,
+	/**  Cabines des enseignants. */
+	cabines_enseignants: number | null,
+};
+
 /**  Raison d'un arrêt de la file. */
 export type RaisonArret = 
 /**  Le crédit lu est sous le seuil. */
@@ -8120,6 +8622,39 @@ export type Rapport = {
 	responsables_retrouves: number,
 	/**  Lignes en erreur, laissées de côté. */
 	ignorees: number,
+};
+
+/**  Un rapport ouvert. */
+export type RapportEcole = {
+	/**  Identifiant. */
+	id: string,
+	/**  Année. */
+	annee_id: string,
+	/**  Type. */
+	type_rapport: TypeRapport,
+	/**  État. */
+	etat: EtatRapport,
+	/**  Version. */
+	version: number,
+	/**  Date d'arrêt des chiffres. */
+	date_arret: string,
+	/**  Lieu de « Fait à ». */
+	lieu: string,
+	/**  Date de signature. */
+	date_signature: string | null,
+	/**  Qualité du signataire. */
+	qualite_signataire: string,
+	/**  Sections rédigées, dans l'ordre du modèle. */
+	sections: SectionRapport[],
+	/**  Contenu imprimé : calculé à la date d'arrêt, ou figé si le rapport est arrêté. */
+	contenu: ContenuRapport,
+	/**
+	 *  Effectifs probables à la rentrée, proposés et saisis, par niveau : rapport de fermeture
+	 *  en préparation seulement.
+	 */
+	effectifs_probables: EffectifProbableNiveau[],
+	/**  Documents imprimés aux arrêts successifs, du plus ancien au plus récent. */
+	documents: Document[],
 };
 
 /**  Résultat du rattrapage. */
@@ -8366,6 +8901,21 @@ export type ReleveAbsences = {
 	 *  période verrouillée.
 	 */
 	refus: string | null,
+};
+
+/**
+ *  Une ligne de relevé : l'article, le cycle (vide pour toute l'école), les quantités et une
+ *  observation.
+ */
+export type ReleveInventaire = {
+	/**  Article. */
+	article_id: string,
+	/**  Cycle ; vide pour un relevé de toute l'école. */
+	cycle: Cycle | null,
+	/**  Quantités. */
+	quantites: QuantitesInventaire,
+	/**  Observation libre. */
+	observation: string,
 };
 
 /**  Relevé par séance d'une classe pour un jour. */
@@ -8632,6 +9182,20 @@ export type ResumeEtablissement = {
 	id: string,
 	/**  Nom. */
 	nom: string,
+};
+
+/**  Un rapport de la liste : préparé ou pas encore. */
+export type ResumeRapport = {
+	/**  Type. */
+	type_rapport: TypeRapport,
+	/**  Identifiant, s'il est préparé. */
+	id: string | null,
+	/**  État, s'il est préparé. */
+	etat: EtatRapport | null,
+	/**  Version, s'il est préparé. */
+	version: number | null,
+	/**  Date d'arrêt, s'il est préparé. */
+	date_arret: string | null,
 };
 
 /**  Points retirés pour chaque fait, en centièmes. */
@@ -9005,6 +9569,30 @@ export type SeanceDuJour = {
 	enseignant: string,
 };
 
+/**  Une section rédigée, telle qu'imprimée. */
+export type SectionImprimee = {
+	/**  Titre. */
+	titre: string,
+	/**  Texte. */
+	texte: string,
+};
+
+/**  Une section rédigée à l'écran. */
+export type SectionRapport = {
+	/**  Code. */
+	code: string,
+	/**  Titre. */
+	titre: string,
+	/**  Texte. */
+	texte: string,
+	/**  Instant de dernière modification ; zéro si rien n'est encore écrit. */
+	lue_le: number,
+	/**  Texte de la même section dans le rapport de l'an dernier, s'il y en a un. */
+	an_dernier: string | null,
+	/**  Chiffres du jour proposés à insérer (section aidée). */
+	propose: string | null,
+};
+
 /**  Sens d'une catégorie. */
 export type Sens = 
 /**  L'argent entre. */
@@ -9278,7 +9866,19 @@ export type SourcePaiement =
 "hors_caisse";
 
 /**  Spécialité d'un enseignant du second cycle. */
-export type Specialite = "lhg" | "mpc" | "snpc" | "ldm" | "eps" | "autre";
+export type Specialite = 
+/**  Lettres, histoire, géographie. */
+"lhg" | 
+/**  Mathématiques, physique, chimie. */
+"mpc" | 
+/**  Sciences naturelles, physique, chimie. */
+"snpc" | 
+/**  Langues étrangères. */
+"ldm" | 
+/**  Éducation physique et sportive. */
+"eps" | 
+/**  Autres. */
+"autre";
 
 /**  Statistiques de l'école à une date. */
 export type Statistiques = {
@@ -9300,11 +9900,15 @@ export type Statistiques = {
 	eleves: OngletStatistique,
 	/**  Onglet Personnel. */
 	personnel: OngletStatistique,
-	/**  Onglet Locaux et équipements : l'inventaire de l'année ; ses cases ne mènent à aucune
- *  fiche. */
+	/**
+	 *  Onglet Locaux et équipements : l'inventaire de l'année ; ses cases ne mènent à aucune
+	 *  fiche.
+	 */
 	locaux: OngletStatistique,
-	/**  Onglet Examens et fin d'année : décisions, résultats aux examens, taux d'admis, effectifs
- *  probables à la rentrée. */
+	/**
+	 *  Onglet Examens et fin d'année : décisions, résultats aux examens, taux d'admis, effectifs
+	 *  probables à la rentrée.
+	 */
 	examens: OngletStatistique,
 };
 
@@ -9476,8 +10080,27 @@ export type StatutPaie =
 /**  Validée : figée, ses bulletins numérotés. */
 "validee";
 
-/**  Statut d'un membre du personnel pour les rapports. */
-export type StatutRapport = "fonctionnaire_etat" | "fonctionnaire_collectivites" | "contractuel_etat" | "contractuel_collectivites" | "contractuel_ecole" | "vacataire" | "eleve_maitre" | "autre";
+/**
+ *  Statut d'un membre du personnel pour les rapports : une seule liste, que chaque
+ *  formulaire regroupe selon ses colonnes.
+ */
+export type StatutRapport = 
+/**  Fonctionnaire de l'État. */
+"fonctionnaire_etat" | 
+/**  Fonctionnaire des collectivités. */
+"fonctionnaire_collectivites" | 
+/**  Contractuel de l'État. */
+"contractuel_etat" | 
+/**  Contractuel des collectivités. */
+"contractuel_collectivites" | 
+/**  Contractuel de l'école : privé, « local », « fonds local ». */
+"contractuel_ecole" | 
+/**  Vacataire ou prestataire. */
+"vacataire" | 
+/**  Élève-maître ou stagiaire. */
+"eleve_maitre" | 
+/**  Autre. */
+"autre";
 
 /**  État d'une remise (§10.10 du blueprint). */
 export type StatutRemise = 
@@ -9548,6 +10171,33 @@ export type TableauDeBord = {
 	tresorerie: BlocTresorerie | null,
 };
 
+/**  Le tableau composé et les fiches qu'il compte. */
+export type TableauLibre = {
+	/**  Fiches comptées ; les cases les désignent par leur place. */
+	fiches: FicheStatistique[],
+	/**
+	 *  Le tableau, au format des statistiques. Une colonne dont le code commence par `cle:`
+	 *  porte une clé de texte ; par `libre:`, un libellé tiré des données.
+	 */
+	tableau: TableauStatistique,
+};
+
+/**  Un tableau d'un rapport, prêt à montrer, imprimer et exporter. */
+export type TableauRapport = {
+	/**  Code stable. */
+	code: string,
+	/**  Titre, tel que le modèle le nomme. */
+	titre: string,
+	/**  En-têtes des colonnes ; la première est celle des libellés. */
+	colonnes: string[],
+	/**  Lignes, chacune aussi large que les en-têtes ; une case vide est une chaîne vide. */
+	lignes: string[][],
+	/**  Vrai pour un tableau large, imprimé en paysage. */
+	paysage: boolean,
+	/**  Écran où se corrige la donnée : `statistiques` ou `inventaire`. */
+	lien: string,
+};
+
 /**  Un tableau d'un onglet. */
 export type TableauStatistique = {
 	/**  Code stable du tableau, d'où l'écran tire son titre. */
@@ -9563,7 +10213,39 @@ export type TableauStatistique = {
 };
 
 /**  Thème d'une rubrique : l'ordre des groupes à l'écran. */
-export type ThemeRubrique = "localisation" | "identite" | "actes" | "eau_hygiene" | "energie" | "equipements" | "vie_ecole" | "accessibilite" | "autres";
+export type ThemeRubrique = 
+/**  Région, cercle, commune, adresse, distances. */
+"localisation" | 
+/**  Sigle, code, confession, type d'enseignement, milieu. */
+"identite" | 
+/**  Décision de création, arrêté d'ouverture, constructions. */
+"actes" | 
+/**  Eau, latrines, hygiène. */
+"eau_hygiene" | 
+/**  Électricité, internet. */
+"energie" | 
+/**  Bibliothèque, laboratoire, terrain de sport, cantine. */
+"equipements" | 
+/**  Comité de gestion, associations, conseils, formations. */
+"vie_ecole" | 
+/**  Accès des élèves handicapés. */
+"accessibilite" | 
+/**  Rubriques que l'école range à part. */
+"autres";
+
+/**  Les totaux d'un examen pour un sexe. */
+export type TotalAffiche = {
+	/**  Examen. */
+	examen: Examen,
+	/**  Sexe. */
+	sexe: Sexe,
+	/**  Inscrits. */
+	inscrits: number | null,
+	/**  Présentés. */
+	presentes: number | null,
+	/**  Admis. */
+	admis: number | null,
+};
 
 /**  Total d'une classe. */
 export type TotalClasse = {
@@ -9750,8 +10432,26 @@ export type TypeConge = {
 	deduit_du_solde: boolean,
 };
 
-/**  Type de difficulté d'un élève. */
-export type TypeDifficulte = "vue" | "ouie" | "motricite_globale" | "motricite_fine" | "intellect" | "communication" | "comportement" | "multiple" | "autre";
+/**  Type de difficulté d'un élève, dans la liste de l'enquête. */
+export type TypeDifficulte = 
+/**  Voir. */
+"vue" | 
+/**  Entendre. */
+"ouie" | 
+/**  Marcher, se déplacer. */
+"motricite_globale" | 
+/**  Se servir de ses mains. */
+"motricite_fine" | 
+/**  Apprendre, comprendre. */
+"intellect" | 
+/**  Communiquer. */
+"communication" | 
+/**  Se comporter, se faire des amis. */
+"comportement" | 
+/**  Plusieurs difficultés. */
+"multiple" | 
+/**  Autre. */
+"autre";
 
 /**  Type d'évaluation. */
 export type TypeEvaluation = 
@@ -9809,6 +10509,15 @@ export type TypePeriode =
 /**  Un semestre, dans l'enseignement technique seulement. */
 "semestre";
 
+/**  Type d'un rapport. */
+export type TypeRapport = 
+/**  Rapport succinct de rentrée, une page, quinze jours après la rentrée. */
+"succinct_rentree" | 
+/**  Rapport de rentrée : partie rédigée et tableaux. */
+"rentree" | 
+/**  Rapport de fermeture : partie rédigée, résultats et tableaux de fin d'année. */
+"fermeture";
+
 /**  Nature d'une remise (blueprint §8.8, T-17). */
 export type TypeRemise = 
 /**  Bourse. */
@@ -9823,7 +10532,19 @@ export type TypeRemise =
 "arrangement";
 
 /**  Type de réponse d'une rubrique. */
-export type TypeReponse = "oui_non" | "nombre" | "texte" | "date" | "choix" | "plusieurs_choix";
+export type TypeReponse = 
+/**  « oui » ou « non ». */
+"oui_non" | 
+/**  Un nombre, entier ou décimal. */
+"nombre" | 
+/**  Un texte court. */
+"texte" | 
+/**  Une date, AAAA-MM-JJ. */
+"date" | 
+/**  Un choix dans la liste de la rubrique. */
+"choix" | 
+/**  Plusieurs choix dans la liste de la rubrique. */
+"plusieurs_choix";
 
 /**
  *  Compte d'un utilisateur de l'établissement. Les secrets (empreintes du mot de passe et du PIN)
@@ -9955,451 +10676,4 @@ export type VersionElement = {
 	calcul: Calcul,
 	/**  Retenues salariales retranchées du brut pour former l'assiette d'un taux ou d'un barème. */
 	assiette_deduit: string[],
-};
-
-/**  Un article du catalogue de l'inventaire. */
-export type ArticleInventaire = {
-	/**  Identifiant technique. */
-	id: string,
-	/**  Établissement propriétaire. */
-	etablissement_id: string,
-	/**  Code stable d'un article livré ; vide pour un article de l'école. */
-	code: string | null,
-	/**  Famille. */
-	famille: FamilleInventaire,
-	/**  Désignation. */
-	designation: string,
-	/**  Matière d'un manuel ; vide sinon. */
-	matiere: string,
-	/**  Niveau d'un manuel, s'il est donné. */
-	niveau_id: string | null,
-	/**  Vrai pour un article livré : il ne se renomme pas, il se retire. */
-	livre: boolean,
-	/**  Ordre dans sa famille. */
-	ordre: number,
-	/**  Instant du retrait ; vide pour un article en service. */
-	retire_le: number | null,
-};
-
-/**  Famille d'un article : l'onglet de l'écran d'inventaire. */
-export type FamilleInventaire = "local" | "mobilier" | "materiel" | "manuel" | "adapte";
-
-/**  Quantités d'une ligne de relevé ; chacune facultative. */
-export type QuantitesInventaire = {
-	existant: number | null,
-	bon_etat: number | null,
-	besoins: number | null,
-	dur: number | null,
-	semi_dur: number | null,
-	banco: number | null,
-	autre_construction: number | null,
-	neufs: number | null,
-	en_location: number | null,
-	murs_bons: number | null,
-	murs_mauvais: number | null,
-	toits_bons: number | null,
-	toits_mauvais: number | null,
-	cabines_filles: number | null,
-	cabines_garcons: number | null,
-	cabines_enseignants: number | null,
-};
-
-/**  Une ligne de relevé. */
-export type ReleveInventaire = {
-	/**  Article. */
-	article_id: string,
-	/**  Cycle ; vide pour un relevé de toute l'école. */
-	cycle: Cycle | null,
-	/**  Quantités. */
-	quantites: QuantitesInventaire,
-	/**  Observation libre. */
-	observation: string,
-};
-
-/**  Ce que l'écran demande : l'année et la partie de l'école. */
-export type DemandeInventaire = {
-	annee_id: string | null,
-	cycle: Cycle | null,
-};
-
-/**  Un niveau qu'on peut donner à un manuel. */
-export type NiveauInventaire = {
-	id: string,
-	libelle: string,
-	cycle: Cycle,
-};
-
-/**  L'inventaire d'une année, pour une partie de l'école. */
-export type Inventaire = {
-	annees: AnneeStatistiques[],
-	annee_id: string | null,
-	cycle: Cycle | null,
-	cycles: Cycle[],
-	niveaux: NiveauInventaire[],
-	articles: ArticleInventaire[],
-	lignes: ReleveInventaire[],
-	an_dernier: ReleveInventaire[],
-};
-
-/**  Une ligne saisie. */
-export type DemandeReleveInventaire = {
-	annee_id: string,
-	releve: ReleveInventaire,
-};
-
-/**  Reprise des lignes de l'an dernier. */
-export type DemandeRepriseInventaire = {
-	annee_id: string,
-	cycle: Cycle | null,
-};
-
-/**  Article ajouté ou modifié par l'école. */
-export type DemandeArticleInventaire = {
-	id: string | null,
-	famille: FamilleInventaire,
-	designation: string,
-	matiere: string,
-	niveau_id: string | null,
-};
-
-/**  Retrait ou remise en service d'un article. */
-export type DemandeActivationArticle = {
-	id: string,
-	actif: boolean,
-};
-
-/**  Examen dont l'école note les résultats. */
-export type Examen = "entree_7e" | "def" | "bac" | "cap" | "bt";
-
-/**  Ce que l'écran demande : l'année et la classe. */
-export type DemandeExamens = {
-	annee_id: string | null,
-	classe_id: string | null,
-};
-
-/**  Une classe dont les élèves passent un examen. */
-export type ClasseExamen = {
-	id: string,
-	libelle: string,
-	examen: Examen,
-};
-
-/**  Le résultat d'un élève, tel que la grille le montre. */
-export type EleveExamen = {
-	inscription_id: string,
-	eleve_id: string,
-	nom: string,
-	sexe: Sexe | null,
-	inscrit: boolean | null,
-	present: boolean | null,
-	admis: boolean | null,
-	mention: string,
-};
-
-/**  Les totaux d'un examen pour un sexe. */
-export type TotalAffiche = {
-	examen: Examen,
-	sexe: Sexe,
-	inscrits: number | null,
-	presentes: number | null,
-	admis: number | null,
-};
-
-/**  Les résultats d'une année. */
-export type Examens = {
-	annees: AnneeStatistiques[],
-	annee_id: string | null,
-	entree_7e: boolean,
-	examens: Examen[],
-	classes: ClasseExamen[],
-	classe_id: string | null,
-	eleves: EleveExamen[],
-	totaux: TotalAffiche[],
-	avec_detail: Examen[],
-};
-
-/**  Résultat saisi d'un élève. */
-export type DemandeResultatExamen = {
-	inscription_id: string,
-	inscrit: boolean | null,
-	present: boolean | null,
-	admis: boolean | null,
-	mention: string,
-};
-
-/**  Totaux saisis d'un examen pour un sexe. */
-export type DemandeTotalExamen = {
-	annee_id: string,
-	examen: Examen,
-	sexe: Sexe,
-	inscrits: number | null,
-	presentes: number | null,
-	admis: number | null,
-};
-
-/**  Réglage de l'examen d'entrée en 7e. */
-export type DemandeEntree7e = {
-	actif: boolean,
-};
-
-/**  Type d'un rapport. */
-export type TypeRapport = "succinct_rentree" | "rentree" | "fermeture";
-
-/**  État d'un rapport. */
-export type EtatRapport = "preparation" | "arrete";
-
-/**  Les rapports d'une année. */
-export type DemandeRapports = {
-	/**  Année ; l'année courante si rien n'est donné. */
-	annee_id: string | null,
-};
-
-/**  Un rapport de la liste : préparé ou pas encore. */
-export type ResumeRapport = {
-	/**  Type. */
-	type_rapport: TypeRapport,
-	/**  Identifiant, s'il est préparé. */
-	id: string | null,
-	/**  État, s'il est préparé. */
-	etat: EtatRapport | null,
-	/**  Version, s'il est préparé. */
-	version: number | null,
-	/**  Date d'arrêt, s'il est préparé. */
-	date_arret: string | null,
-};
-
-/**  Rapports d'une année. */
-export type ListeRapports = {
-	/**  Années qu'on peut choisir, de la plus récente à la plus ancienne. */
-	annees: AnneeStatistiques[],
-	/**  Année retenue. */
-	annee_id: string | null,
-	/**  Un résumé par type de rapport. */
-	rapports: ResumeRapport[],
-};
-
-/**  Préparer le rapport d'un type pour une année : il est créé s'il n'existe pas. */
-export type DemandePreparationRapport = {
-	/**  Année. */
-	annee_id: string,
-	/**  Type. */
-	type_rapport: TypeRapport,
-};
-
-/**  Désigne un rapport. */
-export type DemandeRapport = {
-	/**  Rapport. */
-	id: string,
-};
-
-/**  Réglages d'un rapport en préparation. */
-export type DemandeReglageRapport = {
-	/**  Rapport. */
-	id: string,
-	/**  Date d'arrêt des chiffres. */
-	date_arret: string,
-	/**  Lieu de « Fait à ». */
-	lieu: string,
-	/**  Date de signature. */
-	date_signature: string | null,
-	/**  Qualité du signataire. */
-	qualite_signataire: string,
-};
-
-/**  Texte d'une section, avec l'instant lu avec lui. */
-export type DemandeTexteRapport = {
-	/**  Rapport. */
-	id: string,
-	/**  Code de la section. */
-	section: string,
-	/**  Texte. */
-	texte: string,
-	/**  Instant de dernière modification lu avec la section. */
-	lue_le: number,
-};
-
-/**  Une ligne de l'en-tête administratif. */
-export type LigneEntete = {
-	/**  Rubrique. */
-	libelle: string,
-	/**  Valeur ; vide quand elle n'est pas connue. */
-	valeur: string,
-};
-
-/**  Une section rédigée, telle qu'imprimée. */
-export type SectionImprimee = {
-	/**  Titre. */
-	titre: string,
-	/**  Texte. */
-	texte: string,
-};
-
-/**  Un tableau d'un rapport, prêt à montrer, imprimer et exporter. */
-export type TableauRapport = {
-	/**  Code stable. */
-	code: string,
-	/**  Titre, tel que le modèle le nomme. */
-	titre: string,
-	/**  En-têtes des colonnes ; la première est celle des libellés. */
-	colonnes: string[],
-	/**  Lignes, chacune aussi large que les en-têtes ; une case vide est une chaîne vide. */
-	lignes: string[][],
-	/**  Vrai pour un tableau large, imprimé en paysage. */
-	paysage: boolean,
-	/**  Écran où se corrige la donnée : `statistiques` ou `inventaire`. */
-	lien: string,
-};
-
-/**  Contenu d'un rapport : ce qui s'imprime. Figé à l'arrêt. */
-export type ContenuRapport = {
-	/**  Titre. */
-	titre: string,
-	/**  Année scolaire. */
-	annee: string,
-	/**  Date d'arrêt des chiffres, en toutes lettres. */
-	arret: string,
-	/**  En-tête administratif. */
-	entete: LigneEntete[],
-	/**  Sections rédigées. */
-	sections: SectionImprimee[],
-	/**  Tableaux. */
-	tableaux: TableauRapport[],
-	/**  « Fait à … le … ». */
-	fait_a: string,
-	/**  Qualité du signataire. */
-	qualite: string,
-};
-
-/**  Une section rédigée à l'écran. */
-export type SectionRapport = {
-	/**  Code. */
-	code: string,
-	/**  Titre. */
-	titre: string,
-	/**  Texte. */
-	texte: string,
-	/**  Instant de dernière modification ; zéro si rien n'est encore écrit. */
-	lue_le: number,
-	/**  Texte de la même section dans le rapport de l'an dernier, s'il y en a un. */
-	an_dernier: string | null,
-	/**  Chiffres du jour proposés à insérer (section aidée). */
-	propose: string | null,
-};
-
-/**  Un rapport ouvert. */
-export type RapportEcole = {
-	/**  Identifiant. */
-	id: string,
-	/**  Année. */
-	annee_id: string,
-	/**  Type. */
-	type_rapport: TypeRapport,
-	/**  État. */
-	etat: EtatRapport,
-	/**  Version. */
-	version: number,
-	/**  Date d'arrêt des chiffres. */
-	date_arret: string,
-	/**  Lieu de « Fait à ». */
-	lieu: string,
-	/**  Date de signature. */
-	date_signature: string | null,
-	/**  Qualité du signataire. */
-	qualite_signataire: string,
-	/**  Sections rédigées, dans l'ordre du modèle. */
-	sections: SectionRapport[],
-	/**  Contenu imprimé : calculé à la date d'arrêt, ou figé si le rapport est arrêté. */
-	contenu: ContenuRapport,
-	/**
-	 *  Effectifs probables à la rentrée, proposés et saisis, par niveau : rapport de fermeture
-	 *  en préparation seulement.
-	 */
-	effectifs_probables: EffectifProbableNiveau[],
-	/**  Documents imprimés aux arrêts successifs, du plus ancien au plus récent. */
-	documents: Document[],
-};
-
-/**  Un niveau du fondamental et ses effectifs probables à la rentrée, pour la saisie. */
-export type EffectifProbableNiveau = {
-	/**  Niveau. */
-	niveau_id: string,
-	/**  Libellé du niveau. */
-	niveau: string,
-	/**  Garçons proposés. */
-	garcons_proposes: number,
-	/**  Filles proposées. */
-	filles_proposees: number,
-	/**  Garçons saisis par la direction. */
-	garcons: number | null,
-	/**  Filles saisies par la direction. */
-	filles: number | null,
-};
-
-/**
- *  Effectifs probables à la rentrée d'un niveau, saisis dans un rapport de fermeture : une case
- *  vide reprend le nombre proposé.
- */
-export type DemandeEffectifProbable = {
-	/**  RapportEcole. */
-	id: string,
-	/**  Niveau. */
-	niveau_id: string,
-	/**  Garçons ; rien pour garder le nombre proposé. */
-	garcons: number | null,
-	/**  Filles ; rien pour garder le nombre proposé. */
-	filles: number | null,
-};
-
-/**  Les fiches à imprimer : celle d'un élève, ou celles des élèves d'une classe. */
-export type DemandeFicheScolaire = {
-	/**  Élève. */
-	eleve_id: string | null,
-	/**  Classe : une fiche par élève inscrit. */
-	classe_id: string | null,
-};
-
-/**  PDF d'un rapport : l'aperçu d'un rapport en préparation, ou le document de son arrêt. */
-export type PdfRapport = {
-	/**  PDF en base64. */
-	pdf: string,
-};
-
-/**  Ce que l'écran demande : l'année, la date d'arrêt, le classeur à écrire. */
-export type DemandeEnquete = {
-	/**  Année ; l'année courante si rien n'est donné. */
-	annee_id: string | null,
-	/**  Date d'arrêt des chiffres ; aujourd'hui si rien n'est donné, ramené dans l'année. */
-	date: string | null,
-	/**  Chemin du classeur à écrire, extension `.xlsx`. */
-	chemin: string,
-};
-
-/**  Ce que le tableau compte. */
-export type PopulationLibre = "eleves" | "personnel" | "fiche";
-
-/**  Ce qui fait les lignes ou les colonnes. */
-export type CritereLibre = "classe" | "niveau" | "cycle" | "sexe" | "age" | "annee_recrutement" | "statut" | "categorie" | "specialite" | "diplome";
-
-/**  Ce que l'écran demande. */
-export type DemandeTableauLibre = {
-	/**  Année ; l'année courante si rien n'est donné. */
-	annee_id: string | null,
-	/**  Date d'arrêt ; aujourd'hui si rien n'est donné, ramené dans l'année. */
-	date: string | null,
-	/**  Un seul cycle ; toute l'école si rien n'est donné. */
-	cycle: Cycle | null,
-	/**  Ce que le tableau compte. */
-	population: PopulationLibre,
-	/**  Ce qui fait les lignes. */
-	lignes: CritereLibre,
-	/**  Ce qui fait les colonnes ; une seule colonne, le total, si rien n'est donné. */
-	colonnes: CritereLibre | null,
-};
-
-/**  Le tableau composé et les fiches qu'il compte. */
-export type TableauLibre = {
-	/**  Fiches comptées ; les cases les désignent par leur place. */
-	fiches: FicheStatistique[],
-	/**  Le tableau, au format des statistiques. */
-	tableau: TableauStatistique,
 };

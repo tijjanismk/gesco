@@ -8,8 +8,11 @@ import { ApercuPdf } from "../../composants/ApercuPdf";
 import { Bouton } from "../../composants/Bouton";
 import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
-import { dateCivile, t } from "../../i18n";
-import type { EffectifProbableNiveau, RapportEcole, SectionRapport, TableauRapport, TypeRapport } from "../../types/gesco";
+import { type Cle, dateCivile, t } from "../../i18n";
+import type { EffectifProbableNiveau, EtatRapport, RapportEcole, SectionRapport, TableauRapport, TypeRapport } from "../../types/gesco";
+
+const TITRES_TYPES: Readonly<Record<TypeRapport, Cle>> = { succinct_rentree: "rapports.type.succinct_rentree", rentree: "rapports.type.rentree", fermeture: "rapports.type.fermeture" };
+const TITRES_ETATS: Readonly<Record<EtatRapport, Cle>> = { preparation: "rapports.etat.preparation", arrete: "rapports.etat.arrete" };
 
 /** Rapports de l'école (rapport succinct, rapport de rentrée, rapport de fermeture) : la liste de
  *  l'année, puis un rapport ouvert — réglages, en-tête, textes rédigés, tableaux calculés à la date d'arrêt —,
@@ -43,9 +46,9 @@ export function Rapports({ surAller }: { surAller: (section: IdSection) => void 
           <ul className="flex flex-col gap-2">
             {l.rapports.map((r) => (
               <li key={r.type_rapport} className="flex flex-wrap items-center gap-3 rounded border border-muet/30 bg-surface p-3">
-                <span className="font-medium text-encre">{t(`rapports.type.${r.type_rapport}`)}</span>
+                <span className="font-medium text-encre">{t(TITRES_TYPES[r.type_rapport])}</span>
                 <span className="text-sm text-muet">
-                  {r.etat === null ? t("rapports.pas_prepare") : t(`rapports.etat.${r.etat}`)}
+                  {r.etat === null ? t("rapports.pas_prepare") : t(TITRES_ETATS[r.etat])}
                   {r.date_arret === null ? "" : ` · ${t("rapports.arrete_au", { date: dateCivile(r.date_arret) })}`}
                 </span>
                 {r.id !== null ? (
@@ -121,7 +124,7 @@ function RapportOuvert({ id, surFermer, surAller }: { id: string; surFermer: () 
           {r.contenu.titre} · {r.contenu.annee}
         </h1>
         <span className="text-sm text-muet">
-          {t(`rapports.etat.${r.etat}`)} · {t("rapports.version", { n: String(r.version) })}
+          {t(TITRES_ETATS[r.etat])} · {t("rapports.version", { n: String(r.version) })}
         </span>
       </div>
       <MessageErreur erreur={rapport.error ?? regler.error ?? ecrire.error ?? apercu.error ?? arreter.error ?? rouvrir.error ?? probable.error} />

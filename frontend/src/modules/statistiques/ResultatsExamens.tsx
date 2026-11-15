@@ -4,8 +4,9 @@ import { useState } from "react";
 import { appeler } from "../../api";
 import { Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
-import { t } from "../../i18n";
+import { type Cle, t } from "../../i18n";
 import type { EleveExamen, Examen, Examens, Sexe, TotalAffiche } from "../../types/gesco";
+import { TITRES_EXAMENS } from "./libelles";
 
 type Champ = "inscrit" | "present" | "admis";
 
@@ -33,7 +34,7 @@ export function ResultatsExamens({ anneeId }: { anneeId: string | null }) {
       <MessageErreur erreur={entree7e.error} />
       {d.classes.length === 0 ? null : (
         <>
-          <Selection id="examens-classe" libelle={t("examens.classe")} valeur={d.classe_id ?? ""} surChangement={setClasseId} options={d.classes.map((c) => ({ valeur: c.id, libelle: `${c.libelle} · ${t(`examens.examen.${c.examen}`)}` }))} />
+          <Selection id="examens-classe" libelle={t("examens.classe")} valeur={d.classe_id ?? ""} surChangement={setClasseId} options={d.classes.map((c) => ({ valeur: c.id, libelle: `${c.libelle} · ${t(TITRES_EXAMENS[c.examen])}` }))} />
           <GrilleClasse eleves={d.eleves} surEnregistre={rafraichir} />
         </>
       )}
@@ -104,6 +105,7 @@ function LigneEleve({ eleve, surEnregistre }: { eleve: EleveExamen; surEnregistr
 
 const SEXES: readonly Sexe[] = ["masculin", "feminin"];
 const CHAMPS_TOTAL = ["inscrits", "presentes", "admis"] as const;
+const TITRES_TOTAUX: Readonly<Record<(typeof CHAMPS_TOTAL)[number], Cle>> = { inscrits: "examens.total.inscrits", presentes: "examens.total.presentes", admis: "examens.total.admis" };
 
 /** Totaux par examen et par sexe ; un examen saisi élève par élève les ignore, et le dit. */
 function Totaux({ donnees, anneeId, surEnregistre }: { donnees: Examens; anneeId: string; surEnregistre: () => void }) {
@@ -119,7 +121,7 @@ function Totaux({ donnees, anneeId, surEnregistre }: { donnees: Examens; anneeId
               <th className="border-b border-muet px-2 py-1 text-left font-medium text-muet">{t("examens.sexe")}</th>
               {CHAMPS_TOTAL.map((c) => (
                 <th key={c} className="border-b border-muet px-2 py-1 text-left font-medium text-muet">
-                  {t(`examens.total.${c}`)}
+                  {t(TITRES_TOTAUX[c])}
                 </th>
               ))}
             </tr>
@@ -145,7 +147,7 @@ function LigneTotal({ anneeId, examen, sexe, total, ignore, surEnregistre }: { a
   return (
     <tr className={ignore ? "text-muet" : ""}>
       <td className="border-b border-muet/30 px-2 py-1">
-        {t(`examens.examen.${examen}`)}
+        {t(TITRES_EXAMENS[examen])}
         {ignore ? <span className="block text-xs">{t("examens.detail_l_emporte")}</span> : null}
       </td>
       <td className="border-b border-muet/30 px-2 py-1">{t(sexe === "masculin" ? "statistiques.colonne.garcons" : "statistiques.colonne.filles")}</td>
@@ -154,7 +156,7 @@ function LigneTotal({ anneeId, examen, sexe, total, ignore, surEnregistre }: { a
           <input
             type="number"
             min={0}
-            aria-label={`${t(`examens.examen.${examen}`)} · ${sexe} · ${t(`examens.total.${c}`)}`}
+            aria-label={`${t(TITRES_EXAMENS[examen])} · ${sexe} · ${t(TITRES_TOTAUX[c])}`}
             className="w-20 rounded border border-muet bg-surface px-1.5 py-1 text-right text-primaire"
             value={valeurs[c] ?? ""}
             onChange={(e) => {

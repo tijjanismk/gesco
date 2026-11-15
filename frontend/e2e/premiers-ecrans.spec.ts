@@ -7,7 +7,7 @@ import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileS
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { type Browser, type Page, chromium, expect, test } from "@playwright/test";
+import { type Browser, type Locator, type Page, chromium, expect, test } from "@playwright/test";
 
 import { catalogue, type Cle } from "../src/i18n/fr-ML";
 
@@ -3013,4 +3013,493 @@ test("phase 9 : les statistiques de l'école, arrêtées à une date, égalent l
   await page.getByRole("tab", { name: texte("statistiques.onglet.personnel") }).click();
   await expect(page.getByRole("heading", { name: texte("statistiques.tableau.liste_nominative"), exact: true })).toBeVisible();
   await capturer("179-statistiques-personnel");
+});
+
+/** Le dialogue d'enregistrement du système ne se pilote pas : son appel reçoit `chemin`, tout le
+ *  reste passe par le vrai noyau. `rendreDialogues` remet l'appel d'origine. */
+async function substituerEnregistrement(chemin: string) {
+  await page.evaluate((c) => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    const original = fenetre.fetchOriginal ?? window.fetch.bind(window);
+    fenetre.fetchOriginal = original;
+    window.fetch = (entree, options) => {
+      const url = decodeURIComponent(typeof entree === "string" ? entree : entree instanceof URL ? entree.href : entree.url);
+      if (url.includes("ipc.localhost/plugin:dialog|save")) {
+        return Promise.resolve(new Response(JSON.stringify(c), { status: 200, headers: { "Tauri-Response": "ok", "content-type": "application/json" } }));
+      }
+      return original(entree, options);
+    };
+  }, chemin);
+}
+
+async function rendreDialogues() {
+  await page.evaluate(() => {
+    const fenetre = window as unknown as { fetchOriginal?: typeof fetch };
+    if (fenetre.fetchOriginal !== undefined) window.fetch = fenetre.fetchOriginal;
+    delete fenetre.fetchOriginal;
+  });
+}
+
+/** Une case enregistrée en la quittant : la ligne se redessine avec la valeur relue, on la
+ *  laisse faire avant la case suivante. */
+async function saisirEtQuitter(champ: Locator, valeur: string) {
+  await champ.fill(valeur);
+  await champ.blur();
+  await page.waitForTimeout(500);
+}
+
+/** Ouvre la session d'un autre compte depuis l'écran verrouillé, par son identifiant. */
+async function basculerVers(identifiant: string, nom: string, motDePasse: string) {
+  await page.getByRole("button", { name: texte("bandeau.verrouiller") }).click();
+  await page.getByRole("button", { name: texte("verrou.autre_utilisateur") }).click();
+  await page.getByLabel(texte("connexion.identifiant")).fill(identifiant);
+  await page.getByLabel(texte("connexion.mot_de_passe")).fill(motDePasse);
+  await page.getByRole("button", { name: texte("connexion.valider") }).click();
+  await expect(page.getByText(texte("bandeau.utilisateur").replace("{nom}", nom))).toBeVisible();
+}
+
+async function revenirALaDirection() {
+  await page.getByRole("button", { name: texte("bandeau.verrouiller") }).click();
+  await page.getByRole("button", { name: new RegExp(NOM) }).click();
+  await page.getByLabel(texte("verrou.pin")).fill(PIN);
+  await page.getByRole("button", { name: texte("verrou.deverrouiller") }).click();
+  await expect(page.getByText(texte("bandeau.utilisateur").replace("{nom}", NOM))).toBeVisible();
+}
+
+/** Une entrée du menu, cherchée groupes dépliés. */
+async function entreeDuMenu(cle: Cle) {
+  await deplierMenu();
+  return page.getByRole("navigation").getByRole("button", { name: texte(cle), exact: true });
+}
+
+test("phase 9 : la fiche de l'établissement se remplit par thème, s'exporte, reçoit une rubrique de l'école ; l'année suivante reprend l'an dernier", async () => {
+  await allerA("nav.statistiques");
+  await page.getByRole("tab", { name: texte("statistiques.onglet.etablissement") }).click();
+  await expect(page.getByRole("heading", { name: texte("fiche.theme.localisation"), exact: true })).toBeVisible();
+
+  // Une case de chaque type : texte, nombre, liste, plusieurs choix, date, oui ou non.
+  await saisirEtQuitter(page.getByLabel("Quartier ou village", { exact: true }), "Hamdallaye ACI 2000");
+  await saisirEtQuitter(page.getByLabel("Distance au CAP (km)", { exact: true }), "4");
+  await page.getByLabel("Type de commune", { exact: true }).selectOption("Urbaine");
+  // La case se coche quand le noyau a enregistré la réponse.
+  await page.getByLabel("Double vacation", { exact: true }).click();
+  await saisirEtQuitter(page.getByLabel("Décision de création : date", { exact: true }), "1998-10-01");
+  await page.getByLabel("Clôture", { exact: true }).selectOption("oui");
+  await expect(page.getByLabel("Double vacation", { exact: true })).toBeChecked();
+  await expect(page.getByLabel("Distance au CAP (km)", { exact: true })).toHaveValue("4");
+  await capturer("180-fiche-de-l-etablissement");
+
+  // La fiche s'exporte en Excel.
+  const classeur = join(dossier, "fiche-etablissement.xlsx");
+  await substituerEnregistrement(classeur);
+  await page.getByRole("button", { name: texte("commun.exporter_excel"), exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "fiche-etablissement.xlsx" })).toBeVisible();
+  await rendreDialogues();
+  expect(readFileSync(classeur).subarray(0, 2).toString("latin1")).toBe("PK");
+
+  // L'école ajoute sa rubrique, la renomme, la désactive puis la remet en service.
+  await page.getByRole("button", { name: texte("fiche.ajouter_rubrique") }).click();
+  await page.locator("#rubrique-libelle").fill("Jardin scolaire");
+  await page.locator("#rubrique-type").selectOption("oui_non");
+  await page.getByRole("button", { name: texte("commun.enregistrer"), exact: true }).click();
+  const ajoutee = page.getByRole("listitem").filter({ hasText: "Jardin scolaire" });
+  await ajoutee.getByRole("button", { name: texte("fiche.modifier") }).click();
+  await page.locator("#rubrique-libelle").fill("Jardin scolaire potager");
+  await page.getByRole("button", { name: texte("commun.enregistrer"), exact: true }).click();
+  await expect(page.getByLabel("Jardin scolaire potager", { exact: true })).toBeVisible();
+  await page.getByLabel("Jardin scolaire potager", { exact: true }).selectOption("oui");
+  await page.getByRole("listitem").filter({ hasText: "Jardin scolaire potager" }).getByRole("button", { name: texte("fiche.desactiver") }).click();
+  await expect(page.getByRole("heading", { name: texte("fiche.desactivees") })).toBeVisible();
+  await expect(page.getByLabel("Jardin scolaire potager", { exact: true })).toHaveCount(0);
+  await page.getByRole("listitem").filter({ hasText: "Jardin scolaire potager" }).getByRole("button", { name: texte("fiche.reactiver") }).click();
+  await expect(page.getByLabel("Jardin scolaire potager", { exact: true })).toHaveValue("oui");
+  await page.getByRole("heading", { name: texte("fiche.rubriques_ecole") }).scrollIntoViewIfNeeded();
+  await capturer("181-rubriques-de-l-ecole");
+
+  // L'année suivante, en préparation : la réponse de l'an dernier est proposée à côté de la
+  // case, reprise d'un clic ou toutes ensemble.
+  await allerA("nav.annees");
+  await page.locator("#nouvelle-annee-libelle").fill("2027-2028");
+  await page.locator("#nouvelle-annee-debut").fill("2027-10-01");
+  await page.locator("#nouvelle-annee-fin").fill("2028-07-31");
+  await page.getByRole("button", { name: texte("annees.creer") }).click();
+  await expect(page.getByRole("cell", { name: "2027-2028" })).toBeVisible();
+  await allerA("nav.statistiques");
+  await page.locator("#statistiques-annee").selectOption({ label: "2027-2028" });
+  await page.getByRole("tab", { name: texte("statistiques.onglet.etablissement") }).click();
+  await expect(page.getByText(texte("fiche.an_dernier").replace("{valeur}", texte("commun.oui"))).first()).toBeVisible();
+  await expect(page.getByLabel("Clôture", { exact: true })).toHaveValue("");
+  await capturer("182-fiche-l-an-dernier");
+  await page.getByRole("button", { name: texte("fiche.reprendre"), exact: true }).first().click();
+  await page.getByRole("button", { name: /^Reprendre les réponses de l'an dernier/ }).click();
+  await expect(page.getByLabel("Clôture", { exact: true })).toHaveValue("oui");
+  await expect(page.getByRole("button", { name: /^Reprendre les réponses de l'an dernier/ })).toHaveCount(0);
+});
+
+test("phase 9 : pour les rapports, la classe a son fonctionnement, l'élève son année de recrutement et ses difficultés, que seule la direction ouvre", async () => {
+  await allerA("nav.statistiques");
+  await page.getByRole("tab", { name: texte("statistiques.onglet.rapports") }).click();
+  await page.locator("#complements-classe").selectOption({ label: "7e A" });
+  await page.locator("#complements-fonctionnement").selectOption({ index: 1 });
+  await page.locator("#complements-pedagogie").selectOption({ index: 1 });
+  const recrutement = page.getByRole("textbox", { name: new RegExp(`^${texte("complements.annee_recrutement")} · `) });
+  await saisirEtQuitter(recrutement.first(), "2020");
+  await expect(recrutement.first()).toHaveValue("2020");
+  const retenir = page.getByRole("button", { name: texte("complements.retenir"), exact: true });
+  if ((await retenir.count()) > 0) {
+    const avant = await retenir.count();
+    await retenir.first().click();
+    await expect(retenir).toHaveCount(avant - 1);
+  }
+  await capturer("183-pour-les-rapports");
+
+  // Les difficultés d'un élève, confidentielles, ouvertes par la direction.
+  await page.getByRole("button", { name: texte("complements.difficultes"), exact: true }).first().click();
+  await page.locator("#difficulte-vue").selectOption("quelques");
+  await expect(page.locator("#difficulte-vue")).toHaveValue("quelques");
+  await page.locator("#difficulte-vue").scrollIntoViewIfNeeded();
+  await capturer("184-difficultes-d-un-eleve");
+  await page.locator("section").filter({ has: page.locator("#difficulte-vue") }).getByRole("button", { name: texte("commun.fermer") }).click();
+
+  // Au lycée, la prise en charge par l'État se coche.
+  await page.locator("#complements-classe").selectOption({ label: "11S" });
+  const prise = page.getByRole("checkbox", { name: new RegExp(`^${texte("complements.prise_en_charge")} · `) });
+  if ((await prise.count()) > 0) {
+    await prise.first().click();
+    await expect(prise.first()).toBeChecked();
+  }
+  await expect(page.getByRole("heading", { name: texte("complements.personnel"), exact: true })).toBeVisible();
+
+  // Les nouveaux tableaux des onglets Élèves et Personnel.
+  await page.getByRole("tab", { name: texte("statistiques.onglet.eleves") }).click();
+  await expect(page.getByRole("heading", { name: texte("statistiques.tableau.eleves_par_annee_recrutement"), exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: texte("statistiques.tableau.eleves_handicapes"), exact: true })).toBeVisible();
+  await page.getByRole("heading", { name: texte("statistiques.tableau.eleves_par_annee_recrutement"), exact: true }).scrollIntoViewIfNeeded();
+  await capturer("185-eleves-par-annee-de-recrutement");
+  await page.getByRole("tab", { name: texte("statistiques.onglet.personnel") }).click();
+  await expect(page.getByRole("heading", { name: texte("statistiques.tableau.personnel_par_statut"), exact: true })).toBeVisible();
+
+  // Le secrétariat lit l'onglet sans ouvrir les difficultés.
+  await basculerVers("mariam", "Mariam Keïta", "bureau-rentree-2026");
+  await allerA("nav.statistiques");
+  await page.getByRole("tab", { name: texte("statistiques.onglet.rapports") }).click();
+  await page.locator("#complements-classe").selectOption({ label: "7e A" });
+  await expect(recrutement.first()).toBeVisible();
+  await expect(page.getByRole("button", { name: texte("complements.difficultes"), exact: true })).toHaveCount(0);
+  await revenirALaDirection();
+});
+
+test("phase 9 : l'inventaire de l'école, une ligne de chaque famille, les cabines des latrines, l'an dernier repris ; les locaux dans les statistiques", async () => {
+  await allerA("nav.inventaire");
+  await expect(page.getByRole("heading", { name: texte("inventaire.titre") })).toBeVisible();
+  const quantite = (article: string, colonne: Cle) => page.getByRole("spinbutton", { name: `${article} · ${texte(colonne)}`, exact: true });
+
+  // Locaux : les salles, et les cabines sur la ligne des latrines.
+  await saisirEtQuitter(quantite("Salles de classe utilisées", "inventaire.colonne.existant"), "12");
+  await saisirEtQuitter(quantite("Salles de classe utilisées", "inventaire.colonne.bon_etat"), "10");
+  await saisirEtQuitter(quantite("Blocs de latrines", "inventaire.colonne.existant"), "2");
+  await saisirEtQuitter(quantite("Blocs de latrines", "inventaire.colonne.cabines_filles"), "4");
+  await saisirEtQuitter(quantite("Blocs de latrines", "inventaire.colonne.cabines_garcons"), "4");
+  await expect(quantite("Salles de classe utilisées", "inventaire.colonne.existant")).toHaveValue("12");
+  await expect(quantite("Blocs de latrines", "inventaire.colonne.cabines_filles")).toHaveValue("4");
+  await expect(quantite("Salles de classe utilisées", "inventaire.colonne.cabines_filles")).toHaveCount(0);
+  await capturer("186-inventaire-locaux");
+
+  // Une salle retirée disparaît, puis revient.
+  const langue = page.getByRole("row").filter({ hasText: "Salle de langue" });
+  await langue.getByRole("button", { name: texte("inventaire.retirer") }).click();
+  await expect(langue).toHaveCount(0);
+  await page.getByLabel(texte("inventaire.voir_retires")).check();
+  await expect(langue.getByText(`(${texte("inventaire.retire")})`)).toBeVisible();
+  await langue.getByRole("button", { name: texte("inventaire.remettre") }).click();
+  await expect(langue.getByRole("button", { name: texte("inventaire.retirer") })).toBeVisible();
+  await page.getByLabel(texte("inventaire.voir_retires")).uncheck();
+
+  // Une ligne des autres familles ; le manuel ajouté par l'école, puis corrigé.
+  await page.getByRole("tab", { name: texte("inventaire.famille.mobilier") }).click();
+  await saisirEtQuitter(quantite("Tables-bancs à 2 places", "inventaire.colonne.existant"), "150");
+  await page.getByRole("tab", { name: texte("inventaire.famille.materiel") }).click();
+  await saisirEtQuitter(quantite("Ordinateurs", "inventaire.colonne.existant"), "3");
+  await page.getByRole("tab", { name: texte("inventaire.famille.adapte") }).click();
+  await saisirEtQuitter(quantite("Manuels en gros caractères", "inventaire.colonne.existant"), "2");
+  await page.getByRole("tab", { name: texte("inventaire.famille.manuel") }).click();
+  await page.locator("#inventaire-designation").fill("Lecture CP");
+  await page.locator("#inventaire-matiere").fill("Français");
+  await page.getByRole("button", { name: texte("inventaire.ajouter"), exact: true }).click();
+  await page.getByRole("listitem").filter({ hasText: "Lecture CP" }).getByRole("button", { name: texte("inventaire.modifier") }).click();
+  await page.locator("#inventaire-designation").fill("Lecture et écriture");
+  await page.getByRole("button", { name: texte("inventaire.enregistrer"), exact: true }).click();
+  await saisirEtQuitter(quantite("Lecture et écriture (Français)", "inventaire.colonne.existant"), "40");
+  await expect(quantite("Lecture et écriture (Français)", "inventaire.colonne.existant")).toHaveValue("40");
+  await capturer("187-inventaire-manuels");
+
+  // Une partie de l'école a son propre relevé.
+  await page.locator("#inventaire-partie").selectOption({ index: 1 });
+  await page.getByRole("tab", { name: texte("inventaire.famille.local") }).click();
+  await expect(quantite("Salles de classe utilisées", "inventaire.colonne.existant")).toHaveValue("");
+  await page.locator("#inventaire-partie").selectOption("");
+
+  // L'année suivante : l'an dernier en grisé dans la case vide, puis repris.
+  await page.locator("#inventaire-annee").selectOption({ label: "2027-2028" });
+  await page.getByRole("tab", { name: texte("inventaire.famille.local") }).click();
+  await expect(quantite("Salles de classe utilisées", "inventaire.colonne.existant")).toHaveAttribute("placeholder", "12");
+  await expect(quantite("Salles de classe utilisées", "inventaire.colonne.existant")).toHaveValue("");
+  await capturer("188-inventaire-l-an-dernier");
+  await page.getByRole("button", { name: /^Reprendre l'an dernier/ }).click();
+  await expect(quantite("Salles de classe utilisées", "inventaire.colonne.existant")).toHaveValue("12");
+
+  // Les locaux et équipements dans les statistiques, exportés en Excel.
+  await allerA("nav.statistiques");
+  await page.getByRole("tab", { name: texte("statistiques.onglet.locaux") }).click();
+  await expect(page.getByRole("heading", { name: texte("statistiques.tableau.inventaire_locaux"), exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: texte("statistiques.tableau.inventaire_latrines"), exact: true })).toBeVisible();
+  const classeur = join(dossier, "locaux.xlsx");
+  await substituerEnregistrement(classeur);
+  await page.getByRole("button", { name: texte("statistiques.exporter_onglet") }).click();
+  await expect(page.getByRole("status").filter({ hasText: "locaux.xlsx" })).toBeVisible();
+  await rendreDialogues();
+  expect(existsSync(classeur)).toBe(true);
+  await capturer("189-statistiques-locaux");
+
+  // La caisse n'a ni l'inventaire ni les statistiques.
+  await basculerVers("seydou", "Seydou Dembélé", "comptes-rentree-2026");
+  await expect(await entreeDuMenu("nav.inventaire")).toHaveCount(0);
+  await expect(await entreeDuMenu("nav.statistiques")).toHaveCount(0);
+  await revenirALaDirection();
+  await expect(await entreeDuMenu("nav.inventaire")).toBeVisible();
+});
+
+test("phase 9 : les examens, admis cochés élève par élève ou en totaux ; les décisions et les effectifs probables de fin d'année", async () => {
+  await allerA("nav.statistiques");
+  await page.getByRole("tab", { name: texte("statistiques.onglet.examens") }).click();
+  await expect(page.getByRole("heading", { name: texte("examens.saisie") })).toBeVisible();
+  // L'école présente sa 6e à l'entrée en 7e : la classe paraît.
+  await page.getByLabel(texte("examens.entree_7e")).click();
+  await expect(page.getByLabel(texte("examens.entree_7e"))).toBeChecked();
+  await page.locator("#examens-classe").selectOption({ label: `6e A · ${texte("examens.examen.entree_7e")}` });
+  const eleve = "Diallo Fatoumata";
+  await page.getByRole("checkbox", { name: `${eleve} · ${texte("examens.admis")}` }).click();
+  await expect(page.getByRole("checkbox", { name: `${eleve} · ${texte("examens.admis")}` })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: `${eleve} · ${texte("examens.present")}` })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: `${eleve} · ${texte("examens.inscrit")}` })).toBeChecked();
+  await saisirEtQuitter(page.getByRole("textbox", { name: `${eleve} · ${texte("examens.mention")}` }), "Assez bien");
+
+  // Le baccalauréat en totaux, sans le détail par élève.
+  const total = (champ: Cle) => page.getByRole("spinbutton", { name: `${texte("examens.examen.bac")} · masculin · ${texte(champ)}`, exact: true });
+  await saisirEtQuitter(total("examens.total.inscrits"), "10");
+  await saisirEtQuitter(total("examens.total.presentes"), "9");
+  await saisirEtQuitter(total("examens.total.admis"), "6");
+  await expect(total("examens.total.admis")).toHaveValue("6");
+  await capturer("190-saisie-des-examens");
+
+  for (const cle of ["statistiques.tableau.decisions_par_niveau", "statistiques.tableau.resultats_examens", "statistiques.tableau.taux_admis_par_cycle", "statistiques.tableau.effectifs_probables"] as const) {
+    await expect(page.getByRole("heading", { name: texte(cle), exact: true })).toBeVisible();
+  }
+  // Un chiffre des résultats mène aux élèves.
+  const resultats = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("statistiques.tableau.resultats_examens"), exact: true }) });
+  await resultats.getByRole("row").getByRole("button").first().click();
+  const detail = page.locator("section").filter({ has: page.getByRole("button", { name: texte("commun.fermer") }) });
+  await expect(detail.getByRole("listitem").first()).toBeVisible();
+  await resultats.scrollIntoViewIfNeeded();
+  await capturer("191-resultats-aux-examens");
+  await detail.getByRole("button", { name: texte("commun.fermer") }).click();
+});
+
+/** Total des élèves d'un cycle dans « Élèves par classe », lu par les commandes. */
+async function eleveDuFondamental(): Promise<number> {
+  return parCommandes<number>(`
+    let n = 0;
+    for (const cycle of ["premier_cycle", "second_cycle"]) {
+      const s = await api.appeler("statistiques_lire", { annee_id: null, date: null, cycle });
+      const t = s.eleves.tableaux.find((x) => x.code === "eleves_par_classe");
+      const c = t?.total?.cellules.at(-1);
+      n += c?.nombre ?? 0;
+    }
+    return n;
+  `);
+}
+
+test("phase 9 : le rapport de rentrée se prépare d'après l'école, se rédige, s'imprime, s'arrête et se rouvre", async () => {
+  await allerA("nav.rapports");
+  await expect(page.getByRole("heading", { name: texte("rapports.titre") })).toBeVisible();
+  const ligne = (cle: Cle) => page.getByRole("listitem").filter({ hasText: texte(cle) });
+  await ligne("rapports.type.succinct_rentree").getByRole("button", { name: texte("rapports.preparer") }).click();
+  await expect(page.getByRole("button", { name: texte("rapports.retour") })).toBeVisible();
+  await page.getByRole("button", { name: texte("rapports.retour") }).click();
+  await ligne("rapports.type.rentree").getByRole("button", { name: texte("rapports.preparer") }).click();
+  await expect(page.getByRole("heading", { name: texte("rapports.entete"), exact: true })).toBeVisible();
+
+  // Le total des élèves du fondamental, à la date d'arrêt, figure dans les tableaux.
+  const fondamental = await eleveDuFondamental();
+  expect(fondamental).toBeGreaterThan(0);
+  await expect(page.getByRole("cell", { name: String(fondamental), exact: true }).first()).toBeVisible();
+
+  // Une autre date d'arrêt : les tableaux sont recalculés.
+  await page.locator("#rapport-date-arret").fill("2026-10-10");
+  await page.locator("#rapport-date-arret").blur();
+  await expect(page.locator("#rapport-date-arret")).toHaveValue("2026-10-10");
+
+  // Un texte rédigé est gardé ; les chiffres du jour s'insèrent d'un bouton.
+  const premiere = page.locator('[id^="rapport-section-"]').first();
+  await premiere.fill("La rentrée s'est faite le 1er octobre dans de bonnes conditions.");
+  await premiere.blur();
+  await page.waitForTimeout(500);
+  await page.getByRole("button", { name: texte("rapports.retour") }).click();
+  await ligne("rapports.type.rentree").getByRole("button", { name: texte("rapports.ouvrir") }).click();
+  await expect(page.locator('[id^="rapport-section-"]').first()).toHaveValue(/dans de bonnes conditions/);
+  const inserer = page.getByRole("button", { name: texte("rapports.inserer_chiffres") });
+  if ((await inserer.count()) > 0) {
+    await inserer.first().click();
+    await page.waitForTimeout(500);
+  }
+  await capturer("192-rapport-de-rentree");
+
+  // Un tableau mène à l'écran où sa donnée se corrige.
+  const versInventaire = page.getByRole("button", { name: texte("rapports.corriger_inventaire") });
+  if ((await versInventaire.count()) > 0) {
+    await versInventaire.first().click();
+    await expect(page.getByRole("heading", { name: texte("inventaire.titre") })).toBeVisible();
+    await allerA("nav.rapports");
+    await ligne("rapports.type.rentree").getByRole("button", { name: texte("rapports.ouvrir") }).click();
+  }
+  await page.getByRole("button", { name: texte("rapports.corriger_statistiques") }).first().click();
+  await expect(page.getByRole("heading", { name: texte("statistiques.titre") })).toBeVisible();
+  await allerA("nav.rapports");
+  await ligne("rapports.type.rentree").getByRole("button", { name: texte("rapports.ouvrir") }).click();
+
+  // L'aperçu, puis les tableaux en Excel.
+  await page.getByRole("button", { name: texte("rapports.apercu") }).click();
+  await expect(page.locator("iframe").last()).toBeVisible();
+  await page.waitForTimeout(4000);
+  await page.locator("iframe").last().scrollIntoViewIfNeeded();
+  await capturer("193-apercu-du-rapport-de-rentree");
+  const classeur = join(dossier, "rapport-de-rentree.xlsx");
+  await substituerEnregistrement(classeur);
+  await page.getByRole("button", { name: texte("rapports.exporter") }).click();
+  await expect(page.getByText(/rapport-de-rentree\.xlsx/)).toBeVisible();
+  await rendreDialogues();
+  expect(existsSync(classeur)).toBe(true);
+
+  // Arrêté, le rapport se fige et se réimprime ; rouvert, il passe en version 2.
+  await page.getByRole("button", { name: texte("rapports.arreter") }).click();
+  await expect(page.getByText(`${texte("rapports.etat.arrete")} · ${texte("rapports.version").replace("{n}", "1")}`)).toBeVisible();
+  await expect(page.locator('[id^="rapport-section-"]').first()).toBeDisabled();
+  await expect(page.locator("#rapport-date-arret")).toBeDisabled();
+  await page.getByRole("button", { name: texte("rapports.reimprimer") }).click();
+  await expect(page.locator("iframe").last()).toBeVisible();
+  await capturer("194-rapport-arrete");
+  await page.getByRole("button", { name: texte("rapports.rouvrir") }).click();
+  await expect(page.getByText(`${texte("rapports.etat.preparation")} · ${texte("rapports.version").replace("{n}", "2")}`)).toBeVisible();
+  await expect(page.locator('[id^="rapport-section-"]').first()).toBeEnabled();
+  await capturer("195-rapport-rouvert");
+  await page.getByRole("button", { name: texte("rapports.retour") }).click();
+});
+
+test("phase 9 : le rapport de fermeture, ses effectifs probables saisis, ses tableaux larges en paysage ; la fiche scolaire d'un élève et d'une classe", async () => {
+  await allerA("nav.rapports");
+  const fermeture = page.getByRole("listitem").filter({ hasText: texte("rapports.type.fermeture") });
+  await fermeture.getByRole("button", { name: texte("rapports.preparer") }).click();
+  // La date proposée est le dernier jour de l'année.
+  await expect(page.locator("#rapport-date-arret")).toHaveValue("2027-07-31");
+  await expect(page.getByRole("heading", { name: texte("rapports.probables.titre"), exact: true })).toBeVisible();
+
+  // La grille des effectifs probables : le nombre proposé dans la case vide, la saisie reprise.
+  const garcons = page.getByRole("spinbutton", { name: /^1(re|ère) année · Garçons$/ });
+  await expect(garcons).toHaveAttribute("placeholder", /^\d+$/);
+  await saisirEtQuitter(garcons, "37");
+  await expect(page.getByRole("cell", { name: "37", exact: true }).first()).toBeVisible();
+  const inserer = page.getByRole("button", { name: texte("rapports.inserer_chiffres") });
+  for (let i = await inserer.count(); i > 0; i -= 1) {
+    await inserer.nth(i - 1).click();
+    await page.waitForTimeout(500);
+  }
+  await capturer("196-rapport-de-fermeture");
+
+  // L'aperçu : les tableaux larges passent en paysage.
+  await page.getByRole("button", { name: texte("rapports.apercu") }).click();
+  await expect(page.locator("iframe").last()).toBeVisible();
+  await page.waitForTimeout(4000);
+  await page.locator("iframe").last().scrollIntoViewIfNeeded();
+  await capturer("197-apercu-du-rapport-de-fermeture");
+  await page.getByRole("button", { name: texte("rapports.arreter") }).click();
+  await expect(page.getByRole("button", { name: texte("rapports.rouvrir") })).toBeVisible();
+  await expect(page.getByRole("heading", { name: texte("rapports.probables.titre"), exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: texte("rapports.retour") }).click();
+
+  // La fiche scolaire d'un élève, puis celles de toute une classe, une page par élève.
+  await allerA("nav.eleves");
+  await page.locator("#eleves-recherche").fill("Fatoumata");
+  await page.getByRole("row").filter({ hasText: "Fatoumata" }).filter({ hasText: "6e A" }).first().click();
+  await expect(page.getByRole("heading", { name: "Fatoumata Diallo" })).toBeVisible();
+  await page.getByRole("button", { name: texte("fiche_scolaire.bouton"), exact: true }).click();
+  await expect(page.locator("iframe").last()).toBeVisible();
+  await page.waitForTimeout(3000);
+  await page.locator("iframe").last().scrollIntoViewIfNeeded();
+  await capturer("198-fiche-scolaire");
+  await allerA("nav.classes");
+  await page.getByRole("cell", { name: "7e A", exact: true }).click();
+  await page.getByRole("button", { name: texte("fiche_scolaire.classe") }).click();
+  await expect(page.locator("iframe").last()).toBeVisible();
+  await page.waitForTimeout(3000);
+  await page.locator("iframe").last().scrollIntoViewIfNeeded();
+  await capturer("199-fiches-scolaires-de-la-classe");
+
+  // Le secrétariat imprime la fiche scolaire ; l'écran des rapports n'est pas pour lui.
+  await basculerVers("mariam", "Mariam Keïta", "bureau-rentree-2026");
+  await expect(await entreeDuMenu("nav.rapports")).toHaveCount(0);
+  await allerA("nav.eleves");
+  await page.locator("#eleves-recherche").fill("Fatoumata");
+  await page.getByRole("row").filter({ hasText: "Fatoumata" }).filter({ hasText: "6e A" }).first().click();
+  await expect(page.getByRole("button", { name: texte("fiche_scolaire.bouton"), exact: true })).toBeVisible();
+  await revenirALaDirection();
+});
+
+test("phase 9 : le tableau libre croise ce que l'école veut compter ; les données de l'enquête s'écrivent en un classeur", async () => {
+  await allerA("nav.statistiques");
+  const parClasse = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("statistiques.tableau.eleves_par_classe"), exact: true }) });
+  const totalDe = (section: Locator) =>
+    section.getByRole("row").filter({ has: page.getByRole("rowheader", { name: texte("statistiques.total"), exact: true }) }).getByRole("cell").last();
+  const attendu = (await totalDe(parClasse).textContent())?.trim() ?? "";
+  expect(attendu).not.toBe("");
+
+  // Élèves par classe et par sexe : le même total.
+  await page.getByRole("tab", { name: texte("statistiques.onglet.libre") }).click();
+  const libre = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("statistiques.tableau.libre"), exact: true }) });
+  await expect(totalDe(libre)).toHaveText(attendu);
+  await capturer("200-tableau-libre");
+  await libre.getByRole("row").nth(1).getByRole("button").first().click();
+  const detail = page.locator("section").filter({ has: page.getByRole("button", { name: texte("commun.fermer") }) });
+  await expect(detail.getByRole("listitem").first()).toBeVisible();
+  await detail.getByRole("button", { name: texte("commun.fermer") }).click();
+  const classeur = join(dossier, "tableau-libre.xlsx");
+  await substituerEnregistrement(classeur);
+  await libre.getByRole("button", { name: texte("commun.exporter_excel") }).click();
+  await expect(page.getByRole("status").filter({ hasText: "tableau-libre.xlsx" })).toBeVisible();
+  await rendreDialogues();
+
+  // Le personnel par statut, puis les rubriques de la fiche, celle de l'école comprise.
+  await page.locator("#libre-population").selectOption("personnel");
+  await page.locator("#libre-lignes").selectOption("statut");
+  await expect(libre.getByRole("rowheader").first()).toBeVisible();
+  await capturer("201-tableau-libre-personnel");
+  await page.locator("#libre-population").selectOption("fiche");
+  await expect(libre.getByRole("rowheader", { name: "Jardin scolaire potager" })).toBeVisible();
+  await capturer("202-tableau-libre-fiche");
+
+  // Les données pour l'enquête : un classeur de quatorze feuilles.
+  const enquete = join(dossier, "enquete.xlsx");
+  await substituerEnregistrement(enquete);
+  await page.getByRole("button", { name: texte("statistiques.enquete") }).click();
+  await expect(page.getByRole("status").filter({ hasText: "enquete.xlsx" })).toBeVisible();
+  await rendreDialogues();
+  const feuilles = new Set(readFileSync(enquete).toString("latin1").match(/xl\/worksheets\/sheet\d+\.xml/g) ?? []);
+  expect(feuilles.size).toBe(14);
+
+  // L'école d'essai vit le 14 octobre : la petite section n'a aucun livret du 2e trimestre.
+  if (process.env["GESCO_ECOLE_ESSAI"] !== undefined) {
+    await allerA("nav.bulletins");
+    await page.locator("#bulletins-classe").selectOption({ label: "PS · Petite section" });
+    await page.locator("#bulletins-periode").selectOption({ label: "2e trimestre" });
+    await expect(page.getByText(texte("bulletins.statut.publie"), { exact: true })).toHaveCount(0);
+  }
 });

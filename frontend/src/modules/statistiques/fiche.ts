@@ -1,5 +1,6 @@
 import { t } from "../../i18n";
 import type { FeuilleStatistique, FicheEcole, RubriqueFiche, ThemeRubrique, TypeReponse } from "../../types/gesco";
+import { TITRES_THEMES } from "./libelles";
 
 /** Thèmes de la fiche, dans l'ordre d'affichage. */
 export const THEMES_RUBRIQUES: readonly ThemeRubrique[] = ["localisation", "identite", "actes", "eau_hygiene", "energie", "equipements", "vie_ecole", "accessibilite", "autres"];
@@ -35,7 +36,7 @@ export function feuilleFiche(fiche: FicheEcole): FeuilleStatistique {
     for (const r of fiche.rubriques) {
       if (r.theme !== theme || r.retiree_le !== null) continue;
       const valeur = fiche.reponses.find((x) => x.rubrique_id === r.id)?.valeur ?? null;
-      lignes.push([t(`fiche.theme.${theme}`), r.libelle, texteReponse(r, valeur)]);
+      lignes.push([t(TITRES_THEMES[theme]), r.libelle, texteReponse(r, valeur)]);
     }
   }
   return { titre: t("fiche.titre"), entetes: [t("fiche.theme"), t("fiche.rubrique"), t("fiche.reponse")], lignes };

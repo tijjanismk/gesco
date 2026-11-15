@@ -149,10 +149,22 @@ async fn le_classeur_de_l_enquete_et_le_tableau_libre() {
                     "date_naissance": naissance, "date_naissance_estimee": false,
                     "lieu_naissance": "Bamako", "nationalite": "Malienne", "adresse": "",
                     "telephones": [] },
-                    "matricule_interne": "", "matricule_national": "", "acte_nature": "acte",
+                    "matricule_interne": "", "matricule_national": matricule_national(), "acte_nature": "acte",
                     "acte_numero": "", "acte_date": "", "ecole_origine": "" }),
             )
             .await;
+        p.ok(
+            "responsable_rattacher",
+            Some(&admin),
+            json!({ "eleve_id": fiche["eleve"]["id"], "responsable_id": null,
+                "saisie": { "identite": { "nom": "Coulibaly", "prenoms": "Mariam",
+                    "sexe": "feminin", "date_naissance": "", "date_naissance_estimee": false,
+                    "lieu_naissance": "", "nationalite": "", "adresse": "", "telephones": ["76 12 34 56"] },
+                    "profession": "", "employeur": "" },
+                "qualites": { "lien": "mere", "est_responsable_legal": true, "est_payeur": true,
+                    "recoit_notifications": true, "vient_chercher": false, "ordre_priorite": 1 } }),
+        )
+        .await;
         let inscription = p
             .ok(
                 "inscription_creer",

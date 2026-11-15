@@ -9,6 +9,7 @@ import { MessageErreur, Section } from "../../composants/Messages";
 import { t } from "../../i18n";
 import type { FeuilleStatistique, FicheEcole as Donnees, RubriqueFiche, ThemeRubrique, TypeReponse } from "../../types/gesco";
 import { THEMES_RUBRIQUES, TYPES_REPONSE, feuilleFiche, texteReponse } from "./fiche";
+import { TITRES_THEMES, TITRES_TYPES_REPONSE } from "./libelles";
 
 function useRafraichir() {
   const client = useQueryClient();
@@ -48,8 +49,8 @@ export function OngletEtablissement({ anneeId, surExporter }: { anneeId: string 
         const du_theme = actives.filter((r) => r.theme === theme);
         if (du_theme.length === 0) return null;
         return (
-          <Section key={theme} titre={t(`fiche.theme.${theme}`)}>
-            <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-[minmax(12rem,1fr)_2fr]">
+          <Section key={theme} titre={t(TITRES_THEMES[theme])}>
+            <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-3">
               {du_theme.map((r) => (
                 <LigneRubrique key={r.id} rubrique={r} donnees={d} anneeId={anneeId} peutModifier={peutModifier} surReprendre={() => reprendre.mutate([r.id])} />
               ))}
@@ -90,7 +91,7 @@ function LigneRubrique({
         <label htmlFor={id}>{rubrique.libelle}</label>
         {rubrique.aide === "" ? null : <span className="block text-muet">{rubrique.aide}</span>}
       </dt>
-      <dd className="flex flex-col gap-1">
+      <dd className="flex flex-col gap-1 sm:col-span-2">
         {peutModifier && !sansAnnee ? (
           <Saisie id={id} rubrique={rubrique} valeur={valeur} surEnregistrer={(v) => repondre.mutate(v)} />
         ) : (
@@ -214,7 +215,7 @@ function RubriquesEcole({ rubriques }: { rubriques: readonly RubriqueFiche[] }) 
         {ecole.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center gap-2">
             <span>{r.libelle}</span>
-            <span className="text-muet">· {t(`fiche.theme.${r.theme}`)}</span>
+            <span className="text-muet">· {t(TITRES_THEMES[r.theme])}</span>
             <Bouton variante="secondaire" onClick={() => setForm({ id: r.id, libelle: r.libelle, theme: r.theme, type_reponse: r.type_reponse, choix: r.choix.join("\n"), aide: r.aide, annuelle: r.annuelle })}>
               {t("fiche.modifier")}
             </Bouton>
@@ -234,8 +235,8 @@ function RubriquesEcole({ rubriques }: { rubriques: readonly RubriqueFiche[] }) 
         <div className="flex flex-col gap-2 rounded border border-muet/30 p-3">
           <Champ id="rubrique-libelle" libelle={t("fiche.libelle")} value={form.libelle} maxLength={120} onChange={(e) => setForm({ ...form, libelle: e.target.value })} />
           <div className="flex flex-wrap gap-3">
-            <Selection id="rubrique-theme" libelle={t("fiche.theme")} valeur={form.theme} surChangement={(v) => setForm({ ...form, theme: v as ThemeRubrique })} options={THEMES_RUBRIQUES.map((th) => ({ valeur: th, libelle: t(`fiche.theme.${th}`) }))} />
-            <Selection id="rubrique-type" libelle={t("fiche.type")} valeur={form.type_reponse} surChangement={(v) => setForm({ ...form, type_reponse: v as TypeReponse })} options={TYPES_REPONSE.map((ty) => ({ valeur: ty, libelle: t(`fiche.type.${ty}`) }))} />
+            <Selection id="rubrique-theme" libelle={t("fiche.theme")} valeur={form.theme} surChangement={(v) => setForm({ ...form, theme: v as ThemeRubrique })} options={THEMES_RUBRIQUES.map((th) => ({ valeur: th, libelle: t(TITRES_THEMES[th]) }))} />
+            <Selection id="rubrique-type" libelle={t("fiche.type")} valeur={form.type_reponse} surChangement={(v) => setForm({ ...form, type_reponse: v as TypeReponse })} options={TYPES_REPONSE.map((ty) => ({ valeur: ty, libelle: t(TITRES_TYPES_REPONSE[ty]) }))} />
           </div>
           {form.type_reponse === "choix" || form.type_reponse === "plusieurs_choix" ? (
             <ZoneTexte id="rubrique-choix" libelle={t("fiche.choix")} aide={t("fiche.choix_aide")} valeur={form.choix} surChangement={(v) => setForm({ ...form, choix: v })} />

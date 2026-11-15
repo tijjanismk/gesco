@@ -1,9 +1,19 @@
+import type { Cle } from "../../i18n";
 import type { ArticleInventaire, FamilleInventaire, NiveauInventaire, QuantitesInventaire } from "../../types/gesco";
 
 export type NomQuantite = keyof QuantitesInventaire;
 
 /** Familles, dans l'ordre des onglets. */
 export const FAMILLES: readonly FamilleInventaire[] = ["local", "mobilier", "materiel", "manuel", "adapte"];
+
+/** Titres des onglets, un par famille. */
+export const TITRES_FAMILLES: Readonly<Record<FamilleInventaire, Cle>> = {
+  local: "inventaire.famille.local",
+  mobilier: "inventaire.famille.mobilier",
+  materiel: "inventaire.famille.materiel",
+  manuel: "inventaire.famille.manuel",
+  adapte: "inventaire.famille.adapte",
+};
 
 const COLONNES_ARTICLES: readonly NomQuantite[] = ["existant", "bon_etat", "besoins"];
 

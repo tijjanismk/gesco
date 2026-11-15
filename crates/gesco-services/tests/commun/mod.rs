@@ -233,3 +233,12 @@ pub async fn poser_grille(p: &Poste_, admin: &Jeton, annee_id: &Value) -> Value 
     )
     .await
 }
+
+/// Matricule national inédit, exigé dès la 9e et au lycée.
+pub fn matricule_national() -> String {
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
+    format!(
+        "MN-{:06}",
+        N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
+}
