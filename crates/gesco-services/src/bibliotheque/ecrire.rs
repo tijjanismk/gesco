@@ -66,6 +66,38 @@ pub struct BrouillonOuvert {
     pub retour_livre: bool,
     /// Dernier enregistrement, millisecondes depuis l'époque.
     pub enregistre_le: i64,
+    /// Le renvoi d'où vient ce brouillon, s'il vient d'une version renvoyée.
+    pub renvoi: Option<RenvoiVersion>,
+}
+
+/// Le renvoi d'une version par la direction.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct RenvoiVersion {
+    /// Commentaire.
+    pub commentaire: String,
+    /// Nom de qui a renvoyé.
+    pub par: String,
+    /// Quand, millisecondes depuis l'époque.
+    pub le: i64,
+}
+
+/// La version soumise d'un contenu, en attente de validation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct VersionSoumise {
+    /// Identifiant de la version.
+    pub version_id: String,
+    /// Numéro de la version.
+    pub numero: u32,
+    /// Texte.
+    pub texte: String,
+    /// Nom de l'auteur.
+    pub auteur: String,
+    /// L'utilisateur en est l'auteur.
+    pub mien: bool,
+    /// « Revenir à la version livrée ».
+    pub retour_livre: bool,
+    /// Soumise le, millisecondes depuis l'époque.
+    pub soumise_le: i64,
 }
 
 /// Un contenu ouvert pour l'écriture.
@@ -83,8 +115,14 @@ pub struct EcritureOuverte {
     pub peut_ecrire: bool,
     /// L'utilisateur valide (`library:publish`).
     pub peut_valider: bool,
+    /// L'utilisateur publie son brouillon sans le soumettre : il valide, ou la direction lui a
+    /// donné le droit de publier et le contenu est dans ses matières.
+    pub peut_publier: bool,
     /// Le brouillon en cours, s'il y en a un.
     pub brouillon: Option<BrouillonOuvert>,
+    /// La version soumise, en attente de validation ; montrée à qui valide et à qui écrit ce
+    /// contenu.
+    pub soumise: Option<VersionSoumise>,
     /// Texte d'où partirait un brouillon nouveau : la version visible, sinon le plan d'une leçon.
     pub texte_depart: String,
     /// Le contenu a une version livrée lisible sur ce poste.
@@ -475,7 +513,7 @@ impl ServiceBibliotheque<'_> {
     }
 
     /// Le contenu, son chapitre, et vrai si l'utilisateur peut l'écrire.
-    async fn contenu_et_portee(
+    pub(super) async fn contenu_et_portee(
         cnx: &mut Connexion,
         portee: &Portee,
         contenu_id: &str,
@@ -493,7 +531,7 @@ impl ServiceBibliotheque<'_> {
     }
 
     /// Le contenu, s'il est dans la portée de l'utilisateur ; sinon un refus.
-    async fn contenu_permis(
+    pub(super) async fn contenu_permis(
         cnx: &mut Connexion,
         portee: &Portee,
         contenu_id: &str,
@@ -547,6 +585,8 @@ impl ServiceBibliotheque<'_> {
             Self::contenu_et_portee(&mut cnx, &portee, &demande.contenu_id, &contexte).await?;
         let versions = depot::versions(&mut cnx, &demande.contenu_id, &contexte).await?;
         let moi = session.utilisateur_id.vers_chaine();
+        let peut_publier = peut_valider
+            || (peut_ecrire && depot::a_le_droit_de_publier(&mut cnx, &moi, &contexte).await?);
         let brouillon = versions
             .iter()
             .find(|v| v.etat == "brouillon")
@@ -559,6 +599,29 @@ impl ServiceBibliotheque<'_> {
                 mien: v.auteur_id == moi,
                 retour_livre: v.retour_livre != 0,
                 enregistre_le: v.mis_a_jour_le,
+                renvoi: v
+                    .depart_version_id
+                    .as_deref()
+                    .and_then(|d| versions.iter().find(|r| r.id == d))
+                    .filter(|r| r.etat == "renvoyee")
+                    .map(|r| RenvoiVersion {
+                        commentaire: r.commentaire.clone(),
+                        par: r.decidee_par.clone().unwrap_or_default(),
+                        le: r.decidee_le.unwrap_or(r.mis_a_jour_le),
+                    }),
+            });
+        let soumise = versions
+            .iter()
+            .find(|v| v.etat == "soumise")
+            .filter(|_| peut_ecrire || peut_valider)
+            .map(|v| VersionSoumise {
+                version_id: v.id.clone(),
+                numero: nombre(v.numero),
+                texte: v.texte.clone(),
+                auteur: v.auteur.clone(),
+                mien: v.auteur_id == moi,
+                retour_livre: v.retour_livre != 0,
+                soumise_le: v.soumise_le.unwrap_or(v.mis_a_jour_le),
             });
         let (visible, publiee) = self.texte_visible(&contenu, &versions);
         let texte_depart = match visible {
@@ -573,7 +636,9 @@ impl ServiceBibliotheque<'_> {
             origine: contenu.origine,
             peut_ecrire,
             peut_valider,
+            peut_publier,
             brouillon,
+            soumise,
             texte_depart,
             a_une_version_livree: self.texte_livre(&contenu).is_some(),
             version_ecole: publiee.is_some(),
@@ -661,6 +726,9 @@ impl ServiceBibliotheque<'_> {
         if versions.iter().any(|v| v.etat == "brouillon") {
             return Err(regle("bibliotheque.brouillon_existe"));
         }
+        if versions.iter().any(|v| v.etat == "soumise") {
+            return Err(regle("bibliotheque.en_attente_de_validation"));
+        }
         let livree = contenu.empreinte.clone();
         let (texte, depart_version, depart_livre) = match &demande.depart {
             DepartBrouillon::Visible => match self.texte_visible(&contenu, &versions) {
@@ -720,7 +788,7 @@ impl ServiceBibliotheque<'_> {
     }
 
     /// Le brouillon ouvert, s'il est toujours celui que l'éditeur montre.
-    async fn brouillon_attendu(
+    pub(super) async fn brouillon_attendu(
         cnx: &mut Connexion,
         contenu_id: &str,
         version_id: &str,
@@ -942,6 +1010,9 @@ impl ServiceBibliotheque<'_> {
         let versions = depot::versions(unite.connexion(), &demande.contenu_id, &contexte).await?;
         if versions.iter().any(|v| v.etat == "brouillon") {
             return Err(regle("bibliotheque.brouillon_existe"));
+        }
+        if versions.iter().any(|v| v.etat == "soumise") {
+            return Err(regle("bibliotheque.en_attente_de_validation"));
         }
         if !versions
             .iter()

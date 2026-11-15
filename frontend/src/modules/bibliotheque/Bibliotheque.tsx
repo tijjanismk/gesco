@@ -12,6 +12,8 @@ import type {
   ResultatRechercheBibliotheque,
 } from "../../types/gesco";
 import { Ajouter } from "./Ajouter";
+import { DroitsPublication } from "./DroitsPublication";
+import { ListeEnAttente, useLeconsAValider } from "./EnAttente";
 import { Lecture, libelleNature } from "./Lecture";
 import { ListeRetraits, trouverPlace } from "./Retraits";
 
@@ -275,6 +277,9 @@ export function Bibliotheque() {
   const [retires, setRetires] = useState(false);
   const [ajout, setAjout] = useState(false);
   const [enEcriture, setEnEcriture] = useState(false);
+  const [attente, setAttente] = useState(false);
+  const [droits, setDroits] = useState(false);
+  const aValider = useLeconsAValider(catalogue.data?.peut_valider === true);
   const ouvrir = (id: string) => {
     setEnEcriture(false);
     setChoisi(id);
@@ -306,6 +311,26 @@ export function Bibliotheque() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold text-marine">{t("bibliotheque.titre")}</h1>
         <div className="flex flex-wrap gap-2">
+        {donnees?.peut_valider === true ? (
+          <button
+            type="button"
+            onClick={() => setAttente(!attente)}
+            aria-pressed={attente}
+            className="rounded border border-muet px-3 py-1.5 text-sm text-encre hover:bg-fond focus-visible:outline-2 focus-visible:outline-primaire"
+          >
+            {aValider > 0 ? t("bibliotheque.en_attente.compte", { nombre: aValider }) : t("bibliotheque.en_attente")}
+          </button>
+        ) : null}
+        {donnees?.peut_valider === true ? (
+          <button
+            type="button"
+            onClick={() => setDroits(!droits)}
+            aria-pressed={droits}
+            className="rounded border border-muet px-3 py-1.5 text-sm text-encre hover:bg-fond focus-visible:outline-2 focus-visible:outline-primaire"
+          >
+            {t("bibliotheque.droits.titre")}
+          </button>
+        ) : null}
         {donnees?.peut_ecrire === true ? (
           <button
             type="button"
@@ -330,6 +355,15 @@ export function Bibliotheque() {
       </div>
       {ajout && donnees !== undefined ? <Ajouter catalogue={donnees} surOuvrir={ecrire} surFermer={() => setAjout(false)} /> : null}
       {retires ? <ListeRetraits /> : null}
+      {droits ? <DroitsPublication /> : null}
+      {attente ? (
+        <ListeEnAttente
+          surOuvrir={(id) => {
+            setAttente(false);
+            ecrire(id);
+          }}
+        />
+      ) : null}
       <div className="flex flex-wrap items-end gap-2">
         <label htmlFor="bibliotheque-recherche" className="flex min-w-64 flex-1 flex-col gap-1 text-sm text-encre">
           <span>{t("bibliotheque.rechercher")}</span>

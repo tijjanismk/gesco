@@ -1310,3 +1310,257 @@ pub async fn abandonner_brouillon(
     .await?;
     Ok(faite.rows_affected() > 0)
 }
+
+// --- Validation et droit de publier ---------------------------------------------------------
+
+/// Soumet un brouillon à la direction ; faux s'il n'est plus brouillon.
+pub async fn soumettre_brouillon(
+    cnx: &mut Connexion,
+    version_id: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let maintenant = contexte.maintenant.millis_epoque();
+    let faite = sqlx::query(
+        "UPDATE version_contenu SET etat = 'soumise', soumise_le = ?1,
+            mis_a_jour_le = ?1, mis_a_jour_par = ?2, identifiant_poste = ?3
+         WHERE id = ?4 AND etablissement_id = ?5 AND etat = 'brouillon'",
+    )
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(version_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .execute(cnx)
+    .await?;
+    Ok(faite.rows_affected() > 0)
+}
+
+/// Ce que la publication d'une version a fait.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Publication {
+    /// Publiée ; la version publiée précédente, s'il y en avait une, est passée à « remplacée ».
+    Faite {
+        /// Identifiant de la version remplacée.
+        remplacee: Option<String>,
+    },
+    /// La version n'était plus brouillon ni soumise.
+    Impossible,
+}
+
+/// Publie une version brouillon ou soumise : la version publiée précédente passe d'abord à
+/// « remplacée » (une seule version publiée par contenu). L'appelant annule l'unité de travail
+/// si la publication est impossible.
+pub async fn publier_version(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    version_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Publication> {
+    let maintenant = contexte.maintenant.millis_epoque();
+    let etablissement = contexte.etablissement_id.vers_chaine();
+    let precedente: Option<(String,)> = sqlx::query_as(
+        "SELECT id FROM version_contenu
+         WHERE etablissement_id = ?1 AND contenu_id = ?2 AND etat = 'publiee'",
+    )
+    .bind(&etablissement)
+    .bind(contenu_id)
+    .fetch_optional(&mut *cnx)
+    .await?;
+    if let Some((id,)) = &precedente {
+        sqlx::query(
+            "UPDATE version_contenu SET etat = 'remplacee', mis_a_jour_le = ?1,
+                mis_a_jour_par = ?2, identifiant_poste = ?3
+             WHERE id = ?4 AND etat = 'publiee'",
+        )
+        .bind(maintenant)
+        .bind(contexte.auteur())
+        .bind(&contexte.poste.0)
+        .bind(id)
+        .execute(&mut *cnx)
+        .await?;
+    }
+    let faite = sqlx::query(
+        "UPDATE version_contenu SET etat = 'publiee', decidee_le = ?1, decidee_par = ?2,
+            mis_a_jour_le = ?1, mis_a_jour_par = ?2, identifiant_poste = ?3
+         WHERE id = ?4 AND etablissement_id = ?5 AND contenu_id = ?6
+           AND etat IN ('brouillon', 'soumise')",
+    )
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(version_id)
+    .bind(&etablissement)
+    .bind(contenu_id)
+    .execute(cnx)
+    .await?;
+    if faite.rows_affected() == 0 {
+        return Ok(Publication::Impossible);
+    }
+    Ok(Publication::Faite {
+        remplacee: precedente.map(|(id,)| id),
+    })
+}
+
+/// Renvoie une version soumise avec un commentaire ; faux si elle n'est plus soumise.
+pub async fn renvoyer_version(
+    cnx: &mut Connexion,
+    version_id: &str,
+    commentaire: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let maintenant = contexte.maintenant.millis_epoque();
+    let faite = sqlx::query(
+        "UPDATE version_contenu SET etat = 'renvoyee', commentaire = ?1, decidee_le = ?2,
+            decidee_par = ?3, mis_a_jour_le = ?2, mis_a_jour_par = ?3, identifiant_poste = ?4
+         WHERE id = ?5 AND etablissement_id = ?6 AND etat = 'soumise'",
+    )
+    .bind(commentaire)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(version_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .execute(cnx)
+    .await?;
+    Ok(faite.rows_affected() > 0)
+}
+
+/// Versions soumises de l'établissement, les plus anciennes d'abord.
+pub async fn versions_soumises(
+    cnx: &mut Connexion,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneVersion>> {
+    Ok(
+        sqlx::query_as::<_, LigneVersion>(sqlx::AssertSqlSafe(format!(
+            "SELECT {COLONNES_VERSION}
+         WHERE v.etablissement_id = ?1 AND v.etat = 'soumise' ORDER BY v.soumise_le, v.numero"
+        )))
+        .bind(contexte.etablissement_id.vers_chaine())
+        .fetch_all(cnx)
+        .await?,
+    )
+}
+
+/// Enlève l'entrée d'un contenu de l'index de recherche (il n'a plus de texte visible).
+pub async fn desindexer(cnx: &mut Connexion, contenu_id: &str) -> Resultat<()> {
+    sqlx::query("DELETE FROM recherche_bibliotheque WHERE contenu_id = ?1")
+        .bind(contenu_id)
+        .execute(cnx)
+        .await?;
+    Ok(())
+}
+
+/// Un droit de publier en cours, avec les noms.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct LigneDroitPublication {
+    /// Compte du maître.
+    pub utilisateur_id: String,
+    /// Nom du maître.
+    pub nom: String,
+    /// Donné le.
+    pub donne_le: i64,
+    /// Nom de qui l'a donné.
+    pub donne_par: String,
+}
+
+/// Droits de publier en cours, par nom.
+pub async fn droits_publication(
+    cnx: &mut Connexion,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneDroitPublication>> {
+    Ok(sqlx::query_as(
+        "SELECT d.utilisateur_id, COALESCE(u.nom_affiche, '') AS nom, d.donne_le,
+            COALESCE(p.nom_affiche, '') AS donne_par
+         FROM droit_publication d
+         LEFT JOIN utilisateur u ON u.id = d.utilisateur_id
+         LEFT JOIN utilisateur p ON p.id = d.donne_par
+         WHERE d.etablissement_id = ?1 AND d.retire_le IS NULL
+         ORDER BY u.nom_affiche",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Vrai si le compte a le droit de publier, donné nommément et pas retiré.
+pub async fn a_le_droit_de_publier(
+    cnx: &mut Connexion,
+    utilisateur_id: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let (n,): (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM droit_publication
+         WHERE etablissement_id = ?1 AND utilisateur_id = ?2 AND retire_le IS NULL",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(utilisateur_id)
+    .fetch_one(cnx)
+    .await?;
+    Ok(n > 0)
+}
+
+/// Comptes actifs liés à un enseignant actif : (compte, nom), par nom.
+pub async fn maitres_avec_compte(
+    cnx: &mut Connexion,
+    contexte: &Contexte,
+) -> Resultat<Vec<(String, String)>> {
+    Ok(sqlx::query_as(
+        "SELECT u.id, u.nom_affiche FROM enseignant e
+         JOIN utilisateur u ON u.id = e.utilisateur_id
+         WHERE e.etablissement_id = ?1 AND e.actif = 1 AND u.actif = 1
+           AND u.supprime_le IS NULL
+         ORDER BY u.nom_affiche",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Donne le droit de publier à un compte ; rend l'identifiant de la ligne. L'index unique
+/// refuse un second droit en cours.
+pub async fn donner_droit_publication(
+    cnx: &mut Connexion,
+    utilisateur_id: &str,
+    contexte: &Contexte,
+) -> Resultat<String> {
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    sqlx::query(
+        "INSERT INTO droit_publication (id, etablissement_id, utilisateur_id, donne_le,
+            donne_par, cree_le, cree_par, mis_a_jour_le, mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?4, ?5, ?4, ?5, ?6)",
+    )
+    .bind(&id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(utilisateur_id)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(id)
+}
+
+/// Retire le droit de publier d'un compte ; rend l'identifiant de la ligne, ou `None` s'il n'en
+/// avait pas.
+pub async fn retirer_droit_publication(
+    cnx: &mut Connexion,
+    utilisateur_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Option<String>> {
+    let maintenant = contexte.maintenant.millis_epoque();
+    let ligne: Option<(String,)> = sqlx::query_as(
+        "UPDATE droit_publication SET retire_le = ?1, retire_par = ?2, mis_a_jour_le = ?1,
+            mis_a_jour_par = ?2, identifiant_poste = ?3
+         WHERE etablissement_id = ?4 AND utilisateur_id = ?5 AND retire_le IS NULL
+         RETURNING id",
+    )
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(utilisateur_id)
+    .fetch_optional(cnx)
+    .await?;
+    Ok(ligne.map(|(id,)| id))
+}

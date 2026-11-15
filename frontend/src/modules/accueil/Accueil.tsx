@@ -28,7 +28,7 @@ function Rangee({ children }: { children: ReactNode }) {
 
 /** Tableau de bord : effectifs, finances et scolarité de l'année en cours, et personnel du jour,
  *  selon les droits du compte. */
-export function Accueil({ nom }: { nom: string }) {
+export function Accueil({ nom, aValider, surBibliotheque }: { nom: string; aValider: number; surBibliotheque: () => void }) {
   const tableau = useQuery({ queryKey: ["tableau-de-bord"], queryFn: () => appeler("tableau_de_bord_lire", null) });
   const d = tableau.data;
   return (
@@ -46,6 +46,18 @@ export function Accueil({ nom }: { nom: string }) {
       {d?.personnel === undefined || d.personnel === null ? null : <BlocDuPersonnel p={d.personnel} />}
       {d?.paie === undefined || d.paie === null ? null : <BlocDeLaPaie p={d.paie} />}
       {d?.tresorerie === undefined || d.tresorerie === null ? null : <BlocDeLaTresorerie b={d.tresorerie} />}
+      {aValider > 0 ? (
+        <Section titre={t("tableau.lecons_a_valider")}>
+          <Rangee>
+            <Chiffre libelle={t("bibliotheque.en_attente")} valeur={String(aValider)} />
+          </Rangee>
+          <div>
+            <Bouton variante="secondaire" onClick={surBibliotheque}>
+              {t("tableau.lecons_a_valider.ouvrir")}
+            </Bouton>
+          </div>
+        </Section>
+      ) : null}
     </div>
   );
 }

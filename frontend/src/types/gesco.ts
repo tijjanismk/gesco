@@ -2010,6 +2010,13 @@ export type Contrat = {
 	bibliotheque_historique: Signature<DemandeContenuBibliotheque, HistoriqueContenu>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_comparer: Signature<DemandeComparaison, ComparaisonTextes>,
+	bibliotheque_soumettre: Signature<DemandeBrouillonVersion, EcritureOuverte>,
+	bibliotheque_publier: Signature<DemandeBrouillonVersion, EcritureOuverte>,
+	bibliotheque_renvoyer: Signature<DemandeRenvoiVersion, EcritureOuverte>,
+	bibliotheque_en_attente: Signature<null, VersionEnAttente[]>,
+	bibliotheque_droits_publication_lire: Signature<null, DroitsPublication>,
+	bibliotheque_droit_publication_donner: Signature<DemandeDroitPublication, DroitsPublication>,
+	bibliotheque_droit_publication_retirer: Signature<DemandeDroitPublication, DroitsPublication>,
 	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
@@ -10904,7 +10911,7 @@ export type CatalogueBibliotheque = {
 };
 
 /**  Quelle version d'un contenu lire. */
-export type VueContenu = "visible" | "livree" | "brouillon";
+export type VueContenu = "visible" | "livree" | "brouillon" | "soumise";
 
 /**  Lire un contenu. */
 export type DemandeLectureContenu = {
@@ -10945,6 +10952,8 @@ export type LectureContenu = {
 	lie: ContenuLie | null,
 	/**  L'utilisateur peut écrire ce contenu. */
 	peut_modifier: boolean,
+	/**  Faits à vérifier joints par la bibliothèque, pour le seul personnel qui écrit. */
+	faits: Lecon | null,
 };
 
 /**  Chercher dans la bibliothèque. */
@@ -11063,6 +11072,26 @@ export type BrouillonOuvert = {
 	mien: boolean,
 	retour_livre: boolean,
 	enregistre_le: number,
+	/**  Le renvoi d'où vient ce brouillon, s'il vient d'une version renvoyée. */
+	renvoi: RenvoiVersion | null,
+};
+
+/**  Le renvoi d'une version par la direction. */
+export type RenvoiVersion = {
+	commentaire: string,
+	par: string,
+	le: number,
+};
+
+/**  La version soumise d'un contenu, en attente de validation. */
+export type VersionSoumise = {
+	version_id: string,
+	numero: number,
+	texte: string,
+	auteur: string,
+	mien: boolean,
+	retour_livre: boolean,
+	soumise_le: number,
 };
 
 /**  Un contenu ouvert pour l'écriture. */
@@ -11073,7 +11102,11 @@ export type EcritureOuverte = {
 	origine: OrigineBibliotheque,
 	peut_ecrire: boolean,
 	peut_valider: boolean,
+	/**  L'utilisateur publie son brouillon sans le soumettre. */
+	peut_publier: boolean,
 	brouillon: BrouillonOuvert | null,
+	/**  La version soumise, en attente de validation. */
+	soumise: VersionSoumise | null,
 	texte_depart: string,
 	a_une_version_livree: boolean,
 	version_ecole: boolean,
@@ -11101,6 +11134,50 @@ export type DemandeBrouillon = {
 export type DemandeBrouillonVersion = {
 	contenu_id: string,
 	version_id: string,
+};
+
+/**  Renvoyer une version soumise. */
+export type DemandeRenvoiVersion = {
+	contenu_id: string,
+	version_id: string,
+	commentaire: string,
+};
+
+/**  Une version en attente de validation. */
+export type VersionEnAttente = {
+	contenu_id: string,
+	version_id: string,
+	titre: string,
+	niveau: string,
+	chapitre: string,
+	auteur: string,
+	soumise_le: number,
+	retour_livre: boolean,
+};
+
+/**  Un maître qui peut publier lui-même. */
+export type DroitPublicationAffiche = {
+	utilisateur_id: string,
+	nom: string,
+	donne_le: number,
+	donne_par: string,
+};
+
+/**  Un maître à qui donner le droit de publier. */
+export type MaitreChoisissable = {
+	utilisateur_id: string,
+	nom: string,
+};
+
+/**  « Peuvent publier eux-mêmes ». */
+export type DroitsPublication = {
+	droits: DroitPublicationAffiche[],
+	maitres: MaitreChoisissable[],
+};
+
+/**  Donner ou retirer le droit de publier. */
+export type DemandeDroitPublication = {
+	utilisateur_id: string,
 };
 
 /**  Aperçu d'un texte dans l'éditeur. */

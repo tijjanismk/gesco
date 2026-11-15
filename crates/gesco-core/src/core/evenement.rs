@@ -325,8 +325,6 @@ pub enum TypeEvenement {
     VersionContenuModifiee,
     /// Le droit de publier est donné à un maître ou lui est retiré.
     DroitPublicationModifie,
-    /// Une leçon est marquée relue.
-    RelectureContenuNotee,
     /// Une image ou un document est joint à la bibliothèque.
     FichierBibliothequeAjoute,
     /// Une vidéo est ajoutée à la bibliothèque.
@@ -490,7 +488,6 @@ impl TypeEvenement {
         Self::ContenuBibliothequeEnregistre,
         Self::VersionContenuModifiee,
         Self::DroitPublicationModifie,
-        Self::RelectureContenuNotee,
         Self::FichierBibliothequeAjoute,
         Self::VideoBibliothequeAjoutee,
     ];
@@ -652,7 +649,6 @@ impl TypeEvenement {
             Self::ContenuBibliothequeEnregistre => "ContenuBibliothequeEnregistre",
             Self::VersionContenuModifiee => "VersionContenuModifiee",
             Self::DroitPublicationModifie => "DroitPublicationModifie",
-            Self::RelectureContenuNotee => "RelectureContenuNotee",
             Self::FichierBibliothequeAjoute => "FichierBibliothequeAjoute",
             Self::VideoBibliothequeAjoutee => "VideoBibliothequeAjoutee",
         }
@@ -816,7 +812,6 @@ impl TypeEvenement {
             | Self::ContenuBibliothequeEnregistre
             | Self::VersionContenuModifiee
             | Self::DroitPublicationModifie
-            | Self::RelectureContenuNotee
             | Self::FichierBibliothequeAjoute
             | Self::VideoBibliothequeAjoutee => 1,
         }

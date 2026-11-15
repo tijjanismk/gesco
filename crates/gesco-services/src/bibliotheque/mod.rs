@@ -32,6 +32,7 @@ use crate::session::Session;
 
 mod ecrire;
 mod lire;
+mod publier;
 mod retirer;
 
 pub use ecrire::{
@@ -41,6 +42,11 @@ pub use ecrire::{
     DemandeContenuBibliotheque, DepartBrouillon, EcritureOuverte, HistoriqueContenu,
     MouvementContenu, NiveauChoisissable, PlaceEcriture, SerieChoisissable, SorteMouvement,
     TexteCompare, VersionAffichee,
+};
+
+pub use publier::{
+    DemandeDroitPublication, DemandeRenvoiVersion, DroitPublicationAffiche, DroitsPublication,
+    MaitreChoisissable, VersionEnAttente,
 };
 
 pub use lire::{
@@ -609,6 +615,23 @@ pub(crate) async fn reindexer(
         if let Some(texte) = texte_visible(c, publiees.get(&id), paquets) {
             depot::indexer(cnx, &id, &c.titre, &texte).await?;
         }
+    }
+    Ok(())
+}
+
+/// Réécrit l'entrée d'un seul contenu dans l'index de recherche, d'après sa version visible ;
+/// l'enlève s'il n'en a plus.
+pub(crate) async fn reindexer_contenu(
+    cnx: &mut Connexion,
+    contexte: &gesco_db::contexte::Contexte,
+    contenu: &gesco_core::bibliotheque::ContenuBibliotheque,
+    paquets: &BTreeMap<String, Arc<PaquetLu>>,
+) -> Resultat<()> {
+    let id = contenu.id.vers_chaine();
+    let publiee = depot::version_dans_etat(cnx, &id, "publiee", contexte).await?;
+    match texte_visible(contenu, publiee.as_ref(), paquets) {
+        Some(texte) => depot::indexer(cnx, &id, &contenu.titre, &texte).await?,
+        None => depot::desindexer(cnx, &id).await?,
     }
     Ok(())
 }

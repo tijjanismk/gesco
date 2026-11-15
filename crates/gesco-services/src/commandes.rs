@@ -350,6 +350,8 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "bibliotheque_contenu_ajouter",
     "bibliotheque_historique",
     "bibliotheque_comparer",
+    "bibliotheque_soumettre",
+    "bibliotheque_publier",
 ];
 
 /// Commandes publiques, énumérées une seule fois : le test d'exhaustivité refuse toute commande
@@ -568,6 +570,24 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("bibliotheque_contenu_ajouter", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_historique", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_comparer", Permission::LIBRARY_EDIT),
+    // Publier : l'auteur soumet ; qui valide publie ou renvoie ; un maître qui a reçu le droit
+    // de publier publie son brouillon (vérifié par le service).
+    Commande::permise("bibliotheque_soumettre", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_publier", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_renvoyer", Permission::LIBRARY_PUBLISH),
+    Commande::permise("bibliotheque_en_attente", Permission::LIBRARY_PUBLISH),
+    Commande::permise(
+        "bibliotheque_droits_publication_lire",
+        Permission::LIBRARY_PUBLISH,
+    ),
+    Commande::permise(
+        "bibliotheque_droit_publication_donner",
+        Permission::LIBRARY_PUBLISH,
+    ),
+    Commande::permise(
+        "bibliotheque_droit_publication_retirer",
+        Permission::LIBRARY_PUBLISH,
+    ),
     // Résultats aux examens (SPEC_PHASE_9 §8.5) : tenus avec la fiche de l'établissement.
     Commande::permise("examens_lire", Permission::SCHOOL_PROFILE_MANAGE),
     Commande::permise("resultat_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),

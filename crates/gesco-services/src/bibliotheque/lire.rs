@@ -55,6 +55,8 @@ pub enum VueContenu {
     Livree,
     /// Le brouillon en cours.
     Brouillon,
+    /// La version soumise, en attente de validation.
+    Soumise,
 }
 
 /// Lire un contenu.
@@ -119,6 +121,8 @@ pub struct LectureContenu {
     pub lie: Option<ContenuLie>,
     /// L'utilisateur peut écrire ce contenu (ses matières pour un maître).
     pub peut_modifier: bool,
+    /// Faits à vérifier joints par la bibliothèque, pour le seul personnel qui écrit.
+    pub faits: Option<Lecon>,
 }
 
 /// Chercher dans la bibliothèque.
@@ -305,7 +309,7 @@ impl ServiceBibliotheque<'_> {
         session: &Session,
         demande: &DemandeLectureContenu,
     ) -> Resultat<LectureContenu> {
-        let (peut_ecrire, _) = self.permissions(session).await?;
+        let (peut_ecrire, peut_valider) = self.permissions(session).await?;
         let portee = if peut_ecrire {
             Some(self.portee(session).await?)
         } else {
@@ -329,6 +333,20 @@ impl ServiceBibliotheque<'_> {
         } else {
             None
         };
+        let peut_modifier = match &portee {
+            Some(p) => Self::peut_modifier(&mut cnx, p, &contenu, &contexte).await?,
+            None => false,
+        };
+        // Une version soumise se montre à qui valide et à qui écrit ce contenu ; pas à un maître
+        // hors de ses matières.
+        let soumise = if peut_valider || peut_modifier {
+            depot::version_dans_etat(&mut cnx, &demande.contenu_id, "soumise", &contexte)
+                .await?
+                .filter(|(_, retour)| !retour)
+                .map(|(texte, _)| texte)
+        } else {
+            None
+        };
         let livre = self.texte_livre(&contenu);
         let version_ecole = matches!(publiee, Some((_, false)));
         let visible: Option<String> = match &publiee {
@@ -344,6 +362,9 @@ impl ServiceBibliotheque<'_> {
         if brouillon.is_some() {
             vues.push(VueContenu::Brouillon);
         }
+        if soumise.is_some() {
+            vues.push(VueContenu::Soumise);
+        }
         let vue = demande
             .vue
             .filter(|v| vues.contains(v))
@@ -352,6 +373,7 @@ impl ServiceBibliotheque<'_> {
             VueContenu::Visible => visible,
             VueContenu::Livree => livre,
             VueContenu::Brouillon => brouillon,
+            VueContenu::Soumise => soumise,
         }
         .unwrap_or_default();
         let mut lecon = analyser(&texte);
@@ -376,11 +398,13 @@ impl ServiceBibliotheque<'_> {
             None => None,
         };
 
-        let peut_modifier = match &portee {
-            Some(p) => Self::peut_modifier(&mut cnx, p, &contenu, &contexte).await?,
-            None => false,
+        let faits = if peut_ecrire {
+            self.faits_livres(&contenu).map(|f| analyser(&f))
+        } else {
+            None
         };
         Ok(LectureContenu {
+            faits,
             peut_modifier,
             id: contenu.id.vers_chaine(),
             titre: contenu.titre,
@@ -447,6 +471,15 @@ impl ServiceBibliotheque<'_> {
     }
 
     /// Texte livré d'un contenu, si son paquet est chargé sur ce poste.
+    /// Faits à vérifier que le paquet joint au contenu.
+    fn faits_livres(&self, contenu: &ContenuBibliotheque) -> Option<String> {
+        let paquet = self.paquets.paquet(contenu.paquet_code.as_deref()?)?;
+        paquet
+            .texte(contenu.faits.as_deref()?)
+            .filter(|f| !f.trim().is_empty())
+            .map(str::to_owned)
+    }
+
     pub(super) fn texte_livre(&self, contenu: &ContenuBibliotheque) -> Option<String> {
         let paquet = self.paquets.paquet(contenu.paquet_code.as_deref()?)?;
         paquet.texte(contenu.fichier.as_deref()?).map(str::to_owned)

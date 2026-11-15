@@ -1231,6 +1231,13 @@ contrat! {
     bibliotheque_contenu_ajouter(crate::bibliotheque::DemandeAjoutContenu) -> crate::bibliotheque::EcritureOuverte;
     bibliotheque_historique(crate::bibliotheque::DemandeContenuBibliotheque) -> crate::bibliotheque::HistoriqueContenu;
     bibliotheque_comparer(crate::bibliotheque::DemandeComparaison) -> crate::bibliotheque::ComparaisonTextes;
+    bibliotheque_soumettre(crate::bibliotheque::DemandeBrouillonVersion) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_publier(crate::bibliotheque::DemandeBrouillonVersion) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_renvoyer(crate::bibliotheque::DemandeRenvoiVersion) -> crate::bibliotheque::EcritureOuverte;
+    bibliotheque_en_attente(()) -> Vec<crate::bibliotheque::VersionEnAttente>;
+    bibliotheque_droits_publication_lire(()) -> crate::bibliotheque::DroitsPublication;
+    bibliotheque_droit_publication_donner(crate::bibliotheque::DemandeDroitPublication) -> crate::bibliotheque::DroitsPublication;
+    bibliotheque_droit_publication_retirer(crate::bibliotheque::DemandeDroitPublication) -> crate::bibliotheque::DroitsPublication;
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -5091,6 +5098,76 @@ impl Application {
     ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .abandonner_brouillon(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_soumettre(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeBrouillonVersion,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .soumettre(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_publier(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeBrouillonVersion,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .publier(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_renvoyer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeRenvoiVersion,
+    ) -> Resultat<crate::bibliotheque::EcritureOuverte> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .renvoyer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_en_attente(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<Vec<crate::bibliotheque::VersionEnAttente>> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .en_attente(appel.session()?)
+            .await
+    }
+
+    async fn bibliotheque_droits_publication_lire(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<crate::bibliotheque::DroitsPublication> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .droits_publication(appel.session()?)
+            .await
+    }
+
+    async fn bibliotheque_droit_publication_donner(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeDroitPublication,
+    ) -> Resultat<crate::bibliotheque::DroitsPublication> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .donner_droit_publication(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_droit_publication_retirer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeDroitPublication,
+    ) -> Resultat<crate::bibliotheque::DroitsPublication> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .retirer_droit_publication(appel.session()?, &entree)
             .await
     }
 

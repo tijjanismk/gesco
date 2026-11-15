@@ -10,6 +10,7 @@ import type { ModuleEcole, Parametre, ValeurParametre } from "../../types/gesco"
 import { commandeAutorisee } from "../../app/navigation";
 import { DocumentEssai } from "../accueil/Accueil";
 import { CorrespondanceBibliotheque } from "../bibliotheque/CorrespondanceBibliotheque";
+import { DroitsPublication } from "../bibliotheque/DroitsPublication";
 import { ReglagesBibliotheque } from "../bibliotheque/ReglagesBibliotheque";
 import { CompetencesJardin } from "./CompetencesJardin";
 import { FicheEtablissement } from "./FicheEtablissement";
@@ -85,6 +86,7 @@ export function Parametres() {
   const peutImporterProgramme = commandeAutorisee("programme_import_appliquer", session.data?.permissions ?? []);
   const peutTenirJardin = commandeAutorisee("competence_enregistrer", session.data?.permissions ?? []);
   const peutTenirBibliotheque = commandeAutorisee("bibliotheque_etat", session.data?.permissions ?? []);
+  const peutDonnerPublication = commandeAutorisee("bibliotheque_droits_publication_lire", session.data?.permissions ?? []);
   // Les messages aux familles éteints, seule leur case d'activation reste.
   const sms = (parametres.data ?? []).find((p) => p.cle === "sms.actif")?.valeur;
   const smsActif = sms?.type === "booleen" && sms.valeur;
@@ -114,6 +116,7 @@ export function Parametres() {
       {peutTenirJardin ? <CompetencesJardin /> : null}
       {peutTenirBibliotheque && bibliothequeActive ? <ReglagesBibliotheque /> : null}
       {peutTenirBibliotheque && bibliothequeActive ? <CorrespondanceBibliotheque /> : null}
+      {peutDonnerPublication && bibliothequeActive ? <DroitsPublication /> : null}
       <LargeursColonnes />
       {peutImporterProgramme ? <ImportReferentiel /> : null}
       {peutImporterProgramme ? <ImportProgramme /> : null}

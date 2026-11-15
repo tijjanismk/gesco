@@ -27,6 +27,7 @@ import { Absences } from "../modules/pedagogie/Absences";
 import { Bulletins } from "../modules/pedagogie/Bulletins";
 import { EmploiDuTemps } from "../modules/pedagogie/EmploiDuTemps";
 import { Bibliotheque } from "../modules/bibliotheque/Bibliotheque";
+import { useLeconsAValider } from "../modules/bibliotheque/EnAttente";
 import { Conduite } from "../modules/scolarite/Conduite";
 import { Discipline } from "../modules/scolarite/Discipline";
 import { FinAnnee } from "../modules/scolarite/FinAnnee";
@@ -97,6 +98,12 @@ export function Espace({ etablissement }: { etablissement: string }) {
   // Chaque clic du menu rouvre l'écran à son début, même s'il est déjà affiché (une grille de
   // notes ouverte revient à la liste des évaluations).
   const [visite, setVisite] = useState(0);
+  // Pour qui valide, le nombre de leçons soumises : sur l'entrée Bibliothèque et au tableau de bord.
+  const valide =
+    courante.data !== undefined &&
+    courante.data.modules.includes("bibliotheque") &&
+    commandeAutorisee("bibliotheque_en_attente", courante.data.permissions, courante.data.maitre);
+  const aValider = useLeconsAValider(valide);
   const [recherche, setRecherche] = useState(false);
   const relireAvertissements = avertissements.refetch;
   useEffect(() => {
@@ -165,6 +172,12 @@ export function Espace({ etablissement }: { etablissement: string }) {
                   className={`rounded px-2 py-1 text-left text-sm ${section === s.id ? "bg-sur-marine/15 font-medium" : "hover:bg-sur-marine/10"}`}
                 >
                   {t(s.libelle)}
+                  {s.id === "bibliotheque" && aValider > 0 ? (
+                    <span className="ml-2 rounded-full bg-sur-marine px-1.5 text-xs font-semibold text-marine">
+                      <span aria-hidden="true">{aValider}</span>
+                      <span className="sr-only">{t("bibliotheque.a_valider", { nombre: aValider })}</span>
+                    </span>
+                  ) : null}
                 </button>
               ))
               : null}
@@ -222,6 +235,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
               key={`${section}-${visite}`}
               section={section}
               nom={ouverte.nom_affiche}
+              aValider={aValider}
               eleveOuvert={eleveOuvert}
               surOuvrirEleve={(id) => {
                 setEleveOuvert(id);
@@ -250,19 +264,21 @@ export function Espace({ etablissement }: { etablissement: string }) {
 function Contenu({
   section,
   nom,
+  aValider,
   eleveOuvert,
   surOuvrirEleve,
   surAller,
 }: {
   section: IdSection;
   nom: string;
+  aValider: number;
   eleveOuvert: string | null;
   surOuvrirEleve: (id: string) => void;
   surAller: (section: IdSection) => void;
 }) {
   switch (section) {
     case "accueil":
-      return <Accueil nom={nom} />;
+      return <Accueil nom={nom} aValider={aValider} surBibliotheque={() => surAller("bibliotheque")} />;
     case "statistiques":
       return <Statistiques surOuvrirEleve={surOuvrirEleve} />;
     case "inventaire":

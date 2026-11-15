@@ -4,8 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { appeler, ErreurApi } from "../../api";
 import { Bouton } from "../../composants/Bouton";
 import { MessageEnregistre, MessageErreur } from "../../composants/Messages";
-import { t } from "../../i18n";
-import type { BrouillonOuvert, DepartBrouillon, EcritureOuverte } from "../../types/gesco";
+import { date, t } from "../../i18n";
+import type { BrouillonOuvert, DepartBrouillon, EcritureOuverte, VersionSoumise } from "../../types/gesco";
+import { Comparaison } from "./Historique";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
 
 /** Délai entre la dernière frappe et l'aperçu. */
@@ -91,10 +92,12 @@ function Apercu({ contenuId, texte }: { contenuId: string; texte: string }) {
 function EditeurBrouillon({
   contenuId,
   brouillon,
+  peutPublier,
   surAutreVersion,
 }: {
   contenuId: string;
   brouillon: BrouillonOuvert;
+  peutPublier: boolean;
   surAutreVersion: () => void;
 }) {
   const client = useQueryClient();
@@ -169,6 +172,12 @@ function EditeurBrouillon({
         <Bouton onClick={() => enregistrer.mutate(texte)} disabled={!modifie || enregistrer.isPending}>
           {t("bibliotheque.editeur.enregistrer")}
         </Bouton>
+        <BoutonCircuit
+          contenuId={contenuId}
+          versionId={brouillon.version_id}
+          peutPublier={peutPublier}
+          avant={modifie ? () => enregistrer.mutateAsync(texte) : undefined}
+        />
         <Bouton variante="secondaire" onClick={() => setAbandon(true)}>
           {t("bibliotheque.editeur.abandonner")}
         </Bouton>
@@ -199,6 +208,139 @@ function EditeurBrouillon({
           <MessageErreur erreur={abandonner.error} />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * « Soumettre à la direction », ou « Publier » pour qui en a le droit. Un texte pas encore
+ * enregistré l'est d'abord.
+ */
+function BoutonCircuit({
+  contenuId,
+  versionId,
+  peutPublier,
+  avant,
+}: {
+  contenuId: string;
+  versionId: string;
+  peutPublier: boolean;
+  avant?: () => Promise<unknown>;
+}) {
+  const client = useQueryClient();
+  const geste = useMutation({
+    mutationFn: async () => {
+      if (avant !== undefined) await avant();
+      return appeler(peutPublier ? "bibliotheque_publier" : "bibliotheque_soumettre", { contenu_id: contenuId, version_id: versionId });
+    },
+    onSuccess: (e) => {
+      client.setQueryData(["bibliotheque", "ecriture", contenuId], e);
+      void client.invalidateQueries({ queryKey: ["bibliotheque"] });
+    },
+  });
+  return (
+    <>
+      <Bouton onClick={() => geste.mutate()} disabled={geste.isPending}>
+        {peutPublier ? t("bibliotheque.editeur.publier") : t("bibliotheque.editeur.soumettre")}
+      </Bouton>
+      <MessageErreur erreur={geste.error} />
+    </>
+  );
+}
+
+/** Le commentaire de la direction sur la version renvoyée d'où part le brouillon. */
+function LigneRenvoi({ brouillon }: { brouillon: BrouillonOuvert }) {
+  const r = brouillon.renvoi;
+  if (r === null) return null;
+  return (
+    <div role="note" className="flex flex-col gap-1 rounded border border-ocre bg-fond p-3 text-sm text-encre">
+      <p className="font-semibold">{t("bibliotheque.editeur.renvoyee_par", { nom: r.par, date: date(r.le) })}</p>
+      {r.commentaire === "" ? null : <p className="whitespace-pre-wrap">{r.commentaire}</p>}
+    </div>
+  );
+}
+
+/** La version soumise : en attente pour l'auteur ; à publier ou à renvoyer pour qui valide. */
+function Soumise({ contenuId, soumise, peutValider }: { contenuId: string; soumise: VersionSoumise; peutValider: boolean }) {
+  const client = useQueryClient();
+  const [comparer, setComparer] = useState(false);
+  const [renvoi, setRenvoi] = useState<string | null>(null);
+  const historique = useQuery({
+    queryKey: ["bibliotheque", "historique", contenuId],
+    queryFn: () => appeler("bibliotheque_historique", { contenu_id: contenuId }),
+    enabled: comparer,
+  });
+  const apres = (e: EcritureOuverte) => {
+    client.setQueryData(["bibliotheque", "ecriture", contenuId], e);
+    void client.invalidateQueries({ queryKey: ["bibliotheque"] });
+  };
+  const publier = useMutation({
+    mutationFn: () => appeler("bibliotheque_publier", { contenu_id: contenuId, version_id: soumise.version_id }),
+    onSuccess: apres,
+  });
+  const renvoyer = useMutation({
+    mutationFn: (commentaire: string) =>
+      appeler("bibliotheque_renvoyer", { contenu_id: contenuId, version_id: soumise.version_id, commentaire }),
+    onSuccess: apres,
+  });
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-sm text-encre">
+        {soumise.mien
+          ? t("bibliotheque.editeur.soumise_mienne", { date: date(soumise.soumise_le) })
+          : t("bibliotheque.editeur.soumise_par", { auteur: soumise.auteur, date: date(soumise.soumise_le) })}
+      </p>
+      {soumise.retour_livre ? <p className="text-sm text-encre">{t("bibliotheque.editeur.retour_livree_aide")}</p> : null}
+      {!peutValider ? null : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <Bouton onClick={() => publier.mutate()} disabled={publier.isPending}>
+              {t("bibliotheque.editeur.publier")}
+            </Bouton>
+            <Bouton variante="secondaire" onClick={() => setRenvoi("")}>
+              {t("bibliotheque.editeur.renvoyer")}
+            </Bouton>
+            <Bouton variante="secondaire" onClick={() => setComparer((c) => !c)} aria-expanded={comparer}>
+              {t("bibliotheque.editeur.comparer_visible")}
+            </Bouton>
+          </div>
+          <MessageErreur erreur={publier.error} />
+          {renvoi === null ? null : (
+            <div className="flex flex-col gap-2 rounded border border-muet p-3">
+              <label htmlFor="bibliotheque-renvoi" className="flex flex-col gap-1 text-sm text-encre">
+                <span>{t("bibliotheque.editeur.commentaire_renvoi")}</span>
+                <textarea
+                  id="bibliotheque-renvoi"
+                  value={renvoi}
+                  onChange={(ev) => setRenvoi(ev.target.value)}
+                  rows={4}
+                  className="rounded border border-muet bg-surface px-2 py-1.5 text-primaire focus:outline-2 focus:outline-primaire"
+                />
+              </label>
+              <div className="flex gap-2">
+                <Bouton onClick={() => renvoyer.mutate(renvoi)} disabled={renvoyer.isPending}>
+                  {t("bibliotheque.editeur.renvoyer_confirmer")}
+                </Bouton>
+                <Bouton variante="secondaire" onClick={() => setRenvoi(null)}>
+                  {t("bibliotheque.retirer.annuler")}
+                </Bouton>
+              </div>
+              <MessageErreur erreur={renvoyer.error} />
+            </div>
+          )}
+          {!comparer ? null : historique.data === undefined ? (
+            <MessageErreur erreur={historique.error} />
+          ) : (
+            <Comparaison historique={historique.data} initial={[{ type: "visible" }, { type: "version", version_id: soumise.version_id }]} />
+          )}
+          {soumise.retour_livre || comparer ? null : (
+            <div className="flex flex-col gap-1 text-sm text-encre">
+              <span>{t("bibliotheque.editeur.texte_soumis")}</span>
+              <Apercu contenuId={contenuId} texte={soumise.texte} />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -314,8 +456,9 @@ export function Editeur({ contenuId, surComparer }: { contenuId: string; surComp
   return (
     <div className="flex flex-col gap-3">
       <MessageErreur erreur={ecriture.error} />
+      {e.soumise !== null ? <Soumise contenuId={contenuId} soumise={e.soumise} peutValider={e.peut_valider} /> : null}
       {b === null ? (
-        <Commencer ecriture={e} surComparer={surComparer} />
+        e.soumise !== null ? null : <Commencer ecriture={e} surComparer={surComparer} />
       ) : !b.mien ? (
         <div className="flex flex-col items-start gap-2 text-sm text-encre">
           <p>{t("bibliotheque.editeur.brouillon_de", { auteur: b.auteur })}</p>
@@ -325,11 +468,18 @@ export function Editeur({ contenuId, surComparer }: { contenuId: string; surComp
           <MessageErreur erreur={reprendre.error} />
         </div>
       ) : b.retour_livre ? (
-        <RetourLivree contenuId={contenuId} brouillon={b} />
+        <RetourLivree contenuId={contenuId} brouillon={b} peutPublier={e.peut_publier} />
       ) : (
         <>
           {e.livree_plus_recente ? <LignePlusRecente surComparer={surComparer} /> : null}
-          <EditeurBrouillon key={b.version_id} contenuId={contenuId} brouillon={b} surAutreVersion={() => setAutre(true)} />
+          <LigneRenvoi brouillon={b} />
+          <EditeurBrouillon
+            key={b.version_id}
+            contenuId={contenuId}
+            brouillon={b}
+            peutPublier={e.peut_publier}
+            surAutreVersion={() => setAutre(true)}
+          />
         </>
       )}
       {autre ? <AutreVersion contenuId={contenuId} surFermer={() => setAutre(false)} /> : null}
@@ -338,7 +488,7 @@ export function Editeur({ contenuId, surComparer }: { contenuId: string; surComp
 }
 
 /** Un brouillon « revenir à la version livrée » : rien à écrire, il peut s'abandonner. */
-function RetourLivree({ contenuId, brouillon }: { contenuId: string; brouillon: BrouillonOuvert }) {
+function RetourLivree({ contenuId, brouillon, peutPublier }: { contenuId: string; brouillon: BrouillonOuvert; peutPublier: boolean }) {
   const client = useQueryClient();
   const abandonner = useMutation({
     mutationFn: () => appeler("bibliotheque_brouillon_abandonner", { contenu_id: contenuId, version_id: brouillon.version_id }),
@@ -349,10 +499,14 @@ function RetourLivree({ contenuId, brouillon }: { contenuId: string; brouillon: 
   });
   return (
     <div className="flex flex-col items-start gap-2 text-sm text-encre">
+      <LigneRenvoi brouillon={brouillon} />
       <p>{t("bibliotheque.editeur.retour_livree_aide")}</p>
-      <Bouton variante="secondaire" onClick={() => abandonner.mutate()} disabled={abandonner.isPending}>
-        {t("bibliotheque.editeur.abandonner")}
-      </Bouton>
+      <div className="flex flex-wrap items-center gap-2">
+        <BoutonCircuit contenuId={contenuId} versionId={brouillon.version_id} peutPublier={peutPublier} />
+        <Bouton variante="secondaire" onClick={() => abandonner.mutate()} disabled={abandonner.isPending}>
+          {t("bibliotheque.editeur.abandonner")}
+        </Bouton>
+      </div>
       <MessageErreur erreur={abandonner.error} />
     </div>
   );

@@ -57,6 +57,8 @@ function libelleVue(vue: VueContenu): string {
       return t("bibliotheque.vue.livree");
     case "brouillon":
       return t("bibliotheque.vue.brouillon");
+    case "soumise":
+      return t("bibliotheque.vue.soumise");
   }
 }
 
@@ -168,6 +170,7 @@ export function Lecture({
   const [vue, setVue] = useState<VueContenu | null>(null);
   const [taille, setTaille] = useState(tailleRetenue);
   const [classe, setClasse] = useState(false);
+  const [faits, setFaits] = useState(false);
   const lecture = useQuery({
     queryKey: ["bibliotheque", "lire", contenuId, vue],
     queryFn: () => appeler("bibliotheque_lire", { contenu_id: contenuId, vue }),
@@ -214,6 +217,11 @@ export function Lecture({
           <Bouton variante="secondaire" onClick={() => setClasse(true)}>
             {t("bibliotheque.mode_classe")}
           </Bouton>
+          {contenu.faits === null ? null : (
+            <Bouton variante="secondaire" aria-pressed={faits} onClick={() => setFaits((f) => !f)}>
+              {t("bibliotheque.faits")}
+            </Bouton>
+          )}
           {peutGerer && place !== null ? <RetirerAutour place={place} /> : null}
           {contenu.nature === "sujet" && contenu.lie === null && contenu.peut_modifier ? (
             <AjouterCorrige contenu={contenu} surEcrire={surEcrire} />
@@ -251,16 +259,24 @@ export function Lecture({
       ) : null}
       <MessageErreur erreur={lecture.error} />
       {mode !== "lire" && contenu.peut_modifier ? null : (
-        <>
-          {contenu.presentation === "" ? null : <p className="text-encre">{contenu.presentation}</p>}
-          <div style={{ fontSize: `${taille}%` }}>
-            {contenu.lecon.blocs.length === 0 ? (
-              <p className="text-muet">{t("bibliotheque.contenu_vide")}</p>
-            ) : (
-              <RenduLecon lecon={contenu.lecon} images={images} />
-            )}
+        <div className={faits && contenu.faits !== null ? "grid gap-4 lg:grid-cols-[2fr_1fr]" : ""}>
+          <div className="flex flex-col gap-3">
+            {contenu.presentation === "" ? null : <p className="text-encre">{contenu.presentation}</p>}
+            <div style={{ fontSize: `${taille}%` }}>
+              {contenu.lecon.blocs.length === 0 ? (
+                <p className="text-muet">{t("bibliotheque.contenu_vide")}</p>
+              ) : (
+                <RenduLecon lecon={contenu.lecon} images={images} />
+              )}
+            </div>
           </div>
-        </>
+          {faits && contenu.faits !== null ? (
+            <aside aria-label={t("bibliotheque.faits")} className="flex flex-col gap-2 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">
+              <h3 className="font-semibold text-marine">{t("bibliotheque.faits")}</h3>
+              <RenduLecon lecon={contenu.faits} images={images} />
+            </aside>
+          ) : null}
+        </div>
       )}
       {classe ? <ModeClasse contenu={contenu} surFermer={() => setClasse(false)} /> : null}
     </article>

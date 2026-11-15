@@ -8,6 +8,9 @@
 //! accents et majuscules. Écrire (étape 7) : brouillon unique et compteur de révision, aperçu,
 //! abandon, comparaison, repartir d'une version, ligne « version plus récente », chapitres,
 //! leçons, sujets et corrigés de l'école, portée d'un maître et reprise d'un brouillon.
+//! Publier (étape 8) : soumettre, renvoyer avec un commentaire, publier (la précédente passe à
+//! « remplacée »), revenir à la version livrée, file d'attente de qui valide, droit de publier
+//! donné nommément à un maître puis retiré, faits à vérifier pour le seul personnel qui écrit.
 
 #![allow(
     clippy::unwrap_used,
@@ -30,6 +33,11 @@ use crate::commun::{GRAINE_BIBLIOTHEQUE, MOT_DE_PASSE, poste_vierge};
 type LeconEssai<'a> = (&'a str, &'a str, &'a str);
 
 fn paquet(version: &str, lecons: &[LeconEssai<'_>]) -> Vec<u8> {
+    paquet_avec_faits(version, lecons, None)
+}
+
+/// Un paquet dont la première leçon a une liste de faits à vérifier.
+fn paquet_avec_faits(version: &str, lecons: &[LeconEssai<'_>], faits: Option<&str>) -> Vec<u8> {
     let chapitre = ChapitrePaquet {
         cle: "9/MATH/Algèbre/Racines".to_owned(),
         niveau: "9".to_owned(),
@@ -45,6 +53,14 @@ fn paquet(version: &str, lecons: &[LeconEssai<'_>]) -> Vec<u8> {
     for (i, (cle, titre, texte)) in lecons.iter().enumerate() {
         let fichier = format!("{cle}.md");
         fichiers.push((fichier.clone(), texte.as_bytes().to_vec()));
+        let liste = match faits {
+            Some(f) if i == 0 => {
+                let nom = format!("{cle}.faits.md");
+                fichiers.push((nom.clone(), f.as_bytes().to_vec()));
+                Some(nom)
+            }
+            _ => None,
+        };
         contenus.push(ContenuPaquet {
             cle: (*cle).to_owned(),
             nature: NatureContenu::Lecon,
@@ -55,7 +71,7 @@ fn paquet(version: &str, lecons: &[LeconEssai<'_>]) -> Vec<u8> {
             examen: None,
             session: None,
             fichier,
-            faits: None,
+            faits: liste,
             images: vec![],
         });
     }
@@ -1481,4 +1497,539 @@ async fn un_maitre_n_ecrit_que_dans_ses_matieres_et_reprend_le_brouillon_d_un_co
         "{}",
         refus.cle
     );
+}
+
+// --- Publier (étape 8) ----------------------------------------------------------------------
+
+/// Une année ouverte, une classe de 9e, et des maîtres de mathématiques avec leur compte :
+/// (identifiant, nom, prénoms). Rend le jeton de chaque maître, dans l'ordre.
+async fn maitres_de_math(
+    p: &crate::commun::Poste_,
+    admin: &gesco_services::session::Jeton,
+    maitres: &[(&str, &str, &str)],
+) -> Vec<gesco_services::session::Jeton> {
+    let annee = p
+        .ok(
+            "annee_creer",
+            Some(admin),
+            json!({ "libelle": "2026-2027", "debut": crate::commun::RENTREE_2026,
+                "fin": crate::commun::FIN_2027 }),
+        )
+        .await;
+    p.ok("annee_activer", Some(admin), json!({ "id": annee["id"] }))
+        .await;
+    let ped = p
+        .ok("pedagogie_lire", Some(admin), json!({ "id": annee["id"] }))
+        .await;
+    let trouver = |liste: &Value, code: &str| -> Value {
+        liste
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|x| x["code"] == code)
+            .unwrap()["id"]
+            .clone()
+    };
+    let math = trouver(&ped["matieres"], "MATH");
+    let neuvieme = trouver(&ped["niveaux"], "9");
+    let classe = p
+        .ok(
+            "classe_creer",
+            Some(admin),
+            json!({ "annee_id": annee["id"], "niveau_id": neuvieme, "serie_id": null,
+                "libelle": "9e A" }),
+        )
+        .await;
+    for (identifiant, nom, prenoms) in maitres {
+        let compte = p
+            .ok(
+                "utilisateur_creer",
+                Some(admin),
+                json!({ "identifiant": identifiant, "nom_affiche": format!("{prenoms} {nom}"),
+                    "mot_de_passe_initial": "enseignant-2026", "roles": ["enseignant"] }),
+            )
+            .await;
+        let enseignant = p
+            .ok(
+                "enseignant_enregistrer",
+                Some(admin),
+                json!({ "id": null, "nom": nom, "prenoms": prenoms, "telephones": [],
+                    "statut": "titulaire", "utilisateur_id": compte["id"], "actif": true }),
+            )
+            .await;
+        p.ok(
+            "affectation_ajouter",
+            Some(admin),
+            json!({ "classe_id": classe["id"], "matiere_id": math,
+                "enseignant_id": enseignant["enseignant"]["id"] }),
+        )
+        .await;
+    }
+    p.admettre_les_maitres(admin).await;
+    let mut jetons = Vec::new();
+    for (identifiant, _, _) in maitres {
+        jetons.push(p.connecter(identifiant, "enseignant-2026").await);
+    }
+    jetons
+}
+
+fn version(contenu: &Value, version_id: &Value) -> Value {
+    json!({ "contenu_id": contenu, "version_id": version_id })
+}
+
+/// Titres trouvés par la recherche.
+async fn trouves(
+    p: &crate::commun::Poste_,
+    jeton: &gesco_services::session::Jeton,
+    texte: &str,
+) -> Vec<String> {
+    p.ok(
+        "bibliotheque_rechercher",
+        Some(jeton),
+        json!({ "texte": texte }),
+    )
+    .await
+    .as_array()
+    .unwrap()
+    .iter()
+    .map(|r| r["titre"].as_str().unwrap().to_owned())
+    .collect()
+}
+
+#[tokio::test]
+async fn un_maitre_soumet_la_direction_renvoie_puis_publie() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let jetons = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let sekou = &jetons[0];
+    let id = premier_contenu(&p, sekou).await;
+
+    // Le maître écrit, ne publie pas lui-même : il soumet.
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(sekou),
+            commencer(&id, json!({ "type": "visible" })),
+        )
+        .await;
+    assert_eq!(ouverte["peut_publier"], false);
+    let premier = "# La racine carrée\n\nUne pirogue de $16$ places.\n";
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_enregistrer",
+            Some(sekou),
+            enregistrer(&id, &ouverte, premier),
+        )
+        .await;
+    let v1 = ouverte["brouillon"]["version_id"].clone();
+    let refus = p
+        .refus("bibliotheque_publier", Some(sekou), version(&id, &v1))
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.sans_droit_de_publier");
+    let soumise = p
+        .ok("bibliotheque_soumettre", Some(sekou), version(&id, &v1))
+        .await;
+    assert_eq!(soumise["brouillon"], Value::Null);
+    assert_eq!(soumise["soumise"]["mien"], true);
+    assert_eq!(soumise["soumise"]["texte"], premier);
+    // Une version soumise ne change plus, et aucun brouillon ne commence en attendant.
+    let refus = p
+        .refus(
+            "bibliotheque_brouillon_enregistrer",
+            Some(sekou),
+            enregistrer(&id, &ouverte, "autre texte"),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.modifiee_ailleurs");
+    let refus = p
+        .refus(
+            "bibliotheque_brouillon_commencer",
+            Some(sekou),
+            commencer(&id, json!({ "type": "visible" })),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.en_attente_de_validation");
+    // Rien n'est visible avant la publication.
+    assert!(trouves(&p, &admin, "pirogue").await.is_empty());
+
+    // La direction voit la leçon en attente, l'ouvre dans la vue « soumise ».
+    let attente = p
+        .ok("bibliotheque_en_attente", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(attente.as_array().unwrap().len(), 1);
+    assert_eq!(attente[0]["titre"], "La racine carrée");
+    assert_eq!(attente[0]["auteur"], "Sékou Traoré");
+    assert_eq!(attente[0]["chapitre"], "Racines carrées");
+    let refus = p
+        .refus("bibliotheque_en_attente", Some(sekou), Value::Null)
+        .await;
+    assert!(
+        ["erreur.permission_refusee", "maitre.commande_refusee"].contains(&refus.cle.as_str()),
+        "{}",
+        refus.cle
+    );
+    let lecture = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": "soumise" }),
+        )
+        .await;
+    assert_eq!(lecture["vue"], "soumise");
+    assert_eq!(lecture["version_ecole"], false);
+
+    // Renvoyée avec un commentaire : le texte revient au maître, dans un brouillon nouveau.
+    let renvoyee = p
+        .ok(
+            "bibliotheque_renvoyer",
+            Some(&admin),
+            json!({ "contenu_id": id, "version_id": v1, "commentaire": " Ajoutez un exemple. " }),
+        )
+        .await;
+    assert_eq!(renvoyee["soumise"], Value::Null);
+    assert_eq!(renvoyee["brouillon"]["mien"], false);
+    let chez_sekou = p
+        .ok(
+            "bibliotheque_ecriture_lire",
+            Some(sekou),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(chez_sekou["brouillon"]["mien"], true);
+    assert_eq!(chez_sekou["brouillon"]["texte"], premier);
+    assert_eq!(
+        chez_sekou["brouillon"]["renvoi"]["commentaire"],
+        "Ajoutez un exemple."
+    );
+    assert_eq!(chez_sekou["brouillon"]["renvoi"]["par"], "Awa Traoré");
+    let second = "# La racine carrée\n\nUne pirogue de $16$ places : $\\sqrt{16} = 4$.\n";
+    let chez_sekou = p
+        .ok(
+            "bibliotheque_brouillon_enregistrer",
+            Some(sekou),
+            enregistrer(&id, &chez_sekou, second),
+        )
+        .await;
+    let v2 = chez_sekou["brouillon"]["version_id"].clone();
+    p.ok("bibliotheque_soumettre", Some(sekou), version(&id, &v2))
+        .await;
+
+    // Publiée : visible aussitôt, trouvée par la recherche ; la file se vide.
+    let publiee = p
+        .ok("bibliotheque_publier", Some(&admin), version(&id, &v2))
+        .await;
+    assert_eq!(publiee["soumise"], Value::Null);
+    assert_eq!(publiee["version_ecole"], true);
+    let visible = p
+        .ok(
+            "bibliotheque_lire",
+            Some(sekou),
+            json!({ "contenu_id": id, "vue": null }),
+        )
+        .await;
+    assert_eq!(visible["version_ecole"], true);
+    assert_eq!(
+        trouves(&p, &admin, "pirogue").await,
+        vec!["La racine carrée".to_owned()]
+    );
+    let attente = p
+        .ok("bibliotheque_en_attente", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(attente, json!([]));
+    let historique = p
+        .ok(
+            "bibliotheque_historique",
+            Some(&admin),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(historique["versions"][0]["etat"], "publiee");
+    assert_eq!(historique["versions"][0]["decidee_par"], "Awa Traoré");
+    assert_eq!(historique["versions"][1]["etat"], "renvoyee");
+    assert_eq!(
+        historique["versions"][1]["commentaire"],
+        "Ajoutez un exemple."
+    );
+
+    // La direction publie sans soumettre ; la version d'avant passe à « remplacée ».
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(&admin),
+            commencer(&id, json!({ "type": "visible" })),
+        )
+        .await;
+    assert_eq!(ouverte["peut_publier"], true);
+    let troisieme = "# La racine carrée\n\nUne case de $9$ mètres carrés.\n";
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_enregistrer",
+            Some(&admin),
+            enregistrer(&id, &ouverte, troisieme),
+        )
+        .await;
+    p.ok(
+        "bibliotheque_publier",
+        Some(&admin),
+        version(&id, &ouverte["brouillon"]["version_id"]),
+    )
+    .await;
+    let historique = p
+        .ok(
+            "bibliotheque_historique",
+            Some(&admin),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(historique["versions"][0]["etat"], "publiee");
+    assert_eq!(historique["versions"][1]["etat"], "remplacee");
+    assert!(trouves(&p, &admin, "pirogue").await.is_empty());
+    assert_eq!(trouves(&p, &admin, "case").await.len(), 1);
+
+    // Revenir à la version livrée : publiée, elle rend visible le texte livré.
+    let retour = p
+        .ok(
+            "bibliotheque_retour_livree",
+            Some(&admin),
+            json!({ "contenu_id": id }),
+        )
+        .await;
+    assert_eq!(retour["brouillon"]["retour_livre"], true);
+    p.ok(
+        "bibliotheque_publier",
+        Some(&admin),
+        version(&id, &retour["brouillon"]["version_id"]),
+    )
+    .await;
+    let visible = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": null }),
+        )
+        .await;
+    assert_eq!(visible["version_ecole"], false);
+    assert!(trouves(&p, &admin, "case").await.is_empty());
+    assert_eq!(trouves(&p, &admin, "racine").await.len(), 1);
+}
+
+#[tokio::test]
+async fn le_droit_de_publier_donne_a_un_maitre_vaut_aussitot_et_se_retire() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE, PUISSANCES]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let jetons = maitres_de_math(
+        &p,
+        &admin,
+        &[("sekou", "Traoré", "Sékou"), ("fanta", "Keïta", "Fanta")],
+    )
+    .await;
+    let (sekou, fanta) = (&jetons[0], &jetons[1]);
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(sekou), Value::Null)
+        .await;
+    let ids: Vec<Value> = contenus_de(&catalogue)
+        .iter()
+        .map(|c| c["id"].clone())
+        .collect();
+
+    // Les deux maîtres sont proposés ; aucun n'a le droit.
+    let droits = p
+        .ok(
+            "bibliotheque_droits_publication_lire",
+            Some(&admin),
+            Value::Null,
+        )
+        .await;
+    assert_eq!(droits["droits"], json!([]));
+    let sekou_id = droits["maitres"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["nom"] == "Sékou Traoré")
+        .unwrap()["utilisateur_id"]
+        .clone();
+    assert_eq!(droits["maitres"].as_array().unwrap().len(), 2);
+    let refus = p
+        .refus(
+            "bibliotheque_droit_publication_donner",
+            Some(sekou),
+            json!({ "utilisateur_id": sekou_id }),
+        )
+        .await;
+    assert!(
+        ["erreur.permission_refusee", "maitre.commande_refusee"].contains(&refus.cle.as_str()),
+        "{}",
+        refus.cle
+    );
+
+    // Donné à Sékou (une seconde fois ne double rien) : il publie son brouillon lui-même.
+    p.ok(
+        "bibliotheque_droit_publication_donner",
+        Some(&admin),
+        json!({ "utilisateur_id": sekou_id }),
+    )
+    .await;
+    let droits = p
+        .ok(
+            "bibliotheque_droit_publication_donner",
+            Some(&admin),
+            json!({ "utilisateur_id": sekou_id }),
+        )
+        .await;
+    assert_eq!(droits["droits"].as_array().unwrap().len(), 1);
+    assert_eq!(droits["droits"][0]["nom"], "Sékou Traoré");
+    assert_eq!(droits["droits"][0]["donne_par"], "Awa Traoré");
+    assert_eq!(droits["maitres"].as_array().unwrap().len(), 1);
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(sekou),
+            commencer(&ids[0], json!({ "type": "visible" })),
+        )
+        .await;
+    assert_eq!(ouverte["peut_publier"], true);
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_enregistrer",
+            Some(sekou),
+            enregistrer(&ids[0], &ouverte, "# La racine carrée\n\nUn baobab.\n"),
+        )
+        .await;
+    let publiee = p
+        .ok(
+            "bibliotheque_publier",
+            Some(sekou),
+            version(&ids[0], &ouverte["brouillon"]["version_id"]),
+        )
+        .await;
+    assert_eq!(publiee["version_ecole"], true);
+    assert_eq!(trouves(&p, &admin, "baobab").await.len(), 1);
+
+    // Fanta, sans le droit, soumet ; Sékou ne valide pas sa version.
+    let chez_fanta = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(fanta),
+            commencer(&ids[1], json!({ "type": "visible" })),
+        )
+        .await;
+    assert_eq!(chez_fanta["peut_publier"], false);
+    let v_fanta = chez_fanta["brouillon"]["version_id"].clone();
+    let refus = p
+        .refus(
+            "bibliotheque_publier",
+            Some(fanta),
+            version(&ids[1], &v_fanta),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.sans_droit_de_publier");
+    p.ok(
+        "bibliotheque_soumettre",
+        Some(fanta),
+        version(&ids[1], &v_fanta),
+    )
+    .await;
+    let refus = p
+        .refus(
+            "bibliotheque_publier",
+            Some(sekou),
+            version(&ids[1], &v_fanta),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.sans_droit_de_publier");
+    // Un autre maître de la matière voit la version soumise de sa collègue.
+    let chez_sekou = p
+        .ok(
+            "bibliotheque_ecriture_lire",
+            Some(sekou),
+            json!({ "contenu_id": ids[1] }),
+        )
+        .await;
+    assert_eq!(chez_sekou["soumise"]["auteur"], "Fanta Keïta");
+    assert_eq!(chez_sekou["soumise"]["mien"], false);
+
+    // Retiré : le droit ne vaut plus, aussitôt.
+    let droits = p
+        .ok(
+            "bibliotheque_droit_publication_retirer",
+            Some(&admin),
+            json!({ "utilisateur_id": sekou_id }),
+        )
+        .await;
+    assert_eq!(droits["droits"], json!([]));
+    assert_eq!(droits["maitres"].as_array().unwrap().len(), 2);
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(sekou),
+            commencer(&ids[0], json!({ "type": "visible" })),
+        )
+        .await;
+    assert_eq!(ouverte["peut_publier"], false);
+    let refus = p
+        .refus(
+            "bibliotheque_publier",
+            Some(sekou),
+            version(&ids[0], &ouverte["brouillon"]["version_id"]),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.sans_droit_de_publier");
+}
+
+#[tokio::test]
+async fn les_faits_a_verifier_ne_se_montrent_qu_au_personnel_qui_ecrit() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet_avec_faits(
+            "2026.11.1",
+            &[RACINE],
+            Some("1. La racine carrée de $16$ est $4$ (calcul mental).\n"),
+        ),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let id = premier_contenu(&p, &admin).await;
+    let lecture = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": null }),
+        )
+        .await;
+    assert_eq!(lecture["faits"]["blocs"][0]["type"], "liste");
+    p.ok(
+        "utilisateur_creer",
+        Some(&admin),
+        json!({ "identifiant": "awa", "nom_affiche": "Awa Diarra",
+            "mot_de_passe_initial": "secretaire-2026", "roles": ["secretaire"] }),
+    )
+    .await;
+    let secretaire = p.connecter("awa", "secretaire-2026").await;
+    let lecture = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&secretaire),
+            json!({ "contenu_id": id, "vue": null }),
+        )
+        .await;
+    assert_eq!(lecture["faits"], Value::Null);
+    // Rien de la liste ne passe dans la recherche.
+    assert!(trouves(&p, &admin, "mental").await.is_empty());
 }
