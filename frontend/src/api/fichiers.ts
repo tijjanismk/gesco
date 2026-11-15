@@ -28,6 +28,11 @@ export async function enregistrerPieceSous(nom: string): Promise<string | null> 
   return save({ defaultPath: nom });
 }
 
+/** Dialogue d'ouverture d'un paquet de la bibliothèque de cours `.gbib`. */
+export async function choisirPaquetBibliotheque(libelleFiltre: string): Promise<string | null> {
+  return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["gbib"] }] });
+}
+
 /** Dialogue d'ouverture du système, filtré sur les archives du journal d'audit `.gja`. */
 export async function choisirArchiveJournal(libelleFiltre: string): Promise<string | null> {
   return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["gja"] }] });

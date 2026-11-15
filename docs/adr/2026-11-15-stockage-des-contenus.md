@@ -1,7 +1,7 @@
 # Le stockage des contenus : le livré dans son paquet signé, l'école dans la base, les vidéos dans un dossier à part
 
 **Date** : 15 novembre 2026
-**Statut** : proposé le 15 novembre 2026 — décision 5 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
+**Statut** : accepté le 15 novembre 2026 (étape 4 du lot : dossier `bibliotheque` du poste principal, paquet hors de la base et de la sauvegarde) ; proposé le 15 novembre 2026 — décision 5 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
 
 ## Contexte
 
@@ -102,3 +102,7 @@ que le porteur a décidé que les vidéos restent dehors.
 - Si la base d'une école dépasse 500 Mo à cause des images et documents de la bibliothèque.
 - Si le porteur décide que les vidéos doivent voyager avec la sauvegarde hors de l'école.
 - Si une école demande que les vidéos soient chiffrées sur le disque.
+
+## Mise en œuvre
+
+- 15 novembre 2026, étape 4 : le paquet vit dans `bibliotheque\` du dossier de données (`EspaceDonnees::bibliotheque`) ; la base n'en garde que l'index (`bibliotheque_paquet`, `chapitre_programme`, `contenu`, empreintes) ; le paquet est lu, vérifié et gardé en mémoire le temps que la base est ouverte. L'installeur embarque les `.gbib` de `crates/gesco-app/ressources/bibliotheque` (jamais versionnés) ; au démarrage, GESCO les copie dans le dossier de données s'ils n'y sont pas, puis les installe à l'ouverture de la base. Après une restauration, l'index se refait depuis le paquet présent sur le poste, même plus ancien, et l'écran dit qu'une version plus récente avait été installée. Le dossier `videos\` est nommé (`EspaceDonnees::videos`), créé à la première vidéo (étape 9). La place sur le disque n'est pas mesurée avant la copie (aucune dépendance pour cela) : la copie se fait sous un nom temporaire, un disque plein la fait échouer avec un message clair, et l'ancien paquet reste ; à valider par le porteur du projet.

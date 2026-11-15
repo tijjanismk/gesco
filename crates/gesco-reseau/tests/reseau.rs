@@ -66,6 +66,7 @@ async fn ecole() -> Ecole {
             politique_session: PolitiqueSession::default(),
             version_applicative: VERSION.to_owned(),
             cle_licence: licence::cle_publique(&[42; 32]),
+            cle_bibliotheque: gesco_core::bibliotheque::paquet::cle_publique(&[43; 32]),
         })
         .await
         .unwrap(),

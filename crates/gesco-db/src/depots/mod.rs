@@ -8,6 +8,7 @@ pub mod academique;
 pub mod ajustements;
 pub mod annee_scolaire;
 pub mod audit;
+pub mod bibliotheque;
 pub mod budget;
 pub mod bulletins;
 pub mod caisse;

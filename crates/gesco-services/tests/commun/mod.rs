@@ -28,6 +28,9 @@ pub const MOT_DE_PASSE: &str = "premier-mot-de-passe";
 /// Clé privée de l'éditeur pour les tests ; la vraie ne quitte pas le poste de l'éditeur.
 pub const GRAINE_EDITEUR: [u8; 32] = [42; 32];
 
+/// Graine de la clé des paquets de la bibliothèque des essais.
+pub const GRAINE_BIBLIOTHEQUE: [u8; 32] = [43; 32];
+
 /// Bornes d'années scolaires utilisées par les scénarios.
 pub const RENTREE_2026: i64 = 1_790_812_800_000;
 pub const FIN_2027: i64 = 1_816_992_000_000;
@@ -75,6 +78,7 @@ pub async fn demarrer(
         politique_session: PolitiqueSession::default(),
         version_applicative: "0.1.0".to_owned(),
         cle_licence: licence::cle_publique(&GRAINE_EDITEUR),
+        cle_bibliotheque: gesco_core::bibliotheque::paquet::cle_publique(&GRAINE_BIBLIOTHEQUE),
     })
     .await
     .unwrap();

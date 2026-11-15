@@ -309,6 +309,28 @@ pub enum TypeEvenement {
     PosteRevoque,
     /// La clé du réseau est renouvelée : chaque poste doit être relié de nouveau.
     CleReseauRenouvelee,
+    /// Un paquet de la bibliothèque est installé ou mis à jour (phase 12).
+    PaquetBibliothequeInstalle,
+    /// La matière de l'école sous laquelle se range une discipline de la bibliothèque change.
+    CorrespondanceDisciplineModifiee,
+    /// Un contenu, un chapitre, une matière, un niveau ou le paquet est retiré de la bibliothèque.
+    BibliothequeRetiree,
+    /// Un retrait de la bibliothèque est levé.
+    BibliothequeRemise,
+    /// Un chapitre de l'école est ajouté ou modifié dans la bibliothèque.
+    ChapitreBibliothequeEnregistre,
+    /// Une leçon, un sujet ou un document de l'école est ajouté ou modifié.
+    ContenuBibliothequeEnregistre,
+    /// Une version d'un contenu est enregistrée, soumise, publiée, renvoyée ou abandonnée.
+    VersionContenuModifiee,
+    /// Le droit de publier est donné à un maître ou lui est retiré.
+    DroitPublicationModifie,
+    /// Une leçon est marquée relue.
+    RelectureContenuNotee,
+    /// Une image ou un document est joint à la bibliothèque.
+    FichierBibliothequeAjoute,
+    /// Une vidéo est ajoutée à la bibliothèque.
+    VideoBibliothequeAjoutee,
 }
 
 impl TypeEvenement {
@@ -460,6 +482,17 @@ impl TypeEvenement {
         Self::PosteRelie,
         Self::PosteRevoque,
         Self::CleReseauRenouvelee,
+        Self::PaquetBibliothequeInstalle,
+        Self::CorrespondanceDisciplineModifiee,
+        Self::BibliothequeRetiree,
+        Self::BibliothequeRemise,
+        Self::ChapitreBibliothequeEnregistre,
+        Self::ContenuBibliothequeEnregistre,
+        Self::VersionContenuModifiee,
+        Self::DroitPublicationModifie,
+        Self::RelectureContenuNotee,
+        Self::FichierBibliothequeAjoute,
+        Self::VideoBibliothequeAjoutee,
     ];
 
     /// Nom persisté, identique au nom Rust.
@@ -611,6 +644,17 @@ impl TypeEvenement {
             Self::PosteRelie => "PosteRelie",
             Self::PosteRevoque => "PosteRevoque",
             Self::CleReseauRenouvelee => "CleReseauRenouvelee",
+            Self::PaquetBibliothequeInstalle => "PaquetBibliothequeInstalle",
+            Self::CorrespondanceDisciplineModifiee => "CorrespondanceDisciplineModifiee",
+            Self::BibliothequeRetiree => "BibliothequeRetiree",
+            Self::BibliothequeRemise => "BibliothequeRemise",
+            Self::ChapitreBibliothequeEnregistre => "ChapitreBibliothequeEnregistre",
+            Self::ContenuBibliothequeEnregistre => "ContenuBibliothequeEnregistre",
+            Self::VersionContenuModifiee => "VersionContenuModifiee",
+            Self::DroitPublicationModifie => "DroitPublicationModifie",
+            Self::RelectureContenuNotee => "RelectureContenuNotee",
+            Self::FichierBibliothequeAjoute => "FichierBibliothequeAjoute",
+            Self::VideoBibliothequeAjoutee => "VideoBibliothequeAjoutee",
         }
     }
 
@@ -763,7 +807,18 @@ impl TypeEvenement {
             | Self::ReseauDesactive
             | Self::PosteRelie
             | Self::PosteRevoque
-            | Self::CleReseauRenouvelee => 1,
+            | Self::CleReseauRenouvelee
+            | Self::PaquetBibliothequeInstalle
+            | Self::CorrespondanceDisciplineModifiee
+            | Self::BibliothequeRetiree
+            | Self::BibliothequeRemise
+            | Self::ChapitreBibliothequeEnregistre
+            | Self::ContenuBibliothequeEnregistre
+            | Self::VersionContenuModifiee
+            | Self::DroitPublicationModifie
+            | Self::RelectureContenuNotee
+            | Self::FichierBibliothequeAjoute
+            | Self::VideoBibliothequeAjoutee => 1,
         }
     }
 

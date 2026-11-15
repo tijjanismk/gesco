@@ -1218,6 +1218,8 @@ async fn lancer() -> R<()> {
         version_applicative: env!("CARGO_PKG_VERSION").to_owned(),
         cle_licence: gesco_services::licence::cle_publique_editeur()
             .map_err(|e| format!("{e:?}"))?,
+        cle_bibliotheque: gesco_services::bibliotheque::cle_publique_paquets()
+            .map_err(|e| format!("{e:?}"))?,
     })
     .await
     .map_err(|e| format!("ouverture de la base : {e:?}"))?;

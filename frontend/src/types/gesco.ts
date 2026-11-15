@@ -628,6 +628,18 @@ export type BilanImportPersonnel = {
 };
 
 /**  Bilan de l'import. */
+/**  Fait d'une installation de paquet : ce qui a changé dans l'index. */
+export type BilanInstallation = {
+	/**  Chapitres livrés nouveaux. */
+	chapitres_ajoutes: number,
+	/**  Contenus livrés nouveaux. */
+	contenus_ajoutes: number,
+	/**  Contenus livrés dont le texte a changé. */
+	contenus_changes: number,
+	/**  Contenus qui ne sont plus dans le paquet. */
+	contenus_plus_livres: number,
+};
+
 export type BilanImportProgramme = {
 	/**  Niveaux dont le programme a été récrit. */
 	niveaux: number,
@@ -1952,6 +1964,10 @@ export type Contrat = {
 	licence_etat: Signature<null, EtatLicenceAffiche>,
 	/**  Signature de la commande du même nom. */
 	licence_installer: Signature<DemandeLicence, EtatLicenceAffiche>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_etat: Signature<null, EtatBibliotheque>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_installer: Signature<DemandeInstallationBibliotheque, InstallationBibliotheque>,
 	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
@@ -3813,6 +3829,12 @@ export type DemandeLevee = {
 };
 
 /**  Fichier de licence importé. */
+/**  Installer une mise à jour de la bibliothèque depuis un fichier. */
+export type DemandeInstallationBibliotheque = {
+	/**  Chemin du fichier `.gbib` (sur un poste relié, son contenu voyage à sa place). */
+	chemin: string,
+};
+
 export type DemandeLicence = {
 	/**  Contenu du fichier, tel qu'émis par l'éditeur. */
 	contenu: string,
@@ -5828,6 +5850,43 @@ export type EtatLicence = {
 };
 
 /**  Licence telle que l'écran Licence l'affiche. */
+/**  État de la bibliothèque pour l'écran des réglages. */
+export type EtatBibliotheque = {
+	/**  Paquets installés. */
+	paquets: PaquetAffiche[],
+};
+
+/**  Résultat d'une installation. */
+export type InstallationBibliotheque = {
+	/**  Version installée. */
+	version: string,
+	/**  Ce qui a changé. */
+	bilan: BilanInstallation,
+	/**  État après l'installation. */
+	etat: EtatBibliotheque,
+};
+
+/**  Paquet installé tel que l'écran des réglages le montre. */
+export type PaquetAffiche = {
+	/**  Code du paquet. */
+	code: string,
+	/**  Version installée. */
+	version: string,
+	/**  Installé le, millisecondes depuis l'époque. */
+	installe_le: number,
+	/**  Nombre de leçons livrées. */
+	lecons: number,
+	/**  Nombre de sujets d'examen livrés. */
+	sujets: number,
+	/**  Vrai si le fichier du paquet est présent et lu sur ce poste. */
+	present: boolean,
+	/**
+	 *  Version plus récente déjà installée un jour dans cette école (une sauvegarde venue d'un
+	 *  ordinateur mieux à jour) : l'écran propose d'installer la mise à jour.
+	 */
+	version_plus_recente: string | null,
+};
+
 export type EtatLicenceAffiche = {
 	/**  Empreinte de ce poste, à communiquer à l'éditeur pour obtenir une licence. */
 	empreinte_poste: string,

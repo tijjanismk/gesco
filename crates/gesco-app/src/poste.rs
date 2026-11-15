@@ -91,6 +91,7 @@ pub(crate) struct Demarrage {
     pub(crate) coffre: Arc<dyn CoffreLiaison>,
     pub(crate) horloge: Arc<dyn Horloge>,
     pub(crate) cle_licence: [u8; 32],
+    pub(crate) cle_bibliotheque: [u8; 32],
     pub(crate) pare_feu: Arc<PareFeu>,
 }
 
@@ -214,6 +215,7 @@ impl Demarrage {
             politique_session: PolitiqueSession::default(),
             version_applicative: self.version.clone(),
             cle_licence: self.cle_licence,
+            cle_bibliotheque: self.cle_bibliotheque,
         };
         let application = Arc::new(Application::demarrer(options).await?);
         servir_le_reseau(&application, self.nom_ordinateur.clone(), self.en_essai);

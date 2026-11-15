@@ -49,6 +49,18 @@ impl EspaceDonnees {
         self.racine.join("sauvegardes")
     }
 
+    /// Paquets de la bibliothèque de cours : hors de la base et de la sauvegarde, jamais
+    /// modifiés ; l'installeur y dépose le paquet livré.
+    pub fn bibliotheque(&self) -> PathBuf {
+        self.racine.join("bibliotheque")
+    }
+
+    /// Vidéos de la bibliothèque, nommées par leur empreinte : hors de la base et de la
+    /// sauvegarde.
+    pub fn videos(&self) -> PathBuf {
+        self.racine.join("videos")
+    }
+
     /// Fichiers de travail : instantanés, restaurations en cours.
     pub fn temporaire(&self) -> PathBuf {
         self.racine.join("temp")
@@ -62,6 +74,7 @@ impl EspaceDonnees {
             self.modeles(),
             self.sauvegardes_locales(),
             self.temporaire(),
+            self.bibliotheque(),
         ] {
             std::fs::create_dir_all(dossier)?;
         }

@@ -117,6 +117,8 @@ export const ACCES = {
   inventaire_reprendre: { type: "permission", permission: "inventory:manage" },
   article_inventaire_enregistrer: { type: "permission", permission: "inventory:manage" },
   article_inventaire_activer: { type: "permission", permission: "inventory:manage" },
+  bibliotheque_etat: { type: "permission", permission: "library:manage" },
+  bibliotheque_installer: { type: "permission", permission: "library:manage" },
   examens_lire: { type: "permission", permission: "school_profile:manage" },
   resultat_examen_regler: { type: "permission", permission: "school_profile:manage" },
   total_examen_regler: { type: "permission", permission: "school_profile:manage" },

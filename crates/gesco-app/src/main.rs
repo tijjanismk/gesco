@@ -147,6 +147,39 @@ fn horloge() -> Arc<dyn Horloge> {
     }
 }
 
+/// Copie les paquets de la bibliothèque livrés avec GESCO (`*.gbib`) dans le dossier
+/// `bibliotheque` des données, sauf ceux qui y sont déjà. Ne bloque jamais le démarrage : un
+/// paquet qui ne se copie pas laisse la bibliothèque de l'école seule, et le journal le dit.
+fn deposer_paquets_livres(source: &std::path::Path, racine: &std::path::Path) {
+    let Ok(entrees) = std::fs::read_dir(source) else {
+        return;
+    };
+    let dossier = racine.join("bibliotheque");
+    for entree in entrees.flatten() {
+        let chemin = entree.path();
+        if chemin.extension().is_none_or(|x| x != "gbib") {
+            continue;
+        }
+        let Some(nom) = chemin.file_name() else {
+            continue;
+        };
+        let cible = dossier.join(nom);
+        if cible.exists() {
+            continue;
+        }
+        let issue = std::fs::create_dir_all(&dossier)
+            .and_then(|()| std::fs::copy(&chemin, dossier.join(nom).with_extension("partiel")))
+            .and_then(|_| std::fs::rename(dossier.join(nom).with_extension("partiel"), &cible));
+        if let Err(e) = issue {
+            gesco_services::journal_technique::noter(
+                racine,
+                HorlogeSysteme.maintenant(),
+                &format!("bibliotheque paquet livre non copie : {e}"),
+            );
+        }
+    }
+}
+
 fn main() -> tauri::Result<()> {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -183,6 +216,11 @@ fn main() -> tauri::Result<()> {
                 );
                 defaut(info);
             }));
+            // La bibliothèque de cours livrée dans l'installeur rejoint le dossier de données ;
+            // GESCO l'installe à l'ouverture de la base. Un paquet déjà là n'est pas recopié.
+            if let Ok(ressources) = app.path().resource_dir() {
+                deposer_paquets_livres(&ressources.join("bibliotheque"), &racine);
+            }
             let demarrage = Demarrage {
                 racine,
                 en_essai,
@@ -192,6 +230,7 @@ fn main() -> tauri::Result<()> {
                 coffre,
                 horloge: horloge(),
                 cle_licence: gesco_services::licence::cle_publique_editeur()?,
+                cle_bibliotheque: gesco_services::bibliotheque::cle_publique_paquets()?,
                 pare_feu,
             };
             let poste = Arc::new(tauri::async_runtime::block_on(EtatPoste::demarrer(

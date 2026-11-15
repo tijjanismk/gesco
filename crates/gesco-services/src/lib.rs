@@ -13,6 +13,7 @@ pub mod annees;
 pub mod archive;
 pub mod archive_journal;
 pub mod authentification;
+pub mod bibliotheque;
 pub mod bulletins;
 pub mod caisse;
 pub mod cantine;

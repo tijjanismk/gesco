@@ -1,0 +1,6 @@
+Paquets de la bibliothèque de cours livrés dans l'installeur.
+
+Avant de construire l'installeur, copier ici le paquet signé (fichier .gbib) fabriqué par
+outils/bibliotheque. Les paquets ne sont jamais versionnés dans le dépôt (voir .gitignore).
+Au démarrage, GESCO copie chaque .gbib d'ici dans le dossier bibliotheque de ses données,
+sauf s'il y est déjà, puis l'installe à l'ouverture de la base.

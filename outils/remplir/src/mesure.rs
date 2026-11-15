@@ -588,6 +588,7 @@ pub async fn lancer(racine: PathBuf, reglages: Reglages) -> R<()> {
             politique_session: PolitiqueSession::default(),
             version_applicative: version.to_owned(),
             cle_licence: licence::cle_publique(&GRAINE_MESURE),
+            cle_bibliotheque: gesco_core::bibliotheque::paquet::cle_publique(&[43; 32]),
         })
         .await
         .map_err(|e| format!("ouverture de la base : {e:?}"))?,

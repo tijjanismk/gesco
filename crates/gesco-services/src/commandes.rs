@@ -273,6 +273,7 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("depense_piece_enregistrer_sous", Fichier::Ecrit("chemin")),
     ("releve_apercu", Fichier::Lu("chemin")),
     ("releve_importer", Fichier::Lu("chemin")),
+    ("bibliotheque_installer", Fichier::Lu("chemin")),
 ];
 
 /// Ce qu'un compte de maître peut demander (SPEC_PHASE_11_A §7) : la liste est écrite ici, tout
@@ -506,6 +507,10 @@ pub const COMMANDES: &[Commande] = &[
         Permission::INVENTORY_MANAGE,
     ),
     Commande::permise("article_inventaire_activer", Permission::INVENTORY_MANAGE),
+    // Bibliothèque de cours (phase 12) : le paquet installé et sa mise à jour, par la
+    // direction.
+    Commande::permise("bibliotheque_etat", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_installer", Permission::LIBRARY_MANAGE),
     // Résultats aux examens (SPEC_PHASE_9 §8.5) : tenus avec la fiche de l'établissement.
     Commande::permise("examens_lire", Permission::SCHOOL_PROFILE_MANAGE),
     Commande::permise("resultat_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),

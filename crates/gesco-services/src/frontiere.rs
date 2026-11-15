@@ -287,6 +287,10 @@ pub struct OptionsApplication {
     /// Clé publique contre laquelle les licences sont vérifiées : celle de l'éditeur en
     /// production ([`crate::licence::cle_publique_editeur`]), une clé de test ailleurs.
     pub cle_licence: [u8; 32],
+    /// Clé publique contre laquelle les paquets de la bibliothèque sont vérifiés : celle de
+    /// l'éditeur en production ([`crate::bibliotheque::cle_publique_paquets`]), une clé de test
+    /// ailleurs.
+    pub cle_bibliotheque: [u8; 32],
 }
 
 /// Erreur rendue au frontend : une clé de traduction (R-39), jamais un message technique seul.
@@ -856,6 +860,9 @@ pub struct Application {
     politique_session: PolitiqueSession,
     version_applicative: String,
     cle_licence: [u8; 32],
+    cle_bibliotheque: [u8; 32],
+    /// Paquets de la bibliothèque lus et vérifiés, le temps que la base est ouverte.
+    paquets: crate::bibliotheque::PaquetsCharges,
     etat: RwLock<Option<Arc<Ouverte>>>,
     tentatives: Tentatives,
     echecs: EffetsEchoues,
@@ -1201,6 +1208,8 @@ contrat! {
     encaissements_lister(DemandeJournal) -> JournalEncaissements;
     licence_etat(()) -> EtatLicenceAffiche;
     licence_installer(DemandeLicence) -> EtatLicenceAffiche;
+    bibliotheque_etat(()) -> crate::bibliotheque::EtatBibliotheque;
+    bibliotheque_installer(crate::bibliotheque::DemandeInstallationBibliotheque) -> crate::bibliotheque::InstallationBibliotheque;
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -1381,6 +1390,8 @@ impl Application {
             politique_session: options.politique_session,
             version_applicative: options.version_applicative,
             cle_licence: options.cle_licence,
+            cle_bibliotheque: options.cle_bibliotheque,
+            paquets: crate::bibliotheque::PaquetsCharges::default(),
             etat: RwLock::new(None),
             tentatives: Tentatives::default(),
             echecs: EffetsEchoues::default(),
@@ -1671,6 +1682,12 @@ impl Application {
             Box::pin(crate::mise_a_niveau::completer_pedagogie(&noyau, fiche.id)).await?;
             Box::pin(crate::mise_a_niveau::completer_personnel(&noyau, fiche.id)).await?;
         }
+        // La bibliothèque de cours : charger le paquet installé, installer celui que
+        // l'installeur a déposé. Rien de ce qui la concerne n'empêche la base de s'ouvrir.
+        self.paquets.vider();
+        for fiche in Self::installes(&noyau).await? {
+            self.synchroniser_bibliotheque(&noyau, fiche.id).await;
+        }
         for fiche in Self::installes(&noyau).await? {
             // §5.2 : les cent dernières lignes de la chaîne sont vérifiées à chaque démarrage.
             let contexte = noyau.contexte(fiche.id, None);
@@ -1702,6 +1719,31 @@ impl Application {
             cle,
             tache_effets,
         })
+    }
+
+    /// Synchronise la bibliothèque d'un établissement ; une erreur va au journal technique.
+    async fn synchroniser_bibliotheque(&self, noyau: &Noyau, etablissement_id: Id<Etablissement>) {
+        let issue = Box::pin(self.bibliotheque(noyau).synchroniser(etablissement_id)).await;
+        if let Err(e) = issue {
+            crate::journal_technique::noter(
+                self.espace.racine(),
+                self.horloge.maintenant(),
+                &format!("bibliotheque synchronisation : {e}"),
+            );
+        }
+    }
+
+    fn bibliotheque<'s>(
+        &'s self,
+        noyau: &'s Noyau,
+    ) -> crate::bibliotheque::ServiceBibliotheque<'s> {
+        crate::bibliotheque::ServiceBibliotheque::nouveau(
+            noyau,
+            &self.espace,
+            &self.paquets,
+            self.cle_bibliotheque,
+            &self.version_applicative,
+        )
     }
 
     async fn fermer_base(&self) {
@@ -2035,6 +2077,10 @@ impl Application {
         if let Ok(mut attente) = self.certificat_initial.lock() {
             *attente = Some(initialise.etablissement_id);
         }
+        // La bibliothèque livrée s'installe avec l'école.
+        self.synchroniser_bibliotheque(&ouverte.noyau, initialise.etablissement_id)
+            .await;
+        etape("bibliotheque_installee");
         etape("termine");
         Ok(PremierDemarrageEffectue {
             etablissement: resume,
@@ -4852,6 +4898,29 @@ impl Application {
         ServiceLicence::nouveau(&appel.ouverte()?.noyau, self.cle_licence)
             .installer(appel.session()?, &entree.contenu)
             .await
+    }
+
+    async fn bibliotheque_etat(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<crate::bibliotheque::EtatBibliotheque> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .etat(appel.session()?.etablissement_id)
+            .await
+    }
+
+    async fn bibliotheque_installer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeInstallationBibliotheque,
+    ) -> Resultat<crate::bibliotheque::InstallationBibliotheque> {
+        let ouverte = appel.ouverte()?;
+        Box::pin(
+            self.bibliotheque(&ouverte.noyau)
+                .installer_fichier(appel.session()?, Path::new(&entree.chemin)),
+        )
+        .await
     }
 
     async fn personnel_referentiel_lire(

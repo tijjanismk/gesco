@@ -28,6 +28,7 @@
     "active": true,
     "targets": ["nsis"],
     "icon": ["icons/icon.png", "icons/icon.ico"],
+    "resources": { "ressources/bibliotheque/": "bibliotheque/" },
     "publisher": "GESCO",
     "shortDescription": "Gestion scolaire hors ligne",
     "longDescription": "ERP de gestion scolaire pour les établissements maliens, installé sur le poste de l'école et fonctionnant sans connexion.",
