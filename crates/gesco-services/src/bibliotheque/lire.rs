@@ -123,6 +123,10 @@ pub struct LectureContenu {
     pub peut_modifier: bool,
     /// Faits à vérifier joints par la bibliothèque, pour le seul personnel qui écrit.
     pub faits: Option<Lecon>,
+    /// Vidéos appelées par le texte, et leur présence sur le poste principal.
+    pub videos: Vec<super::VideoLecon>,
+    /// Fichiers d'un document de l'école, dans l'ordre.
+    pub fichiers: Vec<super::FichierDocument>,
 }
 
 /// Chercher dans la bibliothèque.
@@ -403,8 +407,27 @@ impl ServiceBibliotheque<'_> {
         } else {
             None
         };
+        let empreintes: Vec<String> = lecon.videos().into_iter().map(str::to_owned).collect();
+        let videos = self.videos_de(&mut cnx, &empreintes, &contexte).await?;
+        let fichiers = if contenu.nature == NatureContenu::Document {
+            depot::fichiers_du_contenu(&mut cnx, &demande.contenu_id, &contexte)
+                .await?
+                .into_iter()
+                .map(|f| super::FichierDocument {
+                    lien_id: f.lien_id,
+                    empreinte: f.empreinte_sha256,
+                    nom: f.nom_fichier,
+                    type_mime: f.type_mime,
+                    taille: f.taille,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         Ok(LectureContenu {
             faits,
+            videos,
+            fichiers,
             peut_modifier,
             id: contenu.id.vers_chaine(),
             titre: contenu.titre,

@@ -2017,6 +2017,18 @@ export type Contrat = {
 	bibliotheque_droits_publication_lire: Signature<null, DroitsPublication>,
 	bibliotheque_droit_publication_donner: Signature<DemandeDroitPublication, DroitsPublication>,
 	bibliotheque_droit_publication_retirer: Signature<DemandeDroitPublication, DroitsPublication>,
+	bibliotheque_image_ajouter: Signature<DemandeImageBibliotheque, ImageAjoutee>,
+	bibliotheque_document_fichier_ajouter: Signature<DemandeFichierDocument, FichierDocument[]>,
+	bibliotheque_document_fichier_retirer: Signature<DemandeRetraitFichierDocument, FichierDocument[]>,
+	bibliotheque_fichier_enregistrer_sous: Signature<DemandeFichierEnregistrer, null>,
+	bibliotheque_video_ajouter: Signature<DemandeVideoBibliotheque, VideoAjoutee>,
+	bibliotheque_video_envoi_morceau: Signature<DemandeEnvoiMorceauVideo, null>,
+	bibliotheque_video_morceau: Signature<DemandeMorceauVideo, MorceauVideo>,
+	bibliotheque_videos_copier: Signature<DemandeDossierVideos, BilanVideos>,
+	bibliotheque_videos_reprendre: Signature<DemandeDossierVideos, BilanVideos>,
+	bibliotheque_imprimer: Signature<DemandeImpressionContenu, null>,
+	bibliotheque_faits_imprimer: Signature<DemandeImpressionContenu, null>,
+	bibliotheque_chapitre_imprimer: Signature<DemandeImpressionChapitre, null>,
 	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
@@ -10954,6 +10966,119 @@ export type LectureContenu = {
 	peut_modifier: boolean,
 	/**  Faits à vérifier joints par la bibliothèque, pour le seul personnel qui écrit. */
 	faits: Lecon | null,
+	/**  Vidéos appelées par le texte, et leur présence sur le poste principal. */
+	videos: VideoLecon[],
+	/**  Fichiers d'un document de l'école, dans l'ordre. */
+	fichiers: FichierDocument[],
+};
+
+/**  Ajouter une image à la bibliothèque. */
+export type DemandeImageBibliotheque = {
+	chemin: string,
+};
+
+/**  Une image rangée : ce que l'éditeur écrit dans le texte. */
+export type ImageAjoutee = {
+	reference: string,
+	nom: string,
+};
+
+/**  Joindre un fichier à un document de l'école. */
+export type DemandeFichierDocument = {
+	contenu_id: string,
+	chemin: string,
+};
+
+/**  Retirer un fichier d'un document. */
+export type DemandeRetraitFichierDocument = {
+	contenu_id: string,
+	lien_id: string,
+};
+
+/**  Un fichier d'un document, tel que l'écran le montre. */
+export type FichierDocument = {
+	lien_id: string,
+	empreinte: string,
+	nom: string,
+	type_mime: string,
+	taille: number,
+};
+
+/**  Enregistrer un fichier de la bibliothèque sous un chemin choisi. */
+export type DemandeFichierEnregistrer = {
+	empreinte: string,
+	chemin: string,
+};
+
+/**  Ajouter une vidéo. */
+export type DemandeVideoBibliotheque = {
+	chemin: string,
+	confirme: boolean,
+};
+
+/**  Ce que devient une vidéo proposée. */
+export type VideoAjoutee = {
+	ajoutee: boolean,
+	lourde: boolean,
+	reference: string,
+	nom: string,
+	premiere: boolean,
+};
+
+/**  Lire un morceau de vidéo. */
+export type DemandeMorceauVideo = {
+	empreinte: string,
+	position: number,
+};
+
+/**  Un morceau de vidéo. */
+export type MorceauVideo = {
+	taille: number,
+	contenu: string,
+};
+
+/**  Un morceau de vidéo envoyé par un poste relié. */
+export type DemandeEnvoiMorceauVideo = {
+	envoi: string,
+	position: number,
+	contenu: string,
+};
+
+/**  Copier les vidéos vers un dossier, ou les en reprendre. */
+export type DemandeDossierVideos = {
+	dossier: string,
+};
+
+/**  Bilan d'une copie ou d'une reprise de vidéos. */
+export type BilanVideos = {
+	copiees: number,
+	deja_la: number,
+	absentes: number,
+};
+
+/**  Une vidéo appelée par une leçon, telle que la lecture la décrit. */
+export type VideoLecon = {
+	empreinte: string,
+	disponible: boolean,
+	taille: number,
+};
+
+/**  Forme d'une impression. */
+export type FormeImpression = "complete" | "sans_corriges";
+
+/**  Imprimer un contenu, ou ses faits à vérifier. */
+export type DemandeImpressionContenu = {
+	contenu_id: string,
+	brouillon: boolean,
+	forme: FormeImpression,
+	chemin: string,
+};
+
+/**  Imprimer un chapitre entier. */
+export type DemandeImpressionChapitre = {
+	chapitre_id: string,
+	forme: FormeImpression,
+	chemin: string,
 };
 
 /**  Chercher dans la bibliothèque. */

@@ -31,6 +31,8 @@ use crate::noyau::Noyau;
 use crate::session::Session;
 
 mod ecrire;
+mod fichiers;
+mod imprimer;
 mod lire;
 mod publier;
 mod retirer;
@@ -43,6 +45,16 @@ pub use ecrire::{
     MouvementContenu, NiveauChoisissable, PlaceEcriture, SerieChoisissable, SorteMouvement,
     TexteCompare, VersionAffichee,
 };
+
+pub use fichiers::{
+    BilanVideos, DemandeDossierVideos, DemandeEnvoiMorceauVideo, DemandeFichierDocument,
+    DemandeFichierEnregistrer, DemandeImageBibliotheque, DemandeMorceauVideo,
+    DemandeRetraitFichierDocument, DemandeVideoBibliotheque, FichierDocument, ImageAjoutee,
+    MorceauVideo, VideoAjoutee, VideoLecon,
+};
+pub(crate) use fichiers::{chemin_envoi, envoi_sur};
+pub(crate) use imprimer::ecrire_pdf;
+pub use imprimer::{DemandeImpressionChapitre, DemandeImpressionContenu, FormeImpression};
 
 pub use publier::{
     DemandeDroitPublication, DemandeRenvoiVersion, DroitPublicationAffiche, DroitsPublication,

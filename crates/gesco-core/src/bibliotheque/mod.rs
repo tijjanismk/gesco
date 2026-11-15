@@ -3,6 +3,7 @@
 
 pub mod catalogue;
 pub mod ecriture;
+pub mod fichiers;
 pub mod lecon;
 pub mod lecture;
 pub mod paquet;
@@ -15,6 +16,10 @@ pub use catalogue::{
 pub use ecriture::{
     EtatVersion, LigneNumerotee, PLAN_LECON, RangeeComparaison, TEXTE_MAX, comparer_lignes,
     images_a_ajouter,
+};
+pub use fichiers::{
+    MORCEAU_VIDEO, SorteFichier, SvgRefuse, TAILLE_DOCUMENT_MAX, TAILLE_IMAGE_MAX, est_empreinte,
+    nettoyer_svg, reconnaitre,
 };
 pub use lecon::{Alignement, Bloc, Enligne, FormuleLecon, Lecon, SourceImage, analyser};
 pub use lecture::{

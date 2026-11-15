@@ -27,6 +27,13 @@ pub const CHAMP_NOM: &str = "nom";
 pub const CHAMP_CONTENU: &str = "contenu";
 /// Champ de la sortie de la commande, dans la réponse d'une commande qui écrit un fichier.
 pub const CHAMP_SORTIE: &str = "sortie";
+/// Champ de l'envoi par morceaux d'un fichier trop lourd pour voyager d'un bloc (une vidéo) : ses
+/// morceaux sont déjà arrivés par `bibliotheque_video_envoi_morceau`.
+pub const CHAMP_ENVOI: &str = "envoi";
+/// Commande dont le fichier voyage par morceaux depuis un poste relié.
+pub const COMMANDE_PAR_MORCEAUX: &str = "bibliotheque_video_ajouter";
+/// Commande qui reçoit un morceau.
+pub const COMMANDE_MORCEAU: &str = "bibliotheque_video_envoi_morceau";
 
 /// Numéro du prochain dossier de travail de ce lancement.
 static SUIVANT: AtomicU64 = AtomicU64::new(0);
@@ -90,19 +97,25 @@ impl Depot {
         if valeur.is_null() {
             return Ok(None);
         }
-        let (nom, contenu) = if lu {
+        let (nom, contenu, envoi) = if lu {
             let nom = valeur.get(CHAMP_NOM).and_then(Value::as_str);
             let contenu = valeur
                 .get(CHAMP_CONTENU)
                 .and_then(Value::as_str)
                 .and_then(decoder);
-            match (nom, contenu) {
-                (Some(nom), Some(contenu)) => (nom_seul(nom), Some(contenu)),
+            let envoi = valeur
+                .get(CHAMP_ENVOI)
+                .and_then(Value::as_str)
+                .filter(|e| crate::bibliotheque::envoi_sur(e))
+                .map(str::to_owned);
+            match (nom, contenu, envoi) {
+                (Some(nom), Some(contenu), _) => (nom_seul(nom), Some(contenu), None),
+                (Some(nom), None, Some(envoi)) => (nom_seul(nom), None, Some(envoi)),
                 _ => return Err(ENTREE_INVALIDE),
             }
         } else {
             match valeur.as_str() {
-                Some(nom) => (nom_seul(nom), None),
+                Some(nom) => (nom_seul(nom), None, None),
                 None => return Err(ENTREE_INVALIDE),
             }
         };
@@ -119,6 +132,13 @@ impl Depot {
         let chemin = depot.dossier.join(&nom);
         if let Some(contenu) = contenu {
             std::fs::write(&chemin, contenu)?;
+        } else if let Some(envoi) = envoi {
+            // Les morceaux reçus deviennent le fichier de la commande.
+            std::fs::rename(crate::bibliotheque::chemin_envoi(espace, &envoi), &chemin).map_err(
+                |_| ErreurService::Regle {
+                    cle: "bibliotheque.envoi_interrompu",
+                },
+            )?;
         }
         *valeur = Value::String(chemin.to_string_lossy().into_owned());
         Ok(Some(depot))

@@ -133,6 +133,8 @@ pub const COMMANDES_POSTE_PRINCIPAL: &[&str] = &[
     "poste_revoquer",
     "reseau_cle_renouveler",
     "postes_connectes_lire",
+    "bibliotheque_videos_copier",
+    "bibliotheque_videos_reprendre",
 ];
 
 /// Commandes qui modifient une fiche en bloc (SPEC_PHASE_11_A §6.1) : leur entrée porte
@@ -279,6 +281,19 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("releve_apercu", Fichier::Lu("chemin")),
     ("releve_importer", Fichier::Lu("chemin")),
     ("bibliotheque_installer", Fichier::Lu("chemin")),
+    ("bibliotheque_image_ajouter", Fichier::Lu("chemin")),
+    (
+        "bibliotheque_document_fichier_ajouter",
+        Fichier::Lu("chemin"),
+    ),
+    (
+        "bibliotheque_fichier_enregistrer_sous",
+        Fichier::Ecrit("chemin"),
+    ),
+    ("bibliotheque_video_ajouter", Fichier::Lu("chemin")),
+    ("bibliotheque_imprimer", Fichier::Ecrit("chemin")),
+    ("bibliotheque_faits_imprimer", Fichier::Ecrit("chemin")),
+    ("bibliotheque_chapitre_imprimer", Fichier::Ecrit("chemin")),
 ];
 
 /// Ce qu'un compte de maître peut demander (SPEC_PHASE_11_A §7) : la liste est écrite ici, tout
@@ -352,6 +367,16 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "bibliotheque_comparer",
     "bibliotheque_soumettre",
     "bibliotheque_publier",
+    "bibliotheque_image_ajouter",
+    "bibliotheque_document_fichier_ajouter",
+    "bibliotheque_document_fichier_retirer",
+    "bibliotheque_fichier_enregistrer_sous",
+    "bibliotheque_video_ajouter",
+    "bibliotheque_video_envoi_morceau",
+    "bibliotheque_video_morceau",
+    "bibliotheque_imprimer",
+    "bibliotheque_faits_imprimer",
+    "bibliotheque_chapitre_imprimer",
 ];
 
 /// Commandes publiques, énumérées une seule fois : le test d'exhaustivité refuse toute commande
@@ -588,6 +613,28 @@ pub const COMMANDES: &[Commande] = &[
         "bibliotheque_droit_publication_retirer",
         Permission::LIBRARY_PUBLISH,
     ),
+    // Images, documents, vidéos et impression de la bibliothèque (SPEC_PHASE_12_LOT_1 §10, §11).
+    Commande::permise("bibliotheque_image_ajouter", Permission::LIBRARY_EDIT),
+    Commande::permise(
+        "bibliotheque_document_fichier_ajouter",
+        Permission::LIBRARY_EDIT,
+    ),
+    Commande::permise(
+        "bibliotheque_document_fichier_retirer",
+        Permission::LIBRARY_EDIT,
+    ),
+    Commande::permise(
+        "bibliotheque_fichier_enregistrer_sous",
+        Permission::LIBRARY_READ,
+    ),
+    Commande::permise("bibliotheque_video_ajouter", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_video_envoi_morceau", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_video_morceau", Permission::LIBRARY_READ),
+    Commande::permise("bibliotheque_videos_copier", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_videos_reprendre", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_imprimer", Permission::LIBRARY_READ),
+    Commande::permise("bibliotheque_faits_imprimer", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_chapitre_imprimer", Permission::LIBRARY_READ),
     // Résultats aux examens (SPEC_PHASE_9 §8.5) : tenus avec la fiche de l'établissement.
     Commande::permise("examens_lire", Permission::SCHOOL_PROFILE_MANAGE),
     Commande::permise("resultat_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),

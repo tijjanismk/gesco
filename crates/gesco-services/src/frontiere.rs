@@ -1238,6 +1238,18 @@ contrat! {
     bibliotheque_droits_publication_lire(()) -> crate::bibliotheque::DroitsPublication;
     bibliotheque_droit_publication_donner(crate::bibliotheque::DemandeDroitPublication) -> crate::bibliotheque::DroitsPublication;
     bibliotheque_droit_publication_retirer(crate::bibliotheque::DemandeDroitPublication) -> crate::bibliotheque::DroitsPublication;
+    bibliotheque_image_ajouter(crate::bibliotheque::DemandeImageBibliotheque) -> crate::bibliotheque::ImageAjoutee;
+    bibliotheque_document_fichier_ajouter(crate::bibliotheque::DemandeFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
+    bibliotheque_document_fichier_retirer(crate::bibliotheque::DemandeRetraitFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
+    bibliotheque_fichier_enregistrer_sous(crate::bibliotheque::DemandeFichierEnregistrer) -> ();
+    bibliotheque_video_ajouter(crate::bibliotheque::DemandeVideoBibliotheque) -> crate::bibliotheque::VideoAjoutee;
+    bibliotheque_video_envoi_morceau(crate::bibliotheque::DemandeEnvoiMorceauVideo) -> ();
+    bibliotheque_video_morceau(crate::bibliotheque::DemandeMorceauVideo) -> crate::bibliotheque::MorceauVideo;
+    bibliotheque_videos_copier(crate::bibliotheque::DemandeDossierVideos) -> crate::bibliotheque::BilanVideos;
+    bibliotheque_videos_reprendre(crate::bibliotheque::DemandeDossierVideos) -> crate::bibliotheque::BilanVideos;
+    bibliotheque_imprimer(crate::bibliotheque::DemandeImpressionContenu) -> ();
+    bibliotheque_faits_imprimer(crate::bibliotheque::DemandeImpressionContenu) -> ();
+    bibliotheque_chapitre_imprimer(crate::bibliotheque::DemandeImpressionChapitre) -> ();
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -5119,6 +5131,150 @@ impl Application {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .publier(appel.session()?, &entree)
             .await
+    }
+
+    async fn bibliotheque_image_ajouter(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeImageBibliotheque,
+    ) -> Resultat<crate::bibliotheque::ImageAjoutee> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .ajouter_image(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_document_fichier_ajouter(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeFichierDocument,
+    ) -> Resultat<Vec<crate::bibliotheque::FichierDocument>> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .ajouter_fichier_document(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_document_fichier_retirer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeRetraitFichierDocument,
+    ) -> Resultat<Vec<crate::bibliotheque::FichierDocument>> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .retirer_fichier_document(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_fichier_enregistrer_sous(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeFichierEnregistrer,
+    ) -> Resultat<()> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .enregistrer_fichier_sous(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_video_ajouter(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeVideoBibliotheque,
+    ) -> Resultat<crate::bibliotheque::VideoAjoutee> {
+        let ouverte = appel.ouverte()?;
+        Box::pin(
+            self.bibliotheque(&ouverte.noyau)
+                .ajouter_video(appel.session()?, &entree),
+        )
+        .await
+    }
+
+    async fn bibliotheque_video_envoi_morceau(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeEnvoiMorceauVideo,
+    ) -> Resultat<()> {
+        appel.session()?;
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .recevoir_morceau_video(&entree)
+    }
+
+    async fn bibliotheque_video_morceau(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeMorceauVideo,
+    ) -> Resultat<crate::bibliotheque::MorceauVideo> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .lire_morceau_video(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_videos_copier(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeDossierVideos,
+    ) -> Resultat<crate::bibliotheque::BilanVideos> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .copier_videos(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_videos_reprendre(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeDossierVideos,
+    ) -> Resultat<crate::bibliotheque::BilanVideos> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .reprendre_videos(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_imprimer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeImpressionContenu,
+    ) -> Resultat<()> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let impression = Box::pin(
+            self.bibliotheque(&ouverte.noyau)
+                .impression_contenu(session, &entree),
+        )
+        .await?;
+        let documents = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier);
+        let pdf = Box::pin(impression.composer(&documents, session)).await?;
+        crate::bibliotheque::ecrire_pdf(&entree.chemin, &pdf)
+    }
+
+    async fn bibliotheque_faits_imprimer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeImpressionContenu,
+    ) -> Resultat<()> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let impression = Box::pin(
+            self.bibliotheque(&ouverte.noyau)
+                .impression_faits(session, &entree),
+        )
+        .await?;
+        let documents = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier);
+        let pdf = Box::pin(impression.composer(&documents, session)).await?;
+        crate::bibliotheque::ecrire_pdf(&entree.chemin, &pdf)
+    }
+
+    async fn bibliotheque_chapitre_imprimer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeImpressionChapitre,
+    ) -> Resultat<()> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let impression = Box::pin(
+            self.bibliotheque(&ouverte.noyau)
+                .impression_chapitre(session, &entree),
+        )
+        .await?;
+        let documents = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier);
+        let pdf = Box::pin(impression.composer(&documents, session)).await?;
+        crate::bibliotheque::ecrire_pdf(&entree.chemin, &pdf)
     }
 
     async fn bibliotheque_renvoyer(

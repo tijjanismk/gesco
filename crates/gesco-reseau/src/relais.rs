@@ -18,7 +18,10 @@ use std::time::Duration;
 use gesco_core::core::reseau::{empreinte_certificat, empreinte_courte};
 use gesco_services::ErreurCommande;
 use gesco_services::commandes::{Commande, Fichier};
-use gesco_services::fichiers_relies::{CHAMP_CONTENU, CHAMP_NOM, CHAMP_SORTIE, coder, decoder};
+use gesco_services::fichiers_relies::{
+    CHAMP_CONTENU, CHAMP_ENVOI, CHAMP_NOM, CHAMP_SORTIE, COMMANDE_MORCEAU, COMMANDE_PAR_MORCEAUX,
+    coder, decoder,
+};
 use gesco_services::postes::AppairageConclu;
 use http_body_util::{BodyExt, Full};
 use hyper::body::Bytes;
@@ -362,7 +365,11 @@ impl Relais {
         match fichier {
             Some(Fichier::Lu(champ)) => {
                 if let Some(chemin) = chemin_dans(&entree, champ) {
-                    let envoi = lire_pour_envoi(&chemin).await?;
+                    let envoi = if nom == COMMANDE_PAR_MORCEAUX {
+                        self.envoyer_par_morceaux(&chemin, jeton).await?
+                    } else {
+                        lire_pour_envoi(&chemin).await?
+                    };
                     remplacer(&mut entree, champ, envoi);
                 }
             }
@@ -418,6 +425,93 @@ impl Relais {
         }
         Ok(sortie)
     }
+}
+
+impl Relais {
+    /// Envoie un fichier lourd (une vidéo) au poste principal par morceaux, chacun par la
+    /// commande qui les reçoit ; rend ce qui remplace le chemin dans l'entrée de la commande.
+    async fn envoyer_par_morceaux(
+        &self,
+        chemin: &Path,
+        jeton: Option<&str>,
+    ) -> Result<Value, ErreurCommande> {
+        let inaccessible =
+            |e: std::io::Error| erreur(CLE_FICHIER_INACCESSIBLE, Some(e.to_string()));
+        let taille = tokio::fs::metadata(chemin)
+            .await
+            .map_err(inaccessible)?
+            .len();
+        let envoi = identifiant_envoi();
+        let mut position = 0_u64;
+        loop {
+            let source = chemin.to_path_buf();
+            let morceau = tokio::task::spawn_blocking(move || lire_morceau(&source, position))
+                .await
+                .map_err(|e| injoignable(e.to_string()))?
+                .map_err(inaccessible)?;
+            if morceau.is_empty() && position > 0 {
+                break;
+            }
+            let entree = json!({
+                "envoi": envoi,
+                "position": position,
+                "contenu": coder(&morceau),
+            });
+            let mut demande = requete(
+                Method::POST,
+                &format!("/api/commandes/{COMMANDE_MORCEAU}"),
+                Some(&self.version),
+                Some(&entree),
+            )
+            .header(ENTETE_POSTE, &self.liaison.poste_id)
+            .header(ENTETE_SECRET, &self.liaison.secret);
+            if let Some(jeton) = jeton {
+                demande = demande.header(AUTHORIZATION, format!("Bearer {jeton}"));
+            }
+            let demande = demande.body(corps(Some(&entree))).map_err(injoignable)?;
+            let reponse = echanger(
+                Arc::clone(&self.configuration),
+                &self.liaison.adresse,
+                demande,
+                self.attente,
+            )
+            .await?;
+            let _: Value = reponse.lire()?;
+            position += morceau.len() as u64;
+            if position >= taille || morceau.is_empty() {
+                break;
+            }
+        }
+        Ok(json!({ CHAMP_NOM: nom_du_fichier(chemin), CHAMP_ENVOI: envoi }))
+    }
+}
+
+/// Taille d'un morceau envoyé.
+const MORCEAU: u64 = gesco_core::bibliotheque::MORCEAU_VIDEO;
+
+/// Lit un morceau d'un fichier à partir d'une position.
+fn lire_morceau(chemin: &Path, position: u64) -> std::io::Result<Vec<u8>> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut fichier = std::fs::File::open(chemin)?;
+    fichier.seek(SeekFrom::Start(position))?;
+    let mut tampon = Vec::new();
+    fichier.take(MORCEAU).read_to_end(&mut tampon)?;
+    Ok(tampon)
+}
+
+/// Identifiant d'un envoi par morceaux : l'heure, le processus et un compteur, en hexadécimal.
+fn identifiant_envoi() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SUIVANT: AtomicU64 = AtomicU64::new(0);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    format!(
+        "{nanos:x}{:x}{:04x}",
+        std::process::id(),
+        SUIVANT.fetch_add(1, Ordering::Relaxed)
+    )
 }
 
 fn chemin_dans(entree: &Value, champ: &str) -> Option<PathBuf> {

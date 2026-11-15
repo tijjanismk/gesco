@@ -235,6 +235,59 @@ impl Lecon {
             blocs: sans_notes(&self.blocs),
         }
     }
+
+    /// La leçon « sans les corrigés » (forme d'impression) : la section dont le titre est
+    /// « Corrigés » et, sous le quiz, la sous-section « Réponses » sont retirées jusqu'au titre
+    /// suivant de même niveau ou plus haut. Une leçon qui n'a pas ces titres reste entière.
+    pub fn sans_les_corriges(&self) -> Lecon {
+        let mut blocs = Vec::new();
+        // Niveau du titre de la section qu'on saute, s'il y en a une.
+        let mut saute: Option<u8> = None;
+        // Niveau du titre de la section du quiz en cours.
+        let mut quiz: Option<u8> = None;
+        for bloc in &self.blocs {
+            if let Bloc::Titre { niveau, contenu } = bloc {
+                if saute.is_some_and(|n| *niveau <= n) {
+                    saute = None;
+                }
+                if quiz.is_some_and(|n| *niveau <= n) {
+                    quiz = None;
+                }
+                if saute.is_none() {
+                    let titre = titre_simple(&texte_de(contenu));
+                    if titre.starts_with("corrige") || (quiz.is_some() && titre == "reponses") {
+                        saute = Some(*niveau);
+                    } else if titre.starts_with("quiz") {
+                        quiz = Some(*niveau);
+                    }
+                }
+            }
+            if saute.is_none() {
+                blocs.push(bloc.clone());
+            }
+        }
+        Lecon { blocs }
+    }
+}
+
+/// Titre ramené à sa forme simple : sans numéro en tête (« 6. »), sans accents, en minuscules.
+fn titre_simple(titre: &str) -> String {
+    let sans_numero = titre
+        .trim()
+        .trim_start_matches(|c: char| c.is_ascii_digit() || c == '.' || c == ')')
+        .trim();
+    sans_numero
+        .chars()
+        .map(|c| match c {
+            'é' | 'è' | 'ê' | 'ë' | 'É' | 'È' | 'Ê' => 'e',
+            'à' | 'â' | 'À' | 'Â' => 'a',
+            'î' | 'ï' | 'Î' => 'i',
+            'ô' | 'Ô' => 'o',
+            'û' | 'ù' | 'ü' | 'Û' => 'u',
+            'ç' | 'Ç' => 'c',
+            autre => autre.to_ascii_lowercase(),
+        })
+        .collect()
 }
 
 fn sans_notes(blocs: &[Bloc]) -> Vec<Bloc> {
@@ -755,6 +808,27 @@ impl Lecteur<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sans_les_corriges_retire_la_section_des_corriges_et_les_reponses_du_quiz() {
+        let lecon = analyser(
+            "## 5. Exercices\n\nExercice 1.\n\n## 6. Corrigés\n\nRéponse 1.\n\n### Exercice 1\n\nDétail.\n\n## 7. Quiz\n\nQuestion 1.\n\n### Réponses\n\n1. b\n\n## 8. Pour aller plus loin\n\nSuite.",
+        );
+        let texte = lecon.sans_les_corriges().texte_brut();
+        assert!(texte.contains("Exercice 1."));
+        assert!(texte.contains("Question 1."));
+        assert!(texte.contains("Suite."));
+        assert!(!texte.contains("Réponse 1."));
+        assert!(!texte.contains("Détail."));
+        assert!(!texte.contains("Réponses"));
+        assert!(!texte.contains("Corrigés"));
+    }
+
+    #[test]
+    fn une_lecon_sans_corriges_reste_entiere() {
+        let lecon = analyser("## L'essentiel\n\nTexte.\n\n### Réponses\n\nHors du quiz.");
+        assert_eq!(lecon.sans_les_corriges(), lecon);
+    }
 
     fn texte(t: &str) -> Enligne {
         Enligne::Texte {

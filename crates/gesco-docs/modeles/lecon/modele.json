@@ -1,0 +1,10 @@
+{
+  "id": "lecon",
+  "version": 1,
+  "libelle": "Leçons de la bibliothèque",
+  "variables": [
+    { "nom": "titre", "requise": true },
+    { "nom": "brouillon", "requise": true },
+    { "nom": "documents", "requise": true }
+  ]
+}

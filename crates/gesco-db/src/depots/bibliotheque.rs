@@ -1564,3 +1564,205 @@ pub async fn retirer_droit_publication(
     .await?;
     Ok(ligne.map(|(id,)| id))
 }
+
+// --- Fichiers et vidéos de l'école ----------------------------------------------------------
+
+/// Un fichier joint à un document de l'école.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct FichierJoint {
+    /// Ligne qui joint le fichier au document.
+    pub lien_id: String,
+    /// Empreinte SHA-256 du fichier.
+    pub empreinte_sha256: String,
+    /// Nom du fichier.
+    pub nom_fichier: String,
+    /// Type MIME.
+    pub type_mime: String,
+    /// Taille en octets.
+    pub taille: i64,
+}
+
+/// Une vidéo de l'école.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct VideoEcole {
+    /// Empreinte SHA-256, nom du fichier dans `videos`.
+    pub empreinte_sha256: String,
+    /// Nom du fichier d'origine.
+    pub nom_fichier: String,
+    /// Taille en octets.
+    pub taille: i64,
+}
+
+/// Range un fichier dans la base par son empreinte, une seule fois ; rend son identifiant et
+/// vrai s'il est nouveau.
+#[allow(clippy::too_many_arguments)]
+pub async fn enregistrer_fichier(
+    cnx: &mut Connexion,
+    nature: &str,
+    type_mime: &str,
+    nom_fichier: &str,
+    empreinte: &str,
+    octets: &[u8],
+    contexte: &Contexte,
+) -> Resultat<(String, bool)> {
+    let deja: Option<(String,)> = sqlx::query_as(
+        "SELECT id FROM fichier_bibliotheque
+         WHERE etablissement_id = ?1 AND empreinte_sha256 = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(empreinte)
+    .fetch_optional(&mut *cnx)
+    .await?;
+    if let Some((id,)) = deja {
+        return Ok((id, false));
+    }
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    sqlx::query(
+        "INSERT INTO fichier_bibliotheque (id, etablissement_id, empreinte_sha256, nature,
+            type_mime, nom_fichier, taille, contenu, cree_le, cree_par, mis_a_jour_le,
+            mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?9, ?10, ?11)",
+    )
+    .bind(&id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(empreinte)
+    .bind(nature)
+    .bind(type_mime)
+    .bind(nom_fichier)
+    .bind(i64::try_from(octets.len()).unwrap_or(i64::MAX))
+    .bind(octets)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok((id, true))
+}
+
+/// Un fichier de l'école par son empreinte : (nom, type MIME, contenu).
+pub async fn fichier_par_empreinte(
+    cnx: &mut Connexion,
+    empreinte: &str,
+    contexte: &Contexte,
+) -> Resultat<Option<(String, String, Vec<u8>)>> {
+    Ok(sqlx::query_as(
+        "SELECT nom_fichier, type_mime, contenu FROM fichier_bibliotheque
+         WHERE etablissement_id = ?1 AND empreinte_sha256 = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(empreinte)
+    .fetch_optional(cnx)
+    .await?)
+}
+
+/// Fichiers d'un document, dans l'ordre, sans ceux qui en ont été retirés.
+pub async fn fichiers_du_contenu(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<FichierJoint>> {
+    Ok(sqlx::query_as(
+        "SELECT fc.id AS lien_id, f.empreinte_sha256, f.nom_fichier, f.type_mime, f.taille
+         FROM fichier_contenu fc JOIN fichier_bibliotheque f ON f.id = fc.fichier_id
+         WHERE fc.etablissement_id = ?1 AND fc.contenu_id = ?2 AND fc.retire_le IS NULL
+         ORDER BY fc.ordre, fc.cree_le",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu_id)
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Joint un fichier à un document, en dernier ; rend l'identifiant de la ligne.
+pub async fn joindre_fichier(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    fichier_id: &str,
+    contexte: &Contexte,
+) -> Resultat<String> {
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    sqlx::query(
+        "INSERT INTO fichier_contenu (id, etablissement_id, contenu_id, fichier_id, ordre,
+            cree_le, cree_par, mis_a_jour_le, mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4,
+            (SELECT COALESCE(MAX(ordre), 0) + 1 FROM fichier_contenu
+             WHERE etablissement_id = ?2 AND contenu_id = ?3),
+            ?5, ?6, ?5, ?6, ?7)",
+    )
+    .bind(&id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu_id)
+    .bind(fichier_id)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(id)
+}
+
+/// Retire un fichier d'un document (la ligne reste) ; faux s'il n'y était plus.
+pub async fn retirer_fichier_joint(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    lien_id: &str,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let maintenant = contexte.maintenant.millis_epoque();
+    let fait = sqlx::query(
+        "UPDATE fichier_contenu SET retire_le = ?1, mis_a_jour_le = ?1, mis_a_jour_par = ?2,
+            identifiant_poste = ?3
+         WHERE etablissement_id = ?4 AND contenu_id = ?5 AND id = ?6 AND retire_le IS NULL",
+    )
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu_id)
+    .bind(lien_id)
+    .execute(cnx)
+    .await?;
+    Ok(fait.rows_affected() > 0)
+}
+
+/// Écrit une vidéo connue de l'école, une seule fois par empreinte ; vrai si elle est nouvelle.
+pub async fn enregistrer_video(
+    cnx: &mut Connexion,
+    empreinte: &str,
+    nom_fichier: &str,
+    taille: i64,
+    contexte: &Contexte,
+) -> Resultat<bool> {
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    let fait = sqlx::query(
+        "INSERT INTO video_bibliotheque (id, etablissement_id, empreinte_sha256, nom_fichier,
+            taille, cree_le, cree_par, mis_a_jour_le, mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?6, ?7, ?8)
+         ON CONFLICT (etablissement_id, empreinte_sha256) DO NOTHING",
+    )
+    .bind(&id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(empreinte)
+    .bind(nom_fichier)
+    .bind(taille)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(fait.rows_affected() > 0)
+}
+
+/// Vidéos connues de l'école.
+pub async fn videos(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<Vec<VideoEcole>> {
+    Ok(sqlx::query_as(
+        "SELECT empreinte_sha256, nom_fichier, taille FROM video_bibliotheque
+         WHERE etablissement_id = ?1 ORDER BY cree_le",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?)
+}

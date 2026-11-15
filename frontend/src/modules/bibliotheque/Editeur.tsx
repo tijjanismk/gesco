@@ -6,8 +6,11 @@ import { Bouton } from "../../composants/Bouton";
 import { MessageEnregistre, MessageErreur } from "../../composants/Messages";
 import { date, t } from "../../i18n";
 import type { BrouillonOuvert, DepartBrouillon, EcritureOuverte, VersionSoumise } from "../../types/gesco";
+import { choisirImageBibliotheque, choisirVideo } from "../../api/fichiers";
+import { VideosCle } from "./Fichiers";
 import { Comparaison } from "./Historique";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
+import { GuidesVideo } from "./Video";
 
 /** Délai entre la dernière frappe et l'aperçu. */
 const DELAI_APERCU = 500;
@@ -35,6 +38,84 @@ function balises(): Balise[] {
     { libelle: t("bibliotheque.editeur.formule_seule"), avant: "$$\n", apres: "\n$$\n", exemple: "\\frac{a}{b}", ligne: true },
     { libelle: t("bibliotheque.editeur.note"), avant: t("bibliotheque.editeur.modele_note"), apres: "", exemple: "", ligne: true },
   ];
+}
+
+/** Appel d'une image ou d'une vidéo, sur sa ligne, à la place de la sélection. */
+function appelFichier(description: string, reference: string): Balise {
+  return { libelle: description, avant: "![", apres: `](${reference})\n`, exemple: description, ligne: true };
+}
+
+/** Boutons Image et Vidéo de la barre, et le guide des vidéos. */
+function BoutonsFichiers({ surAppel }: { surAppel: (b: Balise) => void }) {
+  const [lourde, setLourde] = useState<string | null>(null);
+  const [premiere, setPremiere] = useState(false);
+  const [guides, setGuides] = useState(false);
+  const image = useMutation({
+    mutationFn: async () => {
+      const chemin = await choisirImageBibliotheque(t("bibliotheque.editeur.image_filtre"));
+      return chemin === null ? null : appeler("bibliotheque_image_ajouter", { chemin });
+    },
+    onSuccess: (i) => {
+      if (i !== null) surAppel(appelFichier(i.nom, i.reference));
+    },
+  });
+  const video = useMutation({
+    mutationFn: async (deja: string | null) => {
+      const chemin = deja ?? (await choisirVideo(t("bibliotheque.editeur.video_filtre")));
+      if (chemin === null) return null;
+      const v = await appeler("bibliotheque_video_ajouter", { chemin, confirme: deja !== null });
+      return { chemin, v };
+    },
+    onSuccess: (r) => {
+      setLourde(null);
+      if (r === null) return;
+      if (!r.v.ajoutee) {
+        if (r.v.lourde) setLourde(r.chemin);
+        return;
+      }
+      surAppel(appelFichier(r.v.nom.replace(/\.mp4$/i, ""), r.v.reference));
+      if (r.v.premiere) setPremiere(true);
+    },
+  });
+  return (
+    <>
+      <Bouton variante="secondaire" onClick={() => image.mutate()} disabled={image.isPending}>
+        {t("bibliotheque.editeur.image")}
+      </Bouton>
+      <Bouton variante="secondaire" onClick={() => video.mutate(null)} disabled={video.isPending}>
+        {video.isPending ? t("bibliotheque.editeur.video_copie") : t("bibliotheque.editeur.video")}
+      </Bouton>
+      <Bouton variante="secondaire" onClick={() => setGuides(true)}>
+        {t("bibliotheque.guide.ouvrir")}
+      </Bouton>
+      <MessageErreur erreur={image.error ?? video.error} />
+      {lourde === null ? null : (
+        <div role="alertdialog" aria-labelledby="video-lourde" className="flex w-full flex-col gap-2 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">
+          <p id="video-lourde">{t("bibliotheque.video.lourde")}</p>
+          <div className="flex gap-2">
+            <Bouton onClick={() => video.mutate(lourde)} disabled={video.isPending}>
+              {t("bibliotheque.video.ajouter_quand_meme")}
+            </Bouton>
+            <Bouton variante="secondaire" onClick={() => setLourde(null)}>
+              {t("commun.annuler")}
+            </Bouton>
+          </div>
+        </div>
+      )}
+      {premiere ? (
+        <div role="alertdialog" aria-labelledby="video-premiere" className="flex w-full flex-col gap-2 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">
+          <p id="video-premiere">{t("bibliotheque.video.premiere")}</p>
+          <VideosCle reprendre={false} />
+          <div>
+            <Bouton variante="secondaire" onClick={() => setPremiere(false)}>
+              {t("commun.fermer")}
+            </Bouton>
+          </div>
+        </div>
+      ) : null}
+      {guides ? <GuidesVideo surFermer={() => setGuides(false)} /> : null}
+    </>
+  );
 }
 
 /** Écrit une balise autour de la sélection de la zone de texte ; rend le texte et la sélection. */
@@ -149,6 +230,7 @@ function EditeurBrouillon({
             {b.libelle}
           </Bouton>
         ))}
+        <BoutonsFichiers surAppel={appliquer} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <label htmlFor="bibliotheque-editeur" className="flex flex-col gap-1 text-sm text-encre">

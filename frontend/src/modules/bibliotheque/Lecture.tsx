@@ -7,6 +7,7 @@ import { MessageErreur } from "../../composants/Messages";
 import { t } from "../../i18n";
 import type { ExamenSujet, LectureContenu, NatureContenu, VueContenu } from "../../types/gesco";
 import { Editeur } from "./Editeur";
+import { FichiersDocument, Imprimer } from "./Fichiers";
 import { Historique } from "./Historique";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
 import { type PlaceAuCatalogue, RetirerAutour } from "./Retraits";
@@ -104,7 +105,7 @@ function ModeClasse({ contenu, surFermer }: { contenu: LectureContenu; surFermer
       </button>
       <div className="mx-auto max-w-5xl" style={{ fontSize: "170%" }}>
         <h1 className="mb-4 text-3xl font-semibold text-marine">{contenu.titre}</h1>
-        <RenduLecon lecon={contenu.lecon} images={images} sansNotes />
+        <RenduLecon lecon={contenu.lecon} images={images} videos={contenu.videos} sansNotes />
       </div>
     </div>
   );
@@ -223,6 +224,7 @@ export function Lecture({
             </Bouton>
           )}
           {peutGerer && place !== null ? <RetirerAutour place={place} /> : null}
+          <Imprimer contenu={contenu} place={place} />
           {contenu.nature === "sujet" && contenu.lie === null && contenu.peut_modifier ? (
             <AjouterCorrige contenu={contenu} surEcrire={surEcrire} />
           ) : null}
@@ -266,9 +268,10 @@ export function Lecture({
               {contenu.lecon.blocs.length === 0 ? (
                 <p className="text-muet">{t("bibliotheque.contenu_vide")}</p>
               ) : (
-                <RenduLecon lecon={contenu.lecon} images={images} />
+                <RenduLecon lecon={contenu.lecon} images={images} videos={contenu.videos} />
               )}
             </div>
+            {contenu.nature === "document" ? <FichiersDocument contenu={contenu} /> : null}
           </div>
           {faits && contenu.faits !== null ? (
             <aside aria-label={t("bibliotheque.faits")} className="flex flex-col gap-2 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">

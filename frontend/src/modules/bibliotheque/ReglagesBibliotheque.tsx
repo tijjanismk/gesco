@@ -6,6 +6,7 @@ import { choisirPaquetBibliotheque } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { date, t } from "../../i18n";
+import { VideosCle } from "./Fichiers";
 import { ConfirmerRetrait } from "./Retraits";
 
 /** Réglages de la bibliothèque de cours, pour la direction : la bibliothèque installée et
@@ -72,6 +73,9 @@ export function ReglagesBibliotheque() {
           {t("bibliotheque.reglages.installee_ok", { version: installation.data.version })}
         </p>
       )}
+      <h3 className="mt-2 font-semibold text-marine">{t("bibliotheque.videos.titre")}</h3>
+      <p className="text-sm text-encre">{t("bibliotheque.videos.explication")}</p>
+      <VideosCle />
     </Section>
   );
 }

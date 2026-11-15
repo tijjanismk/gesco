@@ -11,6 +11,9 @@
 //! Publier (étape 8) : soumettre, renvoyer avec un commentaire, publier (la précédente passe à
 //! « remplacée »), revenir à la version livrée, file d'attente de qui valide, droit de publier
 //! donné nommément à un maître puis retiré, faits à vérifier pour le seul personnel qui écrit.
+//! Images, documents, vidéos et impression (étape 9) : bornes, nettoyage du SVG, fichiers d'un
+//! document, vidéo copiée, lue par morceaux, absente, copiée vers une clé et reprise ; PDF d'une
+//! leçon dans ses deux formes, d'un chapitre et des faits à vérifier.
 
 #![allow(
     clippy::unwrap_used,
@@ -2032,4 +2035,467 @@ async fn les_faits_a_verifier_ne_se_montrent_qu_au_personnel_qui_ecrit() {
     assert_eq!(lecture["faits"], Value::Null);
     // Rien de la liste ne passe dans la recherche.
     assert!(trouves(&p, &admin, "mental").await.is_empty());
+}
+
+// --- Étape 9 : images, documents, vidéos, impression -----------------------------------------
+
+/// Un PNG d'essai de la taille voulue : la signature, puis des octets quelconques.
+fn png(taille: usize) -> Vec<u8> {
+    let mut octets = b"\x89PNG\r\n\x1a\n".to_vec();
+    octets.resize(taille, 7);
+    octets
+}
+
+/// Une vidéo MP4 d'essai de la taille voulue.
+fn mp4(taille: usize, graine: u8) -> Vec<u8> {
+    let mut octets = b"\0\0\0\x18ftypmp42".to_vec();
+    octets.resize(taille, graine);
+    octets
+}
+
+const MO: usize = 1024 * 1024;
+
+fn base64_vers_octets(texte: &Value) -> Vec<u8> {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD
+        .decode(texte.as_str().unwrap())
+        .unwrap()
+}
+
+#[tokio::test]
+async fn une_image_se_range_par_son_empreinte_et_une_image_trop_lourde_est_refusee() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let fichiers = tempfile::tempdir().unwrap();
+
+    // Critère 13 : une image de 6 Mo est refusée, une image de 4 Mo s'ajoute.
+    let lourde = ecrire(fichiers.path(), "lourde.png", &png(6 * MO));
+    let refus = p
+        .refus(
+            "bibliotheque_image_ajouter",
+            Some(&admin),
+            json!({ "chemin": lourde }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.image_trop_lourde");
+    let bonne = ecrire(fichiers.path(), "triangle.png", &png(4 * MO));
+    let image = p
+        .ok(
+            "bibliotheque_image_ajouter",
+            Some(&admin),
+            json!({ "chemin": bonne }),
+        )
+        .await;
+    let reference = image["reference"].as_str().unwrap().to_owned();
+    assert!(reference.starts_with("image:"));
+    assert_eq!(image["nom"], "triangle");
+    // La même image ajoutée deux fois n'est gardée qu'une fois.
+    let encore = p
+        .ok(
+            "bibliotheque_image_ajouter",
+            Some(&admin),
+            json!({ "chemin": bonne }),
+        )
+        .await;
+    assert_eq!(encore["reference"], reference.as_str());
+
+    // Un fichier qui n'est pas une image est refusé ; un SVG est nettoyé, ou refusé.
+    let texte = ecrire(fichiers.path(), "note.png", b"pas une image");
+    let refus = p
+        .refus(
+            "bibliotheque_image_ajouter",
+            Some(&admin),
+            json!({ "chemin": texte }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.image_inconnue");
+    let svg = ecrire(
+        fichiers.path(),
+        "figure.svg",
+        b"<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"x()\"><script>x()</script><rect width=\"4\" height=\"4\"/></svg>",
+    );
+    let figure = p
+        .ok(
+            "bibliotheque_image_ajouter",
+            Some(&admin),
+            json!({ "chemin": svg }),
+        )
+        .await;
+    let malforme = ecrire(fichiers.path(), "casse.svg", b"<svg><rect width=4/></svg>");
+    let refus = p
+        .refus(
+            "bibliotheque_image_ajouter",
+            Some(&admin),
+            json!({ "chemin": malforme }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.svg_refuse");
+
+    // L'aperçu d'un texte qui les appelle les montre ; le SVG n'a plus de script.
+    let id = premier_contenu(&p, &admin).await;
+    let texte = format!(
+        "![Triangle]({reference})\n\n![Figure]({})",
+        figure["reference"].as_str().unwrap()
+    );
+    let apercu = p
+        .ok(
+            "bibliotheque_apercu",
+            Some(&admin),
+            json!({ "contenu_id": id, "texte": texte }),
+        )
+        .await;
+    let images = apercu["images"].as_array().unwrap();
+    assert_eq!(images.len(), 2);
+    let svg_lu = images
+        .iter()
+        .find(|i| i["type_mime"] == "image/svg+xml")
+        .unwrap();
+    let propre = String::from_utf8(base64_vers_octets(&svg_lu["donnees"])).unwrap();
+    assert!(!propre.contains("script") && !propre.contains("onload"));
+    assert!(propre.contains("<rect"));
+}
+
+#[tokio::test]
+async fn un_document_de_l_ecole_recoit_ses_fichiers_et_les_rend() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let chapitre = catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"][0]["chapitres"]
+        [0]["id"]
+        .clone();
+    let document = p
+        .ok(
+            "bibliotheque_contenu_ajouter",
+            Some(&admin),
+            json!({ "nature": "document", "chapitre_id": chapitre, "niveau_id": null,
+                "matiere_id": null, "titre": "Sujet photographié",
+                "presentation": "La photo du sujet.", "examen": null, "serie_code": null,
+                "session": null, "sujet_id": null, "apres_cle": null }),
+        )
+        .await;
+    let id = document["id"].clone();
+    let fichiers = tempfile::tempdir().unwrap();
+    // Critère 13 : un PDF de 15 Mo s'ajoute ; un PDF de plus de 20 Mo est refusé.
+    let mut pdf = b"%PDF-1.7\n".to_vec();
+    pdf.resize(15 * MO, b'x');
+    let chemin = ecrire(fichiers.path(), "sujet.pdf", &pdf);
+    let liste = p
+        .ok(
+            "bibliotheque_document_fichier_ajouter",
+            Some(&admin),
+            json!({ "contenu_id": id, "chemin": chemin }),
+        )
+        .await;
+    assert_eq!(liste.as_array().unwrap().len(), 1);
+    assert_eq!(liste[0]["nom"], "sujet.pdf");
+    assert_eq!(liste[0]["type_mime"], "application/pdf");
+    let mut trop = b"%PDF-1.7\n".to_vec();
+    trop.resize(21 * MO, b'x');
+    let chemin_trop = ecrire(fichiers.path(), "gros.pdf", &trop);
+    let refus = p
+        .refus(
+            "bibliotheque_document_fichier_ajouter",
+            Some(&admin),
+            json!({ "contenu_id": id, "chemin": chemin_trop }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.document_trop_lourd");
+    // Un fichier ne se joint pas à une leçon.
+    let lecon = premier_contenu(&p, &admin).await;
+    let refus = p
+        .refus(
+            "bibliotheque_document_fichier_ajouter",
+            Some(&admin),
+            json!({ "contenu_id": lecon, "chemin": chemin }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.pas_un_document");
+
+    // La lecture rend la liste ; le fichier s'enregistre tel quel ailleurs.
+    let lecture = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": null }),
+        )
+        .await;
+    assert_eq!(lecture["fichiers"][0]["empreinte"], liste[0]["empreinte"]);
+    let copie = fichiers.path().join("copie.pdf");
+    p.ok(
+        "bibliotheque_fichier_enregistrer_sous",
+        Some(&admin),
+        json!({ "empreinte": liste[0]["empreinte"], "chemin": copie }),
+    )
+    .await;
+    assert_eq!(std::fs::read(&copie).unwrap(), pdf);
+    // Retiré du document, il ne paraît plus ; il reste dans la base.
+    let liste = p
+        .ok(
+            "bibliotheque_document_fichier_retirer",
+            Some(&admin),
+            json!({ "contenu_id": id, "lien_id": liste[0]["lien_id"] }),
+        )
+        .await;
+    assert!(liste.as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn une_video_se_copie_se_lit_par_morceaux_et_se_reprend_depuis_une_cle() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let fichiers = tempfile::tempdir().unwrap();
+
+    // Un fichier qui n'est pas une vidéo MP4 est refusé.
+    let faux = ecrire(fichiers.path(), "film.mp4", b"pas une video");
+    let refus = p
+        .refus(
+            "bibliotheque_video_ajouter",
+            Some(&admin),
+            json!({ "chemin": faux, "confirme": false }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.video_inconnue");
+
+    // La première vidéo le dit ; elle se range sous son empreinte.
+    let courte = mp4(5 * MO, 1);
+    let chemin = ecrire(fichiers.path(), "lecon.mp4", &courte);
+    let video = p
+        .ok(
+            "bibliotheque_video_ajouter",
+            Some(&admin),
+            json!({ "chemin": chemin, "confirme": false }),
+        )
+        .await;
+    assert_eq!(video["ajoutee"], true);
+    assert_eq!(video["premiere"], true);
+    let reference = video["reference"].as_str().unwrap().to_owned();
+    let empreinte = reference.strip_prefix("video:").unwrap().to_owned();
+    let range = dossier
+        .path()
+        .join("videos")
+        .join(format!("{empreinte}.mp4"));
+    assert_eq!(std::fs::read(&range).unwrap(), courte);
+
+    // Au-delà de la taille conseillée : une confirmation, jamais un refus.
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        json!({ "cle": "bibliotheque.taille_video_conseillee",
+            "valeur": { "type": "entier", "valeur": 10 } }),
+    )
+    .await;
+    let lourde = ecrire(fichiers.path(), "longue.mp4", &mp4(11 * MO, 2));
+    let attente = p
+        .ok(
+            "bibliotheque_video_ajouter",
+            Some(&admin),
+            json!({ "chemin": lourde, "confirme": false }),
+        )
+        .await;
+    assert_eq!(attente["ajoutee"], false);
+    assert_eq!(attente["lourde"], true);
+    let ajoutee = p
+        .ok(
+            "bibliotheque_video_ajouter",
+            Some(&admin),
+            json!({ "chemin": lourde, "confirme": true }),
+        )
+        .await;
+    assert_eq!(ajoutee["ajoutee"], true);
+    assert_eq!(ajoutee["premiere"], false);
+
+    // Elle se lit par morceaux.
+    let mut lu: Vec<u8> = Vec::new();
+    loop {
+        let morceau = p
+            .ok(
+                "bibliotheque_video_morceau",
+                Some(&admin),
+                json!({ "empreinte": empreinte, "position": lu.len() }),
+            )
+            .await;
+        let octets = base64_vers_octets(&morceau["contenu"]);
+        if octets.is_empty() {
+            break;
+        }
+        lu.extend(octets);
+        if lu.len() as i64 >= morceau["taille"].as_i64().unwrap() {
+            break;
+        }
+    }
+    assert_eq!(lu, courte);
+
+    // Une leçon qui l'appelle s'ouvre ; absente du dossier, elle est « non disponible ».
+    let id = premier_contenu(&p, &admin).await;
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(&admin),
+            commencer(&id, json!({ "type": "visible" })),
+        )
+        .await;
+    let texte = format!("# Leçon\n\n![Au tableau]({reference})\n");
+    p.ok(
+        "bibliotheque_brouillon_enregistrer",
+        Some(&admin),
+        enregistrer(&id, &ouverte, &texte),
+    )
+    .await;
+    let lecture = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": "brouillon" }),
+        )
+        .await;
+    assert_eq!(lecture["videos"][0]["disponible"], true);
+
+    // Copiée vers une clé, puis retirée du dossier : la leçon s'ouvre sans elle.
+    let cle = tempfile::tempdir().unwrap();
+    let bilan = p
+        .ok(
+            "bibliotheque_videos_copier",
+            Some(&admin),
+            json!({ "dossier": cle.path() }),
+        )
+        .await;
+    assert_eq!(bilan["copiees"], 2);
+    std::fs::remove_file(&range).unwrap();
+    let lecture = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": "brouillon" }),
+        )
+        .await;
+    assert_eq!(lecture["videos"][0]["disponible"], false);
+    let refus = p
+        .refus(
+            "bibliotheque_video_morceau",
+            Some(&admin),
+            json!({ "empreinte": empreinte, "position": 0 }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.video_absente");
+    // Reprise depuis la clé : seule la vidéo absente revient, vérifiée par son empreinte.
+    let bilan = p
+        .ok(
+            "bibliotheque_videos_reprendre",
+            Some(&admin),
+            json!({ "dossier": cle.path() }),
+        )
+        .await;
+    assert_eq!(bilan["copiees"], 1);
+    assert_eq!(bilan["deja_la"], 1);
+    assert_eq!(std::fs::read(&range).unwrap(), courte);
+}
+
+const LECON_CORRIGEE: LeconEssai<'static> = (
+    "9e-annee/mathematiques/racine-carree",
+    "La racine carrée",
+    "# La racine carrée\n\n## 1. L'essentiel\n\n$\\sqrt{16} = 4$ et $\\frac{1}{2}$.\n\n## 5. Exercices\n\nCalculer $\\sqrt{25}$.\n\n## 6. Corrigés\n\n$\\sqrt{25} = 5$.\n\n## 7. Quiz\n\n1. Combien fait $\\sqrt{9}$ ?\n\n### Réponses\n\n1. $3$\n\n> Note pour le maître : insister sur le signe.\n",
+);
+
+#[tokio::test]
+async fn une_lecon_un_chapitre_et_les_faits_s_impriment_en_pdf() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet_avec_faits(
+            "2026.11.1",
+            &[LECON_CORRIGEE, PUISSANCES],
+            Some("1. La racine carrée de $16$ est $4$.\n"),
+        ),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let id = premier_contenu(&p, &admin).await;
+    let sortie = tempfile::tempdir().unwrap();
+    let complete = sortie.path().join("complete.pdf");
+    p.ok(
+        "bibliotheque_imprimer",
+        Some(&admin),
+        json!({ "contenu_id": id, "brouillon": false, "forme": "complete", "chemin": complete }),
+    )
+    .await;
+    let sans = sortie.path().join("sans.pdf");
+    p.ok(
+        "bibliotheque_imprimer",
+        Some(&admin),
+        json!({ "contenu_id": id, "brouillon": false, "forme": "sans_corriges", "chemin": sans }),
+    )
+    .await;
+    let complete = std::fs::read(&complete).unwrap();
+    let sans = std::fs::read(&sans).unwrap();
+    assert!(complete.starts_with(b"%PDF-"));
+    assert!(sans.starts_with(b"%PDF-"));
+    assert_ne!(complete, sans);
+
+    // Le chapitre entier ; les faits à vérifier pour qui écrit.
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let chapitre = catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"][0]["chapitres"]
+        [0]["id"]
+        .clone();
+    let chemin = sortie.path().join("chapitre.pdf");
+    p.ok(
+        "bibliotheque_chapitre_imprimer",
+        Some(&admin),
+        json!({ "chapitre_id": chapitre, "forme": "complete", "chemin": chemin }),
+    )
+    .await;
+    assert!(std::fs::read(&chemin).unwrap().starts_with(b"%PDF-"));
+    let faits = sortie.path().join("faits.pdf");
+    p.ok(
+        "bibliotheque_faits_imprimer",
+        Some(&admin),
+        json!({ "contenu_id": id, "brouillon": false, "forme": "complete", "chemin": faits }),
+    )
+    .await;
+    assert!(std::fs::read(&faits).unwrap().starts_with(b"%PDF-"));
+
+    // Les faits à vérifier ne s'impriment qu'avec le droit d'écrire ; la leçon, avec celui de
+    // lire.
+    for (nom, permission) in [
+        (
+            "bibliotheque_faits_imprimer",
+            gesco_core::core::Permission::LIBRARY_EDIT,
+        ),
+        (
+            "bibliotheque_imprimer",
+            gesco_core::core::Permission::LIBRARY_READ,
+        ),
+    ] {
+        let commande = gesco_services::commandes::Commande::par_nom(nom).unwrap();
+        assert_eq!(
+            commande.acces,
+            gesco_services::commandes::Acces::Permission(permission)
+        );
+    }
 }

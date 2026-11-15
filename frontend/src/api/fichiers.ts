@@ -37,3 +37,28 @@ export async function choisirPaquetBibliotheque(libelleFiltre: string): Promise<
 export async function choisirArchiveJournal(libelleFiltre: string): Promise<string | null> {
   return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["gja"] }] });
 }
+
+/** Dialogue d'ouverture d'une image de la bibliothèque : SVG, PNG ou JPEG. */
+export async function choisirImageBibliotheque(libelleFiltre: string): Promise<string | null> {
+  return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["svg", "png", "jpg", "jpeg"] }] });
+}
+
+/** Dialogue d'ouverture d'un fichier à joindre à un document de la bibliothèque : PDF ou image. */
+export async function choisirDocumentBibliotheque(libelleFiltre: string): Promise<string | null> {
+  return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["pdf", "svg", "png", "jpg", "jpeg"] }] });
+}
+
+/** Dialogue d'ouverture d'une vidéo MP4. */
+export async function choisirVideo(libelleFiltre: string): Promise<string | null> {
+  return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["mp4"] }] });
+}
+
+/** Dialogue d'enregistrement d'un PDF sous le nom proposé. */
+export async function enregistrerPdfSous(nom: string, libelleFiltre: string): Promise<string | null> {
+  return save({ defaultPath: nom, filters: [{ name: libelleFiltre, extensions: ["pdf"] }] });
+}
+
+/** Dialogue de choix d'un dossier (une clé, un disque). */
+export async function choisirDossier(): Promise<string | null> {
+  return open({ multiple: false, directory: true });
+}

@@ -3,7 +3,8 @@ import "katex/dist/katex.min.css";
 import katex from "katex";
 import { useMemo, type ReactNode } from "react";
 
-import type { Alignement, Bloc, Enligne, ImageLecon, Lecon } from "../../types/gesco";
+import type { Alignement, Bloc, Enligne, ImageLecon, Lecon, VideoLecon } from "../../types/gesco";
+import { ContexteVideos, VideoDansLecon } from "./Video";
 
 /** Images de la leçon par leur clé (nom du fichier du paquet ou empreinte d'une image de
  *  l'école), en adresse `data:` : rien ne se charge par le réseau. */
@@ -71,8 +72,7 @@ function EnligneRendu({ element, images }: { element: Enligne; images: ReadonlyM
       return <img src={adresse} alt={element.description} className="my-2 inline-block max-w-full bg-surface" />;
     }
     case "video":
-      // Les vidéos de l'école arrivent avec leur lecteur ; d'ici là, rien ne s'affiche.
-      return null;
+      return <VideoDansLecon empreinte={element.empreinte} titre={element.titre} />;
     case "saut":
       return <br />;
   }
@@ -195,14 +195,20 @@ export function RenduLecon({
   lecon,
   images,
   sansNotes = false,
+  videos,
 }: {
   lecon: Lecon;
   images: ReadonlyMap<string, string>;
   sansNotes?: boolean;
+  /** Vidéos de la leçon et leur présence ; absent dans l'aperçu. */
+  videos?: readonly VideoLecon[];
 }) {
+  const parEmpreinte = useMemo(() => (videos === undefined ? null : new Map(videos.map((v) => [v.empreinte, v]))), [videos]);
   return (
-    <div className="text-encre">
-      <Blocs blocs={lecon.blocs} images={images} sansNotes={sansNotes} />
-    </div>
+    <ContexteVideos.Provider value={parEmpreinte}>
+      <div className="text-encre">
+        <Blocs blocs={lecon.blocs} images={images} sansNotes={sansNotes} />
+      </div>
+    </ContexteVideos.Provider>
   );
 }

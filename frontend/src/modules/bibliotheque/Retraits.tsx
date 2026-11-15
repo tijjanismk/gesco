@@ -11,6 +11,7 @@ import type { ApercuRetrait, CatalogueBibliotheque, DemandeRetrait, RetraitAffic
 export interface PlaceAuCatalogue {
   contenuCle: string;
   chapitreCle: string;
+  chapitreId: string;
   chapitre: string;
   matiereCle: string;
   matiere: string;
@@ -32,6 +33,7 @@ export function trouverPlace(catalogue: CatalogueBibliotheque, contenuId: string
                 return {
                   contenuCle: x.cle,
                   chapitreCle: c.cle,
+                  chapitreId: c.id,
                   chapitre: c.titre,
                   matiereCle: m.cle,
                   matiere: m.libelle,

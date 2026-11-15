@@ -105,6 +105,10 @@ const MODELES_INTEGRES: &[(&str, &str)] = &[
         include_str!("../modeles/fiche_scolaire/modele.json"),
         include_str!("../modeles/fiche_scolaire/modele.typ"),
     ),
+    (
+        include_str!("../modeles/lecon/modele.json"),
+        include_str!("../modeles/lecon/modele.typ"),
+    ),
 ];
 
 /// Variable déclarée par un modèle.

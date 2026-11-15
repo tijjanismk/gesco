@@ -260,6 +260,20 @@ impl<'a> ServiceDocuments<'a> {
             .pdf)
     }
 
+    /// Comme [`Self::composer_en_memoire`], avec des pièces jointes (les figures d'une leçon).
+    pub async fn composer_en_memoire_avec(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        type_document: &str,
+        donnees: serde_json::Value,
+        pieces: Vec<Piece>,
+    ) -> Resultat<Vec<u8>> {
+        Ok(self
+            .composer(etablissement_id, type_document, donnees, pieces)
+            .await?
+            .pdf)
+    }
+
     /// Comme [`Self::produire`], avec des pièces jointes (photo). Un modèle qui déclare la
     /// variable `qr` reçoit aussi la référence du document et son QR code de vérification
     /// (§25.9), sous `reference` et `qr`.
