@@ -36,6 +36,16 @@ comme pour un bulletin, au mot « livret ». Une maîtresse est affectée à sa 
 « Lui confier la classe ». Le jardin reçoit ses trimestres à l'ouverture de la 2.0.0. Le
 chapitre du manuel est `manuel-2.0-jardin.md`.
 
+**La bibliothèque de cours.** GESCO arrive avec 398 leçons de la 7e, de la 8e, de la 9e et de
+terminale (TSE et TSExp), et 41 sujets du DEF et du BAC avec leurs corrigés, rangés par niveau,
+matière et chapitre, cherchés en quelques mots, lus en classe sur tout l'écran, imprimés en PDF
+avec ou sans les corrigés. La direction retire et remet ce qu'elle veut. L'école écrit ses propres
+versions, ajoute ses chapitres, ses leçons, ses sujets, ses images, ses documents et ses vidéos ;
+un maître soumet, la direction publie, ou donne à un maître le droit de publier lui-même. Les
+vidéos ne sont pas dans la sauvegarde : elles se copient sur une clé. Une mise à jour de la
+bibliothèque s'installe depuis un fichier, sans Internet. Une école qui passe de la 1.2 à la 2.0
+trouve la bibliothèque allumée. Le chapitre du manuel est `manuel-2.0-bibliotheque.md`.
+
 ## Mettre à jour
 
 Installez la 2.0.0 par-dessus la version en place : les données sont gardées. Dans une école à

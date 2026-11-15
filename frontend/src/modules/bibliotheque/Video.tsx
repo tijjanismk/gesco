@@ -39,7 +39,7 @@ function LecteurVideo({ empreinte, titre }: { empreinte: string; titre: string }
   );
   if (adresse !== null)
     return (
-      <video controls src={adresse} className="my-2 block max-h-[70vh] w-full bg-black" aria-label={titre}>
+      <video controls src={adresse} className="my-2 block max-h-screen w-full bg-encre" aria-label={titre}>
         <track kind="captions" />
       </video>
     );
@@ -66,24 +66,40 @@ export function VideoDansLecon({ empreinte, titre }: { empreinte: string; titre:
 /** Les deux guides courts : filmer une leçon, ajouter et montrer une vidéo. */
 export function GuidesVideo({ surFermer }: { surFermer: () => void }) {
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="guides-video" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col gap-3 overflow-y-auto rounded bg-surface p-5 text-encre">
+    <div role="dialog" aria-modal="true" aria-labelledby="guides-video" className="fixed inset-0 z-50 flex items-center justify-center bg-encre/40 p-4">
+      <div className="flex max-h-full w-full max-w-2xl flex-col gap-3 overflow-y-auto rounded bg-surface p-5 text-encre">
         <h2 id="guides-video" className="text-lg font-semibold text-marine">
           {t("bibliotheque.guide.titre")}
         </h2>
         <section className="flex flex-col gap-1">
           <h3 className="font-semibold text-marine">{t("bibliotheque.guide.filmer.titre")}</h3>
           <ul className="list-disc pl-5">
-            {(["1", "2", "3", "4", "5", "6"] as const).map((n) => (
-              <li key={n}>{t(`bibliotheque.guide.filmer.${n}`)}</li>
+            {(
+              [
+                "bibliotheque.guide.filmer.1",
+                "bibliotheque.guide.filmer.2",
+                "bibliotheque.guide.filmer.3",
+                "bibliotheque.guide.filmer.4",
+                "bibliotheque.guide.filmer.5",
+                "bibliotheque.guide.filmer.6",
+              ] as const
+            ).map((cle) => (
+              <li key={cle}>{t(cle)}</li>
             ))}
           </ul>
         </section>
         <section className="flex flex-col gap-1">
           <h3 className="font-semibold text-marine">{t("bibliotheque.guide.montrer.titre")}</h3>
           <ol className="list-decimal pl-5">
-            {(["1", "2", "3", "4"] as const).map((n) => (
-              <li key={n}>{t(`bibliotheque.guide.montrer.${n}`)}</li>
+            {(
+              [
+                "bibliotheque.guide.montrer.1",
+                "bibliotheque.guide.montrer.2",
+                "bibliotheque.guide.montrer.3",
+                "bibliotheque.guide.montrer.4",
+              ] as const
+            ).map((cle) => (
+              <li key={cle}>{t(cle)}</li>
             ))}
           </ol>
         </section>

@@ -151,6 +151,24 @@ Sur l'école d'essai, connecté comme direction, puis comme secrétaire et comme
 | E-10 | Fiche d'un élève → Fiche scolaire | Le PDF s'ouvre ; aucune case ne dit qu'une donnée manque |
 | E-11 | Se connecter comme caissier | Ni Statistiques, ni Inventaire, ni Rapports dans le menu |
 
+## F. La bibliothèque de cours, à jouer par le porteur du projet sur l'école d'essai
+
+Sur l'école d'essai, connecté comme direction, puis comme secrétaire. Un second ordinateur relié
+pour F-8.
+
+| N° | Faire | Attendu |
+|---|---|---|
+| F-1 | Scolarité → Bibliothèque ; ouvrir 9e → Mathématiques → un chapitre → une leçon | Formules et figures lisibles ; A− et A+ changent la taille ; Mode classe en grand, Échap en sort |
+| F-2 | Chercher « racine carree » | « La racine carrée d'un nombre positif » en tête, les mots surlignés, en moins d'une seconde |
+| F-3 | Ouvrir la plus longue leçon de terminale TSE (le problème du baccalauréat) | Ouverte en moins de 2 secondes |
+| F-4 | Retirer… → la matière ; puis Retirés → Remettre | La confirmation compte les leçons ; la matière disparaît puis revient |
+| F-5 | Écrire → Commencer un brouillon, ajouter une phrase et une image, Enregistrer, Publier | La version de l'école est visible ; l'historique la montre et la compare à la livrée |
+| F-6 | Ajouter une vidéo MP4 courte, puis la lire dans le cours et en mode classe | La vidéo se lit ; la ligne sur la sauvegarde paraît à la première vidéo |
+| F-7 | Imprimer… → Leçon complète, puis Sans les corrigés, puis Tout le chapitre | Trois PDF lisibles ; le second n'a pas la section des corrigés |
+| F-8 | Sur le poste relié : ouvrir la même leçon et lire la vidéo | Ouverte en moins de 3 secondes ; la vidéo se lit |
+| F-9 | Se connecter comme secrétaire | La bibliothèque se lit ; ni Écrire, ni Retirer…, ni Faits à vérifier |
+| F-10 | Paramètres → Modules : éteindre la bibliothèque, puis la rallumer | Elle disparaît du menu et du tableau de bord, puis revient telle quelle |
+
 ## Ce qu'il faut rapporter
 
 1. Les lignes « pas vu », avec ce qui s'est affiché à la place.

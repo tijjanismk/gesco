@@ -553,7 +553,7 @@ async fn les_effectifs_a_une_date_egalent_le_decompte_des_inscriptions() {
         .as_u64()
         .unwrap() as usize;
     let fiche = &au_20["eleves"]["fiches"][lamine];
-    assert_eq!(fiche["nom"], "Traoré Lamine");
+    assert_eq!(fiche["nom"], "Lamine Traoré");
     assert_eq!(fiche["detail"], "7e B");
     assert_eq!(fiche["motif"], "Déménagement");
     // Kadi est entrée après la rentrée.
@@ -617,7 +617,7 @@ async fn les_effectifs_a_une_date_egalent_le_decompte_des_inscriptions() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|l| l["libelle"] == "Coulibaly Oumou")
+        .find(|l| l["libelle"] == "Oumou Coulibaly")
         .unwrap();
     assert_eq!(oumou["cellules"][4]["texte"], "oui");
     assert_eq!(oumou["cellules"][5]["texte"], "DUT");

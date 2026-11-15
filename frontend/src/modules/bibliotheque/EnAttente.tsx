@@ -6,7 +6,7 @@ import { date, t } from "../../i18n";
 
 /** Les versions en attente de validation, lues pour qui valide ; relues après chaque geste de la
  *  bibliothèque (clé sous « bibliotheque »). */
-export function useEnAttente(actif: boolean) {
+function useEnAttente(actif: boolean) {
   return useQuery({
     queryKey: ["bibliotheque", "en_attente"],
     queryFn: () => appeler("bibliotheque_en_attente", null),

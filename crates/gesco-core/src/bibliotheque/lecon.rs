@@ -175,8 +175,9 @@ pub struct FormuleLecon {
 /// Lit le texte d'une leçon. Ne refuse jamais : ce qui n'est pas reconnu devient du texte.
 pub fn analyser(texte: &str) -> Lecon {
     let options = Options::ENABLE_TABLES | Options::ENABLE_MATH;
+    let texte = proteger_descriptions(texte);
     let mut lecteur = Lecteur {
-        evenements: Parser::new_ext(texte, options),
+        evenements: Parser::new_ext(&texte, options),
         profondeur: 0,
     };
     Lecon {
@@ -451,6 +452,83 @@ fn est_nom_image(nom: &str) -> bool {
         && nom
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+}
+
+/// Protège les crochets de la description d'une image : « la demi-droite [AB) » ne doit pas
+/// couper l'appel `![…](figure.svg)`. Seuls les appels reconnus, écrits sur une ligne, dont les
+/// crochets ne vont pas par paires, sont touchés ; un crochet déjà protégé le reste.
+fn proteger_descriptions(texte: &str) -> std::borrow::Cow<'_, str> {
+    if !texte.contains("![") {
+        return std::borrow::Cow::Borrowed(texte);
+    }
+    let mut sortie = String::with_capacity(texte.len().saturating_add(16));
+    let mut change = false;
+    for ligne in texte.split_inclusive('\n') {
+        let mut reste = ligne;
+        while let Some((avant, apres)) = reste.split_once("![") {
+            sortie.push_str(avant);
+            sortie.push_str("![");
+            reste = apres;
+            let Some(fin) = fin_de_description(apres) else {
+                continue;
+            };
+            let (description, suite) = apres.split_at(fin);
+            if crochets_sans_paire(description) {
+                let mut precedent = ' ';
+                for c in description.chars() {
+                    if matches!(c, '[' | ']') && precedent != '\\' {
+                        sortie.push('\\');
+                        change = true;
+                    }
+                    sortie.push(c);
+                    precedent = c;
+                }
+            } else {
+                sortie.push_str(description);
+            }
+            reste = suite;
+        }
+        sortie.push_str(reste);
+    }
+    if change {
+        std::borrow::Cow::Owned(sortie)
+    } else {
+        std::borrow::Cow::Borrowed(texte)
+    }
+}
+
+/// Position du `](` qui ferme la description d'un appel d'image ou de vidéo reconnu.
+fn fin_de_description(apres: &str) -> Option<usize> {
+    let mut depart = 0;
+    while let Some(j) = apres.get(depart..)?.find("](") {
+        let fin = depart.saturating_add(j);
+        let cible = apres.get(fin.saturating_add(2)..)?.split(')').next()?;
+        if appel_image(cible, String::new()).is_some() {
+            return Some(fin);
+        }
+        depart = fin.saturating_add(2);
+    }
+    None
+}
+
+/// Vrai si les crochets non protégés d'un texte ne vont pas par paires.
+fn crochets_sans_paire(texte: &str) -> bool {
+    let mut profondeur: usize = 0;
+    let mut precedent = ' ';
+    for c in texte.chars() {
+        if precedent != '\\' {
+            match c {
+                '[' => profondeur = profondeur.saturating_add(1),
+                ']' => match profondeur.checked_sub(1) {
+                    Some(p) => profondeur = p,
+                    None => return true,
+                },
+                _ => {}
+            }
+        }
+        precedent = c;
+    }
+    profondeur != 0
 }
 
 /// Ce qu'appelle `![description](cible)`.
@@ -925,6 +1003,25 @@ mod tests {
         let brut = lecon.texte_brut();
         assert!(brut.contains("Ailleurs") && brut.contains("Web") && brut.contains("Disque"));
         assert!(!brut.contains("exemple.org") && !brut.contains("C:"));
+    }
+
+    #[test]
+    fn une_demi_droite_dans_la_description_ne_coupe_pas_l_image() {
+        let lecon = analyser(
+            "![La droite (AB), le segment [AB] et la demi-droite [AB)](figure-1.svg)\n\n\
+             ![Les demi-droites [Ox), [Oz) : 60 degrés](figure-2.svg) et [un lien](x)\n\n\
+             ![Le milieu de [AB]](figure-3.svg)\n",
+        );
+        assert_eq!(lecon.images().len(), 3);
+        let brut = lecon.texte_brut();
+        assert!(brut.contains("la demi-droite [AB)"), "{brut}");
+        assert!(brut.contains("[Ox), [Oz)"), "{brut}");
+        assert!(!brut.contains('\\'), "{brut}");
+        // Un texte sans appel d'image n'est pas touché.
+        assert!(matches!(
+            proteger_descriptions("Le segment [AB) seul."),
+            std::borrow::Cow::Borrowed(_)
+        ));
     }
 
     #[test]

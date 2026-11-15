@@ -17,7 +17,7 @@ use gesco_docs::formules::latex_vers_typst;
 
 fn dossier_bibliotheque() -> Option<PathBuf> {
     let dossier = std::env::var_os("GESCO_BIBLIOTHEQUE").map_or_else(
-        || Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../gesco-bibliotheque/contenus"),
+        || Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../gesco-bibliotheque/contenus"),
         PathBuf::from,
     );
     dossier.is_dir().then_some(dossier)

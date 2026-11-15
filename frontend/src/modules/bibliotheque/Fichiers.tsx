@@ -10,7 +10,7 @@ import type { BilanVideos, FichierDocument, FormeImpression, LectureContenu } fr
 import type { PlaceAuCatalogue } from "./Retraits";
 
 /** Nom proposé d'un PDF : « Classe — Matière — Titre.pdf », sans caractère interdit. */
-export function nomDuPdf(parties: readonly string[]): string {
+function nomDuPdf(parties: readonly string[]): string {
   const nom = parties
     .filter((p) => p.trim() !== "")
     .join(" — ")

@@ -2162,6 +2162,129 @@ async fn une_image_se_range_par_son_empreinte_et_une_image_trop_lourde_est_refus
     assert!(propre.contains("<rect"));
 }
 
+/// Critères 13 et 14 : une image de 4 Mo et un PDF de 15 Mo sont retrouvés après sauvegarde et
+/// restauration sur un ordinateur neuf ; la vidéo, elle, n'est pas dans la sauvegarde.
+#[tokio::test]
+async fn image_et_pdf_reviennent_avec_la_sauvegarde_mais_pas_la_video() {
+    let dossier = tempfile::tempdir().unwrap();
+    let livre = paquet("2026.11.1", &[RACINE]);
+    deposer(
+        &dossier.path().join("origine"),
+        "bibliotheque-mali-1.gbib",
+        &livre,
+    );
+    let origine = poste_vierge(&dossier.path().join("origine")).await;
+    let phrase = origine.installer().await;
+    let admin = origine.connecter("admin", MOT_DE_PASSE).await;
+    let fichiers = tempfile::tempdir().unwrap();
+    let image_octets = png(4 * MO);
+    let image = origine
+        .ok(
+            "bibliotheque_image_ajouter",
+            Some(&admin),
+            json!({ "chemin": ecrire(fichiers.path(), "carte.png", &image_octets) }),
+        )
+        .await;
+    let catalogue = origine
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let chapitre = catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"][0]["chapitres"]
+        [0]["id"]
+        .clone();
+    let document = origine
+        .ok(
+            "bibliotheque_contenu_ajouter",
+            Some(&admin),
+            json!({ "nature": "document", "chapitre_id": chapitre, "niveau_id": null,
+                "matiere_id": null, "titre": "Sujet photographié", "presentation": "",
+                "examen": null, "serie_code": null, "session": null, "sujet_id": null,
+                "apres_cle": null }),
+        )
+        .await;
+    let mut pdf = b"%PDF-1.7\n".to_vec();
+    pdf.resize(15 * MO, b'y');
+    let joints = origine
+        .ok(
+            "bibliotheque_document_fichier_ajouter",
+            Some(&admin),
+            json!({ "contenu_id": document["contenu_id"],
+                "chemin": ecrire(fichiers.path(), "sujet.pdf", &pdf) }),
+        )
+        .await;
+    let empreinte_pdf = joints[0]["empreinte"].clone();
+    let video = origine
+        .ok(
+            "bibliotheque_video_ajouter",
+            Some(&admin),
+            json!({ "chemin": ecrire(fichiers.path(), "classe.mp4", &mp4(MO, 3)), "confirme": false }),
+        )
+        .await;
+    assert_eq!(video["ajoutee"], true);
+    let empreinte_video = video["reference"]
+        .as_str()
+        .unwrap()
+        .trim_start_matches("video:")
+        .to_owned();
+    origine
+        .ok(
+            "bibliotheque_video_morceau",
+            Some(&admin),
+            json!({ "empreinte": empreinte_video, "position": 0 }),
+        )
+        .await;
+    let archive = origine
+        .sauvegarder(&admin, &dossier.path().join("cle-usb"))
+        .await;
+    origine.application.fermer().await.unwrap();
+    drop(origine);
+
+    // Un ordinateur neuf, qui n'a que le paquet de l'installeur.
+    let racine_neuf = dossier.path().join("neuf");
+    deposer(&racine_neuf, "bibliotheque-mali-1.gbib", &livre);
+    let neuf = poste_vierge(&racine_neuf).await;
+    neuf.ok(
+        "sauvegarde_restaurer_initiale",
+        None,
+        json!({ "chemin": archive, "phrase": phrase }),
+    )
+    .await;
+    let admin = neuf.connecter("admin", MOT_DE_PASSE).await;
+    let lecon = premier_contenu(&neuf, &admin).await;
+    let apercu = neuf
+        .ok(
+            "bibliotheque_apercu",
+            Some(&admin),
+            json!({ "contenu_id": lecon,
+                "texte": format!("![Carte]({})", image["reference"].as_str().unwrap()) }),
+        )
+        .await;
+    assert_eq!(
+        base64_vers_octets(&apercu["images"][0]["donnees"]),
+        image_octets
+    );
+    let copie = fichiers.path().join("copie.pdf");
+    neuf.ok(
+        "bibliotheque_fichier_enregistrer_sous",
+        Some(&admin),
+        json!({ "empreinte": empreinte_pdf, "chemin": copie }),
+    )
+    .await;
+    assert_eq!(std::fs::read(&copie).unwrap(), pdf);
+    // La vidéo n'a pas voyagé avec la sauvegarde : elle se reprend d'une clé.
+    neuf.refus(
+        "bibliotheque_video_morceau",
+        Some(&admin),
+        json!({ "empreinte": empreinte_video, "position": 0 }),
+    )
+    .await;
+    assert!(
+        !racine_neuf
+            .join("videos")
+            .join(format!("{empreinte_video}.mp4"))
+            .exists()
+    );
+}
+
 #[tokio::test]
 async fn un_document_de_l_ecole_recoit_ses_fichiers_et_les_rend() {
     let dossier = tempfile::tempdir().unwrap();
@@ -2179,6 +2302,8 @@ async fn un_document_de_l_ecole_recoit_ses_fichiers_et_les_rend() {
     let chapitre = catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"][0]["chapitres"]
         [0]["id"]
         .clone();
+    // La leçon livrée, lue avant que le document ne prenne la tête du chapitre.
+    let lecon = premier_contenu(&p, &admin).await;
     let document = p
         .ok(
             "bibliotheque_contenu_ajouter",
@@ -2189,7 +2314,7 @@ async fn un_document_de_l_ecole_recoit_ses_fichiers_et_les_rend() {
                 "session": null, "sujet_id": null, "apres_cle": null }),
         )
         .await;
-    let id = document["id"].clone();
+    let id = document["contenu_id"].clone();
     let fichiers = tempfile::tempdir().unwrap();
     // Critère 13 : un PDF de 15 Mo s'ajoute ; un PDF de plus de 20 Mo est refusé.
     let mut pdf = b"%PDF-1.7\n".to_vec();
@@ -2217,7 +2342,6 @@ async fn un_document_de_l_ecole_recoit_ses_fichiers_et_les_rend() {
         .await;
     assert_eq!(refus.cle, "bibliotheque.document_trop_lourd");
     // Un fichier ne se joint pas à une leçon.
-    let lecon = premier_contenu(&p, &admin).await;
     let refus = p
         .refus(
             "bibliotheque_document_fichier_ajouter",

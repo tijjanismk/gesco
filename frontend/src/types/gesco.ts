@@ -204,6 +204,17 @@ export type Ajustement = {
 	remplace: boolean,
 };
 
+/**  Alignement d'une colonne de tableau. */
+export type Alignement = 
+/**  Aucun alignement demandé. */
+"aucun" | 
+/**  À gauche. */
+"gauche" | 
+/**  Centré. */
+"centre" | 
+/**  À droite. */
+"droite";
+
 /**  Résultat de l'analyse : ce que l'écran propose, corrigeable. */
 export type Analyse = {
 	/**  Identifiant du fichier gardé en mémoire. */
@@ -377,6 +388,18 @@ export type ApercuImportNotes = {
 	erreurs: number,
 };
 
+/**  L'aperçu, rendu comme la lecture, avec les notes de l'auteur. */
+export type ApercuLecon = {
+	/**  Le texte, en arbre de blocs. */
+	lecon: Lecon,
+	/**  Images appelées. */
+	images: ImageLecon[],
+	/**  Formules que l'impression montrera telles qu'elles sont écrites. */
+	formules_brutes: string[],
+	/**  Images que les notes de la bibliothèque demandent d'ajouter. */
+	images_a_ajouter: string[],
+};
+
 /**
  *  Aperçu d'un relevé choisi : l'en-tête, les premières lignes, et les colonnes déjà dites pour
  *  ce compte.
@@ -388,6 +411,18 @@ export type ApercuReleve = {
 	exemples: string[][],
 	/**  Colonnes gardées pour ce compte, ou devinées d'après l'en-tête. */
 	format: FormatReleve | null,
+};
+
+/**  Ce qu'un retrait cacherait, pour la confirmation. */
+export type ApercuRetrait = {
+	/**  Leçons. */
+	lecons: number,
+	/**  Sujets d'examen. */
+	sujets: number,
+	/**  Corrigés. */
+	corriges: number,
+	/**  Documents. */
+	documents: number,
 };
 
 /**  Résumé d'une archive, lu dans son manifeste, sans clé. */
@@ -628,18 +663,6 @@ export type BilanImportPersonnel = {
 };
 
 /**  Bilan de l'import. */
-/**  Fait d'une installation de paquet : ce qui a changé dans l'index. */
-export type BilanInstallation = {
-	/**  Chapitres livrés nouveaux. */
-	chapitres_ajoutes: number,
-	/**  Contenus livrés nouveaux. */
-	contenus_ajoutes: number,
-	/**  Contenus livrés dont le texte a changé. */
-	contenus_changes: number,
-	/**  Contenus qui ne sont plus dans le paquet. */
-	contenus_plus_livres: number,
-};
-
 export type BilanImportProgramme = {
 	/**  Niveaux dont le programme a été récrit. */
 	niveaux: number,
@@ -657,6 +680,18 @@ export type BilanImportReferentiel = {
 	matieres: number,
 	/**  Lignes laissées de côté : déjà là, ou à corriger. */
 	ignorees: number,
+};
+
+/**  Fait d'une installation de paquet : ce qui a changé dans l'index. */
+export type BilanInstallation = {
+	/**  Chapitres livrés nouveaux. */
+	chapitres_ajoutes: number,
+	/**  Contenus livrés nouveaux. */
+	contenus_ajoutes: number,
+	/**  Contenus livrés dont le texte a changé. */
+	contenus_changes: number,
+	/**  Contenus qui ne sont plus dans le paquet. */
+	contenus_plus_livres: number,
 };
 
 /**  Ce qu'a fait la préparation des réinscriptions. */
@@ -690,6 +725,66 @@ export type BilanValidation = {
 	/**  Brouillons restés brouillons. */
 	refusees: RefusValidation[],
 };
+
+/**  Bilan d'une copie ou d'une reprise de vidéos. */
+export type BilanVideos = {
+	/**  Vidéos copiées. */
+	copiees: number,
+	/**  Vidéos déjà présentes. */
+	deja_la: number,
+	/**  Vidéos de l'école qu'on n'a trouvées nulle part. */
+	absentes: number,
+};
+
+/**  Un bloc d'une leçon. */
+export type Bloc = 
+/**  Titre de niveau 1 à 3 (les niveaux plus bas sont ramenés à 3). */
+{ type: "titre"; 
+/**  1, 2 ou 3. */
+niveau: number; 
+/**  Texte du titre. */
+contenu: Enligne[] } | 
+/**  Paragraphe. */
+{ type: "paragraphe"; 
+/**  Texte du paragraphe. */
+contenu: Enligne[] } | 
+/**  Formule seule sur sa ligne (`$$…$$`). */
+{ type: "formule"; 
+/**  Texte LaTeX, tel qu'il est écrit. */
+latex: string } | 
+/**  Liste, numérotée ou non. */
+{ type: "liste"; 
+/**  Vrai pour une liste numérotée. */
+numerotee: boolean; 
+/**  Premier numéro d'une liste numérotée. */
+debut: number | null; 
+/**  Éléments, chacun une suite de blocs. */
+elements: Bloc[][] } | 
+/**  Tableau. */
+{ type: "tableau"; 
+/**  Alignement de chaque colonne. */
+alignements: Alignement[]; 
+/**  Cellules de la ligne d'en-tête. */
+entete: Enligne[][]; 
+/**  Lignes du corps, chacune une suite de cellules. */
+lignes: Enligne[][][] } | 
+/**  Citation. */
+{ type: "citation"; 
+/**  Blocs cités. */
+blocs: Bloc[] } | 
+/**
+ *  Note pour le maître : une citation qui commence par « Note pour le maître ». Vue du seul
+ *  personnel qui écrit ; jamais des élèves ni de l'impression pour les élèves.
+ */
+{ type: "note_maitre"; 
+/**  Blocs de la note, « Note pour le maître » compris. */
+blocs: Bloc[] } | 
+/**  Texte montré tel qu'il est écrit, en caractères à chasse fixe (bloc de code, HTML brut). */
+{ type: "texte_brut"; 
+/**  Texte. */
+texte: string } | 
+/**  Filet de séparation. */
+{ type: "filet" };
 
 /**  La paie au tableau de bord (SPEC_PHASE_7 §10) : celle du mois écoulé et ce qui reste dû. */
 export type BlocPaie = {
@@ -747,6 +842,28 @@ export type BlocTresorerie = {
 	factures_echues: number,
 	/**  Catégories de dépense au-delà de leur budget. */
 	budget_depasse: number,
+};
+
+/**  Le brouillon en cours d'un contenu. */
+export type BrouillonOuvert = {
+	/**  Identifiant de la version. */
+	version_id: string,
+	/**  Numéro de la version. */
+	numero: number,
+	/**  Texte. */
+	texte: string,
+	/**  Révision lue : l'enregistrement la rend, pour qu'aucun autre ne soit écrasé. */
+	revision: number,
+	/**  Nom de l'auteur. */
+	auteur: string,
+	/**  L'utilisateur en est l'auteur. */
+	mien: boolean,
+	/**  « Revenir à la version livrée » : aucun texte à écrire. */
+	retour_livre: boolean,
+	/**  Dernier enregistrement, millisecondes depuis l'époque. */
+	enregistre_le: number,
+	/**  Le renvoi d'où vient ce brouillon, s'il vient d'une version renvoyée. */
+	renvoi: RenvoiVersion | null,
 };
 
 /**  Budget d'une année scolaire. */
@@ -926,6 +1043,22 @@ export type Cantine = {
 	bilan: BilanCantine,
 };
 
+/**  Le catalogue tel que l'écran le montre. */
+export type CatalogueBibliotheque = {
+	/**  Niveaux de l'école qui ont des contenus. */
+	niveaux: NiveauCatalogue[],
+	/**  L'utilisateur écrit (`library:edit`) : il voit les marques et les notes pour le maître. */
+	peut_ecrire: boolean,
+	/**  L'utilisateur valide (`library:publish`). */
+	peut_valider: boolean,
+	/**  L'utilisateur gère la bibliothèque (`library:manage`) : il retire et remet. */
+	peut_gerer: boolean,
+	/**  Compte d'un maître qui ne valide pas : l'écran s'ouvre sur « Mes matières ». */
+	maitre: boolean,
+	/**  L'utilisateur écrit dans toutes les matières ; sinon, dans celles marquées « mienne ». */
+	ecrit_partout: boolean,
+};
+
 /**  Catégorie de personnel, propre à l'école ; les livrées ont un code stable. */
 export type CategoriePersonnel = {
 	/**  Identifiant technique. */
@@ -1019,6 +1152,40 @@ export type ChampsEtablissement = {
 	mentions_legales: string,
 	/**  Instant de dernière modification lu avec la fiche. */
 	lue_le: number,
+};
+
+/**  Un chapitre ajouté. */
+export type ChapitreAjoute = {
+	/**  Identifiant. */
+	id: string,
+	/**  Clé. */
+	cle: string,
+};
+
+/**  Un chapitre du catalogue. */
+export type ChapitreCatalogue = {
+	/**  Identifiant. */
+	id: string,
+	/**  Clé stable. */
+	cle: string,
+	/**  Titre. */
+	titre: string,
+	/**  Origine. */
+	origine: OrigineBibliotheque,
+	/**  Contenus, dans l'ordre. */
+	contenus: ContenuCatalogue[],
+};
+
+/**  Ce qu'on peut choisir en ajoutant un chapitre ou un sujet. */
+export type ChoixEcriture = {
+	/**  Niveaux actifs de l'école. */
+	niveaux: NiveauChoisissable[],
+	/**  Matières actives de l'école. */
+	matieres: MatiereChoisissable[],
+	/**  L'utilisateur écrit partout ; sinon, dans `places` seulement. */
+	partout: boolean,
+	/**  Matières et niveaux d'un maître. */
+	places: PlaceEcriture[],
 };
 
 /**  Choix du parent à la validation : plan de paiement et frais facultatifs cochés. */
@@ -1140,6 +1307,16 @@ export type CodeRemis = {
 	pdf: string,
 	/**  Le code du responsable après la remise. */
 	etat: EtatCodeResponsable,
+};
+
+/**  Deux textes comparés côte à côte. */
+export type ComparaisonTextes = {
+	/**  Rangées, dans l'ordre des textes. */
+	rangees: RangeeComparaison[],
+	/**  Nombre de lignes retirées ou changées à gauche. */
+	retirees: number,
+	/**  Nombre de lignes ajoutées ou changées à droite. */
+	ajoutees: number,
 };
 
 /**  Compétence d'une section du jardin. */
@@ -1444,12 +1621,48 @@ export type ContenuBulletin = {
 	livret?: ContenuLivret | null,
 };
 
+/**  Un contenu du catalogue. */
+export type ContenuCatalogue = {
+	/**  Identifiant. */
+	id: string,
+	/**  Clé stable. */
+	cle: string,
+	/**  Titre. */
+	titre: string,
+	/**  Nature. */
+	nature: NatureContenu,
+	/**  Examen d'un sujet ou d'un corrigé. */
+	examen: ExamenSujet | null,
+	/**  Session d'un sujet ou d'un corrigé. */
+	session: number | null,
+	/**  Origine. */
+	origine: OrigineBibliotheque,
+	/**  La version visible est celle de l'école (marque montrée au personnel qui écrit). */
+	version_ecole: boolean,
+	/**  Une version attend la validation. */
+	en_attente: boolean,
+	/**  Un brouillon est en cours. */
+	brouillon: boolean,
+	/**  Le contenu lié (le corrigé d'un sujet, et l'inverse), s'il paraît aussi. */
+	lie_id: string | null,
+};
+
 /**  Contenu d'une grille : ses lignes et ses plans. */
 export type ContenuGrille = {
 	/**  Lignes de frais. */
 	lignes: LigneTarifaire[],
 	/**  Plans de paiement. */
 	plans: PlanPaiement[],
+};
+
+/**  Le contenu lié (le corrigé d'un sujet, et l'inverse). */
+export type ContenuLie = {
+	/**  Identifiant. */
+	id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Nature. */
+	nature: NatureContenu,
 };
 
 /**  Contenu figé d'un livret du jardin (SPEC_PHASE_11_B §3.4, §5). */
@@ -2010,24 +2223,43 @@ export type Contrat = {
 	bibliotheque_historique: Signature<DemandeContenuBibliotheque, HistoriqueContenu>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_comparer: Signature<DemandeComparaison, ComparaisonTextes>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_soumettre: Signature<DemandeBrouillonVersion, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_publier: Signature<DemandeBrouillonVersion, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_renvoyer: Signature<DemandeRenvoiVersion, EcritureOuverte>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_en_attente: Signature<null, VersionEnAttente[]>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_droits_publication_lire: Signature<null, DroitsPublication>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_droit_publication_donner: Signature<DemandeDroitPublication, DroitsPublication>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_droit_publication_retirer: Signature<DemandeDroitPublication, DroitsPublication>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_image_ajouter: Signature<DemandeImageBibliotheque, ImageAjoutee>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_document_fichier_ajouter: Signature<DemandeFichierDocument, FichierDocument[]>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_document_fichier_retirer: Signature<DemandeRetraitFichierDocument, FichierDocument[]>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_fichier_enregistrer_sous: Signature<DemandeFichierEnregistrer, null>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_video_ajouter: Signature<DemandeVideoBibliotheque, VideoAjoutee>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_video_envoi_morceau: Signature<DemandeEnvoiMorceauVideo, null>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_video_morceau: Signature<DemandeMorceauVideo, MorceauVideo>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_videos_copier: Signature<DemandeDossierVideos, BilanVideos>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_videos_reprendre: Signature<DemandeDossierVideos, BilanVideos>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_imprimer: Signature<DemandeImpressionContenu, null>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_faits_imprimer: Signature<DemandeImpressionContenu, null>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_chapitre_imprimer: Signature<DemandeImpressionChapitre, null>,
 	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
@@ -2397,6 +2629,28 @@ export type Convocations = {
 	droits: DroitsConvocations,
 };
 
+/**  Une discipline de la bibliothèque dans un niveau, et la matière de l'école qui la reçoit. */
+export type CorrespondanceAffichee = {
+	/**  Code de la discipline (`SVT`…). */
+	discipline_code: string,
+	/**  Libellé de la discipline dans la bibliothèque. */
+	discipline: string,
+	/**  Code du niveau. */
+	niveau_code: string,
+	/**  Libellé du niveau dans l'école. */
+	niveau: string,
+	/**  Matière de l'école ; aucune : sous le nom de la bibliothèque. */
+	matiere_id: string | null,
+};
+
+/**  La correspondance des disciplines, pour les réglages. */
+export type CorrespondancesBibliotheque = {
+	/**  Une ligne par discipline et par niveau actif de l'école. */
+	correspondances: CorrespondanceAffichee[],
+	/**  Matières actives de l'école. */
+	matieres: MatiereChoisissable[],
+};
+
 /**  Ce qui fait les lignes ou les colonnes. */
 export type CritereLibre = 
 /**  Classe de l'élève. */
@@ -2587,6 +2841,35 @@ export type DemandeAffectation = {
 	enseignant_id: string,
 };
 
+/**  Ajouter une leçon, un sujet, un corrigé ou un document de l'école. */
+export type DemandeAjoutContenu = {
+	/**  Nature. */
+	nature: NatureContenu,
+	/**
+	 *  Chapitre ; un sujet peut ne pas en donner : il va sous « Sujets du DEF » ou « Sujets du
+	 *  BAC » de son niveau et de sa matière, créé au besoin.
+	 */
+	chapitre_id: string | null,
+	/**  Niveau d'un sujet donné sans chapitre. */
+	niveau_id: string | null,
+	/**  Matière d'un sujet donné sans chapitre. */
+	matiere_id: string | null,
+	/**  Titre. */
+	titre: string,
+	/**  Phrase de présentation d'un document. */
+	presentation: string,
+	/**  Examen d'un sujet. */
+	examen: ExamenSujet | null,
+	/**  Série d'un sujet du lycée. */
+	serie_code: string | null,
+	/**  Session d'un sujet. */
+	session: number | null,
+	/**  Le sujet d'un corrigé. */
+	sujet_id: string | null,
+	/**  Clé du contenu après lequel il se range ; aucune : en tête. */
+	apres_cle: string | null,
+};
+
 /**  Fichier à analyser : un chemin rendu par le dialogue du système. */
 export type DemandeAnalyse = {
 	/**  Chemin du fichier `.xlsx`, `.xls`, `.ods` ou `.csv`. */
@@ -2692,6 +2975,14 @@ export type DemandeApercuAjustement = {
 	classe_id?: string | null,
 };
 
+/**  Aperçu d'un texte dans l'éditeur. */
+export type DemandeApercuLecon = {
+	/**  Identifiant du contenu (pour ses images livrées). */
+	contenu_id: string,
+	/**  Texte tapé. */
+	texte: string,
+};
+
 /**  Relevé choisi pour un compte. */
 export type DemandeApercuReleve = {
 	/**  Compte. */
@@ -2792,6 +3083,34 @@ export type DemandeAvance = {
 	source: SourcePaiement,
 };
 
+/**  Enregistrer un brouillon. */
+export type DemandeBrouillon = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Identifiant du brouillon ouvert. */
+	version_id: string,
+	/**  Révision lue à l'ouverture ou au dernier enregistrement. */
+	revision: number,
+	/**  Texte. */
+	texte: string,
+};
+
+/**  Commencer un brouillon. */
+export type DemandeBrouillonCommencer = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  D'où part le brouillon. */
+	depart: DepartBrouillon,
+};
+
+/**  Reprendre ou abandonner un brouillon. */
+export type DemandeBrouillonVersion = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Identifiant du brouillon. */
+	version_id: string,
+};
+
 /**  Budget d'une année ; vide : l'année courante. */
 export type DemandeBudget = {
 	/**  Année. */
@@ -2881,6 +3200,22 @@ export type DemandeChangementPlan = {
 	plan_paiement_id: string,
 };
 
+/**  Ajouter un chapitre de l'école. */
+export type DemandeChapitreBibliotheque = {
+	/**  Niveau de l'école. */
+	niveau_id: string,
+	/**  Matière de l'école. */
+	matiere_id: string,
+	/**  Séries du lycée ; aucune : toutes. */
+	series: string[],
+	/**  Partie, choisie parmi celles de la matière ou nouvelle ; vide si aucune. */
+	partie: string,
+	/**  Titre. */
+	titre: string,
+	/**  Clé du chapitre après lequel il se range ; aucune : en tête. */
+	apres_cle: string | null,
+};
+
 /**  Classe désignée. */
 export type DemandeClasse = {
 	/**  Classe. */
@@ -2956,6 +3291,16 @@ export type DemandeColonne = {
 	 *  d'observation.
 	 */
 	lue_le: number,
+};
+
+/**  Comparer deux versions d'un contenu. */
+export type DemandeComparaison = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Texte de gauche. */
+	gauche: TexteCompare,
+	/**  Texte de droite. */
+	droite: TexteCompare,
 };
 
 /**  Compétence saisie par la direction ; sans `id`, une création. */
@@ -3070,6 +3415,12 @@ export type DemandeConsentement = {
 	accepte: boolean,
 };
 
+/**  Désigner un contenu. */
+export type DemandeContenuBibliotheque = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+};
+
 /**  Convocation à émettre. */
 export type DemandeConvocation = {
 	/**  Inscription de l'élève. */
@@ -3106,6 +3457,16 @@ export type DemandeCorrection = {
 	id: string,
 	/**  Motif, obligatoire. */
 	motif: string,
+};
+
+/**  Régler la correspondance d'une discipline dans un niveau. */
+export type DemandeCorrespondance = {
+	/**  Code de la discipline. */
+	discipline_code: string,
+	/**  Code du niveau. */
+	niveau_code: string,
+	/**  Matière de l'école ; aucune : sous le nom de la bibliothèque. */
+	matiere_id: string | null,
 };
 
 /**  Nouvelle classe. */
@@ -3312,6 +3673,12 @@ export type DemandeDossierDiscipline = {
 	inscription_id: string,
 };
 
+/**  Copier les vidéos vers un dossier, ou les en reprendre. */
+export type DemandeDossierVideos = {
+	/**  Dossier choisi (une clé, un disque). */
+	dossier: string,
+};
+
 /**  Identité en cours de saisie, comparée aux fiches existantes. */
 export type DemandeDoublons = {
 	/**  Nom. */
@@ -3322,6 +3689,12 @@ export type DemandeDoublons = {
 	date_naissance: string,
 	/**  Fiche à écarter : celle que l'on modifie. */
 	sauf: string | null,
+};
+
+/**  Donner ou retirer le droit de publier. */
+export type DemandeDroitPublication = {
+	/**  Compte du maître. */
+	utilisateur_id: string,
 };
 
 /**
@@ -3493,6 +3866,16 @@ export type DemandeEntree7e = {
 	actif: boolean,
 };
 
+/**  Un morceau de vidéo envoyé par un poste relié. */
+export type DemandeEnvoiMorceauVideo = {
+	/**  Identifiant de l'envoi, tiré par le poste relié. */
+	envoi: string,
+	/**  Position du morceau, en octets : la taille déjà reçue. */
+	position: number,
+	/**  Morceau en base 64. */
+	contenu: string,
+};
+
 /**  SMS d'essai vers un numéro saisi. */
 export type DemandeEssai = {
 	/**  Numéro, sous une forme quelconque. */
@@ -3620,6 +4003,22 @@ export type DemandeFicheScolaire = {
 	eleve_id: string | null,
 	/**  Classe : une fiche par élève inscrit. */
 	classe_id: string | null,
+};
+
+/**  Joindre un fichier à un document de l'école. */
+export type DemandeFichierDocument = {
+	/**  Identifiant du document. */
+	contenu_id: string,
+	/**  Chemin du fichier. */
+	chemin: string,
+};
+
+/**  Enregistrer un fichier de la bibliothèque sous un chemin choisi. */
+export type DemandeFichierEnregistrer = {
+	/**  Empreinte du fichier. */
+	empreinte: string,
+	/**  Chemin où l'écrire. */
+	chemin: string,
 };
 
 /**  Messages d'un état à lire ; aucun : tous. */
@@ -3781,6 +4180,12 @@ export type DemandeIdSaisie = {
 	id: string,
 };
 
+/**  Ajouter une image à la bibliothèque. */
+export type DemandeImageBibliotheque = {
+	/**  Chemin du fichier. */
+	chemin: string,
+};
+
 /**  Grille remplie par l'enseignant, à importer dans une évaluation (SPEC_PHASE_4 §4.5). */
 export type DemandeImportNotes = {
 	/**  Évaluation. */
@@ -3817,6 +4222,28 @@ export type DemandeImportReleve = {
 	format: FormatReleve,
 };
 
+/**  Imprimer un chapitre entier. */
+export type DemandeImpressionChapitre = {
+	/**  Identifiant du chapitre. */
+	chapitre_id: string,
+	/**  Forme. */
+	forme: FormeImpression,
+	/**  Chemin du PDF. */
+	chemin: string,
+};
+
+/**  Imprimer un contenu, ou ses faits à vérifier. */
+export type DemandeImpressionContenu = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Le brouillon (pour qui écrit) ; sinon la version visible. */
+	brouillon: boolean,
+	/**  Forme. */
+	forme: FormeImpression,
+	/**  Chemin du PDF. */
+	chemin: string,
+};
+
 /**  Nouvelle inscription, en brouillon. */
 export type DemandeInscription = {
 	/**  Élève. */
@@ -3829,6 +4256,12 @@ export type DemandeInscription = {
 	redoublant: boolean,
 	/**  École d'où vient l'élève, pour une arrivée par transfert. */
 	etablissement_origine: string,
+};
+
+/**  Installer une mise à jour de la bibliothèque depuis un fichier. */
+export type DemandeInstallationBibliotheque = {
+	/**  Chemin du fichier `.gbib` (sur un poste relié, son contenu voyage à sa place). */
+	chemin: string,
 };
 
 /**  Ce que l'écran demande : l'année et la partie de l'école. */
@@ -3881,6 +4314,14 @@ export type DemandeJustification = {
 	justificatif: string,
 };
 
+/**  Lire un contenu. */
+export type DemandeLectureContenu = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Version demandée ; aucune : la version visible. */
+	vue: VueContenu | null,
+};
+
 /**  Levée d'une exclusion temporaire, ou réintégration après une exclusion définitive. */
 export type DemandeLevee = {
 	/**  Exclusion. */
@@ -3890,12 +4331,6 @@ export type DemandeLevee = {
 };
 
 /**  Fichier de licence importé. */
-/**  Installer une mise à jour de la bibliothèque depuis un fichier. */
-export type DemandeInstallationBibliotheque = {
-	/**  Chemin du fichier `.gbib` (sur un poste relié, son contenu voyage à sa place). */
-	chemin: string,
-};
-
 export type DemandeLicence = {
 	/**  Contenu du fichier, tel qu'émis par l'éditeur. */
 	contenu: string,
@@ -4178,6 +4613,14 @@ export type DemandeMoisPayes = {
 export type DemandeMoisRecettes = {
 	/**  Mois. */
 	mois: string,
+};
+
+/**  Lire un morceau de vidéo. */
+export type DemandeMorceauVideo = {
+	/**  Empreinte de la vidéo. */
+	empreinte: string,
+	/**  Position du morceau, en octets. */
+	position: number,
 };
 
 /**  Justification ou annulation d'une absence, avec son motif. */
@@ -4493,6 +4936,12 @@ export type DemandeRecherche = {
 	texte: string,
 };
 
+/**  Chercher dans la bibliothèque. */
+export type DemandeRechercheBibliotheque = {
+	/**  Ce que l'utilisateur a tapé. */
+	texte: string,
+};
+
 /**  Compétences d'une section recopiées dans une autre, pour partir d'elles. */
 export type DemandeRecopie = {
 	/**  Section dont on prend les compétences. */
@@ -4597,6 +5046,12 @@ export type DemandeRemiseALEssai = {
 	numero: string,
 };
 
+/**  Remettre un retrait. */
+export type DemandeRemiseBibliotheque = {
+	/**  Identifiant du retrait. */
+	retrait_id: string,
+};
+
 /**  Remise d'un bulletin. */
 export type DemandeRemiseBulletin = {
 	/**  Remise. */
@@ -4631,6 +5086,16 @@ export type DemandeRemisesClasse = {
 export type DemandeRenvoi = {
 	/**  Message. */
 	id: string,
+};
+
+/**  Renvoyer une version soumise. */
+export type DemandeRenvoiVersion = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Identifiant de la version soumise. */
+	version_id: string,
+	/**  Ce que l'auteur doit reprendre. */
+	commentaire: string,
 };
 
 /**  Réouverture d'une année clôturée, toujours motivée. */
@@ -4731,6 +5196,18 @@ export type DemandeResultatExamen = {
 	mention: string,
 };
 
+/**  Retirer, ou demander ce qu'un retrait cacherait. */
+export type DemandeRetrait = {
+	/**  Grain. */
+	grain: GrainRetrait,
+	/**  Clé du contenu ou du chapitre, clé de la matière au catalogue, code du niveau ou du paquet. */
+	cible: string,
+	/**  Niveau d'une matière. */
+	niveau_code: string | null,
+	/**  Série d'une matière au lycée. */
+	serie_code: string | null,
+};
+
 /**  Retrait de la note saisie d'un élève. */
 export type DemandeRetraitConduite = {
 	/**  Classe. */
@@ -4741,6 +5218,14 @@ export type DemandeRetraitConduite = {
 	inscription_id: string,
 	/**  Motif, obligatoire. */
 	motif: string,
+};
+
+/**  Retirer un fichier d'un document. */
+export type DemandeRetraitFichierDocument = {
+	/**  Identifiant du document. */
+	contenu_id: string,
+	/**  Ligne qui joint le fichier. */
+	lien_id: string,
 };
 
 /**  Séance à retirer. */
@@ -5006,6 +5491,14 @@ export type DemandeVersion = {
 	assiette_deduit: string[],
 };
 
+/**  Ajouter une vidéo. */
+export type DemandeVideoBibliotheque = {
+	/**  Chemin du fichier. */
+	chemin: string,
+	/**  L'utilisateur a confirmé l'ajout d'une vidéo plus lourde que la taille conseillée. */
+	confirme: boolean,
+};
+
 /**  Visa d'une session clôturée. */
 export type DemandeVisa = {
 	/**  Session. */
@@ -5028,6 +5521,17 @@ export type DemiJournee =
 "matin" | 
 /**  Après-midi. */
 "apres_midi";
+
+/**  D'où part un brouillon nouveau. */
+export type DepartBrouillon = 
+/**  La version visible (le plan pour une leçon de l'école qui n'en a pas). */
+{ type: "visible" } | 
+/**  La version livrée, telle que le paquet installé la donne. */
+{ type: "livree" } | 
+/**  Une version de l'école, ancienne ou non (« Repartir de cette version »). */
+{ type: "version"; 
+/**  Identifiant de la version. */
+version_id: string };
 
 /**  Dépense de l'école. */
 export type Depense = {
@@ -5275,6 +5779,18 @@ export type DossierDiscipline = {
 	droits: DroitsDiscipline,
 };
 
+/**  Un maître qui peut publier lui-même. */
+export type DroitPublicationAffiche = {
+	/**  Compte du maître. */
+	utilisateur_id: string,
+	/**  Nom. */
+	nom: string,
+	/**  Donné le, millisecondes depuis l'époque. */
+	donne_le: number,
+	/**  Nom de qui l'a donné. */
+	donne_par: string,
+};
+
 /**  Ce que peut faire le compte connecté. */
 export type DroitsConvocations = {
 	/**  Convoquer, imprimer le billet. */
@@ -5325,6 +5841,14 @@ export type DroitsMessages = {
 	renvoyer: boolean,
 	/**  Décider d'un message préparé, annuler un message. */
 	decider: boolean,
+};
+
+/**  « Peuvent publier eux-mêmes ». */
+export type DroitsPublication = {
+	/**  Maîtres qui ont le droit, par nom. */
+	droits: DroitPublicationAffiche[],
+	/**  Maîtres avec un compte qui ne l'ont pas. */
+	maitres: MaitreChoisissable[],
 };
 
 /**  Ce que peut faire le compte connecté. */
@@ -5387,6 +5911,45 @@ export type EcheanceEngagement = {
 	nature: NatureEngagement,
 	/**  Dernier jour prévu. */
 	fin: string,
+};
+
+/**  Un contenu ouvert pour l'écriture. */
+export type EcritureOuverte = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Nature. */
+	nature: NatureContenu,
+	/**  Origine. */
+	origine: OrigineBibliotheque,
+	/**  L'utilisateur peut écrire ce contenu (ses matières pour un maître). */
+	peut_ecrire: boolean,
+	/**  L'utilisateur valide (`library:publish`). */
+	peut_valider: boolean,
+	/**
+	 *  L'utilisateur publie son brouillon sans le soumettre : il valide, ou la direction lui a
+	 *  donné le droit de publier et le contenu est dans ses matières.
+	 */
+	peut_publier: boolean,
+	/**  Le brouillon en cours, s'il y en a un. */
+	brouillon: BrouillonOuvert | null,
+	/**
+	 *  La version soumise, en attente de validation ; montrée à qui valide et à qui écrit ce
+	 *  contenu.
+	 */
+	soumise: VersionSoumise | null,
+	/**  Texte d'où partirait un brouillon nouveau : la version visible, sinon le plan d'une leçon. */
+	texte_depart: string,
+	/**  Le contenu a une version livrée lisible sur ce poste. */
+	a_une_version_livree: boolean,
+	/**  La version visible est celle de l'école. */
+	version_ecole: boolean,
+	/**
+	 *  La bibliothèque a une version plus récente que celle d'où la version de l'école est
+	 *  partie.
+	 */
+	livree_plus_recente: boolean,
 };
 
 /**  Édition achetée (§26.1). Un seul binaire : l'édition n'active que des modules. */
@@ -5704,6 +6267,45 @@ export type EngagementAffiche = {
 	renouvele: boolean,
 };
 
+/**  Un élément du texte d'un bloc. */
+export type Enligne = 
+/**  Texte simple. */
+{ type: "texte"; 
+/**  Texte. */
+texte: string } | 
+/**  Texte à chasse fixe (`` `…` ``). */
+{ type: "code"; 
+/**  Texte. */
+texte: string } | 
+/**  Texte en gras. */
+{ type: "gras"; 
+/**  Contenu. */
+contenu: Enligne[] } | 
+/**  Texte en italique. */
+{ type: "italique"; 
+/**  Contenu. */
+contenu: Enligne[] } | 
+/**  Formule LaTeX. */
+{ type: "formule"; 
+/**  Texte LaTeX, tel qu'il est écrit. */
+latex: string; 
+/**  Vrai pour `$$…$$` (formule centrée), faux pour `$…$` (dans la ligne). */
+seule: boolean } | 
+/**  Image. */
+{ type: "image"; 
+/**  D'où vient l'image. */
+source: SourceImage; 
+/**  Description (texte entre crochets). */
+description: string } | 
+/**  Vidéo de l'école (`![titre](video:<empreinte>)`). */
+{ type: "video"; 
+/**  Empreinte SHA-256 du fichier, en hexadécimal minuscule. */
+empreinte: string; 
+/**  Titre. */
+titre: string } | 
+/**  Retour à la ligne forcé. */
+{ type: "saut" };
+
 /**
  *  Enseignant : une personne, un statut, et un compte s'il saisit lui-même ses notes (Q-55). Le
  *  dossier du personnel (phase 6) le complétera sans toucher à ses affectations.
@@ -5794,6 +6396,12 @@ export type Etablissement = {
 	mentions_legales: string,
 	/**  Multiple d'arrondi commercial des montants (§3.7), en francs. */
 	multiple_arrondi: number,
+};
+
+/**  État de la bibliothèque pour l'écran des réglages. */
+export type EtatBibliotheque = {
+	/**  Paquets installés. */
+	paquets: PaquetAffiche[],
 };
 
 /**  État du canal d'un établissement. */
@@ -5911,43 +6519,6 @@ export type EtatLicence = {
 };
 
 /**  Licence telle que l'écran Licence l'affiche. */
-/**  État de la bibliothèque pour l'écran des réglages. */
-export type EtatBibliotheque = {
-	/**  Paquets installés. */
-	paquets: PaquetAffiche[],
-};
-
-/**  Résultat d'une installation. */
-export type InstallationBibliotheque = {
-	/**  Version installée. */
-	version: string,
-	/**  Ce qui a changé. */
-	bilan: BilanInstallation,
-	/**  État après l'installation. */
-	etat: EtatBibliotheque,
-};
-
-/**  Paquet installé tel que l'écran des réglages le montre. */
-export type PaquetAffiche = {
-	/**  Code du paquet. */
-	code: string,
-	/**  Version installée. */
-	version: string,
-	/**  Installé le, millisecondes depuis l'époque. */
-	installe_le: number,
-	/**  Nombre de leçons livrées. */
-	lecons: number,
-	/**  Nombre de sujets d'examen livrés. */
-	sujets: number,
-	/**  Vrai si le fichier du paquet est présent et lu sur ce poste. */
-	present: boolean,
-	/**
-	 *  Version plus récente déjà installée un jour dans cette école (une sauvegarde venue d'un
-	 *  ordinateur mieux à jour) : l'écran propose d'installer la mise à jour.
-	 */
-	version_plus_recente: string | null,
-};
-
 export type EtatLicenceAffiche = {
 	/**  Empreinte de ce poste, à communiquer à l'éditeur pour obtenir une licence. */
 	empreinte_poste: string,
@@ -6024,6 +6595,21 @@ export type EtatReseau = {
 	appairage: AppairageAffiche | null,
 };
 
+/**  État d'une version de l'école. */
+export type EtatVersion = 
+/**  En cours d'écriture ; se réécrit sur place. */
+"brouillon" | 
+/**  Soumise à la direction ; ne change plus. */
+"soumise" | 
+/**  Renvoyée à son auteur avec un commentaire. */
+"renvoyee" | 
+/**  Publiée : c'est la version visible. */
+"publiee" | 
+/**  Publiée puis remplacée par une autre. */
+"remplacee" | 
+/**  Brouillon abandonné, gardé dans l'historique. */
+"abandonnee";
+
 /**  Évaluation : un devoir ou une composition d'une matière d'une classe. */
 export type Evaluation = {
 	/**  Identifiant technique. */
@@ -6080,6 +6666,13 @@ export type Examen =
 "cap" | 
 /**  Brevet de technicien. */
 "bt";
+
+/**  Examen d'un sujet. */
+export type ExamenSujet = 
+/**  Diplôme d'études fondamentales. */
+"DEF" | 
+/**  Baccalauréat. */
+"BAC";
 
 /**  Les résultats d'une année. */
 export type Examens = {
@@ -6411,6 +7004,20 @@ export type FicheUtilisateur = {
 	modifiee_le: number,
 };
 
+/**  Un fichier d'un document, tel que l'écran le montre. */
+export type FichierDocument = {
+	/**  Ligne qui joint le fichier. */
+	lien_id: string,
+	/**  Empreinte du fichier. */
+	empreinte: string,
+	/**  Nom du fichier. */
+	nom: string,
+	/**  Type MIME. */
+	type_mime: string,
+	/**  Taille en octets. */
+	taille: number,
+};
+
 /**  Classeur écrit. */
 export type FichierEcrit = {
 	/**  Chemin du fichier écrit. */
@@ -6528,6 +7135,13 @@ export type FormeBulletin =
 /**  Livret du jardin : des compétences observées, sans note ni moyenne. */
 "livret";
 
+/**  Forme d'une impression. */
+export type FormeImpression = 
+/**  La leçon entière. */
+"complete" | 
+/**  Sans la section des corrigés ni les réponses du quiz. */
+"sans_corriges";
+
 /**  Formule de la moyenne d'une matière sur une période (T-28). */
 export type FormuleMatiere = 
 /**
@@ -6587,6 +7201,19 @@ export type Fournisseurs = {
 	/**  Droits de qui consulte. */
 	droits: DroitsDepenses,
 };
+
+/**  À quel grain un retrait cache (ADR « retirer un contenu »). */
+export type GrainRetrait = 
+/**  Un contenu, par sa clé. */
+"contenu" | 
+/**  Un chapitre, par sa clé. */
+"chapitre" | 
+/**  Une matière d'un niveau (avec sa série au lycée), par sa clé au catalogue. */
+"matiere" | 
+/**  Un niveau, par son code. */
+"niveau" | 
+/**  Tout un paquet livré, par son code. */
+"paquet";
 
 /**  Grille de frais d'une année. */
 export type Grille = {
@@ -6692,6 +7319,27 @@ export type Guichet = {
 	sms_actif: boolean,
 };
 
+/**  L'historique d'un contenu. */
+export type HistoriqueContenu = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Versions, les plus récentes d'abord. */
+	versions: VersionAffichee[],
+	/**  Retraits et remises, les plus récents d'abord. */
+	mouvements: MouvementContenu[],
+	/**  Le contenu a une version livrée lisible sur ce poste. */
+	a_une_version_livree: boolean,
+	/**
+	 *  La bibliothèque a une version plus récente que celle d'où la version de l'école est
+	 *  partie.
+	 */
+	livree_plus_recente: boolean,
+	/**  L'utilisateur peut écrire ce contenu. */
+	peut_ecrire: boolean,
+};
+
 /**
  *  Fiches comptées dans le total sans entrer dans aucune colonne ou ligne : l'écran le dit d'une
  *  ligne neutre ; rien de tel n'est jamais exporté ni imprimé.
@@ -6701,6 +7349,24 @@ export type HorsColonnes = {
 	cle: string,
 	/**  Places des fiches dans la liste de l'onglet. */
 	membres: number[],
+};
+
+/**  Une image rangée : ce que l'éditeur écrit dans le texte. */
+export type ImageAjoutee = {
+	/**  Appel à écrire dans le texte : `image:<empreinte>`. */
+	reference: string,
+	/**  Nom du fichier, proposé comme description. */
+	nom: string,
+};
+
+/**  Une image appelée par la leçon, prête à afficher. */
+export type ImageLecon = {
+	/**  Nom du fichier du paquet, ou empreinte d'une image de l'école. */
+	cle: string,
+	/**  Type MIME. */
+	type_mime: string,
+	/**  Contenu en base 64. */
+	donnees: string,
 };
 
 /**  Impayé d'une facture à une date. */
@@ -6776,6 +7442,16 @@ export type InscriptionAffichee = {
 	annee: string,
 	/**  Instant de dernière modification, à renvoyer avec la modification. */
 	modifiee_le: number,
+};
+
+/**  Résultat d'une installation. */
+export type InstallationBibliotheque = {
+	/**  Version installée. */
+	version: string,
+	/**  Ce qui a changé. */
+	bilan: BilanInstallation,
+	/**  État après l'installation. */
+	etat: EtatBibliotheque,
 };
 
 /**  L'inventaire d'une année, pour une partie de l'école. */
@@ -6884,6 +7560,50 @@ export type JourneeCycle = {
 	inter_classe: number,
 	/**  Horaire de canicule, au 1er cycle seulement. */
 	canicule: Canicule | null,
+};
+
+/**  Une leçon analysée : la suite de ses blocs. */
+export type Lecon = {
+	/**  Blocs dans l'ordre du texte. */
+	blocs: Bloc[],
+};
+
+/**  Un contenu ouvert. */
+export type LectureContenu = {
+	/**  Identifiant. */
+	id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Nature. */
+	nature: NatureContenu,
+	/**  Examen d'un sujet ou d'un corrigé. */
+	examen: ExamenSujet | null,
+	/**  Session d'un sujet ou d'un corrigé. */
+	session: number | null,
+	/**  Origine. */
+	origine: OrigineBibliotheque,
+	/**  Phrase de présentation d'un document. */
+	presentation: string,
+	/**  Version montrée. */
+	vue: VueContenu,
+	/**  Versions que l'utilisateur peut montrer. */
+	vues: VueContenu[],
+	/**  La version visible est celle de l'école. */
+	version_ecole: boolean,
+	/**  Le texte, en arbre de blocs ; vide pour un contenu sans texte. */
+	lecon: Lecon,
+	/**  Images appelées par le texte. */
+	images: ImageLecon[],
+	/**  Contenu lié. */
+	lie: ContenuLie | null,
+	/**  L'utilisateur peut écrire ce contenu (ses matières pour un maître). */
+	peut_modifier: boolean,
+	/**  Faits à vérifier joints par la bibliothèque, pour le seul personnel qui écrit. */
+	faits: Lecon | null,
+	/**  Vidéos appelées par le texte, et leur présence sur le poste principal. */
+	videos: VideoLecon[],
+	/**  Fichiers d'un document de l'école, dans l'ordre. */
+	fichiers: FichierDocument[],
 };
 
 /**  Contenu signé d'une licence. */
@@ -7312,6 +8032,14 @@ export type LigneLivre = {
 	pointee: boolean,
 };
 
+/**  Une ligne numérotée d'un des deux textes comparés. */
+export type LigneNumerotee = {
+	/**  Numéro de la ligne dans son texte, à partir de 1. */
+	numero: number,
+	/**  Texte de la ligne. */
+	texte: string,
+};
+
 /**  Matière au programme d'un niveau. */
 export type LigneProgramme = {
 	/**  Identifiant technique. */
@@ -7490,6 +8218,14 @@ export type MaFiche = {
 	engagements: EngagementAffiche[],
 };
 
+/**  Un maître à qui donner le droit de publier. */
+export type MaitreChoisissable = {
+	/**  Compte du maître. */
+	utilisateur_id: string,
+	/**  Nom. */
+	nom: string,
+};
+
 /**
  *  Maître d'une classe du jardin (SPEC_PHASE_11_B §7) : une affectation sans matière, puisque
  *  le jardin n'en a pas. Elle décide quels enfants il observe quand l'école ouvre la saisie aux
@@ -7536,6 +8272,33 @@ export type Matiere = {
 	ordre: number,
 	/**  Faux pour une matière que l'école n'enseigne plus : elle reste pour les notes passées. */
 	active: boolean,
+};
+
+/**  Une matière du catalogue. */
+export type MatiereCatalogue = {
+	/**
+	 *  Clé de la matière : `m:<identifiant>` pour une matière de l'école, `d:<code>` pour une
+	 *  discipline de référence sans correspondance.
+	 */
+	cle: string,
+	/**  Libellé de l'école, sinon libellé de référence. */
+	libelle: string,
+	/**  Matière de l'école qui reçoit la discipline, s'il y en a une. */
+	matiere_id: string | null,
+	/**  Discipline de référence des contenus livrés rangés ici, s'il y en a. */
+	discipline_code: string | null,
+	/**  Une matière des affectations de l'utilisateur, dans ce niveau. */
+	mienne: boolean,
+	/**  Parties, dans l'ordre du programme. */
+	parties: PartieCatalogue[],
+};
+
+/**  Une matière de l'école qui peut recevoir une discipline. */
+export type MatiereChoisissable = {
+	/**  Identifiant. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
 };
 
 /**  Matière au programme d'une classe. */
@@ -7787,6 +8550,14 @@ export type MonBulletinPaie = {
 /**  Montant en francs CFA. Le franc est l'unité ; il n'existe pas de centime. */
 export type Montant = number;
 
+/**  Un morceau de vidéo. */
+export type MorceauVideo = {
+	/**  Taille de la vidéo entière, en octets. */
+	taille: number,
+	/**  Morceau en base 64 ; vide après la fin. */
+	contenu: string,
+};
+
 /**  Mot d'une consultation. */
 export type MotConsultation = 
 /**  Reste à payer et prochaine échéance. */
@@ -7853,6 +8624,16 @@ export type MouvementCaisse = {
 	transfert_id: string | null,
 	/**  Recette que le mouvement porte, ou dont il sort l'annulation. */
 	recette_id: string | null,
+};
+
+/**  Un retrait ou une remise du contenu. */
+export type MouvementContenu = {
+	/**  Sorte. */
+	sorte: SorteMouvement,
+	/**  Quand, millisecondes depuis l'époque. */
+	quand: number,
+	/**  Qui. */
+	qui: string,
 };
 
 /**  Comment le membre est payé ; la paie de la phase 7 s'en sert. */
@@ -7929,6 +8710,17 @@ export type NatureConflit =
 "recreation" | 
 /**  La matière a plus d'heures que le programme ne prévoit. */
 "volume";
+
+/**  Nature d'un contenu. */
+export type NatureContenu = 
+/**  Leçon. */
+"lecon" | 
+/**  Énoncé d'un sujet d'examen. */
+"sujet" | 
+/**  Corrigé d'un sujet. */
+"corrige" | 
+/**  Document (PDF, images) ajouté par l'école. */
+"document";
 
 /**  Nature d'un élément de paie. */
 export type NatureElement = 
@@ -8058,6 +8850,28 @@ export type NiveauAcquisition =
 /**  Pas encore acquise. */
 "non_acquis";
 
+/**  Un niveau du catalogue. */
+export type NiveauCatalogue = {
+	/**  Code national. */
+	code: string,
+	/**  Libellé de l'école. */
+	libelle: string,
+	/**  Séries ; une seule, sans code, pour un niveau sans série. */
+	series: SerieCatalogue[],
+};
+
+/**  Un niveau de l'école, pour les formulaires d'ajout. */
+export type NiveauChoisissable = {
+	/**  Identifiant. */
+	id: string,
+	/**  Code. */
+	code: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Séries actives du niveau. */
+	series: SerieChoisissable[],
+};
+
 /**  Un niveau qu'on peut donner à un manuel. */
 export type NiveauInventaire = {
 	/**  Niveau. */
@@ -8174,6 +8988,13 @@ export type Operation =
 "session" | 
 /**  Accès à une fonction sensible : sauvegarde, restauration, export. */
 "acces";
+
+/**  D'où vient un chapitre ou un contenu. */
+export type OrigineBibliotheque = 
+/**  Livré par un paquet : il ne se modifie jamais dans l'école. */
+"livre" | 
+/**  Ajouté par l'école. */
+"ecole";
 
 /**  D'où vient une ligne du livre. */
 export type OrigineLigne = 
@@ -8328,6 +9149,27 @@ export type PaiementsPersonnel = {
 	caisse_ouverte: Montant | null,
 };
 
+/**  Paquet installé tel que l'écran des réglages le montre. */
+export type PaquetAffiche = {
+	/**  Code du paquet. */
+	code: string,
+	/**  Version installée. */
+	version: string,
+	/**  Installé le, millisecondes depuis l'époque. */
+	installe_le: number,
+	/**  Nombre de leçons livrées. */
+	lecons: number,
+	/**  Nombre de sujets d'examen livrés. */
+	sujets: number,
+	/**  Vrai si le fichier du paquet est présent et lu sur ce poste. */
+	present: boolean,
+	/**
+	 *  Version plus récente déjà installée un jour dans cette école (une sauvegarde venue d'un
+	 *  ordinateur mieux à jour) : l'écran propose d'installer la mise à jour.
+	 */
+	version_plus_recente: string | null,
+};
+
 /**  Paramètre d'un établissement. */
 export type Parametre = {
 	/**  Établissement propriétaire. */
@@ -8346,6 +9188,14 @@ export type PartEnfant = {
 	inscription_id: string,
 	/**  Montant pour cet enfant. */
 	montant: Montant,
+};
+
+/**  Une partie (« Algèbre », « Examens »…). */
+export type PartieCatalogue = {
+	/**  Titre de la partie (vide : sans partie). */
+	titre: string,
+	/**  Chapitres. */
+	chapitres: ChapitreCatalogue[],
 };
 
 /**  Moyenne de passage d'un cycle, en centièmes de point. */
@@ -8524,6 +9374,14 @@ export type PieceJointe = {
 	id: string,
 	/**  Nom du fichier. */
 	nom_fichier: string,
+};
+
+/**  Une matière d'un niveau où l'utilisateur écrit. */
+export type PlaceEcriture = {
+	/**  Matière de l'école. */
+	matiere_id: string,
+	/**  Code du niveau. */
+	niveau_code: string,
 };
 
 /**  Plage horaire, en minutes depuis minuit. */
@@ -8735,6 +9593,20 @@ export type Rang = {
 	rang: number,
 	/**  Vrai à égalité avec au moins un autre élève. */
 	ex_aequo: boolean,
+};
+
+/**
+ *  Une rangée de la comparaison côte à côte : la ligne d'avant à gauche, celle d'après à droite.
+ *  Une ligne retirée n'a rien à droite, une ligne ajoutée rien à gauche ; une ligne changée a
+ *  les deux, différentes.
+ */
+export type RangeeComparaison = {
+	/**  Ligne du premier texte. */
+	gauche: LigneNumerotee | null,
+	/**  Ligne du second texte. */
+	droite: LigneNumerotee | null,
+	/**  Vrai si la rangée n'est pas une ligne commune aux deux textes. */
+	change: boolean,
 };
 
 /**  Rapport d'application. */
@@ -9168,6 +10040,16 @@ minutes_par_semaine: number } |
  */
 { type: "masquee" };
 
+/**  Le renvoi d'une version par la direction. */
+export type RenvoiVersion = {
+	/**  Commentaire. */
+	commentaire: string,
+	/**  Nom de qui a renvoyé. */
+	par: string,
+	/**  Quand, millisecondes depuis l'époque. */
+	le: number,
+};
+
 /**  La réponse à une rubrique. */
 export type ReponseFiche = {
 	/**  Rubrique. */
@@ -9280,6 +10162,24 @@ export type ResultatInscription = {
 	avertissements: string[],
 };
 
+/**  Un contenu trouvé. */
+export type ResultatRechercheBibliotheque = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Nature. */
+	nature: NatureContenu,
+	/**  Niveau (libellé de l'école). */
+	niveau: string,
+	/**  Matière (libellé de l'école ou de référence). */
+	matiere: string,
+	/**  Chapitre. */
+	chapitre: string,
+	/**  Extrait : les mots trouvés sont entre les caractères `\u{2}` et `\u{3}`. */
+	extrait: string,
+};
+
 /**  Ce que l'import a fait. */
 export type ResultatReleve = {
 	/**  Lignes lues du relevé. */
@@ -9321,6 +10221,30 @@ export type ResumeRapport = {
 	version: number | null,
 	/**  Date d'arrêt, s'il est préparé. */
 	date_arret: string | null,
+};
+
+/**  Un retrait en cours, tel que la liste « Retirés » le montre. */
+export type RetraitAffiche = {
+	/**  Identifiant. */
+	id: string,
+	/**  Grain. */
+	grain: GrainRetrait,
+	/**  Cible. */
+	cible: string,
+	/**  Niveau d'une matière. */
+	niveau_code: string | null,
+	/**  Série d'une matière. */
+	serie_code: string | null,
+	/**  Titre du contenu ou du chapitre, libellé de la matière ou du niveau ; vide pour un paquet. */
+	titre: string,
+	/**  Libellé du niveau d'une matière, d'un chapitre ou d'un contenu. */
+	niveau: string | null,
+	/**  Retiré le, millisecondes depuis l'époque. */
+	retire_le: number,
+	/**  Qui a retiré. */
+	retire_par: string,
+	/**  Autres retraits en cours qui cachent aussi une part de ce que celui-ci cache. */
+	aussi: string[],
 };
 
 /**  Points retirés pour chaque fait, en centièmes. */
@@ -9741,6 +10665,24 @@ export type Serie = {
 	actif: boolean,
 };
 
+/**  Une série du catalogue. */
+export type SerieCatalogue = {
+	/**  Code de la série ; aucun pour un niveau sans série. */
+	code: string | null,
+	/**  Libellé de la série. */
+	libelle: string | null,
+	/**  Matières. */
+	matieres: MatiereCatalogue[],
+};
+
+/**  Une série d'un niveau, pour les formulaires d'ajout. */
+export type SerieChoisissable = {
+	/**  Code. */
+	code: string,
+	/**  Libellé. */
+	libelle: string,
+};
+
 /**  Session d'un utilisateur sur ce poste. */
 export type Session = {
 	/**  Jeton de la session. */
@@ -9982,6 +10924,24 @@ export type SorteLigne =
 "avance" | 
 /**  Cotisation patronale, hors du net. */
 "patronale";
+
+/**  Ce qui est arrivé à un contenu hors de ses versions. */
+export type SorteMouvement = 
+/**  Retiré par la direction. */
+"retrait" | 
+/**  Remis. */
+"remise";
+
+/**  D'où vient une image. */
+export type SourceImage = 
+/**  Un fichier du paquet, par son nom (`figure-1.svg`). */
+{ type: "paquet"; 
+/**  Nom du fichier, sans dossier. */
+nom: string } | 
+/**  Une image de l'école, par son empreinte (`image:<empreinte>`). */
+{ type: "ecole"; 
+/**  Empreinte SHA-256, en hexadécimal minuscule. */
+empreinte: string };
 
 /**  D'où sort l'argent. */
 export type SourcePaiement = 
@@ -10336,6 +11296,17 @@ export type TableauStatistique = {
 	/**  Fiches comptées sans entrer dans une colonne ou une ligne. */
 	hors: HorsColonnes[],
 };
+
+/**  Un des deux textes d'une comparaison. */
+export type TexteCompare = 
+/**  La version livrée. */
+{ type: "livree" } | 
+/**  La version visible. */
+{ type: "visible" } | 
+/**  Une version de l'école. */
+{ type: "version"; 
+/**  Identifiant de la version. */
+version_id: string };
 
 /**  Thème d'une rubrique : l'ordre des groupes à l'écran. */
 export type ThemeRubrique = 
@@ -10775,6 +11746,36 @@ export type Versement = {
 	motif_annulation: string,
 };
 
+/**  Une version, telle que l'historique la montre. */
+export type VersionAffichee = {
+	/**  Identifiant. */
+	id: string,
+	/**  Numéro. */
+	numero: number,
+	/**  État. */
+	etat: EtatVersion,
+	/**  « Revenir à la version livrée ». */
+	retour_livre: boolean,
+	/**  Nom de l'auteur. */
+	auteur: string,
+	/**  Créée le, millisecondes depuis l'époque. */
+	cree_le: number,
+	/**  Dernier enregistrement. */
+	enregistre_le: number,
+	/**  Soumise le. */
+	soumise_le: number | null,
+	/**  Publiée, renvoyée ou abandonnée le. */
+	decidee_le: number | null,
+	/**  Qui a décidé. */
+	decidee_par: string | null,
+	/**  Commentaire d'un renvoi. */
+	commentaire: string,
+	/**  Numéro de la version de l'école d'où elle est partie. */
+	depart_numero: number | null,
+	/**  Elle est partie de la version livrée. */
+	depart_livree: boolean,
+};
+
 /**  Version antérieure d'un bulletin, consultable. */
 export type VersionBulletin = {
 	/**  Bulletin. */
@@ -10803,632 +11804,75 @@ export type VersionElement = {
 	assiette_deduit: string[],
 };
 
-/**  D'où vient un chapitre ou un contenu. */
-export type OrigineBibliotheque = "livre" | "ecole";
-
-/**  Nature d'un contenu. */
-export type NatureContenu = "lecon" | "sujet" | "corrige" | "document";
-
-/**  Examen d'un sujet. */
-export type ExamenSujet = "DEF" | "BAC";
-
-/**  Alignement d'une colonne de tableau. */
-export type Alignement = "aucun" | "gauche" | "centre" | "droite";
-
-/**  D'où vient une image. */
-export type SourceImage = { type: "paquet"; nom: string } | { type: "ecole"; empreinte: string };
-
-/**  Un élément du texte d'un bloc. */
-export type Enligne =
-	| { type: "texte"; texte: string }
-	| { type: "code"; texte: string }
-	| { type: "gras"; contenu: Enligne[] }
-	| { type: "italique"; contenu: Enligne[] }
-	| { type: "formule"; latex: string; seule: boolean }
-	| { type: "image"; source: SourceImage; description: string }
-	| { type: "video"; empreinte: string; titre: string }
-	| { type: "saut" };
-
-/**  Un bloc d'une leçon. */
-export type Bloc =
-	| { type: "titre"; niveau: number; contenu: Enligne[] }
-	| { type: "paragraphe"; contenu: Enligne[] }
-	| { type: "formule"; latex: string }
-	| { type: "liste"; numerotee: boolean; debut: number | null; elements: Bloc[][] }
-	| { type: "tableau"; alignements: Alignement[]; entete: Enligne[][]; lignes: Enligne[][][] }
-	| { type: "citation"; blocs: Bloc[] }
-	| { type: "note_maitre"; blocs: Bloc[] }
-	| { type: "texte_brut"; texte: string }
-	| { type: "filet" };
-
-/**  Une leçon analysée : la suite de ses blocs. */
-export type Lecon = {
-	/**  Blocs dans l'ordre du texte. */
-	blocs: Bloc[],
-};
-
-/**  Un contenu du catalogue. */
-export type ContenuCatalogue = {
-	id: string,
-	cle: string,
-	titre: string,
-	nature: NatureContenu,
-	examen: ExamenSujet | null,
-	session: number | null,
-	origine: OrigineBibliotheque,
-	/**  La version visible est celle de l'école. */
-	version_ecole: boolean,
-	/**  Une version attend la validation. */
-	en_attente: boolean,
-	/**  Un brouillon est en cours. */
-	brouillon: boolean,
-	/**  Le contenu lié (le corrigé d'un sujet, et l'inverse). */
-	lie_id: string | null,
-};
-
-/**  Un chapitre du catalogue. */
-export type ChapitreCatalogue = {
-	id: string,
-	cle: string,
-	titre: string,
-	origine: OrigineBibliotheque,
-	contenus: ContenuCatalogue[],
-};
-
-/**  Une partie (« Algèbre », « Examens »…). */
-export type PartieCatalogue = {
-	titre: string,
-	chapitres: ChapitreCatalogue[],
-};
-
-/**  Une matière du catalogue. */
-export type MatiereCatalogue = {
-	/**  `m:<identifiant>` ou `d:<code>`. */
-	cle: string,
-	libelle: string,
-	matiere_id: string | null,
-	discipline_code: string | null,
-	/**  Une matière des affectations de l'utilisateur, dans ce niveau. */
-	mienne: boolean,
-	parties: PartieCatalogue[],
-};
-
-/**  Une série du catalogue. */
-export type SerieCatalogue = {
-	code: string | null,
-	libelle: string | null,
-	matieres: MatiereCatalogue[],
-};
-
-/**  Un niveau du catalogue. */
-export type NiveauCatalogue = {
-	code: string,
-	libelle: string,
-	series: SerieCatalogue[],
-};
-
-/**  Le catalogue tel que l'écran le montre. */
-export type CatalogueBibliotheque = {
-	niveaux: NiveauCatalogue[],
-	/**  L'utilisateur écrit. */
-	peut_ecrire: boolean,
-	/**  L'utilisateur valide. */
-	peut_valider: boolean,
-	/**  L'utilisateur gère la bibliothèque : il retire et remet. */
-	peut_gerer: boolean,
-	/**  Compte d'un maître qui ne valide pas. */
-	maitre: boolean,
-	/**  L'utilisateur écrit dans toutes les matières ; sinon, dans celles marquées « mienne ». */
-	ecrit_partout: boolean,
-};
-
-/**  Quelle version d'un contenu lire. */
-export type VueContenu = "visible" | "livree" | "brouillon" | "soumise";
-
-/**  Lire un contenu. */
-export type DemandeLectureContenu = {
+/**  Une version en attente de validation. */
+export type VersionEnAttente = {
+	/**  Identifiant du contenu. */
 	contenu_id: string,
-	vue: VueContenu | null,
-};
-
-/**  Une image appelée par la leçon, prête à afficher. */
-export type ImageLecon = {
-	/**  Nom du fichier du paquet, ou empreinte d'une image de l'école. */
-	cle: string,
-	type_mime: string,
-	/**  Contenu en base 64. */
-	donnees: string,
-};
-
-/**  Le contenu lié (le corrigé d'un sujet, et l'inverse). */
-export type ContenuLie = {
-	id: string,
-	titre: string,
-	nature: NatureContenu,
-};
-
-/**  Un contenu ouvert. */
-export type LectureContenu = {
-	id: string,
-	titre: string,
-	nature: NatureContenu,
-	examen: ExamenSujet | null,
-	session: number | null,
-	origine: OrigineBibliotheque,
-	presentation: string,
-	vue: VueContenu,
-	vues: VueContenu[],
-	version_ecole: boolean,
-	lecon: Lecon,
-	images: ImageLecon[],
-	lie: ContenuLie | null,
-	/**  L'utilisateur peut écrire ce contenu. */
-	peut_modifier: boolean,
-	/**  Faits à vérifier joints par la bibliothèque, pour le seul personnel qui écrit. */
-	faits: Lecon | null,
-	/**  Vidéos appelées par le texte, et leur présence sur le poste principal. */
-	videos: VideoLecon[],
-	/**  Fichiers d'un document de l'école, dans l'ordre. */
-	fichiers: FichierDocument[],
-};
-
-/**  Ajouter une image à la bibliothèque. */
-export type DemandeImageBibliotheque = {
-	chemin: string,
-};
-
-/**  Une image rangée : ce que l'éditeur écrit dans le texte. */
-export type ImageAjoutee = {
-	reference: string,
-	nom: string,
-};
-
-/**  Joindre un fichier à un document de l'école. */
-export type DemandeFichierDocument = {
-	contenu_id: string,
-	chemin: string,
-};
-
-/**  Retirer un fichier d'un document. */
-export type DemandeRetraitFichierDocument = {
-	contenu_id: string,
-	lien_id: string,
-};
-
-/**  Un fichier d'un document, tel que l'écran le montre. */
-export type FichierDocument = {
-	lien_id: string,
-	empreinte: string,
-	nom: string,
-	type_mime: string,
-	taille: number,
-};
-
-/**  Enregistrer un fichier de la bibliothèque sous un chemin choisi. */
-export type DemandeFichierEnregistrer = {
-	empreinte: string,
-	chemin: string,
-};
-
-/**  Ajouter une vidéo. */
-export type DemandeVideoBibliotheque = {
-	chemin: string,
-	confirme: boolean,
-};
-
-/**  Ce que devient une vidéo proposée. */
-export type VideoAjoutee = {
-	ajoutee: boolean,
-	lourde: boolean,
-	reference: string,
-	nom: string,
-	premiere: boolean,
-};
-
-/**  Lire un morceau de vidéo. */
-export type DemandeMorceauVideo = {
-	empreinte: string,
-	position: number,
-};
-
-/**  Un morceau de vidéo. */
-export type MorceauVideo = {
-	taille: number,
-	contenu: string,
-};
-
-/**  Un morceau de vidéo envoyé par un poste relié. */
-export type DemandeEnvoiMorceauVideo = {
-	envoi: string,
-	position: number,
-	contenu: string,
-};
-
-/**  Copier les vidéos vers un dossier, ou les en reprendre. */
-export type DemandeDossierVideos = {
-	dossier: string,
-};
-
-/**  Bilan d'une copie ou d'une reprise de vidéos. */
-export type BilanVideos = {
-	copiees: number,
-	deja_la: number,
-	absentes: number,
-};
-
-/**  Une vidéo appelée par une leçon, telle que la lecture la décrit. */
-export type VideoLecon = {
-	empreinte: string,
-	disponible: boolean,
-	taille: number,
-};
-
-/**  Forme d'une impression. */
-export type FormeImpression = "complete" | "sans_corriges";
-
-/**  Imprimer un contenu, ou ses faits à vérifier. */
-export type DemandeImpressionContenu = {
-	contenu_id: string,
-	brouillon: boolean,
-	forme: FormeImpression,
-	chemin: string,
-};
-
-/**  Imprimer un chapitre entier. */
-export type DemandeImpressionChapitre = {
-	chapitre_id: string,
-	forme: FormeImpression,
-	chemin: string,
-};
-
-/**  Chercher dans la bibliothèque. */
-export type DemandeRechercheBibliotheque = {
-	texte: string,
-};
-
-/**  Un contenu trouvé. */
-export type ResultatRechercheBibliotheque = {
-	contenu_id: string,
-	titre: string,
-	nature: NatureContenu,
-	niveau: string,
-	matiere: string,
-	chapitre: string,
-	/**  Les mots trouvés sont entre les caractères  et . */
-	extrait: string,
-};
-
-/**  À quel grain un retrait cache. */
-export type GrainRetrait = "contenu" | "chapitre" | "matiere" | "niveau" | "paquet";
-
-/**  Retirer, ou demander ce qu'un retrait cacherait. */
-export type DemandeRetrait = {
-	grain: GrainRetrait,
-	cible: string,
-	niveau_code: string | null,
-	serie_code: string | null,
-};
-
-/**  Ce qu'un retrait cacherait. */
-export type ApercuRetrait = {
-	lecons: number,
-	sujets: number,
-	corriges: number,
-	documents: number,
-};
-
-/**  Un retrait en cours. */
-export type RetraitAffiche = {
-	id: string,
-	grain: GrainRetrait,
-	cible: string,
-	niveau_code: string | null,
-	serie_code: string | null,
-	/**  Titre du contenu ou du chapitre, libellé de la matière ou du niveau ; vide pour un paquet. */
-	titre: string,
-	niveau: string | null,
-	retire_le: number,
-	retire_par: string,
-	/**  Autres retraits qui cachent aussi une part de ce que celui-ci cache. */
-	aussi: string[],
-};
-
-/**  Remettre un retrait. */
-export type DemandeRemiseBibliotheque = {
-	retrait_id: string,
-};
-
-/**  Une discipline de la bibliothèque dans un niveau, et la matière qui la reçoit. */
-export type CorrespondanceAffichee = {
-	discipline_code: string,
-	discipline: string,
-	niveau_code: string,
-	niveau: string,
-	matiere_id: string | null,
-};
-
-/**  Une matière de l'école qui peut recevoir une discipline. */
-export type MatiereChoisissable = {
-	id: string,
-	libelle: string,
-};
-
-/**  La correspondance des disciplines. */
-export type CorrespondancesBibliotheque = {
-	correspondances: CorrespondanceAffichee[],
-	matieres: MatiereChoisissable[],
-};
-
-/**  Régler la correspondance d'une discipline dans un niveau. */
-export type DemandeCorrespondance = {
-	discipline_code: string,
-	niveau_code: string,
-	matiere_id: string | null,
-};
-
-/**  État d'une version de l'école. */
-export type EtatVersion = "brouillon" | "soumise" | "renvoyee" | "publiee" | "remplacee" | "abandonnee";
-
-/**  Une ligne numérotée d'un des deux textes comparés. */
-export type LigneNumerotee = {
-	numero: number,
-	texte: string,
-};
-
-/**  Une rangée de la comparaison côte à côte. */
-export type RangeeComparaison = {
-	gauche: LigneNumerotee | null,
-	droite: LigneNumerotee | null,
-	change: boolean,
-};
-
-/**  Désigner un contenu. */
-export type DemandeContenuBibliotheque = {
-	contenu_id: string,
-};
-
-/**  Le brouillon en cours d'un contenu. */
-export type BrouillonOuvert = {
+	/**  Identifiant de la version. */
 	version_id: string,
-	numero: number,
-	texte: string,
-	revision: number,
+	/**  Titre du contenu. */
+	titre: string,
+	/**  Niveau (libellé de l'école). */
+	niveau: string,
+	/**  Chapitre. */
+	chapitre: string,
+	/**  Nom de l'auteur. */
 	auteur: string,
-	mien: boolean,
+	/**  Soumise le, millisecondes depuis l'époque. */
+	soumise_le: number,
+	/**  « Revenir à la version livrée ». */
 	retour_livre: boolean,
-	enregistre_le: number,
-	/**  Le renvoi d'où vient ce brouillon, s'il vient d'une version renvoyée. */
-	renvoi: RenvoiVersion | null,
-};
-
-/**  Le renvoi d'une version par la direction. */
-export type RenvoiVersion = {
-	commentaire: string,
-	par: string,
-	le: number,
 };
 
 /**  La version soumise d'un contenu, en attente de validation. */
 export type VersionSoumise = {
+	/**  Identifiant de la version. */
 	version_id: string,
+	/**  Numéro de la version. */
 	numero: number,
+	/**  Texte. */
 	texte: string,
+	/**  Nom de l'auteur. */
 	auteur: string,
+	/**  L'utilisateur en est l'auteur. */
 	mien: boolean,
+	/**  « Revenir à la version livrée ». */
 	retour_livre: boolean,
+	/**  Soumise le, millisecondes depuis l'époque. */
 	soumise_le: number,
 };
 
-/**  Un contenu ouvert pour l'écriture. */
-export type EcritureOuverte = {
-	contenu_id: string,
-	titre: string,
-	nature: NatureContenu,
-	origine: OrigineBibliotheque,
-	peut_ecrire: boolean,
-	peut_valider: boolean,
-	/**  L'utilisateur publie son brouillon sans le soumettre. */
-	peut_publier: boolean,
-	brouillon: BrouillonOuvert | null,
-	/**  La version soumise, en attente de validation. */
-	soumise: VersionSoumise | null,
-	texte_depart: string,
-	a_une_version_livree: boolean,
-	version_ecole: boolean,
-	livree_plus_recente: boolean,
-};
-
-/**  D'où part un brouillon nouveau. */
-export type DepartBrouillon = { type: "visible" } | { type: "livree" } | { type: "version"; version_id: string };
-
-/**  Commencer un brouillon. */
-export type DemandeBrouillonCommencer = {
-	contenu_id: string,
-	depart: DepartBrouillon,
-};
-
-/**  Enregistrer un brouillon. */
-export type DemandeBrouillon = {
-	contenu_id: string,
-	version_id: string,
-	revision: number,
-	texte: string,
-};
-
-/**  Reprendre ou abandonner un brouillon. */
-export type DemandeBrouillonVersion = {
-	contenu_id: string,
-	version_id: string,
-};
-
-/**  Renvoyer une version soumise. */
-export type DemandeRenvoiVersion = {
-	contenu_id: string,
-	version_id: string,
-	commentaire: string,
-};
-
-/**  Une version en attente de validation. */
-export type VersionEnAttente = {
-	contenu_id: string,
-	version_id: string,
-	titre: string,
-	niveau: string,
-	chapitre: string,
-	auteur: string,
-	soumise_le: number,
-	retour_livre: boolean,
-};
-
-/**  Un maître qui peut publier lui-même. */
-export type DroitPublicationAffiche = {
-	utilisateur_id: string,
+/**  Ce que devient une vidéo proposée. */
+export type VideoAjoutee = {
+	/**  Faux tant qu'une vidéo lourde attend la confirmation. */
+	ajoutee: boolean,
+	/**  La vidéo dépasse la taille conseillée. */
+	lourde: boolean,
+	/**  Appel à écrire dans le texte : `video:<empreinte>` ; vide si elle n'est pas ajoutée. */
+	reference: string,
+	/**  Nom du fichier, proposé comme titre. */
 	nom: string,
-	donne_le: number,
-	donne_par: string,
+	/**  Première vidéo de l'école : l'écran dit une fois qu'elle n'est pas dans la sauvegarde. */
+	premiere: boolean,
 };
 
-/**  Un maître à qui donner le droit de publier. */
-export type MaitreChoisissable = {
-	utilisateur_id: string,
-	nom: string,
+/**  Une vidéo appelée par une leçon, telle que la lecture la décrit. */
+export type VideoLecon = {
+	/**  Empreinte. */
+	empreinte: string,
+	/**  Le fichier est présent sur le poste principal. */
+	disponible: boolean,
+	/**  Taille en octets. */
+	taille: number,
 };
 
-/**  « Peuvent publier eux-mêmes ». */
-export type DroitsPublication = {
-	droits: DroitPublicationAffiche[],
-	maitres: MaitreChoisissable[],
-};
-
-/**  Donner ou retirer le droit de publier. */
-export type DemandeDroitPublication = {
-	utilisateur_id: string,
-};
-
-/**  Aperçu d'un texte dans l'éditeur. */
-export type DemandeApercuLecon = {
-	contenu_id: string,
-	texte: string,
-};
-
-/**  L'aperçu, rendu comme la lecture, avec les notes de l'auteur. */
-export type ApercuLecon = {
-	lecon: Lecon,
-	images: ImageLecon[],
-	formules_brutes: string[],
-	images_a_ajouter: string[],
-};
-
-/**  Ajouter un chapitre de l'école. */
-export type DemandeChapitreBibliotheque = {
-	niveau_id: string,
-	matiere_id: string,
-	series: string[],
-	partie: string,
-	titre: string,
-	apres_cle: string | null,
-};
-
-/**  Un chapitre ajouté. */
-export type ChapitreAjoute = {
-	id: string,
-	cle: string,
-};
-
-/**  Ajouter une leçon, un sujet, un corrigé ou un document de l'école. */
-export type DemandeAjoutContenu = {
-	nature: NatureContenu,
-	chapitre_id: string | null,
-	niveau_id: string | null,
-	matiere_id: string | null,
-	titre: string,
-	presentation: string,
-	examen: ExamenSujet | null,
-	serie_code: string | null,
-	session: number | null,
-	sujet_id: string | null,
-	apres_cle: string | null,
-};
-
-/**  Une version, telle que l'historique la montre. */
-export type VersionAffichee = {
-	id: string,
-	numero: number,
-	etat: EtatVersion,
-	retour_livre: boolean,
-	auteur: string,
-	cree_le: number,
-	enregistre_le: number,
-	soumise_le: number | null,
-	decidee_le: number | null,
-	decidee_par: string | null,
-	commentaire: string,
-	depart_numero: number | null,
-	depart_livree: boolean,
-};
-
-/**  Ce qui est arrivé à un contenu hors de ses versions. */
-export type SorteMouvement = "retrait" | "remise";
-
-/**  Un retrait ou une remise du contenu. */
-export type MouvementContenu = {
-	sorte: SorteMouvement,
-	quand: number,
-	qui: string,
-};
-
-/**  L'historique d'un contenu. */
-export type HistoriqueContenu = {
-	contenu_id: string,
-	titre: string,
-	versions: VersionAffichee[],
-	mouvements: MouvementContenu[],
-	a_une_version_livree: boolean,
-	livree_plus_recente: boolean,
-	peut_ecrire: boolean,
-};
-
-/**  Un des deux textes d'une comparaison. */
-export type TexteCompare = { type: "livree" } | { type: "visible" } | { type: "version"; version_id: string };
-
-/**  Comparer deux versions d'un contenu. */
-export type DemandeComparaison = {
-	contenu_id: string,
-	gauche: TexteCompare,
-	droite: TexteCompare,
-};
-
-/**  Deux textes comparés côte à côte. */
-export type ComparaisonTextes = {
-	rangees: RangeeComparaison[],
-	retirees: number,
-	ajoutees: number,
-};
-
-/**  Une série d'un niveau, pour les formulaires d'ajout. */
-export type SerieChoisissable = {
-	code: string,
-	libelle: string,
-};
-
-/**  Un niveau de l'école, pour les formulaires d'ajout. */
-export type NiveauChoisissable = {
-	id: string,
-	code: string,
-	libelle: string,
-	series: SerieChoisissable[],
-};
-
-/**  Une matière d'un niveau où l'utilisateur écrit. */
-export type PlaceEcriture = {
-	matiere_id: string,
-	niveau_code: string,
-};
-
-/**  Ce qu'on peut choisir en ajoutant un chapitre ou un sujet. */
-export type ChoixEcriture = {
-	niveaux: NiveauChoisissable[],
-	matieres: MatiereChoisissable[],
-	partout: boolean,
-	places: PlaceEcriture[],
-};
+/**  Quelle version d'un contenu lire. */
+export type VueContenu = 
+/**  La version que voient les élèves. */
+"visible" | 
+/**  Le texte livré par la bibliothèque. */
+"livree" | 
+/**  Le brouillon en cours. */
+"brouillon" | 
+/**  La version soumise, en attente de validation. */
+"soumise";

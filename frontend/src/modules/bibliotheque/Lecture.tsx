@@ -210,10 +210,10 @@ export function Lecture({
             </Bouton>
           )}
           <Bouton variante="secondaire" onClick={() => changerTaille(-10)} disabled={taille <= TAILLE_MIN} aria-label={t("bibliotheque.texte.plus_petit")}>
-            A−
+            {t("bibliotheque.texte.moins")}
           </Bouton>
           <Bouton variante="secondaire" onClick={() => changerTaille(10)} disabled={taille >= TAILLE_MAX} aria-label={t("bibliotheque.texte.plus_grand")}>
-            A+
+            {t("bibliotheque.texte.plus")}
           </Bouton>
           <Bouton variante="secondaire" onClick={() => setClasse(true)}>
             {t("bibliotheque.mode_classe")}
@@ -261,7 +261,7 @@ export function Lecture({
       ) : null}
       <MessageErreur erreur={lecture.error} />
       {mode !== "lire" && contenu.peut_modifier ? null : (
-        <div className={faits && contenu.faits !== null ? "grid gap-4 lg:grid-cols-[2fr_1fr]" : ""}>
+        <div className={faits && contenu.faits !== null ? "grid gap-4 lg:grid-cols-2" : ""}>
           <div className="flex flex-col gap-3">
             {contenu.presentation === "" ? null : <p className="text-encre">{contenu.presentation}</p>}
             <div style={{ fontSize: `${taille}%` }}>

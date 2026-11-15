@@ -3657,6 +3657,8 @@ export const catalogue = {
   "bibliotheque.voir_sujet": "Voir le sujet",
   "bibliotheque.texte.plus_petit": "Texte plus petit",
   "bibliotheque.texte.plus_grand": "Texte plus grand",
+  "bibliotheque.texte.moins": "A−",
+  "bibliotheque.texte.plus": "A+",
   "bibliotheque.mode_classe": "Mode classe",
   "bibliotheque.mode_classe.quitter": "Quitter le mode classe (Échap)",
   "bibliotheque.contenu_vide": "Ce cours n'a pas encore de texte.",
