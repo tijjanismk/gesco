@@ -3277,7 +3277,7 @@ test("phase 9 : les examens, admis cochés élève par élève ou en totaux ; le
   await page.getByLabel(texte("examens.entree_7e")).click();
   await expect(page.getByLabel(texte("examens.entree_7e"))).toBeChecked();
   await page.locator("#examens-classe").selectOption({ label: `6e A · ${texte("examens.examen.entree_7e")}` });
-  const eleve = "Diallo Fatoumata";
+  const eleve = "Fatoumata Diallo";
   await page.getByRole("checkbox", { name: `${eleve} · ${texte("examens.admis")}` }).click();
   await expect(page.getByRole("checkbox", { name: `${eleve} · ${texte("examens.admis")}` })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: `${eleve} · ${texte("examens.present")}` })).toBeChecked();

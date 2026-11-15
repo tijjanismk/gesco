@@ -227,7 +227,7 @@ impl<'n> ServiceExamens<'n> {
                     Some(EleveExamen {
                         inscription_id: Id::analyser(&i.inscription_id).ok()?,
                         eleve_id: i.eleve_id.clone(),
-                        nom: format!("{} {}", i.nom, i.prenoms).trim().to_owned(),
+                        nom: format!("{} {}", i.prenoms, i.nom).trim().to_owned(),
                         sexe: i.sexe.as_deref().and_then(Sexe::depuis_nom),
                         inscrit: r.and_then(|r| r.inscrit),
                         present: r.and_then(|r| r.present),
@@ -364,7 +364,7 @@ impl<'n> ServiceExamens<'n> {
             .find(|i| i.inscription_id == id)
             .map(|i| {
                 (
-                    format!("{} {}", i.nom, i.prenoms).trim().to_owned(),
+                    format!("{} {}", i.prenoms, i.nom).trim().to_owned(),
                     i.sexe.as_deref().and_then(Sexe::depuis_nom),
                 )
             })

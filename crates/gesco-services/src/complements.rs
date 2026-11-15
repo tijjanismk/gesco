@@ -261,7 +261,7 @@ impl<'n> ServiceComplements<'n> {
                                 None
                             },
                             eleve_id: e.eleve_id,
-                            nom: format!("{} {}", e.nom, e.prenoms).trim().to_owned(),
+                            nom: format!("{} {}", e.prenoms, e.nom).trim().to_owned(),
                             annee_recrutement: saisie,
                             prise_en_charge_etat: e.prise_en_charge_etat != 0,
                         })
@@ -532,7 +532,7 @@ impl<'n> ServiceComplements<'n> {
                 });
                 ComplementMembre {
                     membre_id: m.id.clone(),
-                    nom: format!("{} {}", m.nom, m.prenoms).trim().to_owned(),
+                    nom: format!("{} {}", m.prenoms, m.nom).trim().to_owned(),
                     parti: m
                         .parti_le
                         .as_deref()

@@ -338,7 +338,7 @@ fn eleves(d: &DonneesStat, demande: &DemandeTableauLibre) -> TableauLibre {
         .iter()
         .map(|r| FicheStatistique {
             id: r.inscription.eleve_id.clone(),
-            nom: format!("{} {}", r.inscription.nom, r.inscription.prenoms)
+            nom: format!("{} {}", r.inscription.prenoms, r.inscription.nom)
                 .trim()
                 .to_owned(),
             detail: r.classe.libelle.clone(),
@@ -386,7 +386,7 @@ fn personnel(d: &DonneesStat, demande: &DemandeTableauLibre) -> TableauLibre {
         .iter()
         .map(|m| FicheStatistique {
             id: m.id.clone(),
-            nom: format!("{} {}", m.nom, m.prenoms).trim().to_owned(),
+            nom: format!("{} {}", m.prenoms, m.nom).trim().to_owned(),
             detail: m.categorie.clone(),
             motif: String::new(),
         })

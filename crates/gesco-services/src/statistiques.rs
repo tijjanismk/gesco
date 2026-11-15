@@ -728,7 +728,7 @@ fn onglet_eleves(
         .iter()
         .map(|r| FicheStatistique {
             id: r.inscription.eleve_id.clone(),
-            nom: format!("{} {}", r.inscription.nom, r.inscription.prenoms)
+            nom: format!("{} {}", r.inscription.prenoms, r.inscription.nom)
                 .trim()
                 .to_owned(),
             detail: r.classe.libelle.clone(),
@@ -1049,7 +1049,7 @@ fn onglet_personnel(
         .iter()
         .map(|m| FicheStatistique {
             id: m.id.clone(),
-            nom: format!("{} {}", m.nom, m.prenoms).trim().to_owned(),
+            nom: format!("{} {}", m.prenoms, m.nom).trim().to_owned(),
             detail: m.categorie.clone(),
             motif: String::new(),
         })
@@ -1374,7 +1374,7 @@ fn onglet_personnel(
         lignes: retenus
             .iter()
             .map(|m| LigneStatistique {
-                libelle: format!("{} {}", m.nom, m.prenoms).trim().to_owned(),
+                libelle: format!("{} {}", m.prenoms, m.nom).trim().to_owned(),
                 cle: None,
                 cellules: vec![
                     texte(Some(m.matricule.clone())),
@@ -1801,7 +1801,7 @@ fn onglet_examens(
         .iter()
         .map(|r| FicheStatistique {
             id: r.inscription.eleve_id.clone(),
-            nom: format!("{} {}", r.inscription.nom, r.inscription.prenoms)
+            nom: format!("{} {}", r.inscription.prenoms, r.inscription.nom)
                 .trim()
                 .to_owned(),
             detail: r.classe.libelle.clone(),
