@@ -1,0 +1,21 @@
+[package]
+name = "gesco-paquet-bibliotheque"
+description = "Outil de l'éditeur : clés des paquets et fabrication du paquet de la bibliothèque de cours. Jamais livré aux écoles."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+gesco-core.workspace = true
+gesco-docs.workspace = true
+getrandom.workspace = true
+hex.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

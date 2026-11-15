@@ -13,6 +13,8 @@ members = [
     "outils/licence",
     # Outil du porteur du projet : remplit une base de démonstration ; hors de la suite par défaut.
     "outils/remplir",
+    # Outil de l'éditeur : fabrique le paquet de la bibliothèque ; hors de la suite par défaut.
+    "outils/bibliotheque",
 ]
 # Copie de libsqlite3-sys pour SQLite3 Multiple Ciphers : une dépendance, pas un membre.
 exclude = ["vendor"]

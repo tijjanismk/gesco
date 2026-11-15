@@ -1,7 +1,7 @@
 # Le paquet de contenus : un fichier signé par l'éditeur, fabriqué par un outil qui refuse ce qui n'est pas en règle
 
 **Date** : 15 novembre 2026
-**Statut** : proposé le 15 novembre 2026 — décision 8 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
+**Statut** : accepté le 15 novembre 2026 (étape 2 du lot 1 : format `.gbib` lu dans le noyau, outil `outils/bibliotheque`, premier paquet fabriqué) ; proposé le 15 novembre 2026 — décision 8 de `docs/plan-phase-12.md` §5, lot 1 de la phase 12 (`SPEC_PHASE_12_LOT_1.md`)
 
 ## Contexte
 
@@ -119,3 +119,7 @@ qu'un paquet incomplet ou altéré n'arrive pas dans une école.
   reste, le transport change.
 - Si une école doit recevoir des contenus d'un autre éditeur : il faudra une liste de clés
   reconnues.
+
+## Mise en œuvre
+
+- 15 novembre 2026, étape 2 : les images sont rangées dans le paquet par dossier de contenu (`images/<dossier>/<nom>`), deux leçons appelant deux figures différentes du même nom. Le tableau de couverture ne compte pas les leçons « relues » : sur décision du porteur du 15 novembre 2026, aucun texte ne parle de relecture. La mention « Source : » n'est refusée qu'en tête de ligne (« le Niger prend sa source : » est du texte de leçon).
