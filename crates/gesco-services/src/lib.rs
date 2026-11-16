@@ -39,6 +39,7 @@ pub mod enquete;
 pub mod enseignants;
 pub mod erreur;
 pub mod espace;
+pub mod etat_envoi;
 pub mod evaluations;
 pub mod examens;
 pub mod export;

@@ -8,6 +8,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod empreinte;
+mod etat_envoi;
 mod pare_feu;
 mod poste;
 mod trousseau;

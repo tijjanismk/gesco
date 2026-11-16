@@ -83,6 +83,9 @@ function useVerrouillageInactivite(delai: number | undefined, verrouiller: () =>
   }, [delai, verrouiller]);
 }
 
+/** Avertissement du bandeau qui mène à l'écran des sauvegardes. */
+const AVERTISSEMENT_HORS_ECOLE = "avertissement.copie_hors_ecole_non_arrivee";
+
 /** Délai entre deux relectures des avertissements du bandeau sur un écran qui ne change pas. */
 const DELAI_AVERTISSEMENTS = 60_000;
 
@@ -222,9 +225,16 @@ export function Espace({ etablissement }: { etablissement: string }) {
         )}
         {avertissements.data === undefined || avertissements.data.length === 0 ? null : (
           <ul className="flex flex-col gap-1 border-b border-ocre bg-surface px-4 py-2">
-            {avertissements.data.map((a) => (
-              <li key={a.cle} className="text-sm text-ocre">{texteDeCle(a.cle)}</li>
-            ))}
+            {avertissements.data.map((a) =>
+              a.cle === AVERTISSEMENT_HORS_ECOLE ? (
+                <li key={a.cle} className="text-sm text-ocre">
+                  {/* Un clic ouvre l'écran des sauvegardes, où se trouve la copie hors de l'école. */}
+                  <button type="button" className="underline" onClick={() => setSection("sauvegarde")}>{texteDeCle(a.cle)}</button>
+                </li>
+              ) : (
+                <li key={a.cle} className="text-sm text-ocre">{texteDeCle(a.cle)}</li>
+              ),
+            )}
           </ul>
         )}
         <main className="flex-1 overflow-y-auto p-4">

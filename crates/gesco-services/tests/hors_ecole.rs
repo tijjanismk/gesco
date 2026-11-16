@@ -13,10 +13,11 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use gesco_services::etat_envoi::EtatSignale;
 use gesco_services::session::Jeton;
 use serde_json::{Value, json};
 
-use crate::commun::{MOT_DE_PASSE, Poste_, poste_vierge};
+use crate::commun::{MOT_DE_PASSE, Poste_, avertissements, poste_vierge};
 
 const HEURE: i64 = 3_600_000;
 const JOUR: i64 = 24 * HEURE;
@@ -400,4 +401,191 @@ async fn un_reglage_de_la_1_2_ne_change_pas() {
     p.horloge.avancer(25 * HEURE);
     p.application.taches_periodiques().await;
     assert_eq!(archives(&drive).len(), 2);
+}
+
+const ALERTE: &str = "avertissement.copie_hors_ecole_non_arrivee";
+
+/// État de la dernière copie du seul dossier synchronisé, lu par la commande de l'écran.
+async fn etat_derniere(p: &Poste_, admin: &Jeton) -> Value {
+    let etat = p
+        .ok("sauvegarde_hors_ecole_etat", Some(admin), Value::Null)
+        .await;
+    etat["dossiers"][0]["derniere"]["etat_envoi"].clone()
+}
+
+async fn alerte(p: &Poste_, admin: &Jeton) -> bool {
+    avertissements(&p.ok("avertissements", Some(admin), Value::Null).await).contains(ALERTE)
+}
+
+/// Critère 6 : une copie effacée du dossier après son dépôt se dit « n'est plus dans le
+/// dossier » à la vérification suivante, et le bandeau le dit.
+#[tokio::test]
+async fn une_copie_effacee_n_est_plus_dans_le_dossier() {
+    let dossier = tempfile::tempdir().unwrap();
+    let (p, admin, _, synchronise, _) = poste_avec_dossier(dossier.path()).await;
+    p.application.taches_periodiques().await;
+    p.horloge.avancer(60_000);
+    p.ok("sauvegarde_hors_ecole_envoyer", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(etat_derniere(&p, &admin).await, "deposee");
+    assert!(!alerte(&p, &admin).await);
+    for nom in archives(&synchronise) {
+        std::fs::remove_file(synchronise.join(nom)).unwrap();
+    }
+    p.horloge.avancer(5 * 60_000);
+    p.application.taches_periodiques().await;
+    assert_eq!(etat_derniere(&p, &admin).await, "absente");
+    assert!(alerte(&p, &admin).await);
+    // La copie suivante, bien déposée, efface la ligne du bandeau.
+    p.horloge.avancer(60_000);
+    p.ok("sauvegarde_hors_ecole_envoyer", Some(&admin), Value::Null)
+        .await;
+    assert!(!alerte(&p, &admin).await);
+}
+
+/// Critère 6, seconde partie : la vérification ne lit que les métadonnées. Une copie dont le
+/// contenu change sans changer de taille reste « déposée » : la vérification ne l'a pas lue,
+/// elle n'aurait donc rien fait télécharger.
+#[tokio::test]
+async fn la_verification_ne_lit_jamais_le_contenu() {
+    let dossier = tempfile::tempdir().unwrap();
+    let (p, admin, _, synchronise, _) = poste_avec_dossier(dossier.path()).await;
+    p.application.taches_periodiques().await;
+    p.horloge.avancer(60_000);
+    p.ok("sauvegarde_hors_ecole_envoyer", Some(&admin), Value::Null)
+        .await;
+    let nom = archives(&synchronise).remove(0);
+    let taille = std::fs::metadata(synchronise.join(&nom)).unwrap().len();
+    std::fs::write(
+        synchronise.join(&nom),
+        vec![0_u8; usize::try_from(taille).unwrap()],
+    )
+    .unwrap();
+    p.horloge.avancer(5 * 60_000);
+    p.application.taches_periodiques().await;
+    assert_eq!(etat_derniere(&p, &admin).await, "deposee");
+}
+
+/// Critère 7, partie simulée : « envoyée » seulement quand Windows le dit ; sinon la copie
+/// reste « déposée dans le dossier ». Une fois envoyée, elle ne se vérifie plus.
+#[tokio::test]
+async fn envoyee_seulement_quand_windows_le_dit() {
+    let dossier = tempfile::tempdir().unwrap();
+    let (p, admin, _, _, _) = poste_avec_dossier(dossier.path()).await;
+    let windows = p.application.lecteur_etat_simule();
+    p.application.taches_periodiques().await;
+    p.horloge.avancer(60_000);
+    p.ok("sauvegarde_hors_ecole_envoyer", Some(&admin), Value::Null)
+        .await;
+    // Un fournisseur dont Windows ne connaît pas l'état : jamais « envoyée ».
+    p.horloge.avancer(5 * 60_000);
+    p.application.taches_periodiques().await;
+    assert_eq!(etat_derniere(&p, &admin).await, "deposee");
+    let lectures = windows.lectures();
+    assert!(lectures >= 1);
+    // Rien entre deux jalons du calendrier.
+    p.horloge.avancer(10 * 60_000);
+    p.application.taches_periodiques().await;
+    assert_eq!(windows.lectures(), lectures);
+    // Une heure après le dépôt, Windows dit la copie à jour sur le compte.
+    windows.signaler_partout(Some(EtatSignale::AJour));
+    p.horloge.avancer(50 * 60_000);
+    p.application.taches_periodiques().await;
+    assert_eq!(etat_derniere(&p, &admin).await, "envoyee");
+    let lectures = windows.lectures();
+    for _ in 0..3 {
+        p.horloge.avancer(25 * 3_600_000);
+        p.application.taches_periodiques().await;
+    }
+    assert_eq!(windows.lectures(), lectures);
+    assert!(!alerte(&p, &admin).await);
+}
+
+/// T-130 : en attente plus de sept jours, ou en échec d'envoi, la copie fait parler le bandeau ;
+/// en attente depuis moins longtemps, non.
+#[tokio::test]
+async fn une_copie_qui_attend_trop_ou_echoue_fait_parler_le_bandeau() {
+    let dossier = tempfile::tempdir().unwrap();
+    let (p, admin, _, _, _) = poste_avec_dossier(dossier.path()).await;
+    let windows = p.application.lecteur_etat_simule();
+    windows.signaler_partout(Some(EtatSignale::EnAttente));
+    p.application.taches_periodiques().await;
+    p.horloge.avancer(60_000);
+    p.ok("sauvegarde_hors_ecole_envoyer", Some(&admin), Value::Null)
+        .await;
+    p.horloge.avancer(5 * 60_000);
+    p.application.taches_periodiques().await;
+    assert_eq!(etat_derniere(&p, &admin).await, "en_attente");
+    assert!(!alerte(&p, &admin).await);
+    for _ in 0..8 {
+        p.horloge.avancer(24 * 3_600_000);
+        p.application.taches_periodiques().await;
+    }
+    assert_eq!(etat_derniere(&p, &admin).await, "en_attente");
+    assert!(alerte(&p, &admin).await);
+
+    windows.signaler_partout(Some(EtatSignale::EnEchec));
+    p.horloge.avancer(60_000);
+    p.ok("sauvegarde_hors_ecole_envoyer", Some(&admin), Value::Null)
+        .await;
+    assert!(!alerte(&p, &admin).await);
+    p.horloge.avancer(5 * 60_000);
+    p.application.taches_periodiques().await;
+    assert_eq!(etat_derniere(&p, &admin).await, "echec_envoi");
+    assert!(alerte(&p, &admin).await);
+}
+
+/// T-130 : rien pour une école sans dossier synchronisé, ni tant qu'aucune copie n'est partie ;
+/// l'état dit le rythme, la taille d'une copie et la prochaine copie due.
+#[tokio::test]
+async fn sans_dossier_ni_copie_rien_ne_se_fait_remarquer() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(&dossier.path().join("poste")).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    p.horloge.avancer(60_000);
+    p.ok("sauvegarde_creer", Some(&admin), Value::Null).await;
+    let etat = p
+        .ok("sauvegarde_hors_ecole_etat", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(etat["rythme"], "demande");
+    assert_eq!(etat["dossiers"], json!([]));
+    assert_eq!(etat["prochaine_copie"], Value::Null);
+    assert!(etat["taille_copie"].as_i64().unwrap() > 0);
+    assert!(!alerte(&p, &admin).await);
+
+    let synchronise = dossier.path().join("Dropbox").join("GESCO");
+    std::fs::create_dir_all(dossier.path().join("Dropbox")).unwrap();
+    p.ok(
+        "sauvegarde_destinations_definir",
+        Some(&admin),
+        json!([{ "chemin": synchronise, "sorte": "synchronise", "amovible": false }]),
+    )
+    .await;
+    let etat = p
+        .ok("sauvegarde_hors_ecole_etat", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(etat["dossiers"][0]["derniere"], Value::Null);
+    assert_eq!(etat["prochaine_copie"], Value::Null);
+    assert!(!alerte(&p, &admin).await);
+
+    p.ok(
+        "sauvegarde_hors_ecole_regler",
+        Some(&admin),
+        json!({ "rythme": "semaine" }),
+    )
+    .await;
+    p.horloge.avancer(60_000);
+    let lignes = p
+        .ok("sauvegarde_hors_ecole_envoyer", Some(&admin), Value::Null)
+        .await;
+    let depot = ligne_vers(&lignes, &synchronise)["horodatage"]
+        .as_i64()
+        .unwrap();
+    let etat = p
+        .ok("sauvegarde_hors_ecole_etat", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(etat["rythme"], "semaine");
+    assert_eq!(etat["prochaine_copie"], depot + 7 * JOUR);
+    assert_eq!(etat["dossiers"][0]["derniere"]["etat_envoi"], "deposee");
 }

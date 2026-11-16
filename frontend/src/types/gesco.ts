@@ -1907,6 +1907,7 @@ export type Contrat = {
 	sauvegarde_destinations_definir: Signature<Destination[], Destination[]>,
 	sauvegarde_hors_ecole_regler: Signature<DemandeRythmeHorsEcole, RythmeHorsEcole>,
 	sauvegarde_hors_ecole_envoyer: Signature<null, Sauvegarde[]>,
+	sauvegarde_hors_ecole_etat: Signature<null, EtatHorsEcole>,
 	/**  Signature de la commande du même nom. */
 	certificat_confirmer: Signature<null, null>,
 	/**  Signature de la commande du même nom. */
@@ -5615,6 +5616,26 @@ export type Depenses = {
 	caisse_ouverte: boolean,
 	/**  Droits de qui consulte. */
 	droits: DroitsDepenses,
+};
+
+/**  Un dossier synchronisé et sa dernière copie. */
+export type DossierHorsEcole = {
+	/**  Dossier choisi par l'école. */
+	chemin: string,
+	/**  Dernière copie déposée ou essayée dans ce dossier, avec son état. */
+	derniere: Sauvegarde | null,
+};
+
+/**  Où en est la copie hors de l'école. */
+export type EtatHorsEcole = {
+	/**  Rythme choisi. */
+	rythme: RythmeHorsEcole,
+	/**  Dossiers synchronisés choisis, chacun avec sa dernière copie ; vide sans dossier. */
+	dossiers: DossierHorsEcole[],
+	/**  Taille de la dernière sauvegarde du poste, en octets : ce que pèsera la prochaine copie. */
+	taille_copie: number | null,
+	/**  Instant où la prochaine copie du rythme sera due ; rien à la demande ou sans dossier. */
+	prochaine_copie: number | null,
 };
 
 /**  Destination de sauvegarde. */

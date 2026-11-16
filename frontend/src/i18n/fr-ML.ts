@@ -1676,6 +1676,7 @@ export const catalogue = {
 
   "avertissement.certificat_non_confirme": "Le certificat de clé de secours n'est pas confirmé comme imprimé et rangé.",
   "avertissement.aucune_destination_amovible": "Aucune destination de sauvegarde déconnectable n'est configurée.",
+  "avertissement.copie_hors_ecole_non_arrivee": "La dernière copie hors de l'école n'est pas arrivée sur le compte.",
   "avertissement.test_restauration_echoue": "Le dernier test de restauration a échoué : vérifiez les sauvegardes.",
   "avertissement.chaine_audit_rompue": "Le journal d'audit a été modifié en dehors de l'application.",
   "avertissement.regularisations_a_viser": "Des versements ont été annulés après la clôture de leur caisse : visez les sessions où passent les sorties, dans Finance, Sessions de caisse.",

@@ -218,6 +218,11 @@ impl Demarrage {
             cle_bibliotheque: self.cle_bibliotheque,
         };
         let application = Arc::new(Application::demarrer(options).await?);
+        // L'état d'envoi des copies hors de l'école se lit dans Windows ; en mode d'essai, la
+        // lecture simulée reste branchée.
+        if !self.en_essai {
+            application.brancher_lecteur_etat(Arc::new(crate::etat_envoi::LecteurPowerShell));
+        }
         servir_le_reseau(&application, self.nom_ordinateur.clone(), self.en_essai);
         let taches = vec![
             tauri::async_runtime::spawn(taches_periodiques(Arc::clone(&application))),

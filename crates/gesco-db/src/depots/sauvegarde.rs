@@ -242,6 +242,25 @@ pub async fn deposees_hors_ecole(
     .collect()
 }
 
+/// Lignes des dossiers synchronisés, la plus récente d'abord : de quoi trouver la dernière copie
+/// de chacun.
+pub async fn hors_ecole(
+    cnx: &mut Connexion,
+    limite: i64,
+    contexte: &Contexte,
+) -> Resultat<Vec<Sauvegarde>> {
+    sqlx::query_as::<_, Ligne>(selectionner!(
+        "WHERE etablissement_id = ?1 AND sorte = 'synchronise' ORDER BY horodatage DESC LIMIT ?2"
+    ))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(limite)
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(Ligne::vers_entite)
+    .collect()
+}
+
 /// Instant de la dernière copie hors de l'école : bien déposée si `deposee`, sinon le dernier
 /// essai, réussi ou non.
 pub async fn derniere_hors_ecole(

@@ -121,3 +121,18 @@ d'envoi n'est qu'une indication : il ne commande rien.
   chère.
 - L'étape C1 (serveur de l'éditeur) est livrée et les écoles l'adoptent : la vérification par
   Windows ne sert plus qu'aux écoles sans abonnement.
+
+### Relevé sur le poste du porteur du projet (16 novembre 2026)
+
+- La propriété lue est `System.StorageProviderState`, par `Shell.Application` (`ExtendedProperty`),
+  dans Windows PowerShell 5.1, lancé sans fenêtre ; le chemin passe par l'environnement, jamais
+  dans le texte de la commande. Valeurs retenues : 1, 2, 3 et 5 donnent « envoyée » (le fichier
+  est sur le compte) ; 4, 6 et 10 « en attente d'envoi » ; 7 et 9 « envoi en échec » ; toute autre
+  valeur, une sortie vide ou un échec laissent « déposée dans le dossier ».
+- Sur ce poste, la variable `OneDrive` existe et son dossier aussi, mais OneDrive n'y est pas
+  connecté (aucune racine de synchronisation déclarée à Windows, aucun processus OneDrive) ;
+  Google Drive et Dropbox ne sont pas installés. Sur un fichier ordinaire, la commande répond par
+  une sortie vide en moins d'une seconde : l'état reste « déposée ».
+- Ce que Windows dit vraiment pour OneDrive, Google Drive et Dropbox reste donc à relever à la
+  main, sur un compte connecté (essais à la main de la 2.0). Si aucun des trois ne renseigne la
+  propriété, la première condition de reconsidération ci-dessus s'applique.

@@ -116,6 +116,7 @@ use crate::enseignants::{
 };
 use crate::erreur::{ErreurService, MotifRefus, Resultat};
 use crate::espace::EspaceDonnees;
+use crate::etat_envoi::{LecteurEtatEnvoi, LecteurEtatSimule};
 use crate::evaluations::{
     ApercuImportNotes, DemandeDeverrouillage, DemandeEvaluation, DemandeEvaluations,
     DemandeIdEvaluation, DemandeImportNotes, DemandeNote, EvaluationAffichee, GrilleNotes,
@@ -254,8 +255,8 @@ use crate::remises_documents::{
 use crate::restauration::{self, RapportRestauration, Tentatives};
 use crate::roles::ServiceRoles;
 use crate::sauvegarde::{
-    ApercuSauvegarde, Avertissement, DemandeRythmeHorsEcole, Destination, PARAMETRE_CERTIFICAT,
-    RapportTest, ServiceSauvegarde,
+    ApercuSauvegarde, Avertissement, DemandeRythmeHorsEcole, Destination, EtatHorsEcole,
+    PARAMETRE_CERTIFICAT, RapportTest, ServiceSauvegarde,
 };
 use crate::secrets::{MotDePasse, Pin, mot_de_passe_correspond_a_part};
 use crate::session::{Jeton, PolitiqueSession, Session};
@@ -881,6 +882,14 @@ pub struct Application {
     reseau: ReseauVivant,
     /// Opération qui demande d'être seul, tant qu'elle dure (SPEC_PHASE_11_A §6.3).
     seule: crate::seul::Exclusivite,
+    /// Lecture de l'état d'envoi des copies hors de l'école : simulée tant que le binaire n'a pas
+    /// branché celle de Windows.
+    lecteur_etat: std::sync::RwLock<Arc<dyn LecteurEtatEnvoi>>,
+    /// La lecture simulée, que les essais pilotent.
+    lecteur_simule: Arc<LecteurEtatSimule>,
+    /// Faux jusqu'au premier passage des tâches périodiques : la vérification de la copie hors de
+    /// l'école se fait au démarrage.
+    copie_verifiee_au_demarrage: std::sync::atomic::AtomicBool,
 }
 
 impl SourceCanaux for Application {
@@ -1075,6 +1084,7 @@ contrat! {
     sauvegarde_destinations_definir(Vec<Destination>) -> Vec<Destination>;
     sauvegarde_hors_ecole_regler(DemandeRythmeHorsEcole) -> RythmeHorsEcole;
     sauvegarde_hors_ecole_envoyer(()) -> Vec<Sauvegarde>;
+    sauvegarde_hors_ecole_etat(()) -> EtatHorsEcole;
     certificat_confirmer(()) -> ();
     sauvegarde_restaurer(DemandeRestauration) -> RapportRestauration;
     phrase_secours_regenerer(DemandeRegeneration) -> PhraseAffichee;
@@ -1423,6 +1433,7 @@ impl Application {
         let canal_simule = Arc::new(gesco_sms::CanalSimule::nouveau(Some(
             espace.racine().join("sms-simules.txt"),
         )));
+        let lecteur_simule = Arc::new(LecteurEtatSimule::default());
         let application = Self {
             espace,
             cles,
@@ -1445,6 +1456,11 @@ impl Application {
             certificat_initial: std::sync::Mutex::new(None),
             reseau: ReseauVivant::default(),
             seule: crate::seul::Exclusivite::default(),
+            lecteur_etat: std::sync::RwLock::new(
+                Arc::clone(&lecteur_simule) as Arc<dyn LecteurEtatEnvoi>
+            ),
+            lecteur_simule,
+            copie_verifiee_au_demarrage: std::sync::atomic::AtomicBool::new(false),
         };
         let cles = match application.cles.preparer()? {
             EtatCles::Ouvertes(cle) => {
@@ -1842,6 +1858,26 @@ impl Application {
         self.modem_simule.clone()
     }
 
+    /// Branche la lecture de l'état d'envoi que Windows connaît ; le binaire l'appelle au
+    /// démarrage. Sans elle, l'état d'une copie reste « déposée dans le dossier ».
+    pub fn brancher_lecteur_etat(&self, lecteur: Arc<dyn LecteurEtatEnvoi>) {
+        if let Ok(mut courant) = self.lecteur_etat.write() {
+            *courant = lecteur;
+        }
+    }
+
+    /// La lecture simulée de l'état d'envoi, que les essais pilotent.
+    pub fn lecteur_etat_simule(&self) -> Arc<LecteurEtatSimule> {
+        Arc::clone(&self.lecteur_simule)
+    }
+
+    fn lecteur_etat(&self) -> Arc<dyn LecteurEtatEnvoi> {
+        self.lecteur_etat.read().map_or_else(
+            |_| Arc::clone(&self.lecteur_simule) as Arc<dyn LecteurEtatEnvoi>,
+            |l| Arc::clone(&l),
+        )
+    }
+
     /// Le canal simulé des SMS, que les essais font échouer à volonté.
     pub fn canal_simule(&self) -> Arc<gesco_sms::CanalSimule> {
         Arc::clone(&self.canal_simule)
@@ -1918,6 +1954,14 @@ impl Application {
                 .creer(fiche.id, None, MotifSauvegarde::Planifiee)
                 .await?;
         }
+        // Vérification de la copie hors de l'école : son échec ne dit rien de faux et n'arrête
+        // rien ; l'état reste ce qu'il était.
+        let premier_passage = !self
+            .copie_verifiee_au_demarrage
+            .swap(true, std::sync::atomic::Ordering::Relaxed);
+        let _ = service
+            .verifier_hors_ecole(fiche.id, self.lecteur_etat(), premier_passage)
+            .await;
         if service.test_du(fiche.id).await? {
             service.tester(fiche.id, None).await?;
         }
@@ -3227,6 +3271,16 @@ impl Application {
                 Some(session),
                 MotifSauvegarde::Manuelle,
             )
+            .await
+    }
+
+    async fn sauvegarde_hors_ecole_etat(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<EtatHorsEcole> {
+        self.sauvegardes(appel.ouverte()?)
+            .etat_hors_ecole(appel.session()?.etablissement_id)
             .await
     }
 

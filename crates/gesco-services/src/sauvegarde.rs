@@ -13,7 +13,8 @@ use std::path::{Path, PathBuf};
 use gesco_core::commun::{Horodatage, Id};
 use gesco_core::core::sauvegarde::{
     DELAI_NOUVEL_ESSAI_HORS_ECOLE_MILLIS, FORMAT_ARCHIVE, PARAMETRE_RYTHME_HORS_ECOLE,
-    POLITIQUE_HORS_ECOLE, RAPPEL_PHRASE, a_conserver, copie_due,
+    POLITIQUE_HORS_ECOLE, RAPPEL_PHRASE, a_conserver, alerte_hors_ecole, copie_due,
+    prochaine_copie, verification_due,
 };
 use gesco_core::core::{
     CleDonnees, Etablissement, EtatEnvoi, Manifeste, MotifSauvegarde, Operation, Parametre,
@@ -30,6 +31,7 @@ use crate::archive::{self, EXTENSION, EntreeArchive, empreinte_fichier};
 use crate::cles::EspaceCles;
 use crate::erreur::{ErreurService, Resultat};
 use crate::espace::EspaceDonnees;
+use crate::etat_envoi::{EtatSignale, LecteurEtatEnvoi};
 use crate::noyau::Noyau;
 use crate::session::Session;
 
@@ -81,6 +83,28 @@ impl Destination {
 pub struct DemandeRythmeHorsEcole {
     /// À la demande, chaque semaine ou chaque mois.
     pub rythme: RythmeHorsEcole,
+}
+
+/// Un dossier synchronisé et sa dernière copie.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
+pub struct DossierHorsEcole {
+    /// Dossier choisi par l'école.
+    pub chemin: String,
+    /// Dernière copie déposée ou essayée dans ce dossier, avec son état.
+    pub derniere: Option<Sauvegarde>,
+}
+
+/// Où en est la copie hors de l'école.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
+pub struct EtatHorsEcole {
+    /// Rythme choisi.
+    pub rythme: RythmeHorsEcole,
+    /// Dossiers synchronisés choisis, chacun avec sa dernière copie ; vide sans dossier.
+    pub dossiers: Vec<DossierHorsEcole>,
+    /// Taille de la dernière sauvegarde du poste, en octets : ce que pèsera la prochaine copie.
+    pub taille_copie: Option<i64>,
+    /// Instant où la prochaine copie du rythme sera due ; rien à la demande ou sans dossier.
+    pub prochaine_copie: Option<Horodatage>,
 }
 
 /// Résumé d'une archive, lu dans son manifeste, sans clé.
@@ -179,6 +203,27 @@ fn nom_archive(instant: Horodatage) -> String {
         "gesco-{:04}{:02}{:02}-{:02}{:02}{:02}-{suffixe}.{EXTENSION}",
         c.annee, c.mois, c.jour, c.heure, c.minute, c.seconde
     )
+}
+
+/// État constaté d'une copie déposée : absente si le fichier manque ou n'a plus sa taille ;
+/// sinon ce que Windows dit de l'envoi, ou « déposée » quand il ne dit rien. Rien quand le
+/// dossier lui-même n'est pas là : on ne sait pas.
+fn etat_constate(chemin: &Path, taille: i64, lecteur: &dyn LecteurEtatEnvoi) -> Option<EtatEnvoi> {
+    if !chemin.parent().is_some_and(Path::is_dir) {
+        return None;
+    }
+    // Métadonnées seulement : lire le contenu ferait télécharger une copie libérée du disque.
+    let intacte = std::fs::metadata(chemin)
+        .is_ok_and(|m| m.is_file() && u64::try_from(taille).is_ok_and(|t| t == m.len()));
+    if !intacte {
+        return Some(EtatEnvoi::Absente);
+    }
+    Some(match lecteur.lire(chemin) {
+        Some(EtatSignale::AJour) => EtatEnvoi::Envoyee,
+        Some(EtatSignale::EnAttente) => EtatEnvoi::EnAttente,
+        Some(EtatSignale::EnEchec) => EtatEnvoi::EchecEnvoi,
+        None => EtatEnvoi::Deposee,
+    })
 }
 
 /// Prépare le dossier d'une destination. Un dossier synchronisé ne se crée que dans un dossier qui
@@ -746,6 +791,119 @@ impl<'a> ServiceSauvegarde<'a> {
         Ok(!essai_manque_recent)
     }
 
+    /// Dossiers synchronisés choisis, chacun avec sa dernière copie, lue dans la table.
+    pub async fn dernieres_hors_ecole(
+        &self,
+        etablissement_id: Id<Etablissement>,
+    ) -> Resultat<Vec<DossierHorsEcole>> {
+        let dossiers: Vec<Destination> = self
+            .destinations(etablissement_id)
+            .await?
+            .into_iter()
+            .filter(Destination::hors_ecole)
+            .collect();
+        if dossiers.is_empty() {
+            return Ok(Vec::new());
+        }
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let lignes = {
+            let mut cnx = self.connexion().await?;
+            sauvegarde::hors_ecole(&mut cnx, 500, &contexte).await?
+        };
+        Ok(dossiers
+            .into_iter()
+            .map(|d| DossierHorsEcole {
+                derniere: lignes
+                    .iter()
+                    .find(|l| Path::new(&l.destination).parent() == Some(Path::new(&d.chemin)))
+                    .cloned(),
+                chemin: d.chemin,
+            })
+            .collect())
+    }
+
+    /// Où en est la copie hors de l'école : rythme, dernière copie de chaque dossier, taille de
+    /// la prochaine copie, date de la prochaine copie due.
+    pub async fn etat_hors_ecole(
+        &self,
+        etablissement_id: Id<Etablissement>,
+    ) -> Resultat<EtatHorsEcole> {
+        let rythme = self.rythme_hors_ecole(etablissement_id).await?;
+        let dossiers = self.dernieres_hors_ecole(etablissement_id).await?;
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let mut cnx = self.connexion().await?;
+        let taille_copie = sauvegarde::derniere_reussie(&mut cnx, &contexte)
+            .await?
+            .map(|s| s.taille);
+        let prochaine = if dossiers.is_empty() || rythme == RythmeHorsEcole::Demande {
+            None
+        } else {
+            match sauvegarde::derniere_hors_ecole(&mut cnx, true, &contexte).await? {
+                Some(derniere) => prochaine_copie(rythme, derniere),
+                None => Some(contexte.maintenant),
+            }
+        };
+        Ok(EtatHorsEcole {
+            rythme,
+            dossiers,
+            taille_copie,
+            prochaine_copie: prochaine,
+        })
+    }
+
+    /// Vérifie, sans bloquer, la dernière copie de chaque dossier synchronisé quand le calendrier
+    /// le demande : présence et taille lues dans les métadonnées, jamais le contenu ; puis l'état
+    /// d'envoi que Windows connaît. Un dossier lui-même absent (lecteur débranché) ne dit rien de
+    /// la copie : son état ne change pas.
+    pub async fn verifier_hors_ecole(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        lecteur: std::sync::Arc<dyn LecteurEtatEnvoi>,
+        premier_passage: bool,
+    ) -> Resultat<()> {
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let mut notes = Vec::new();
+        for dossier in self.dernieres_hors_ecole(etablissement_id).await? {
+            let Some(copie) = dossier.derniere else {
+                continue;
+            };
+            let Some(etat) = copie.etat_envoi else {
+                continue;
+            };
+            if !verification_due(
+                etat,
+                copie.horodatage,
+                copie.etat_verifie_le,
+                contexte.maintenant,
+                premier_passage,
+            ) {
+                continue;
+            }
+            let (chemin, taille) = (PathBuf::from(&copie.destination), copie.taille);
+            let lecteur = std::sync::Arc::clone(&lecteur);
+            let nouvel = tokio::task::spawn_blocking(move || {
+                etat_constate(&chemin, taille, lecteur.as_ref())
+            })
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or(etat);
+            notes.push((copie.id, nouvel));
+        }
+        if notes.is_empty() {
+            return Ok(());
+        }
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Ordinaire)
+            .await?;
+        for (id, etat) in notes {
+            sauvegarde::noter_etat_envoi(unite.connexion(), id, etat, &contexte).await?;
+        }
+        self.noyau.terminer(unite).await?;
+        Ok(())
+    }
+
     /// Vrai si rien ne s'est écrit depuis la dernière sauvegarde : la dernière ligne du journal
     /// d'audit est celle de cette sauvegarde, elle a réussi, son archive est toujours là, et
     /// elle date de moins que l'intervalle réglé. La sauvegarde de fermeture ne se refait pas
@@ -955,6 +1113,22 @@ impl<'a> ServiceSauvegarde<'a> {
             .any(|d| d.sorte == SorteDestination::Amovible)
         {
             cles.push("avertissement.aucune_destination_amovible");
+        }
+        // Copie hors de l'école : seulement quand l'école a choisi un dossier et que la dernière
+        // copie n'arrive pas ; rien sans dossier, rien tant qu'aucune copie n'est partie.
+        let maintenant = self.noyau.horloge().maintenant();
+        if self
+            .dernieres_hors_ecole(etablissement_id)
+            .await
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|d| d.derniere.as_ref())
+            .any(|c| {
+                c.etat_envoi
+                    .is_some_and(|e| alerte_hors_ecole(e, c.horodatage, maintenant))
+            })
+        {
+            cles.push("avertissement.copie_hors_ecole_non_arrivee");
         }
         Ok(cles
             .into_iter()

@@ -9,7 +9,7 @@ Spécification `SPEC_SAUVEGARDE_HORS_ECOLE.md` v1.0, ADR `docs/adr/2026-11-15-co
 | Étape | Contenu | État |
 |---|---|---|
 | 1 | Sorte et rythme, dans le service | faite (16 novembre 2026) |
-| 2 | Vérification et état d'envoi | à faire |
+| 2 | Vérification et état d'envoi | faite (16 novembre 2026) |
 | 3 | Détection des dossiers et écran | à faire |
 | 4 | Livraison et essais globaux | à faire |
 
@@ -20,6 +20,8 @@ Spécification `SPEC_SAUVEGARDE_HORS_ECOLE.md` v1.0, ADR `docs/adr/2026-11-15-co
 - après un dépôt manqué (dossier absent, disque plein), la copie du rythme ne se retente qu'un jour plus tard, pour que la tâche de chaque minute ne refasse pas une sauvegarde chaque minute ;
 - un dossier synchronisé ne se crée que dans un dossier qui existe : si le logiciel du fournisseur a été désinstallé ou le lecteur a disparu, GESCO ne recrée pas un dossier que rien n'enverrait, et la copie « n'a pas pu être déposée » ;
 - « Envoyer une copie maintenant » sans dossier choisi fait une sauvegarde manuelle ordinaire (l'écran ne montre pas le bouton dans ce cas).
+
+**Étape 2 (16 novembre 2026)** : vérification et état d'envoi. `gesco-core` : `verification_due` (quelques minutes après le dépôt, une heure après, au premier passage depuis le démarrage, puis une fois par jour, tant que la copie peut encore changer : déposée, en attente, en échec) et `alerte_hors_ecole` (n'a pas pu être déposée, n'est plus dans le dossier, envoi en échec, en attente depuis plus de sept jours ; jamais « déposée »). `gesco-services/src/etat_envoi.rs` : trait `LecteurEtatEnvoi`, lecture simulée `LecteurEtatSimule` (les essais disent ce que Windows répondrait, et comptent les lectures), traduction de la propriété `System.StorageProviderState` (`etat_depuis_windows`). Service : `dernieres_hors_ecole` (dernière copie de chaque dossier synchronisé choisi, lue dans la table), `verifier_hors_ecole` (présence et taille lues dans les métadonnées, jamais le contenu ; puis l'état que Windows connaît ; un dossier lui-même absent ne change pas l'état), `etat_hors_ecole` (rythme, dernière copie de chaque dossier, taille de la dernière sauvegarde du poste, prochaine copie due). La tâche périodique vérifie après la sauvegarde ; une erreur n'arrête rien. Commande `sauvegarde_hors_ecole_etat` (droit `core:backup:create`, poste principal). Bandeau : `avertissement.copie_hors_ecole_non_arrivee`, « La dernière copie hors de l'école n'est pas arrivée sur le compte. », un clic ouvre l'écran des sauvegardes ; elle disparaît dès qu'une copie suivante est déposée. `gesco-app/src/etat_envoi.rs` : lecture par Windows PowerShell 5.1 sans fenêtre, chemin passé par l'environnement, abandon après 15 s ; branchée au démarrage hors mode d'essai (le mode d'essai garde la lecture simulée). Relevé du poste écrit dans l'ADR : OneDrive n'y est pas connecté, Google Drive et Dropbox absents ; la commande répond vide sur un fichier ordinaire ; le relevé réel reste aux essais à la main. Essais écrits, non lancés : copie effacée (critère 6), contenu jamais lu (critère 6), « envoyée » seulement quand Windows le dit et plus de lecture ensuite (critère 7, simulé), attente de plus de sept jours et échec d'envoi dans le bandeau, rien sans dossier ni copie et état de l'écran ; unitaires du calendrier, du bandeau et de la traduction. `gesco-app` n'est pas compilé à cette étape (hors de clippy) : il le sera à l'étape 4. Vérifiés : fmt, clippy, tsc, ESLint.
 
 Repère : prochaine migration **0063**.
 

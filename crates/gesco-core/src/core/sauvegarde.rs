@@ -269,6 +269,58 @@ pub fn copie_due(
     derniere_deposee.is_none_or(|d| prochaine_copie(rythme, d).is_some_and(|p| p <= maintenant))
 }
 
+/// Première vérification d'une copie hors de l'école, quelques minutes après son dépôt.
+pub const PREMIERE_VERIFICATION_MILLIS: i64 = 5 * 60_000;
+/// Deuxième vérification, une heure après le dépôt.
+pub const DEUXIEME_VERIFICATION_MILLIS: i64 = 3_600_000;
+/// Ensuite, une vérification par jour, tant que la copie n'est pas envoyée.
+pub const VERIFICATION_QUOTIDIENNE_MILLIS: i64 = 24 * 3_600_000;
+/// Une copie qui attend son envoi plus de sept jours fait parler le bandeau.
+pub const ATTENTE_SIGNALEE_MILLIS: i64 = 7 * 24 * 3_600_000;
+
+/// Vrai si l'état d'envoi d'une copie se vérifie maintenant : seulement tant qu'elle peut encore
+/// changer (déposée, en attente, en échec), quelques minutes après le dépôt, une heure après, au
+/// premier passage depuis le démarrage du poste principal, puis une fois par jour.
+pub fn verification_due(
+    etat: EtatEnvoi,
+    depose_le: Horodatage,
+    verifie_le: Option<Horodatage>,
+    maintenant: Horodatage,
+    premier_passage: bool,
+) -> bool {
+    if !matches!(
+        etat,
+        EtatEnvoi::Deposee | EtatEnvoi::EnAttente | EtatEnvoi::EchecEnvoi
+    ) {
+        return false;
+    }
+    if premier_passage {
+        return true;
+    }
+    let depot = depose_le.millis_epoque();
+    let derniere = verifie_le.unwrap_or(depose_le).millis_epoque();
+    let instant = maintenant.millis_epoque();
+    let jalon_manque = [PREMIERE_VERIFICATION_MILLIS, DEUXIEME_VERIFICATION_MILLIS]
+        .iter()
+        .map(|delai| depot.saturating_add(*delai))
+        .any(|jalon| instant >= jalon && derniere < jalon);
+    jalon_manque || instant.saturating_sub(derniere) >= VERIFICATION_QUOTIDIENNE_MILLIS
+}
+
+/// Vrai si la dernière copie d'un dossier synchronisé n'est pas arrivée sur le compte : elle n'a
+/// pas pu être déposée, n'est plus dans le dossier, est en échec d'envoi, ou attend son envoi
+/// depuis plus de sept jours. « Déposée » ne fait jamais parler le bandeau : Windows ne sait
+/// pas tout.
+pub fn alerte_hors_ecole(etat: EtatEnvoi, depose_le: Horodatage, maintenant: Horodatage) -> bool {
+    match etat {
+        EtatEnvoi::NonDeposee | EtatEnvoi::Absente | EtatEnvoi::EchecEnvoi => true,
+        EtatEnvoi::EnAttente => depose_le
+            .difference_millis(&maintenant)
+            .is_ok_and(|d| d > ATTENTE_SIGNALEE_MILLIS),
+        EtatEnvoi::Deposee | EtatEnvoi::Envoyee => false,
+    }
+}
+
 const MILLIS_PAR_JOUR: i64 = 86_400_000;
 
 /// Regroupe les sauvegardes par jour, semaine ou mois.
@@ -464,6 +516,41 @@ mod tests {
             assert_eq!(RythmeHorsEcole::depuis_nom(r.nom()), Some(r));
         }
         assert_eq!(RythmeHorsEcole::depuis_nom("jour"), None);
+    }
+
+    #[test]
+    fn la_copie_se_verifie_a_cinq_minutes_une_heure_puis_chaque_jour() {
+        let depot = h(0, 10);
+        let minute = 60_000;
+        let a = |m: i64| Horodatage::depuis_millis_epoque(depot.millis_epoque() + m * minute);
+        let e = EtatEnvoi::Deposee;
+        assert!(!verification_due(e, depot, Some(depot), a(4), false));
+        assert!(verification_due(e, depot, Some(depot), a(5), false));
+        assert!(!verification_due(e, depot, Some(a(5)), a(30), false));
+        assert!(verification_due(e, depot, Some(a(5)), a(60), false));
+        assert!(!verification_due(e, depot, Some(a(60)), a(60 * 24), false));
+        assert!(verification_due(e, depot, Some(a(60)), a(60 * 25), false));
+        assert!(verification_due(e, depot, Some(a(60)), a(61), true));
+        // Envoyée, absente, jamais déposée : plus rien à vérifier, même au démarrage.
+        for fini in [
+            EtatEnvoi::Envoyee,
+            EtatEnvoi::Absente,
+            EtatEnvoi::NonDeposee,
+        ] {
+            assert!(!verification_due(fini, depot, None, a(60 * 48), true));
+        }
+    }
+
+    #[test]
+    fn le_bandeau_ne_parle_que_d_une_copie_qui_n_arrive_pas() {
+        let depot = h(0, 10);
+        assert!(alerte_hors_ecole(EtatEnvoi::NonDeposee, depot, depot));
+        assert!(alerte_hors_ecole(EtatEnvoi::Absente, depot, depot));
+        assert!(alerte_hors_ecole(EtatEnvoi::EchecEnvoi, depot, depot));
+        assert!(!alerte_hors_ecole(EtatEnvoi::Deposee, depot, h(30, 0)));
+        assert!(!alerte_hors_ecole(EtatEnvoi::Envoyee, depot, h(30, 0)));
+        assert!(!alerte_hors_ecole(EtatEnvoi::EnAttente, depot, h(7, 10)));
+        assert!(alerte_hors_ecole(EtatEnvoi::EnAttente, depot, h(7, 11)));
     }
 
     #[test]
