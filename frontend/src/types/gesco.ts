@@ -1905,6 +1905,8 @@ export type Contrat = {
 	sauvegarde_destinations_lister: Signature<null, Destination[]>,
 	/**  Signature de la commande du même nom. */
 	sauvegarde_destinations_definir: Signature<Destination[], Destination[]>,
+	sauvegarde_hors_ecole_regler: Signature<DemandeRythmeHorsEcole, RythmeHorsEcole>,
+	sauvegarde_hors_ecole_envoyer: Signature<null, Sauvegarde[]>,
 	/**  Signature de la commande du même nom. */
 	certificat_confirmer: Signature<null, null>,
 	/**  Signature de la commande du même nom. */
@@ -5168,6 +5170,12 @@ export type DemandeRepriseInventaire = {
 	cycle: Cycle | null,
 };
 
+/**  Rythme de la copie hors de l'école, demandé par l'école. */
+export type DemandeRythmeHorsEcole = {
+	/**  À la demande, chaque semaine ou chaque mois. */
+	rythme: RythmeHorsEcole,
+};
+
 /**  Restauration d'une archive. */
 export type DemandeRestauration = {
 	/**  Chemin du fichier. */
@@ -5614,8 +5622,14 @@ export type Destination = {
 	/**  Dossier. */
 	chemin: string,
 	/**
-	 *  Support physiquement déconnectable (clé USB, disque externe) : seule protection réelle
-	 *  contre un rançongiciel (§11.3).
+	 *  Sorte : dossier, support amovible ou dossier synchronisé. Absente des réglages de la 1.2,
+	 *  elle se déduit de la case « amovible ».
+	 */
+	sorte: SorteDestination,
+	/**
+	 *  Case de la 1.2, encore lue : support physiquement déconnectable (clé USB, disque externe),
+	 *  seule protection réelle contre un rançongiciel (§11.3). Toujours égale à la sorte
+	 *  « support amovible » une fois la destination relue.
 	 */
 	amovible: boolean,
 };
@@ -8569,6 +8583,52 @@ export type MotConsultation =
 /**  La liste des mots. */
 "aide";
 
+/**
+ *  État d'une copie hors de l'école. Les noms ne parlent pas de dossier : un serveur de
+ *  l'éditeur reprendra les mêmes.
+ */
+export type EtatEnvoi =
+/**  Intacte dans le dossier ; Windows ne dit rien de l'envoi. */
+"deposee" |
+/**  Windows dit que le fichier n'est pas encore envoyé. */
+"en_attente" |
+/**  Windows dit que le fichier est à jour sur le compte. */
+"envoyee" |
+/**  Windows dit que le logiciel du fournisseur n'a pas pu l'envoyer. */
+"echec_envoi" |
+/**  Dossier absent, plein ou refusé ; copie interrompue. */
+"non_deposee" |
+/**  Fichier effacé ou modifié depuis le dépôt. */
+"absente";
+
+/**
+ *  Rythme de la copie hors de l'école, un seul pour tous les dossiers synchronisés. Jamais
+ *  chaque jour.
+ */
+export type RythmeHorsEcole =
+/**  Rien ne part sans un geste de l'école. Réglage livré. */
+"demande" |
+/**  Une copie quand la dernière bien déposée a sept jours ou plus. */
+"semaine" |
+/**  Une copie quand la dernière bien déposée date du même jour du mois précédent ou d'avant. */
+"mois";
+
+/**
+ *  Sorte d'une destination de sauvegarde. Les réglages venus de la 1.2 n'ont qu'une case
+ *  « amovible » : vraie, elle donne [`SorteDestination::Amovible`], fausse,
+ *  [`SorteDestination::Dossier`].
+ */
+export type SorteDestination =
+/**  Dossier du poste ou du réseau. */
+"dossier" |
+/**  Clé USB, disque externe : seule protection réelle contre un rançongiciel. */
+"amovible" |
+/**
+ *  Dossier que le logiciel d'un fournisseur envoie sur un compte en ligne : la copie hors de
+ *  l'école. Il ne reçoit que la copie à la demande et la copie du rythme.
+ */
+"synchronise";
+
 /**  Ce qui a déclenché une sauvegarde (§11.1). */
 export type MotifSauvegarde = 
 /**  Demandée par un utilisateur. */
@@ -10548,6 +10608,12 @@ export type Sauvegarde = {
 	resultat: ResultatSauvegarde,
 	/**  Dernier test de restauration réussi sur cette archive (§18.3). */
 	dernier_test_restauration: number | null,
+	/**  Sorte de la destination. */
+	sorte: SorteDestination,
+	/**  État d'envoi d'une copie hors de l'école ; vide pour les autres sortes. */
+	etat_envoi: EtatEnvoi | null,
+	/**  Instant de la dernière vérification de cet état. */
+	etat_verifie_le: number | null,
 };
 
 /**  Scolarité du jour. */

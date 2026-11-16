@@ -1,14 +1,23 @@
 //! Sauvegarde (spécification §11, blueprint §18) : instantané cohérent de la base, archive
 //! chiffrée par la clé de données avec l'enveloppe de secours et le manifeste, copie vers chaque
 //! destination, rotation, test de restauration, avertissements permanents.
+//!
+//! Copie hors de l'école : un dossier synchronisé (Google Drive, OneDrive, Dropbox) ne reçoit que
+//! la copie à la demande et la copie du rythme, jamais les autres sauvegardes. Son nettoyage part
+//! de la table `sauvegarde`, sans lire le dossier ; une erreur dans ce dossier ne fait jamais
+//! échouer une sauvegarde.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use gesco_core::commun::{Horodatage, Id};
-use gesco_core::core::sauvegarde::{FORMAT_ARCHIVE, RAPPEL_PHRASE, a_conserver};
+use gesco_core::core::sauvegarde::{
+    DELAI_NOUVEL_ESSAI_HORS_ECOLE_MILLIS, FORMAT_ARCHIVE, PARAMETRE_RYTHME_HORS_ECOLE,
+    POLITIQUE_HORS_ECOLE, RAPPEL_PHRASE, a_conserver, copie_due,
+};
 use gesco_core::core::{
-    CleDonnees, Etablissement, Manifeste, MotifSauvegarde, Operation, Parametre, PolitiqueRotation,
-    TypeEvenement, ValeurParametre,
+    CleDonnees, Etablissement, EtatEnvoi, Manifeste, MotifSauvegarde, Operation, Parametre,
+    PolitiqueRotation, RythmeHorsEcole, SorteDestination, TypeEvenement, ValeurParametre,
 };
 use gesco_db::depots::sauvegarde::{self, ResultatSauvegarde, Sauvegarde};
 use gesco_db::depots::{audit, etablissement, parametre};
@@ -38,9 +47,40 @@ pub const INTERVALLE_TEST_MILLIS: i64 = 30 * 24 * 3_600_000;
 pub struct Destination {
     /// Dossier.
     pub chemin: String,
-    /// Support physiquement déconnectable (clé USB, disque externe) : seule protection réelle
-    /// contre un rançongiciel (§11.3).
+    /// Sorte : dossier, support amovible ou dossier synchronisé. Absente des réglages de la 1.2,
+    /// elle se déduit de la case « amovible ».
+    #[serde(default)]
+    pub sorte: SorteDestination,
+    /// Case de la 1.2, encore lue : support physiquement déconnectable (clé USB, disque externe),
+    /// seule protection réelle contre un rançongiciel (§11.3). Toujours égale à la sorte
+    /// « support amovible » une fois la destination relue.
+    #[serde(default)]
     pub amovible: bool,
+}
+
+impl Destination {
+    /// Accorde la sorte et la case de la 1.2 : une case cochée sans sorte donne un support
+    /// amovible ; la case suit ensuite la sorte.
+    #[must_use]
+    pub fn accordee(mut self) -> Self {
+        if self.amovible && self.sorte == SorteDestination::Dossier {
+            self.sorte = SorteDestination::Amovible;
+        }
+        self.amovible = self.sorte == SorteDestination::Amovible;
+        self
+    }
+
+    /// Vrai pour un dossier synchronisé, la copie hors de l'école.
+    pub fn hors_ecole(&self) -> bool {
+        self.sorte == SorteDestination::Synchronise
+    }
+}
+
+/// Rythme de la copie hors de l'école, demandé par l'école.
+#[derive(Debug, Clone, Copy, Deserialize, specta::Type)]
+pub struct DemandeRythmeHorsEcole {
+    /// À la demande, chaque semaine ou chaque mois.
+    pub rythme: RythmeHorsEcole,
 }
 
 /// Résumé d'une archive, lu dans son manifeste, sans clé.
@@ -141,6 +181,20 @@ fn nom_archive(instant: Horodatage) -> String {
     )
 }
 
+/// Prépare le dossier d'une destination. Un dossier synchronisé ne se crée que dans un dossier qui
+/// existe déjà : si le logiciel du fournisseur a été désinstallé, ou le lecteur a disparu, GESCO
+/// ne recrée pas sur le poste un dossier que rien n'enverrait.
+fn preparer_dossier(destination: &Destination) -> std::io::Result<()> {
+    let dossier = Path::new(&destination.chemin);
+    if destination.hors_ecole() && !dossier.is_dir() {
+        if !dossier.parent().is_some_and(Path::is_dir) {
+            return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
+        }
+        return std::fs::create_dir(dossier);
+    }
+    std::fs::create_dir_all(dossier)
+}
+
 /// Ouvre une base posée dans un fichier de travail, avec la clé de données.
 pub(crate) async fn ouvrir_fichier(chemin: &Path, cle: &CleDonnees) -> Resultat<Base> {
     Ok(Base::ouvrir_sans_migrer(
@@ -207,9 +261,10 @@ impl<'a> ServiceSauvegarde<'a> {
                 .sauvegardes_locales()
                 .to_string_lossy()
                 .into_owned(),
+            sorte: SorteDestination::Dossier,
             amovible: false,
         }];
-        toutes.extend(configurees);
+        toutes.extend(configurees.into_iter().map(Destination::accordee));
         Ok(toutes)
     }
 
@@ -224,6 +279,10 @@ impl<'a> ServiceSauvegarde<'a> {
                 cle: "sauvegarde.destination_vide",
             });
         }
+        let destinations: Vec<Destination> = destinations
+            .into_iter()
+            .map(Destination::accordee)
+            .collect();
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut unite = self
             .noyau
@@ -253,13 +312,38 @@ impl<'a> ServiceSauvegarde<'a> {
         self.destinations(session.etablissement_id).await
     }
 
-    /// Produit une sauvegarde vers chaque destination et applique la rotation. Une destination
-    /// absente (clé USB débranchée) laisse une ligne en échec sans empêcher les autres.
+    /// Produit une sauvegarde vers chaque destination, hors les dossiers synchronisés, et
+    /// applique la rotation. Une destination absente (clé USB débranchée) laisse une ligne en
+    /// échec sans empêcher les autres.
     pub async fn creer(
         &self,
         etablissement_id: Id<Etablissement>,
         session: Option<&Session>,
         motif: MotifSauvegarde,
+    ) -> Resultat<Vec<Sauvegarde>> {
+        self.creer_vers(etablissement_id, session, motif, false)
+            .await
+    }
+
+    /// Copie hors de l'école, à la demande (sauvegarde manuelle) ou au rythme choisi (sauvegarde
+    /// planifiée) : une sauvegarde vers toutes les destinations, dossiers synchronisés compris.
+    /// C'est le seul point par où une copie part hors de l'école.
+    pub async fn envoyer_hors_ecole(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        session: Option<&Session>,
+        motif: MotifSauvegarde,
+    ) -> Resultat<Vec<Sauvegarde>> {
+        self.creer_vers(etablissement_id, session, motif, true)
+            .await
+    }
+
+    async fn creer_vers(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        session: Option<&Session>,
+        motif: MotifSauvegarde,
+        hors_ecole: bool,
     ) -> Resultat<Vec<Sauvegarde>> {
         let contexte = self.noyau.contexte(etablissement_id, session);
         let secours = self.cles.enveloppe_secours()?.ok_or(ErreurService::Regle {
@@ -270,7 +354,12 @@ impl<'a> ServiceSauvegarde<'a> {
             let mut cnx = self.connexion().await?;
             etablissement::lire(&mut cnx, etablissement_id).await?
         };
-        let destinations = self.destinations(etablissement_id).await?;
+        let destinations: Vec<Destination> = self
+            .destinations(etablissement_id)
+            .await?
+            .into_iter()
+            .filter(|d| hors_ecole || !d.hors_ecole())
+            .collect();
 
         std::fs::create_dir_all(self.espace.temporaire())?;
         let instantane = self.espace.temporaire().join(format!(
@@ -331,8 +420,13 @@ impl<'a> ServiceSauvegarde<'a> {
         // une archive du même jour, peut-être celle que l'on s'apprête à restaurer.
         if motif != MotifSauvegarde::AvantRestauration {
             let politique = self.politique(etablissement_id).await?;
-            for d in &destinations {
+            for d in destinations.iter().filter(|d| !d.hors_ecole()) {
                 self.appliquer_rotation(Path::new(&d.chemin), etablissement_id, politique)?;
+            }
+            // Le nettoyage du dossier hors de l'école se retente à la copie suivante : son échec
+            // ne fait pas échouer la sauvegarde.
+            if destinations.iter().any(Destination::hors_ecole) {
+                let _ = self.nettoyer_hors_ecole(etablissement_id).await;
             }
         }
         Ok(sauvegardes)
@@ -383,7 +477,10 @@ impl<'a> ServiceSauvegarde<'a> {
                 .map_err(|e| ErreurService::Secret(e.to_string()))??;
         let empreinte = empreinte_fichier(&origine)?;
 
-        let ligne = |destination: String, resultat: ResultatSauvegarde, taille: u64| Sauvegarde {
+        let ligne = |destination: String,
+                     sorte: SorteDestination,
+                     resultat: ResultatSauvegarde,
+                     taille: u64| Sauvegarde {
             id: nouvel_id(),
             etablissement_id: fiche.id,
             horodatage: contexte.maintenant,
@@ -394,16 +491,29 @@ impl<'a> ServiceSauvegarde<'a> {
             version_applicative: self.version_applicative.to_owned(),
             resultat,
             dernier_test_restauration: None,
+            sorte,
+            // Au dépôt, une copie hors de l'école est « déposée » si son empreinte est vérifiée ;
+            // jamais « envoyée » sans que Windows l'ait dit.
+            etat_envoi: (sorte == SorteDestination::Synchronise).then_some(
+                if resultat == ResultatSauvegarde::Reussie {
+                    EtatEnvoi::Deposee
+                } else {
+                    EtatEnvoi::NonDeposee
+                },
+            ),
+            etat_verifie_le: (sorte == SorteDestination::Synchronise)
+                .then_some(contexte.maintenant),
         };
         let mut sauvegardes = vec![ligne(
             origine.to_string_lossy().into_owned(),
+            premiere.sorte,
             ResultatSauvegarde::Reussie,
             taille,
         )];
         for d in destinations.iter().skip(1) {
             let cible = Path::new(&d.chemin).join(&nom);
-            let copie = std::fs::create_dir_all(&d.chemin).and_then(|()| {
-                let partiel = cible.with_extension("partiel");
+            let partiel = cible.with_extension("partiel");
+            let copie = preparer_dossier(d).and_then(|()| {
                 std::fs::copy(&origine, &partiel)?;
                 // Windows refuse de vider sur disque un fichier ouvert en lecture seule.
                 std::fs::OpenOptions::new()
@@ -412,9 +522,15 @@ impl<'a> ServiceSauvegarde<'a> {
                     .sync_all()?;
                 std::fs::rename(&partiel, &cible)
             });
+            if copie.is_err() {
+                // Disque plein, copie interrompue : rien d'autre que des archives entières ne
+                // reste dans le dossier.
+                let _ = std::fs::remove_file(&partiel);
+            }
             let reussie = copie.is_ok() && empreinte_fichier(&cible).is_ok_and(|e| e == empreinte);
             sauvegardes.push(ligne(
                 cible.to_string_lossy().into_owned(),
+                d.sorte,
                 if reussie {
                     ResultatSauvegarde::Reussie
                 } else {
@@ -492,6 +608,142 @@ impl<'a> ServiceSauvegarde<'a> {
             }
         }
         Ok(())
+    }
+
+    /// Nettoyage des dossiers synchronisés : par dossier, les 4 dernières semaines et les 12
+    /// derniers mois. Il part des lignes de la table qui disent ce que GESCO y a déposé pour cet
+    /// établissement : il ne lit jamais le dossier, ne fait rien télécharger, et ne supprime que
+    /// ses propres copies. Une copie retirée prend l'état « n'est plus dans le dossier ».
+    async fn nettoyer_hors_ecole(&self, etablissement_id: Id<Etablissement>) -> Resultat<()> {
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let deposees = {
+            let mut cnx = self.connexion().await?;
+            sauvegarde::deposees_hors_ecole(&mut cnx, &contexte).await?
+        };
+        let mut par_dossier: BTreeMap<PathBuf, Vec<(Id<Sauvegarde>, Horodatage)>> = BTreeMap::new();
+        for s in &deposees {
+            if let Some(dossier) = Path::new(&s.destination).parent() {
+                par_dossier
+                    .entry(dossier.to_path_buf())
+                    .or_default()
+                    .push((s.id, s.horodatage));
+            }
+        }
+        let mut retirees = Vec::new();
+        for copies in par_dossier.values() {
+            let gardees = a_conserver(copies, POLITIQUE_HORS_ECOLE);
+            for (id, _) in copies {
+                if gardees.contains(id) {
+                    continue;
+                }
+                let Some(copie) = deposees.iter().find(|s| s.id == *id) else {
+                    continue;
+                };
+                match std::fs::remove_file(&copie.destination) {
+                    Ok(()) => retirees.push(*id),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => retirees.push(*id),
+                    // Dossier absent ou refusé : la copie se retirera au prochain nettoyage.
+                    Err(_) => {}
+                }
+            }
+        }
+        if retirees.is_empty() {
+            return Ok(());
+        }
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Ordinaire)
+            .await?;
+        for id in retirees {
+            sauvegarde::noter_etat_envoi(unite.connexion(), id, EtatEnvoi::Absente, &contexte)
+                .await?;
+        }
+        self.noyau.terminer(unite).await?;
+        Ok(())
+    }
+
+    /// Rythme de la copie hors de l'école ; « à la demande » tant que l'école n'en a pas choisi.
+    pub async fn rythme_hors_ecole(
+        &self,
+        etablissement_id: Id<Etablissement>,
+    ) -> Resultat<RythmeHorsEcole> {
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let mut cnx = self.connexion().await?;
+        Ok(
+            match parametre::lire(&mut cnx, PARAMETRE_RYTHME_HORS_ECOLE, &contexte).await? {
+                Some(Parametre {
+                    valeur: ValeurParametre::Texte(nom),
+                    ..
+                }) => RythmeHorsEcole::depuis_nom(&nom).unwrap_or_default(),
+                _ => RythmeHorsEcole::default(),
+            },
+        )
+    }
+
+    /// Règle le rythme de la copie hors de l'école ; la modification est auditée.
+    pub async fn regler_rythme_hors_ecole(
+        &self,
+        session: &Session,
+        rythme: RythmeHorsEcole,
+    ) -> Resultat<RythmeHorsEcole> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Ordinaire)
+            .await?;
+        parametre::definir(
+            unite.connexion(),
+            &Parametre {
+                etablissement_id: session.etablissement_id,
+                cle: PARAMETRE_RYTHME_HORS_ECOLE.to_owned(),
+                valeur: ValeurParametre::Texte(rythme.nom().to_owned()),
+                modifiable_par_utilisateur: false,
+            },
+            &contexte,
+        )
+        .await?;
+        unite.auditer(
+            "parametre",
+            PARAMETRE_RYTHME_HORS_ECOLE,
+            Operation::Modification,
+            None,
+            Some(serde_json::json!({ "rythme": rythme })),
+            "sauvegarde.hors_ecole_regler",
+        );
+        self.noyau.terminer(unite).await?;
+        Ok(rythme)
+    }
+
+    /// Vrai si la copie du rythme est due : l'école a un dossier synchronisé, un rythme autre
+    /// que « à la demande », et la dernière copie bien déposée est assez ancienne. Après un dépôt
+    /// manqué, elle ne se retente qu'un jour plus tard.
+    pub async fn copie_hors_ecole_due(
+        &self,
+        etablissement_id: Id<Etablissement>,
+    ) -> Resultat<bool> {
+        if !self
+            .destinations(etablissement_id)
+            .await?
+            .iter()
+            .any(Destination::hors_ecole)
+        {
+            return Ok(false);
+        }
+        let rythme = self.rythme_hors_ecole(etablissement_id).await?;
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        let maintenant = contexte.maintenant;
+        let mut cnx = self.connexion().await?;
+        let deposee = sauvegarde::derniere_hors_ecole(&mut cnx, true, &contexte).await?;
+        if !copie_due(rythme, deposee, maintenant) {
+            return Ok(false);
+        }
+        let essai = sauvegarde::derniere_hors_ecole(&mut cnx, false, &contexte).await?;
+        let essai_manque_recent = essai.is_some_and(|e| {
+            deposee.is_none_or(|d| d < e)
+                && e.difference_millis(&maintenant)
+                    .is_ok_and(|ecart| ecart < DELAI_NOUVEL_ESSAI_HORS_ECOLE_MILLIS)
+        });
+        Ok(!essai_manque_recent)
     }
 
     /// Vrai si rien ne s'est écrit depuis la dernière sauvegarde : la dernière ligne du journal
@@ -700,7 +952,7 @@ impl<'a> ServiceSauvegarde<'a> {
             .destinations(etablissement_id)
             .await?
             .iter()
-            .any(|d| d.amovible)
+            .any(|d| d.sorte == SorteDestination::Amovible)
         {
             cles.push("avertissement.aucune_destination_amovible");
         }

@@ -112,12 +112,12 @@ function EditeurDestinations({ initiales, surEnregistre }: { initiales: readonly
       {liste.map((d, rang) => (
         <div key={rang} className="flex flex-wrap items-end gap-3">
           <Champ id={`destination-${rang}`} libelle={t("sauvegarde.chemin")} value={d.chemin} onChange={(e) => modifier(rang, { ...d, chemin: e.target.value })} />
-          <CaseACocher id={`amovible-${rang}`} libelle={t("sauvegarde.amovible")} coche={d.amovible} surChangement={(amovible) => modifier(rang, { ...d, amovible })} />
+          <CaseACocher id={`amovible-${rang}`} libelle={t("sauvegarde.amovible")} coche={d.amovible} surChangement={(amovible) => modifier(rang, { ...d, amovible, sorte: amovible ? "amovible" : "dossier" })} />
           <Bouton variante="secondaire" onClick={() => setListe(liste.filter((_, i) => i !== rang))}>{t("commun.retirer")}</Bouton>
         </div>
       ))}
       <div className="flex gap-2">
-        <Bouton variante="secondaire" onClick={() => setListe([...liste, { chemin: "", amovible: true }])}>{t("commun.ajouter")}</Bouton>
+        <Bouton variante="secondaire" onClick={() => setListe([...liste, { chemin: "", sorte: "amovible", amovible: true }])}>{t("commun.ajouter")}</Bouton>
         <Bouton onClick={() => enregistrement.mutate()} disabled={enregistrement.isPending}>{t("commun.enregistrer")}</Bouton>
       </div>
       <MessageErreur erreur={enregistrement.error} />

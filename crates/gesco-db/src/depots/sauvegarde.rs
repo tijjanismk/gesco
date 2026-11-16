@@ -1,7 +1,7 @@
 //! Historique des sauvegardes (§18 du blueprint).
 
 use gesco_core::commun::{Horodatage, Id};
-use gesco_core::core::Etablissement;
+use gesco_core::core::{Etablissement, EtatEnvoi, SorteDestination};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -52,6 +52,12 @@ pub struct Sauvegarde {
     pub resultat: ResultatSauvegarde,
     /// Dernier test de restauration réussi sur cette archive (§18.3).
     pub dernier_test_restauration: Option<Horodatage>,
+    /// Sorte de la destination.
+    pub sorte: SorteDestination,
+    /// État d'envoi d'une copie hors de l'école ; vide pour les autres sortes.
+    pub etat_envoi: Option<EtatEnvoi>,
+    /// Instant de la dernière vérification de cet état.
+    pub etat_verifie_le: Option<Horodatage>,
 }
 
 #[derive(FromRow)]
@@ -66,6 +72,9 @@ struct Ligne {
     version_applicative: String,
     resultat: String,
     dernier_test_restauration: Option<i64>,
+    sorte: String,
+    etat_envoi: Option<String>,
+    etat_verifie_le: Option<i64>,
 }
 
 impl Ligne {
@@ -87,6 +96,16 @@ impl Ligne {
             dernier_test_restauration: self
                 .dernier_test_restauration
                 .map(Horodatage::depuis_millis_epoque),
+            sorte: SorteDestination::depuis_nom(&self.sorte)
+                .ok_or_else(|| ErreurBase::illisible("sauvegarde", "sorte", &self.sorte))?,
+            etat_envoi: match self.etat_envoi {
+                None => None,
+                Some(etat) => Some(
+                    EtatEnvoi::depuis_nom(&etat)
+                        .ok_or_else(|| ErreurBase::illisible("sauvegarde", "etat_envoi", &etat))?,
+                ),
+            },
+            etat_verifie_le: self.etat_verifie_le.map(Horodatage::depuis_millis_epoque),
         })
     }
 }
@@ -95,7 +114,7 @@ impl Ligne {
 /// chaînes SQL dynamiques, et les colonnes ne sont écrites qu'une fois.
 macro_rules! selectionner {
     ($suite:literal) => {
-        concat!("SELECT id, etablissement_id, horodatage, destination, taille, empreinte_sha256, version_schema, version_applicative, resultat, dernier_test_restauration FROM sauvegarde ", $suite)
+        concat!("SELECT id, etablissement_id, horodatage, destination, taille, empreinte_sha256, version_schema, version_applicative, resultat, dernier_test_restauration, sorte, etat_envoi, etat_verifie_le FROM sauvegarde ", $suite)
     };
 }
 
@@ -113,8 +132,9 @@ pub async fn inserer(
     }
     sqlx::query(
         "INSERT INTO sauvegarde (id, etablissement_id, horodatage, destination, taille, empreinte_sha256, version_schema,
-            version_applicative, resultat, dernier_test_restauration, identifiant_poste)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            version_applicative, resultat, dernier_test_restauration, identifiant_poste, sorte, etat_envoi,
+            etat_verifie_le)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
     )
     .bind(sauvegarde.id.vers_chaine())
     .bind(sauvegarde.etablissement_id.vers_chaine())
@@ -127,6 +147,9 @@ pub async fn inserer(
     .bind(sauvegarde.resultat.nom())
     .bind(sauvegarde.dernier_test_restauration.map(|h| h.millis_epoque()))
     .bind(&contexte.poste.0)
+    .bind(sauvegarde.sorte.nom())
+    .bind(sauvegarde.etat_envoi.map(EtatEnvoi::nom))
+    .bind(sauvegarde.etat_verifie_le.map(|h| h.millis_epoque()))
     .execute(cnx)
     .await?;
     Ok(())
@@ -182,17 +205,77 @@ pub async fn lister(
     .collect()
 }
 
-/// Dernière sauvegarde réussie.
+/// Dernière sauvegarde réussie hors des dossiers synchronisés : le test de restauration la lit
+/// en entier, ce qui ferait télécharger une copie que le fournisseur a libérée du disque.
 pub async fn derniere_reussie(
     cnx: &mut Connexion,
     contexte: &Contexte,
 ) -> Resultat<Option<Sauvegarde>> {
     sqlx::query_as::<_, Ligne>(selectionner!(
-        "WHERE etablissement_id = ?1 AND resultat = 'reussie' ORDER BY horodatage DESC LIMIT 1"
+        "WHERE etablissement_id = ?1 AND resultat = 'reussie' AND sorte <> 'synchronise'
+         ORDER BY horodatage DESC LIMIT 1"
     ))
     .bind(contexte.etablissement_id.vers_chaine())
     .fetch_optional(cnx)
     .await?
     .map(Ligne::vers_entite)
     .transpose()
+}
+
+/// Copies que GESCO a bien déposées dans les dossiers synchronisés pour cet établissement, et
+/// qui n'en ont pas été retirées : le nettoyage part d'elles, sans lire le dossier. La plus
+/// récente d'abord.
+pub async fn deposees_hors_ecole(
+    cnx: &mut Connexion,
+    contexte: &Contexte,
+) -> Resultat<Vec<Sauvegarde>> {
+    sqlx::query_as::<_, Ligne>(selectionner!(
+        "WHERE etablissement_id = ?1 AND sorte = 'synchronise' AND resultat = 'reussie'
+           AND (etat_envoi IS NULL OR etat_envoi <> 'absente')
+         ORDER BY horodatage DESC"
+    ))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?
+    .into_iter()
+    .map(Ligne::vers_entite)
+    .collect()
+}
+
+/// Instant de la dernière copie hors de l'école : bien déposée si `deposee`, sinon le dernier
+/// essai, réussi ou non.
+pub async fn derniere_hors_ecole(
+    cnx: &mut Connexion,
+    deposee: bool,
+    contexte: &Contexte,
+) -> Resultat<Option<Horodatage>> {
+    let instant: Option<i64> = sqlx::query_scalar(
+        "SELECT MAX(horodatage) FROM sauvegarde
+         WHERE etablissement_id = ?1 AND sorte = 'synchronise' AND (?2 = 0 OR resultat = 'reussie')",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(i64::from(deposee))
+    .fetch_one(cnx)
+    .await?;
+    Ok(instant.map(Horodatage::depuis_millis_epoque))
+}
+
+/// Note l'état d'envoi d'une copie hors de l'école et l'instant de sa vérification.
+pub async fn noter_etat_envoi(
+    cnx: &mut Connexion,
+    id: Id<Sauvegarde>,
+    etat: EtatEnvoi,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE sauvegarde SET etat_envoi = ?1, etat_verifie_le = ?2
+         WHERE id = ?3 AND etablissement_id = ?4 AND sorte = 'synchronise'",
+    )
+    .bind(etat.nom())
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .execute(cnx)
+    .await?;
+    Ok(())
 }

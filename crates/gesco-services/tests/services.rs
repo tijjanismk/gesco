@@ -35,6 +35,7 @@ mod frais;
 mod frontiere;
 mod guichet;
 mod heures;
+mod hors_ecole;
 mod import_eleves;
 mod import_programme;
 mod import_referentiel;

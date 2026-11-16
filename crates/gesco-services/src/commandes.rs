@@ -118,6 +118,8 @@ pub const COMMANDES_POSTE_PRINCIPAL: &[&str] = &[
     "sauvegarde_tester",
     "sauvegarde_destinations_lister",
     "sauvegarde_destinations_definir",
+    "sauvegarde_hors_ecole_regler",
+    "sauvegarde_hors_ecole_envoyer",
     "licence_installer",
     "sms_ports_lister",
     "sms_cle_essayer",
@@ -185,6 +187,7 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("responsable_consentement_definir", SansControle::Valeur),
     ("message_modele_definir", SansControle::Valeur),
     ("sauvegarde_destinations_definir", SansControle::Valeur),
+    ("sauvegarde_hors_ecole_regler", SansControle::Valeur),
     ("bulletin_corriger", SansControle::Etat),
     ("facture_fournisseur_enregistrer", SansControle::Argent),
     ("cycles_definir", SansControle::Reference),
@@ -502,6 +505,15 @@ pub const COMMANDES: &[Commande] = &[
     ),
     Commande::permise(
         "sauvegarde_destinations_definir",
+        Permission::CORE_BACKUP_CREATE,
+    ),
+    // Copie hors de l'école : les droits de la sauvegarde, au poste principal seulement.
+    Commande::permise(
+        "sauvegarde_hors_ecole_regler",
+        Permission::CORE_BACKUP_CREATE,
+    ),
+    Commande::permise(
+        "sauvegarde_hors_ecole_envoyer",
         Permission::CORE_BACKUP_CREATE,
     ),
     Commande::permise("certificat_confirmer", Permission::CORE_BACKUP_CREATE),

@@ -43,6 +43,8 @@ pub use permission::{Permission, Role, RoleSysteme};
 pub use phrase::PhraseSecours;
 pub use rapports::{EtatRapport, TypeRapport};
 pub use reseau::{PosteRelie, PostesCouverts};
-pub use sauvegarde::{Manifeste, MotifSauvegarde, PolitiqueRotation};
+pub use sauvegarde::{
+    EtatEnvoi, Manifeste, MotifSauvegarde, PolitiqueRotation, RythmeHorsEcole, SorteDestination,
+};
 pub use transition::{ErreurTransition, MachineAEtats};
 pub use utilisateur::{Poste, Utilisateur};

@@ -15,7 +15,8 @@ use base64::Engine;
 use gesco_core::commun::{Horodatage, Id, Montant};
 use gesco_core::core::{
     AnneeScolaire, CleDonnees, Etablissement, MotifSauvegarde, Operation, Parametre, Permission,
-    PhraseSecours, Poste, StatutEtablissement, TypeEvenement, Utilisateur, ValeurParametre,
+    PhraseSecours, Poste, RythmeHorsEcole, StatutEtablissement, TypeEvenement, Utilisateur,
+    ValeurParametre,
 };
 use gesco_core::scolarite::{Classe, Cycle, Niveau, Serie};
 use gesco_db::depots::document::Document;
@@ -253,8 +254,8 @@ use crate::remises_documents::{
 use crate::restauration::{self, RapportRestauration, Tentatives};
 use crate::roles::ServiceRoles;
 use crate::sauvegarde::{
-    ApercuSauvegarde, Avertissement, Destination, PARAMETRE_CERTIFICAT, RapportTest,
-    ServiceSauvegarde,
+    ApercuSauvegarde, Avertissement, DemandeRythmeHorsEcole, Destination, PARAMETRE_CERTIFICAT,
+    RapportTest, ServiceSauvegarde,
 };
 use crate::secrets::{MotDePasse, Pin, mot_de_passe_correspond_a_part};
 use crate::session::{Jeton, PolitiqueSession, Session};
@@ -1072,6 +1073,8 @@ contrat! {
     sauvegarde_tester(()) -> RapportTest;
     sauvegarde_destinations_lister(()) -> Vec<Destination>;
     sauvegarde_destinations_definir(Vec<Destination>) -> Vec<Destination>;
+    sauvegarde_hors_ecole_regler(DemandeRythmeHorsEcole) -> RythmeHorsEcole;
+    sauvegarde_hors_ecole_envoyer(()) -> Vec<Sauvegarde>;
     certificat_confirmer(()) -> ();
     sauvegarde_restaurer(DemandeRestauration) -> RapportRestauration;
     phrase_secours_regenerer(DemandeRegeneration) -> PhraseAffichee;
@@ -1900,7 +1903,17 @@ impl Application {
                 .difference_millis(&maintenant)
                 .is_ok_and(|d| d >= intervalle_min.saturating_mul(60_000))
         });
-        if due {
+        // La copie hors de l'école, quand le rythme choisi la demande, est la sauvegarde
+        // planifiée de ce passage ; une erreur à la décider n'empêche pas l'autre.
+        if service
+            .copie_hors_ecole_due(fiche.id)
+            .await
+            .unwrap_or(false)
+        {
+            service
+                .envoyer_hors_ecole(fiche.id, None, MotifSauvegarde::Planifiee)
+                .await?;
+        } else if due {
             service
                 .creer(fiche.id, None, MotifSauvegarde::Planifiee)
                 .await?;
@@ -3187,6 +3200,33 @@ impl Application {
         let configurees = entree.into_iter().filter(|d| d.chemin != locale).collect();
         self.sauvegardes(appel.ouverte()?)
             .definir_destinations(appel.session()?, configurees)
+            .await
+    }
+
+    async fn sauvegarde_hors_ecole_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeRythmeHorsEcole,
+    ) -> Resultat<RythmeHorsEcole> {
+        self.sauvegardes(appel.ouverte()?)
+            .regler_rythme_hors_ecole(appel.session()?, entree.rythme)
+            .await
+    }
+
+    /// Copie à la demande : une sauvegarde manuelle vers toutes les destinations, dossiers
+    /// synchronisés compris. Sans dossier choisi, c'est une sauvegarde comme une autre.
+    async fn sauvegarde_hors_ecole_envoyer(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<Vec<Sauvegarde>> {
+        let session = appel.session()?;
+        self.sauvegardes(appel.ouverte()?)
+            .envoyer_hors_ecole(
+                session.etablissement_id,
+                Some(session),
+                MotifSauvegarde::Manuelle,
+            )
             .await
     }
 

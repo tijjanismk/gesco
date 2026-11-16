@@ -51,6 +51,10 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
         ("session.expiration_s", ValeurParametre::Entier(n)) => !(600..=604_800).contains(n),
         // Une sauvegarde automatique au plus toutes les cinq minutes, au moins chaque semaine.
         ("sauvegarde.intervalle_min", ValeurParametre::Entier(n)) => !(5..=10_080).contains(n),
+        // Copie hors de l'école : à la demande, chaque semaine ou chaque mois ; jamais chaque jour.
+        (super::sauvegarde::PARAMETRE_RYTHME_HORS_ECOLE, ValeurParametre::Texte(t)) => {
+            super::sauvegarde::RythmeHorsEcole::depuis_nom(t).is_none()
+        }
         ("connexion.echecs_avant_verrouillage", ValeurParametre::Entier(n)) => {
             !(3..=10).contains(n)
         }
@@ -242,6 +246,12 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         p("sauvegarde.quotidiennes", ValeurParametre::Entier(7), true),
         p("sauvegarde.hebdomadaires", ValeurParametre::Entier(4), true),
         p("sauvegarde.mensuelles", ValeurParametre::Entier(12), true),
+        // Copie hors de l'école : rien ne part sans un geste de l'école.
+        p(
+            super::sauvegarde::PARAMETRE_RYTHME_HORS_ECOLE,
+            ValeurParametre::Texte(super::sauvegarde::RythmeHorsEcole::Demande.nom().to_owned()),
+            false,
+        ),
         p(
             "sauvegarde.certificat_confirme",
             ValeurParametre::Booleen(false),
