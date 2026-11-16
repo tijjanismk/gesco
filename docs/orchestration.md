@@ -525,3 +525,30 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   sessions de l'e-learning lot 1, les trois spécifications, la reprise des cours arrêtée, les sujets
   du DEF et du BAC, le changement de classe. Reste `local_fcca0ca2` (tâche de fond en cours ; prié
   de s'arrêter), à archiver ensuite.
+- 2026-11-16 : **sauvegarde hors de l'école finie et validée par le porteur** (étapes 1 à 4,
+  `3abddcb` … `8d1c0d6`, validation `f524630` : « Je valide les choix, on passe à la suite »). Tous
+  les essais verts ; école d'essai refaite avec un faux OneDrive. Reste au porteur : essais à la main
+  G-1 à G-12 sur un vrai compte (`docs/essais-a-la-main-2.0.md`). Disque : 14 Go libres.
+
+## Passage de relais du 16 novembre 2026 (à lire en premier par l'orchestrateur neuf)
+
+- **Fait pour la 2.0.0** (branche `developpement`) : phase 11 (lots A et B), phase 9 (8 étapes),
+  phase 12 lot 1 (bibliothèque, validé, installeur `Documents\GESCO-2.0.0-bibliotheque`),
+  sauvegarde hors de l'école (validée).
+- **Façon de travailler** (décisions du porteur des 14 et 15 novembre, voir les entrées plus haut) :
+  une session de code prend plusieurs étapes, commite et pousse après chacune, n'y lance aucun essai
+  (seulement fmt, clippy, tsc, ESLint), passe la main seule au-delà d'environ 150 000 jetons en
+  ouvrant elle-même la suivante, et lance tous les essais (Rust complet, vitest, knip, Playwright,
+  captures) une fois, à la dernière étape. Une seule session qui compile. Opus 5.5, effort élevé.
+  L'orchestrateur ne lance une session que dans le tour qui suit un message du porteur (sinon carte).
+- **Plus aucune rédaction de cours** (porteur, 15 novembre) ; les cours existants s'intègrent après
+  le code de la phase 12. Recherche d'images libres en cours dans
+  `local_f40629f5-08dd-4d60-83b3-e3bf062aa48a` (Wikimedia d'abord ; source, auteur, licence notés).
+- **Reste pour la 2.0.0, dans l'ordre** : (1) spécification des lots 2 à 5 de la phase 12
+  (`docs/plan-phase-12.md` §3.4 à §3.7 ; le lot 4, portail de l'élève sur le Wi-Fi, passe devant les
+  quiz selon T-87), puis leur code ; (2) intégration des cours de la bibliothèque (crédit des auteurs
+  des images selon l'ADR 8) ; (3) lots C et D (`SPEC_LOTS_C_D.md`, T-150 à T-160 sans réponse,
+  préalables du §15 que seul le porteur fournit : juriste, hébergeur, tarif, domaine, école pilote) ;
+  (4) installeur officiel, guide, essais à la main, essai sur deux machines par le porteur.
+- **Sessions à archiver** avec l'accord du porteur : `local_fcca0ca2` (fin de l'étape 10 du lot 1)
+  et les sessions de la sauvegarde hors de l'école.
