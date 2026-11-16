@@ -4,7 +4,7 @@
 **Phase** : 12 — e-learning ; **lot 5** : le maître donne un devoir, l'élève le rend par le portail
 (texte ou photos de sa copie) ou sur papier, le maître corrige et, s'il le décide, reporte les
 notes au bulletin ; version 2.0.0
-**Statut** : v1.0 — proposée le 16 novembre 2026, à soumettre au porteur du projet avant toute
+**Statut** : v1.1 — acceptée le 16 novembre 2026 par le porteur du projet (« Recommandations acceptées ») ; questions T-143 à T-146 prises sur leurs recommandations ; v1.0 proposée le 16 novembre 2026, à soumettre au porteur du projet avant toute
 ligne de code ; quatre questions au §14, chacune avec une recommandation
 **Documents parents** : `docs/plan-phase-12.md` (§0 bis E-13, §3.7, §4 T-91, §5 décision 12),
 `SPEC_PHASE_12_LOT_1.md`, `SPEC_PHASE_12_LOT_4.md`, `SPEC_PHASE_4.md` (évaluations, notes,
@@ -317,6 +317,8 @@ recommandations.
 bloquerait pour une raison que l'élève ne commande pas. Le maître décide de ce que vaut le retard,
 et clôt le devoir quand il veut. Étape 3.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-144 — Les photos des copies : combien, et combien de temps
 
 - a) cinq photos au plus par rendu ; gardées dans la base ; après la clôture de l'année, la
@@ -328,6 +330,8 @@ et clôt le devoir quand il veut. Étape 3.
 beaucoup les devoirs ajoute quelques gigaoctets par an à sa sauvegarde, que la direction peut
 libérer une fois les réclamations passées. Étapes 3 et 6.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-145 — L'élève voit-il sa note et le commentaire du maître ?
 
 - a) oui, quand le maître « rend les copies corrigées » ;
@@ -335,6 +339,8 @@ libérer une fois les réclamations passées. Étapes 3 et 6.
 
 *Recommandation* : a). Le commentaire écrit est ce qui fait progresser ; le geste « rendre les
 copies » laisse le maître choisir le moment, comme en classe. Étape 4.
+
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
 
 ### T-146 — Noter dans GESCO un devoir rendu sur papier
 
@@ -345,6 +351,8 @@ copies » laisse le maître choisir le moment, comme en classe. Étape 4.
 même devoir doit pouvoir mêler rendus par le portail et copies papier, et un seul report au
 bulletin. Étape 4.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ---
 
 ## 15. Journal des révisions
@@ -353,3 +361,4 @@ bulletin. Étape 4.
   (décision 12), les décisions du porteur (T-87, T-91) et les règles de la phase 4 ; trois ADR
   (`report-d-une-note-au-bulletin`, `copies-photographiees`, `tables-des-lots-2-a-5`) ; questions
   T-143 à T-146.
+- v1.1, 16 novembre 2026 : acceptée par le porteur du projet ; questions T-143 à T-146 prises sur leurs recommandations ; ADR acceptés.

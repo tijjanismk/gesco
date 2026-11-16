@@ -1,7 +1,7 @@
 # Échange de leçons entre écoles : un fichier `.gles` non signé, reçu en brouillons à valider
 
 **Date** : 16 novembre 2026
-**Statut** : proposé le 16 novembre 2026
+**Statut** : proposé le 16 novembre 2026, accepté le 16 novembre 2026 par le porteur du projet
 **Précise** : étape 2.3 de `docs/plan-phase-12.md` §3.4 ; ADR « paquet de contenus », « repère
 commun des contenus », « retirer un contenu » et « stockage des contenus » (15 novembre 2026)
 **Spécification** : `SPEC_PHASE_12_LOT_2.md`

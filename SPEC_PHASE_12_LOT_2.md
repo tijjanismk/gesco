@@ -3,7 +3,7 @@
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 12 — e-learning ; **lot 2** : ce que le lot 1 a laissé de l'enrichissement — sons,
 import d'une leçon Word, ajout réservé à une classe, échange de leçons entre écoles ; version 2.0.0
-**Statut** : v1.0 — proposée le 16 novembre 2026, à soumettre au porteur du projet avant toute
+**Statut** : v1.1 — acceptée le 16 novembre 2026 par le porteur du projet (« Recommandations acceptées ») ; questions T-124 à T-127 prises sur leurs recommandations ; v1.0 proposée le 16 novembre 2026, à soumettre au porteur du projet avant toute
 ligne de code ; quatre questions au §12, chacune avec une recommandation
 **Documents parents** : `docs/plan-phase-12.md` (§0, §0 bis, §3.4, §5), `SPEC_PHASE_12_LOT_1.md`,
 `ETAT_AVANCEMENT.md` (« Phase 12, lot 1 »), `docs/orchestration.md` (passage de relais du
@@ -268,6 +268,8 @@ Faut-il que GESCO lise une fiche Word (`.docx`) pour en faire une leçon ?
 *Recommandation* : a). C'est ce qui fera écrire les maîtres qui ont déjà leurs fiches ; aucune
 dépendance nouvelle n'entre dans la compilation. Étape 4.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-125 — Un ajout réservé à une classe
 
 Un maître de 9e A écrit une leçon pour sa classe seulement. Faut-il pouvoir la réserver à
@@ -279,6 +281,8 @@ certaines classes du niveau ?
 (lot 4) en a besoin pour ne pas montrer à la 9e B ce que le maître de la 9e A a écrit pour la
 sienne. Étape 3.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-126 — Les leçons reçues d'une autre école
 
 - a) elles arrivent en brouillons ; la direction les publie une à une ou d'un geste pour tout
@@ -287,6 +291,8 @@ sienne. Étape 3.
 
 *Recommandation* : a). C'est la règle de T-89 (la direction valide avant que les élèves voient) ;
 le geste « publier tout l'import » évite de cliquer leçon par leçon. Étape 5.
+
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
 
 ### T-127 — Les sons
 
@@ -298,6 +304,8 @@ le geste « publier tout l'import » évite de cliquer leçon par leçon. Étape
 messages vocaux de WhatsApp (OGG) passent tels quels ; b) pourra venir si les maîtres le
 demandent. Étape 2.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ---
 
 ## 13. Journal des révisions
@@ -306,3 +314,4 @@ demandent. Étape 2.
   lot 1 a fait et laissé, et les décisions du porteur des 11 au 16 novembre 2026 ; trois ADR
   proposés (`echange-de-lecons-entre-ecoles`, `importer-une-lecon-word`, `tables-des-lots-2-a-5`) ;
   questions T-124 à T-127.
+- v1.1, 16 novembre 2026 : acceptée par le porteur du projet ; questions T-124 à T-127 prises sur leurs recommandations ; ADR acceptés.

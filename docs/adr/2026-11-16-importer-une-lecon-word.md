@@ -1,7 +1,7 @@
 # Importer une leçon depuis Word : lecture du `.docx` par `zip` et `quick-xml`, déjà compilés pour les imports Excel
 
 **Date** : 16 novembre 2026
-**Statut** : proposé le 16 novembre 2026
+**Statut** : proposé le 16 novembre 2026, accepté le 16 novembre 2026 par le porteur du projet
 **Précise** : ADR « format des leçons » (15 novembre 2026) ; étape 2.1 de
 `docs/plan-phase-12.md` §3.4 (« édition trop lourde pour un maître peu à l'aise au clavier »)
 **Spécification** : `SPEC_PHASE_12_LOT_2.md` (sous réserve de T-124)

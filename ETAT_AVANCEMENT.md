@@ -35,6 +35,19 @@ Validés par le porteur du projet le 16 novembre 2026 (étape 3, choix pris au p
 
 Repère : prochaine migration **0063**.
 
+## Phase 12, lot 2 — enrichir la bibliothèque
+
+**État (16 novembre 2026)** : spécification `SPEC_PHASE_12_LOT_2.md` v1.1 et dix ADR du 16 novembre 2026 (lots 2 à 5) acceptés par le porteur du projet (« Recommandations acceptées, commence le lot 2 ») ; toutes les questions des lots 2 à 5 (T-124 à T-129, T-134 à T-146) prises sur leurs recommandations. Ordre des lots : 2, 4 (portail de l'élève), 3 (quiz), 5 (devoirs). Lot 2 engagé le 16 novembre 2026. Règle de travail : à chaque étape, fmt, clippy, tsc et ESLint, puis commit et push ; tous les essais à l'étape 6. Prochaine migration : **0063**.
+
+| Étape | Contenu | État |
+|---|---|---|
+| 1 | Migration 0063 (reconstruction de `fichier_bibliotheque`, `contenu_classe`, `version_recue`, `import_lecons`) | à faire |
+| 2 | Sons (MP3, M4A, OGG, WAV ; 10 Mo) | à faire |
+| 3 | Ajout réservé à certaines classes | à faire |
+| 4 | Importer une leçon depuis Word | à faire |
+| 5 | Échange de leçons entre écoles (`.gles`) | à faire |
+| 6 | Essais et livraison du lot | à faire |
+
 ## Phase 12, lot 1 — la bibliothèque de cours
 
 **État (15 novembre 2026)** : les dix étapes du lot 1 sont faites ; l'étape 10 (essais et livraison) est finie : suite Rust complète et clippy repassés, installeur 2.0.0 construit avec le paquet de la bibliothèque, ouverture de l'année mesurée en publication, école d'essai refaite. Étape 10 validée par le porteur du projet le 15 novembre 2026 (« Étape 10 validée »), en réponse à la question qui portait sur l'étape 10 et les choix du lot 1. La conversion des 79 leçons de sciences de 9e et la reprise d'AN-09 se font hors des sessions de code (T-123) ; le paquet sera refabriqué ensuite. Disque : élaguer `target` (`outils/elaguer-target.ps1 -Incremental`) avant toute grosse compilation, une seule compilation à la fois, s'arrêter sous 3 Go.

@@ -1,7 +1,7 @@
 # Portail des élèves : un second serveur dans `gesco-reseau`, avec son propre contrat, jamais `executer`
 
 **Date** : 16 novembre 2026
-**Statut** : proposé le 16 novembre 2026
+**Statut** : proposé le 16 novembre 2026, accepté le 16 novembre 2026 par le porteur du projet
 **Précise** : décision 1 de `docs/plan-phase-12.md` §5 ; ADR « serveur du réseau local » et
 « sécurité du réseau local » (10 novembre 2026) ; blueprint §16.3 (mode 1), §16.5
 **Spécification** : `SPEC_PHASE_12_LOT_4.md`

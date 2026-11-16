@@ -4,7 +4,7 @@
 **Phase** : 12 — e-learning ; **lot 3** : les quiz des leçons deviennent interactifs, sur le
 portail, sur les postes et en classe ; quiz écrits par l'école ; révision d'un chapitre ; quiz
 sur papier ; résultats dans le suivi ; version 2.0.0
-**Statut** : v1.0 — proposée le 16 novembre 2026, à soumettre au porteur du projet avant toute
+**Statut** : v1.1 — acceptée le 16 novembre 2026 par le porteur du projet (« Recommandations acceptées ») ; questions T-139 à T-142 prises sur leurs recommandations ; v1.0 proposée le 16 novembre 2026, à soumettre au porteur du projet avant toute
 ligne de code ; quatre questions au §13, chacune avec une recommandation
 **Documents parents** : `docs/plan-phase-12.md` (§0, §0 bis E-6 et E-13, §3.5, §4 T-91 et T-94),
 `SPEC_PHASE_12_LOT_1.md`, `SPEC_PHASE_12_LOT_4.md`, `docs/orchestration.md` (passage de relais
@@ -297,6 +297,8 @@ recommandations.
 le plus au moment où il vient de la faire. C'est ce que T-91 appelle « quiz corrigés tout de
 suite ». Étape 4.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-140 — Un score de quiz au bulletin ?
 
 - a) jamais : le quiz est un entraînement, refait autant de fois qu'on veut ;
@@ -306,6 +308,8 @@ suite ». Étape 4.
 réponse chez son voisin ; la note du bulletin passe par les devoirs (lot 5), qui ont un geste du
 maître et une copie. Étape 6.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-141 — Réviser un chapitre
 
 Faut-il proposer « Réviser le chapitre » : dix questions tirées des quiz des leçons du chapitre ?
@@ -314,6 +318,8 @@ Faut-il proposer « Réviser le chapitre » : dix questions tirées des quiz des
 
 *Recommandation* : a). Rien à écrire de plus, et c'est l'usage le plus utile avant un devoir ou le
 DEF. Étape 4.
+
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
 
 ### T-142 — Ce que le maître voit des quiz
 
@@ -325,6 +331,8 @@ DEF. Étape 4.
 les questions les plus manquées disent au maître quoi reprendre en classe. La direction peut passer
 au grain « par classe seulement » (T-136). Étape 6.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ---
 
 ## 14. Journal des révisions
@@ -333,3 +341,4 @@ au grain « par classe seulement » (T-136). Étape 6.
   quiz des 398 leçons fait le même jour (392 à la forme habituelle, 1 990 questions) et les
   décisions du porteur ; deux ADR (`format-des-quiz`, `tables-des-lots-2-a-5`) ; questions T-139 à
   T-142.
+- v1.1, 16 novembre 2026 : acceptée par le porteur du projet ; questions T-139 à T-142 prises sur leurs recommandations ; ADR acceptés.

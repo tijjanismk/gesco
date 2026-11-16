@@ -1,7 +1,7 @@
 # Tables des lots 2 à 5 de la bibliothèque : quatre migrations, ce qui vit par année à part de ce qui dure
 
 **Date** : 16 novembre 2026
-**Statut** : proposé le 16 novembre 2026
+**Statut** : proposé le 16 novembre 2026, accepté le 16 novembre 2026 par le porteur du projet
 **Précise** : ADR « tables de la bibliothèque » (15 novembre 2026, migration 0061) ; décision 6
 de `docs/plan-phase-12.md` §5 ; blueprint §16.1
 **Spécifications** : `SPEC_PHASE_12_LOT_2.md` à `SPEC_PHASE_12_LOT_5.md`

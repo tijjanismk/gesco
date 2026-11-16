@@ -1,7 +1,7 @@
 # Format des quiz : une convention écrite dans le texte de la leçon, reconnue par le noyau
 
 **Date** : 16 novembre 2026
-**Statut** : proposé le 16 novembre 2026
+**Statut** : proposé le 16 novembre 2026, accepté le 16 novembre 2026 par le porteur du projet
 **Précise** : ADR « format des leçons » (15 novembre 2026) ; blueprint §16.1 (quiz, question,
 réponse) ; étape 3.1 de `docs/plan-phase-12.md` §3.5
 **Spécification** : `SPEC_PHASE_12_LOT_3.md`

@@ -1,7 +1,7 @@
 # Copies rendues en photo : réduites sur le téléphone, nettoyées, rangées dans la base chiffrée
 
 **Date** : 16 novembre 2026
-**Statut** : proposé le 16 novembre 2026
+**Statut** : proposé le 16 novembre 2026, accepté le 16 novembre 2026 par le porteur du projet
 **Précise** : ADR « stockage des contenus » (15 novembre 2026) ; étape 5.2 de
 `docs/plan-phase-12.md` §3.7 ; exigence E-13 ; règle R-14 (rien ne se supprime)
 **Spécification** : `SPEC_PHASE_12_LOT_5.md`

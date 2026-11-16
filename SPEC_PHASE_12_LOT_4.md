@@ -3,7 +3,7 @@
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : 12 — e-learning ; **lot 4** : le poste principal sert la bibliothèque aux téléphones et
 aux ordinateurs des élèves ; codes des élèves ; suivi par les maîtres ; version 2.0.0
-**Statut** : v1.0 — proposée le 16 novembre 2026, à soumettre au porteur du projet avant toute
+**Statut** : v1.1 — acceptée le 16 novembre 2026 par le porteur du projet (« Recommandations acceptées ») ; questions T-128, T-129 et T-134 à T-138 prises sur leurs recommandations ; v1.0 proposée le 16 novembre 2026, à soumettre au porteur du projet avant toute
 ligne de code ; sept questions au §15, chacune avec une recommandation
 **Documents parents** : `docs/plan-phase-12.md` (§0, §0 bis E-13, §1.4, §3.6, §4 T-87 et T-91,
 §5 décisions 1 à 3 et 14), `SPEC_PHASE_12_LOT_1.md`, `SPEC_PHASE_12_LOT_2.md`,
@@ -384,6 +384,8 @@ Un élève a oublié son billet, ou la direction a éteint le suivi. Peut-il lir
 *Recommandation* : a). « Ne jamais bloquer » : un élève renvoyé devant une leçon qu'il pourrait
 lire en PDF n'apprend rien ; seul son suivi manque ce jour-là. Étape 2.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-129 — Le portail à la livraison
 
 - a) éteint : la direction l'allume quand elle est prête (Wi-Fi, billets) ;
@@ -391,6 +393,8 @@ lire en PDF n'apprend rien ; seul son suivi manque ce jour-là. Étape 2.
 
 *Recommandation* : a). Il ouvre un port à tout appareil du Wi-Fi ; c'est à la direction de le
 décider, et il ne sert à rien avant que les billets soient remis. Étape 1.
+
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
 
 ### T-134 — Les comptes des maîtres et le suivi
 
@@ -406,6 +410,8 @@ compte.
 garde la saisie des notes au secrétariat peut quand même donner aux maîtres leur suivi et leurs
 leçons. Étape 5.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-135 — Le téléphone partagé
 
 Combien de temps un élève reste-t-il entré sans rien faire ?
@@ -416,6 +422,8 @@ Combien de temps un élève reste-t-il entré sans rien faire ?
 *Recommandation* : a). Un cours dure une à deux heures ; la case couvre le téléphone emprunté et
 l'ordinateur de la salle informatique. Étape 2.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-136 — Ce que le maître voit du suivi
 
 - a) par élève (qui a lu quoi), la direction pouvant passer à « par classe seulement » ou éteindre ;
@@ -423,6 +431,8 @@ l'ordinateur de la salle informatique. Étape 2.
 
 *Recommandation* : a). C'est le suivi que T-91 demande : le maître aide l'élève qui n'a rien
 ouvert. La direction garde la main. Étape 5.
+
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
 
 ### T-137 — Les vidéos de l'école sur les téléphones
 
@@ -432,6 +442,8 @@ ouvert. La direction garde la main. Étape 5.
 *Recommandation* : a). Une vidéo d'une leçon est ce que l'élève revoit le plus volontiers ; la
 borne de quatre protège le Wi-Fi et se règle après la mesure. Étape 3.
 
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
+
 ### T-138 — Le PDF depuis le téléphone
 
 - a) oui, la leçon complète, pour la garder et la lire à la maison sans Wi-Fi ;
@@ -439,6 +451,8 @@ borne de quatre protège le Wi-Fi et se règle après la mesure. Étape 3.
 
 *Recommandation* : a). C'est la seule façon pour l'élève d'emporter la leçon chez lui (T-87) ; le
 PDF est fabriqué une fois par version et gardé. Étape 3.
+
+*Réponse* (porteur du projet, 16 novembre 2026) : recommandation retenue.
 
 ---
 
@@ -449,3 +463,4 @@ PDF est fabriqué une fois par version et gardé. Étape 3.
   (`portail-des-eleves-separe-de-la-gestion`, `portail-des-eleves-en-clair-sur-le-wifi`,
   `identite-de-l-eleve`, `charge-du-portail-des-eleves`, `tables-des-lots-2-a-5`) ; questions
   T-128, T-129, T-134 à T-138.
+- v1.1, 16 novembre 2026 : acceptée par le porteur du projet ; questions T-128, T-129 et T-134 à T-138 prises sur leurs recommandations ; ADR acceptés.

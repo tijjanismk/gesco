@@ -1,7 +1,7 @@
 # Identité de l'élève dans le portail : matricule et code remis par l'école, ou lecture sans code
 
 **Date** : 16 novembre 2026
-**Statut** : proposé le 16 novembre 2026
+**Statut** : proposé le 16 novembre 2026, accepté le 16 novembre 2026 par le porteur du projet
 **Précise** : décision 3 de `docs/plan-phase-12.md` §5 ; T-91 (suivi allumé, réglable, jamais
 bloquant) ; exigence E-13 ; reprend la mécanique de l'ADR « identité des parents » (15 novembre
 2026)

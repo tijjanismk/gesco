@@ -1,7 +1,7 @@
 # Report d'une note de devoir au bulletin : une évaluation ordinaire, créée par un geste, marquée d'où elle vient
 
 **Date** : 16 novembre 2026
-**Statut** : proposé le 16 novembre 2026
+**Statut** : proposé le 16 novembre 2026, accepté le 16 novembre 2026 par le porteur du projet
 **Précise** : décision 12 de `docs/plan-phase-12.md` §5 ; blueprint §16.2 (« une note
 d'e-learning n'entre jamais seule dans le bulletin ») ; exigence E-13 ; `SPEC_PHASE_4.md`
 (évaluations, notes, validation) ; `SPEC_PHASE_11_A.md` §7 (saisie des notes par les maîtres)

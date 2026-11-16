@@ -1,7 +1,7 @@
 # Portail des élèves : pages en clair sur le Wi-Fi de l'école, sans installation ni hors ligne
 
 **Date** : 16 novembre 2026
-**Statut** : proposé le 16 novembre 2026
+**Statut** : proposé le 16 novembre 2026, accepté le 16 novembre 2026 par le porteur du projet
 **Révise** : blueprint §16.5, point 1 (« application installable sur le Wi-Fi de l'école ») ;
 répond à la condition laissée ouverte par l'ADR « poste relié » et l'ADR « sécurité du réseau
 local » (10 novembre 2026) ; décision 2 de `docs/plan-phase-12.md` §5
