@@ -91,6 +91,7 @@ use crate::documents::{
     AtelierDocuments, EffetsEchoues, ServiceDocuments, date_longue, traiter_effets,
 };
 use crate::documents_paie::{DemandeBulletinPaie, MonBulletinPaie, ServiceDocumentsPaie};
+use crate::dossiers_synchronises::{DossierSynchronise, SystemeDossiers, SystemeSimule};
 use crate::effets::FileEffets;
 use crate::eleves::{
     DemandeDetachement, DemandeDoublons, DemandeEleve, DemandeModificationEleve,
@@ -887,6 +888,11 @@ pub struct Application {
     lecteur_etat: std::sync::RwLock<Arc<dyn LecteurEtatEnvoi>>,
     /// La lecture simulée, que les essais pilotent.
     lecteur_simule: Arc<LecteurEtatSimule>,
+    /// Lecture du système pour trouver les dossiers synchronisés : simulée tant que le binaire
+    /// n'a pas branché celle de Windows.
+    systeme_dossiers: std::sync::RwLock<Arc<dyn SystemeDossiers>>,
+    /// La lecture simulée du système, que les essais pilotent.
+    systeme_simule: Arc<SystemeSimule>,
     /// Faux jusqu'au premier passage des tâches périodiques : la vérification de la copie hors de
     /// l'école se fait au démarrage.
     copie_verifiee_au_demarrage: std::sync::atomic::AtomicBool,
@@ -1085,6 +1091,7 @@ contrat! {
     sauvegarde_hors_ecole_regler(DemandeRythmeHorsEcole) -> RythmeHorsEcole;
     sauvegarde_hors_ecole_envoyer(()) -> Vec<Sauvegarde>;
     sauvegarde_hors_ecole_etat(()) -> EtatHorsEcole;
+    sauvegarde_dossiers_synchronises(()) -> Vec<DossierSynchronise>;
     certificat_confirmer(()) -> ();
     sauvegarde_restaurer(DemandeRestauration) -> RapportRestauration;
     phrase_secours_regenerer(DemandeRegeneration) -> PhraseAffichee;
@@ -1434,6 +1441,7 @@ impl Application {
             espace.racine().join("sms-simules.txt"),
         )));
         let lecteur_simule = Arc::new(LecteurEtatSimule::default());
+        let systeme_simule = Arc::new(SystemeSimule::default());
         let application = Self {
             espace,
             cles,
@@ -1460,6 +1468,10 @@ impl Application {
                 Arc::clone(&lecteur_simule) as Arc<dyn LecteurEtatEnvoi>
             ),
             lecteur_simule,
+            systeme_dossiers: std::sync::RwLock::new(
+                Arc::clone(&systeme_simule) as Arc<dyn SystemeDossiers>
+            ),
+            systeme_simule,
             copie_verifiee_au_demarrage: std::sync::atomic::AtomicBool::new(false),
         };
         let cles = match application.cles.preparer()? {
@@ -1869,6 +1881,26 @@ impl Application {
     /// La lecture simulée de l'état d'envoi, que les essais pilotent.
     pub fn lecteur_etat_simule(&self) -> Arc<LecteurEtatSimule> {
         Arc::clone(&self.lecteur_simule)
+    }
+
+    /// Branche la lecture du système qui trouve les dossiers synchronisés ; le binaire l'appelle
+    /// au démarrage. Sans elle, aucun dossier n'est proposé.
+    pub fn brancher_systeme_dossiers(&self, systeme: Arc<dyn SystemeDossiers>) {
+        if let Ok(mut courant) = self.systeme_dossiers.write() {
+            *courant = systeme;
+        }
+    }
+
+    /// La lecture simulée du système, que les essais pilotent.
+    pub fn systeme_dossiers_simule(&self) -> Arc<SystemeSimule> {
+        Arc::clone(&self.systeme_simule)
+    }
+
+    fn systeme_dossiers(&self) -> Arc<dyn SystemeDossiers> {
+        self.systeme_dossiers.read().map_or_else(
+            |_| Arc::clone(&self.systeme_simule) as Arc<dyn SystemeDossiers>,
+            |s| Arc::clone(&s),
+        )
     }
 
     fn lecteur_etat(&self) -> Arc<dyn LecteurEtatEnvoi> {
@@ -3282,6 +3314,24 @@ impl Application {
         self.sauvegardes(appel.ouverte()?)
             .etat_hors_ecole(appel.session()?.etablissement_id)
             .await
+    }
+
+    /// Les dossiers synchronisés trouvés sur le poste, pour le compte Windows qui fait tourner
+    /// GESCO. La lecture du registre lance `reg.exe` : elle se fait hors du fil asynchrone. Les
+    /// droits et le poste principal sont vérifiés par `executer`, comme pour toute commande.
+    async fn sauvegarde_dossiers_synchronises(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<Vec<DossierSynchronise>> {
+        appel.session()?;
+        let systeme = self.systeme_dossiers();
+        // Une recherche qui échoue ne propose rien : « Choisir un autre dossier » reste là.
+        Ok(tokio::task::spawn_blocking(move || {
+            crate::dossiers_synchronises::chercher(systeme.as_ref())
+        })
+        .await
+        .unwrap_or_default())
     }
 
     async fn certificat_confirmer(&self, appel: Appel, _entree: ()) -> Resultat<()> {

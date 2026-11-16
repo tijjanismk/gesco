@@ -589,3 +589,117 @@ async fn sans_dossier_ni_copie_rien_ne_se_fait_remarquer() {
     assert_eq!(etat["prochaine_copie"], depot + 7 * JOUR);
     assert_eq!(etat["dossiers"][0]["derniere"]["etat_envoi"], "deposee");
 }
+
+/// Critère 1 : un dossier OneDrive trouvé sur le poste est proposé ; choisi, il reçoit la copie
+/// à la demande dans son sous-dossier `GESCO`, octet pour octet l'archive du poste.
+#[tokio::test]
+async fn le_dossier_onedrive_trouve_recoit_la_copie() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(&dossier.path().join("poste")).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    // Rien sur le poste : rien n'est proposé, sans message.
+    let trouves = p
+        .ok(
+            "sauvegarde_dossiers_synchronises",
+            Some(&admin),
+            Value::Null,
+        )
+        .await;
+    assert_eq!(trouves, json!([]));
+
+    let onedrive = dossier.path().join("OneDrive");
+    std::fs::create_dir_all(&onedrive).unwrap();
+    p.application
+        .systeme_dossiers_simule()
+        .variable_posee("OneDrive", Some(&onedrive.to_string_lossy()));
+    let trouves = p
+        .ok(
+            "sauvegarde_dossiers_synchronises",
+            Some(&admin),
+            Value::Null,
+        )
+        .await;
+    assert_eq!(trouves.as_array().unwrap().len(), 1);
+    assert_eq!(trouves[0]["fournisseur"], "one_drive");
+    assert_eq!(trouves[0]["nom"], "OneDrive");
+    let propose = PathBuf::from(trouves[0]["propose"].as_str().unwrap());
+    assert_eq!(propose, onedrive.join("GESCO"));
+    // Trouver ne choisit rien : aucune destination n'a changé.
+    let destinations = p
+        .ok("sauvegarde_destinations_lister", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(destinations.as_array().unwrap().len(), 1);
+
+    p.ok(
+        "sauvegarde_destinations_definir",
+        Some(&admin),
+        json!([{ "chemin": propose, "sorte": "synchronise", "amovible": false }]),
+    )
+    .await;
+    p.horloge.avancer(60_000);
+    let lignes = p
+        .ok("sauvegarde_hors_ecole_envoyer", Some(&admin), Value::Null)
+        .await;
+    let locale = PathBuf::from(lignes[0]["destination"].as_str().unwrap());
+    let copie = ligne_vers(&lignes, &propose);
+    assert_eq!(copie["etat_envoi"], "deposee");
+    let deposees = archives(&propose);
+    assert_eq!(deposees.len(), 1);
+    assert_eq!(fichiers(&propose), deposees);
+    assert_eq!(
+        std::fs::read(propose.join(&deposees[0])).unwrap(),
+        std::fs::read(&locale).unwrap()
+    );
+}
+
+/// Critère 10 : depuis un poste relié, même l'administrateur ne touche pas à la copie hors de
+/// l'école ; l'écran des sauvegardes, qui en dépend, n'y apparaît pas.
+#[tokio::test]
+async fn un_poste_relie_ne_touche_pas_a_la_copie_hors_de_l_ecole() {
+    use gesco_core::core::Poste;
+    use gesco_services::Origine;
+
+    let dossier = tempfile::tempdir().unwrap();
+    let (p, _, _, synchronise, _) = poste_avec_dossier(dossier.path()).await;
+    let caisse = Origine::Relie(Poste("Caisse".to_owned()));
+    let session = p
+        .application
+        .executer_depuis(
+            caisse.clone(),
+            "connexion",
+            None,
+            json!({ "identifiant": "admin", "mot_de_passe": MOT_DE_PASSE }),
+        )
+        .await
+        .unwrap();
+    let jeton: Jeton = serde_json::from_value(session["jeton"].clone()).unwrap();
+    for (commande, entree) in [
+        ("sauvegarde_dossiers_synchronises", Value::Null),
+        ("sauvegarde_hors_ecole_etat", Value::Null),
+        ("sauvegarde_hors_ecole_envoyer", Value::Null),
+        (
+            "sauvegarde_hors_ecole_regler",
+            json!({ "rythme": "semaine" }),
+        ),
+        ("sauvegarde_destinations_definir", json!([])),
+    ] {
+        assert_eq!(
+            p.application
+                .executer_depuis(caisse.clone(), commande, Some(jeton.clone()), entree)
+                .await
+                .unwrap_err()
+                .cle,
+            "commande.poste_principal_seulement",
+            "{commande}"
+        );
+    }
+    // Rien n'est parti, rien n'a changé.
+    assert!(!synchronise.exists());
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let etat = p
+        .ok("sauvegarde_hors_ecole_etat", Some(&admin), Value::Null)
+        .await;
+    assert_eq!(etat["rythme"], "demande");
+    assert_eq!(etat["dossiers"].as_array().unwrap().len(), 1);
+}

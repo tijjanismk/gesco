@@ -4,13 +4,15 @@ import { useState } from "react";
 import { appeler } from "../../api";
 import { useSession } from "../../app/session";
 import { Bouton } from "../../composants/Bouton";
-import { CaseACocher, Champ, Formulaire } from "../../composants/Champ";
+import { Champ, Formulaire, Selection } from "../../composants/Champ";
 import { MessageEnregistre, MessageErreur, Section } from "../../composants/Messages";
 import { Tableau } from "../../composants/Tableau";
 import { dateHeure, t, taille } from "../../i18n";
-import type { Destination, PhraseAffichee } from "../../types/gesco";
+import type { Destination, PhraseAffichee, SorteDestination } from "../../types/gesco";
 import { PhraseSecours } from "../accueil/PhraseSecours";
 import { Restauration } from "../accueil/Restauration";
+import { HorsEcole } from "./HorsEcole";
+import { CLES_ETAT, CLES_SORTE } from "./copieHorsEcole";
 
 /** Sauvegarde et restauration (spécification §11) : le module le plus important de la phase. */
 export function Sauvegardes() {
@@ -46,11 +48,13 @@ export function Sauvegardes() {
           colonnes={[
             { titre: t("sauvegarde.date"), valeur: (s) => dateHeure(s.horodatage) },
             { titre: t("sauvegarde.destination"), valeur: (s) => s.destination },
+            { titre: t("sauvegarde.sorte"), valeur: (s) => t(CLES_SORTE[s.sorte]) },
             { titre: t("sauvegarde.taille"), valeur: (s) => taille(s.taille) },
             {
               titre: t("sauvegarde.resultat"),
               valeur: (s) => (s.resultat === "reussie" ? t("sauvegarde.resultat.reussie") : t("sauvegarde.resultat.echouee")),
             },
+            { titre: t("sauvegarde.envoi"), valeur: (s) => (s.etat_envoi === null ? "" : t(CLES_ETAT[s.etat_envoi])) },
             {
               titre: t("sauvegarde.dernier_test"),
               valeur: (s) => (s.dernier_test_restauration === null ? "" : dateHeure(s.dernier_test_restauration)),
@@ -58,6 +62,7 @@ export function Sauvegardes() {
           ]}
         />
       </Section>
+      <HorsEcole />
       <Destinations />
       <Certificat />
       <Restauration
@@ -90,6 +95,9 @@ function Destinations() {
   );
 }
 
+/** Les trois sortes, dans l'ordre de la liste. */
+const SORTES: readonly SorteDestination[] = ["dossier", "amovible", "synchronise"];
+
 function EditeurDestinations({ initiales, surEnregistre }: { initiales: readonly Destination[]; surEnregistre: () => void }) {
   // La première destination est le dossier du poste, toujours présent.
   const [locale, ...autres] = initiales;
@@ -112,7 +120,16 @@ function EditeurDestinations({ initiales, surEnregistre }: { initiales: readonly
       {liste.map((d, rang) => (
         <div key={rang} className="flex flex-wrap items-end gap-3">
           <Champ id={`destination-${rang}`} libelle={t("sauvegarde.chemin")} value={d.chemin} onChange={(e) => modifier(rang, { ...d, chemin: e.target.value })} />
-          <CaseACocher id={`amovible-${rang}`} libelle={t("sauvegarde.amovible")} coche={d.amovible} surChangement={(amovible) => modifier(rang, { ...d, amovible, sorte: amovible ? "amovible" : "dossier" })} />
+          <Selection
+            id={`sorte-${rang}`}
+            libelle={t("sauvegarde.sorte")}
+            valeur={d.sorte}
+            surChangement={(valeur) => {
+              const sorte = valeur as SorteDestination;
+              modifier(rang, { ...d, sorte, amovible: sorte === "amovible" });
+            }}
+            options={SORTES.map((sorte) => ({ valeur: sorte, libelle: t(CLES_SORTE[sorte]) }))}
+          />
           <Bouton variante="secondaire" onClick={() => setListe(liste.filter((_, i) => i !== rang))}>{t("commun.retirer")}</Bouton>
         </div>
       ))}

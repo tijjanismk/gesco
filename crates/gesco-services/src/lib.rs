@@ -30,6 +30,7 @@ pub mod depenses;
 pub mod discipline;
 pub mod documents;
 pub mod documents_paie;
+pub mod dossiers_synchronises;
 pub mod effets;
 pub mod eleves;
 pub mod emploi_du_temps;

@@ -7,6 +7,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod dossiers;
 mod empreinte;
 mod etat_envoi;
 mod pare_feu;

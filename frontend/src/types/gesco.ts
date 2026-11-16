@@ -1908,6 +1908,7 @@ export type Contrat = {
 	sauvegarde_hors_ecole_regler: Signature<DemandeRythmeHorsEcole, RythmeHorsEcole>,
 	sauvegarde_hors_ecole_envoyer: Signature<null, Sauvegarde[]>,
 	sauvegarde_hors_ecole_etat: Signature<null, EtatHorsEcole>,
+	sauvegarde_dossiers_synchronises: Signature<null, DossierSynchronise[]>,
 	/**  Signature de la commande du même nom. */
 	certificat_confirmer: Signature<null, null>,
 	/**  Signature de la commande du même nom. */
@@ -5618,6 +5619,18 @@ export type Depenses = {
 	droits: DroitsDepenses,
 };
 
+/**  Un dossier synchronisé trouvé sur le poste. */
+export type DossierSynchronise = {
+	/**  Logiciel qui l'envoie. */
+	fournisseur: FournisseurEnLigne,
+	/**  Nom affiché : celui du fournisseur, ou celui qu'il donne à Windows. */
+	nom: string,
+	/**  Racine du compte sur le poste. */
+	racine: string,
+	/**  Dossier proposé : le sous-dossier `GESCO` de la racine. */
+	propose: string,
+};
+
 /**  Un dossier synchronisé et sa dernière copie. */
 export type DossierHorsEcole = {
 	/**  Dossier choisi par l'école. */
@@ -8621,6 +8634,17 @@ export type EtatEnvoi =
 "non_deposee" |
 /**  Fichier effacé ou modifié depuis le dépôt. */
 "absente";
+
+/**  Logiciel qui envoie le dossier sur un compte en ligne. */
+export type FournisseurEnLigne =
+/**  Google Drive pour ordinateur. */
+"google_drive" |
+/**  OneDrive, compte personnel ou professionnel. */
+"one_drive" |
+/**  Dropbox. */
+"dropbox" |
+/**  Un autre logiciel qui déclare sa racine à Windows. */
+"autre";
 
 /**
  *  Rythme de la copie hors de l'école, un seul pour tous les dossiers synchronisés. Jamais

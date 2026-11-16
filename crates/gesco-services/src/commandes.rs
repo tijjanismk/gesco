@@ -121,6 +121,7 @@ pub const COMMANDES_POSTE_PRINCIPAL: &[&str] = &[
     "sauvegarde_hors_ecole_regler",
     "sauvegarde_hors_ecole_envoyer",
     "sauvegarde_hors_ecole_etat",
+    "sauvegarde_dossiers_synchronises",
     "licence_installer",
     "sms_ports_lister",
     "sms_cle_essayer",
@@ -518,6 +519,10 @@ pub const COMMANDES: &[Commande] = &[
         Permission::CORE_BACKUP_CREATE,
     ),
     Commande::permise("sauvegarde_hors_ecole_etat", Permission::CORE_BACKUP_CREATE),
+    Commande::permise(
+        "sauvegarde_dossiers_synchronises",
+        Permission::CORE_BACKUP_CREATE,
+    ),
     Commande::permise("certificat_confirmer", Permission::CORE_BACKUP_CREATE),
     Commande::permise("sauvegarde_restaurer", Permission::CORE_BACKUP_RESTORE),
     Commande::permise("phrase_secours_regenerer", Permission::CORE_BACKUP_RESTORE),

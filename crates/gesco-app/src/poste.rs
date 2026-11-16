@@ -223,6 +223,11 @@ impl Demarrage {
         if !self.en_essai {
             application.brancher_lecteur_etat(Arc::new(crate::etat_envoi::LecteurPowerShell));
         }
+        // Les dossiers synchronisés se cherchent dans Windows ; en mode d'essai, par les seules
+        // variables d'environnement, que les essais posent.
+        application.brancher_systeme_dossiers(Arc::new(crate::dossiers::SystemeWindows {
+            complet: !self.en_essai,
+        }));
         servir_le_reseau(&application, self.nom_ordinateur.clone(), self.en_essai);
         let taches = vec![
             tauri::async_runtime::spawn(taches_periodiques(Arc::clone(&application))),
