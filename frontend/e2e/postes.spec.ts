@@ -146,7 +146,8 @@ test("une école d'essai et sa directrice", async () => {
   for (const [cle, valeur] of champs) await page.getByLabel(texte(cle)).fill(valeur);
   await page.locator("#cycle-premier_cycle").check();
   await page.locator("form").getByRole("button", { name: texte("demarrage.creer") }).click();
-  await expect(page.getByRole("heading", { name: texte("phrase.titre") })).toBeVisible({ timeout: 30_000 });
+  // La création installe la bibliothèque de cours que l'installeur a déposée.
+  await expect(page.getByRole("heading", { name: texte("phrase.titre") })).toBeVisible({ timeout: 60_000 });
   await page.getByLabel(texte("phrase.confirmation")).check();
   await page.getByRole("button", { name: texte("commun.continuer") }).click();
 
@@ -365,7 +366,8 @@ test("avant une opération qui demande d'être seul, le poste principal montre l
   await page.getByRole("button", { name: texte("annees.creer") }).click();
   await page.getByRole("cell", { name: "2026-2027" }).click();
   await page.getByRole("button", { name: texte("annees.ouvrir") }).click();
-  await expect(page.getByText(texte("bandeau.annee").replace("{annee}", "2026-2027"), { exact: false })).toBeVisible();
+  // L'ouverture commence par une sauvegarde, qui porte aussi la bibliothèque installée.
+  await expect(page.getByText(texte("bandeau.annee").replace("{annee}", "2026-2027"), { exact: false })).toBeVisible({ timeout: 60_000 });
 
   // Clôturer l'année : le poste relié a une session ouverte, la confirmation le nomme.
   await allerA(page, "nav.fin_annee");

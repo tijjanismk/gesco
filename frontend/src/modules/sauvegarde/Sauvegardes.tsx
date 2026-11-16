@@ -123,7 +123,7 @@ function EditeurDestinations({ initiales, surEnregistre }: { initiales: readonly
           <Selection
             id={`sorte-${rang}`}
             libelle={t("sauvegarde.sorte")}
-            valeur={d.sorte}
+            valeur={d.sorte ?? (d.amovible === true ? "amovible" : "dossier")}
             surChangement={(valeur) => {
               const sorte = valeur as SorteDestination;
               modifier(rang, { ...d, sorte, amovible: sorte === "amovible" });

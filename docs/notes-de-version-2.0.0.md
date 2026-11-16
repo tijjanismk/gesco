@@ -46,6 +46,18 @@ vidéos ne sont pas dans la sauvegarde : elles se copient sur une clé. Une mise
 bibliothèque s'installe depuis un fichier, sans Internet. Une école qui passe de la 1.2 à la 2.0
 trouve la bibliothèque allumée. Le chapitre du manuel est `manuel-2.0-bibliotheque.md`.
 
+**Une copie hors de l'école.** Outils → Sauvegarde, section « Copie hors de l'école » : GESCO
+propose les dossiers Google Drive, OneDrive et Dropbox qu'il trouve sur le poste principal, ou
+tout autre dossier, et y dépose une copie de la sauvegarde, déjà chiffrée, que le logiciel du
+fournisseur envoie sur le compte de l'école. À la demande, chaque semaine ou chaque mois, jamais
+chaque jour ; « Envoyer une copie maintenant » dit avant combien de mégaoctets partiront. Seize
+copies au plus restent sur le compte. Ni la base en clair, ni la clé, ni les douze mots ne
+partent. GESCO vérifie, sans rien bloquer, que la dernière copie est arrivée, et dit quand
+Windows le sait si elle est envoyée ; une ligne du bandeau prévient si elle n'est pas arrivée.
+Les destinations ont désormais une sorte (dossier, support amovible, dossier synchronisé), et
+l'historique la montre ; un réglage de la 1.2 garde son comportement. Le chapitre du manuel est
+`manuel-2.0-sauvegarde-hors-ecole.md`, la mise en place est dans le guide d'installation.
+
 ## Mettre à jour
 
 Installez la 2.0.0 par-dessus la version en place : les données sont gardées. Dans une école à

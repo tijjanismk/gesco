@@ -85,9 +85,15 @@ test.beforeAll(async () => {
       copyFileSync(join(paquets, nom), join(dossier, "donnees", "bibliotheque", nom));
     }
   }
+  // Un faux OneDrive : un simple dossier, que GESCO trouve par la variable de Windows. Les
+  // variables des vrais comptes du poste sont vidées.
+  mkdirSync(join(dossier, "OneDrive"), { recursive: true });
   application = spawn(EXECUTABLE, [], {
     env: {
       ...process.env,
+      OneDrive: join(dossier, "OneDrive"),
+      OneDriveConsumer: "",
+      OneDriveCommercial: "",
       GESCO_DOSSIER_ESSAI: join(dossier, "donnees"),
       // Les scénarios vivent le 14 octobre 2026, quel que soit le jour réel : échéances, impayés et
       // relevés y sont datés.
@@ -3765,4 +3771,40 @@ test("bibliothèque, école d'essai : un maître soumet sa leçon à la directio
   await page.getByRole("button", { name: texte("bibliotheque.retires"), exact: true }).click();
   await expect(page.getByText("Cours : Puissance d'un nombre naturel")).toBeVisible();
   await page.getByRole("button", { name: texte("bibliotheque.retires.retour"), exact: true }).click();
+});
+
+// --- Sauvegarde hors de l'école -------------------------------------------------------------
+
+test("sauvegarde hors de l'école : le dossier OneDrive trouvé, une copie envoyée chaque semaine, son état dans l'historique", async () => {
+  if (!(await page.getByText(texte("bandeau.utilisateur").replace("{nom}", NOM)).isVisible())) await revenirALaDirection();
+  await allerA("nav.sauvegarde");
+  const section = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("sauvegarde.hors_ecole.titre"), exact: true }) });
+  await expect(section.getByText(texte("sauvegarde.hors_ecole.explication"))).toBeVisible();
+  // Le dossier est proposé, rien n'est choisi : pas de bouton d'envoi.
+  const propose = join(dossier, "OneDrive", "GESCO");
+  const ligne = texte("sauvegarde.hors_ecole.trouve").replace("{nom}", "OneDrive").replace("{chemin}", propose);
+  await expect(section.getByText(ligne, { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(section.getByRole("button", { name: texte("sauvegarde.hors_ecole.envoyer") })).toHaveCount(0);
+  await expect(section.getByRole("button", { name: texte("sauvegarde.hors_ecole.autre_dossier") })).toBeVisible();
+  await capturer("228-copie-hors-ecole-proposee");
+
+  await section.getByRole("button", { name: texte("sauvegarde.hors_ecole.choisir"), exact: true }).click();
+  await expect(section.getByText(propose, { exact: true })).toBeVisible();
+  await expect(section.getByText(/partiront par Internet/)).toBeVisible();
+  // Le rythme : chaque semaine, avec l'ordre de grandeur par mois.
+  await section.getByRole("radio", { name: texte("sauvegarde.hors_ecole.rythme.semaine") }).check();
+  await expect(section.getByText(/par mois\.$/)).toBeVisible();
+
+  // La copie part tout de suite dans le sous-dossier GESCO, et seulement l'archive chiffrée.
+  await section.getByRole("button", { name: texte("sauvegarde.hors_ecole.envoyer") }).click();
+  await expect(section.getByText(new RegExp(`${texte("sauvegarde.envoi.deposee")}\\.$`))).toBeVisible({ timeout: 30_000 });
+  await expect(section.getByText(/^Prochaine copie : /)).toBeVisible();
+  const deposees = readdirSync(propose);
+  expect(deposees).toHaveLength(1);
+  expect(deposees[0]).toMatch(/^gesco-\d{8}-\d{6}-[0-9A-Za-z]+\.gsv$/);
+  // L'historique dit la sorte et l'envoi ; la sorte se règle aussi dans les destinations.
+  await expect(page.getByRole("cell", { name: texte("sauvegarde.sorte.synchronise"), exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: texte("sauvegarde.envoi.deposee"), exact: true })).toBeVisible();
+  await expect.poll(() => page.locator("select[id^='sorte-']").evaluateAll((listes) => listes.map((l) => (l as HTMLSelectElement).value))).toContain("synchronise");
+  await capturer("229-copie-hors-ecole-envoyee");
 });

@@ -169,6 +169,27 @@ pour F-8.
 | F-9 | Se connecter comme secrétaire | La bibliothèque se lit ; ni Écrire, ni Retirer…, ni Faits à vérifier |
 | F-10 | Paramètres → Modules : éteindre la bibliothèque, puis la rallumer | Elle disparaît du menu et du tableau de bord, puis revient telle quelle |
 
+## G. La sauvegarde hors de l'école, à jouer par le porteur du projet
+
+Sur le poste principal, connecté en administrateur, avec un vrai compte : au moins OneDrive et
+Google Drive. Le compte et le logiciel du fournisseur se préparent avec le guide d'installation
+(« Une copie hors de l'école »).
+
+| N° | Faire | Attendu |
+|---|---|---|
+| G-1 | Outils → Sauvegarde, avant d'installer quoi que ce soit | La section « Copie hors de l'école » ne montre que « Choisir un autre dossier… », sans message ; aucune ligne dans le bandeau |
+| G-2 | Connecter OneDrive au compte de l'école, rouvrir l'écran | « OneDrive — …\OneDrive\GESCO » proposé ; rien n'est choisi |
+| G-3 | Choisir, puis « Envoyer une copie maintenant » | Le volume est affiché avant ; un fichier `.gsv` apparaît dans `OneDrive\GESCO` ; état « Déposée dans le dossier » ou « En attente d'envoi » |
+| G-4 | Attendre une heure, ordinateur connecté à Internet, rouvrir l'écran | L'état passe à « Envoyée » si Windows le connaît ; sinon il reste « Déposée dans le dossier » (noter lequel) |
+| G-5 | Sur le site de OneDrive, depuis le téléphone | Le fichier est dans `GESCO`, daté du jour, de la taille affichée |
+| G-6 | Mêmes gestes G-2 à G-5 avec Google Drive pour ordinateur | « Google Drive — G:\Mon Drive\GESCO » proposé ; mêmes résultats ; noter l'état atteint |
+| G-7 | Rythme « Chaque semaine » | La prochaine copie est annoncée sept jours après la dernière ; l'ordre de grandeur par mois s'affiche |
+| G-8 | Effacer la copie dans le dossier, attendre la vérification suivante (ou redémarrer GESCO) | « N'est plus dans le dossier » ; une ligne dans le bandeau ; elle disparaît après « Envoyer une copie maintenant » |
+| G-9 | Déconnecter le lecteur `G:` (quitter Google Drive), « Envoyer une copie maintenant » | La sauvegarde sur l'ordinateur et sur la clé réussit ; aucune fenêtre d'erreur ; « N'a pas pu être déposée » |
+| G-10 | Télécharger la dernière copie depuis le site, restaurer dans un dossier de données neuf avec les douze mots | L'école revient entière (élèves, paiements, notes) |
+| G-11 | Plus tard : G-10 sur un autre ordinateur | Même résultat |
+| G-12 | Sur un poste relié | L'écran des sauvegardes n'existe pas |
+
 ## Ce qu'il faut rapporter
 
 1. Les lignes « pas vu », avec ce qui s'est affiché à la place.
@@ -177,3 +198,5 @@ pour F-8.
 3. Si Windows a affiché sa propre fenêtre de pare-feu, à quel moment.
 4. Les temps de C-9, C-12 et C-14.
 5. Le journal technique de P et de R.
+6. Pour G-4 et G-6 : l'état atteint par chaque fournisseur (« Envoyée » ou « Déposée dans le
+   dossier »).

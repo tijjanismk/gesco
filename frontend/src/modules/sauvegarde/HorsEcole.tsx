@@ -26,6 +26,8 @@ export function HorsEcole() {
     queryFn: () => appeler("sauvegarde_destinations_lister", null),
   });
   const [envoye, setEnvoye] = useState<number | null>(null);
+  // Le rythme choisi reste coché pendant qu'il s'enregistre ; un refus rend celui du poste.
+  const [choix, setChoix] = useState<RythmeHorsEcole | null>(null);
   const rafraichir = () => {
     void client.invalidateQueries({ queryKey: ["hors_ecole"] });
     void client.invalidateQueries({ queryKey: ["destinations"] });
@@ -41,6 +43,7 @@ export function HorsEcole() {
   const reglage = useMutation({
     mutationFn: (rythme: RythmeHorsEcole) => appeler("sauvegarde_hors_ecole_regler", { rythme }),
     onSuccess: rafraichir,
+    onError: () => setChoix(null),
   });
   const envoi = useMutation({
     mutationFn: () => appeler("sauvegarde_hors_ecole_envoyer", null),
@@ -55,7 +58,8 @@ export function HorsEcole() {
     if (chemin !== null) choisir(chemin);
   };
   if (etat.data === undefined) return <MessageErreur erreur={etat.error} />;
-  const { rythme, dossiers, taille_copie: tailleCopie, prochaine_copie: prochaine } = etat.data;
+  const { rythme: enregistre, dossiers, taille_copie: tailleCopie, prochaine_copie: prochaine } = etat.data;
+  const rythme = choix ?? enregistre;
   const proposes = aProposer(trouves.data ?? [], dossiers.map((d) => d.chemin));
   const parCopie = volumeCopie(tailleCopie, Math.max(dossiers.length, 1));
   const parMois = volumeMensuel(tailleCopie, Math.max(dossiers.length, 1), rythme);
@@ -94,7 +98,10 @@ export function HorsEcole() {
                 name="rythme-hors-ecole"
                 checked={rythme === r.rythme}
                 disabled={reglage.isPending}
-                onChange={() => reglage.mutate(r.rythme)}
+                onChange={() => {
+                  setChoix(r.rythme);
+                  reglage.mutate(r.rythme);
+                }}
               />
               {t(r.cle)}
             </label>

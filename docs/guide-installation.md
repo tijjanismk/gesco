@@ -75,6 +75,47 @@ fonctionne de la même façon ; un bandeau rappelle seulement qu'aucune licence 
 « Sauvegarder maintenant ». Ensuite, GESCO sauvegarde seul, à intervalles réguliers et à la
 fermeture. Laissez la clé branchée, ou rebranchez-la chaque soir ; ne la prêtez pas.
 
+### Une copie hors de l'école (version 2.0, facultatif)
+
+La clé ne protège pas l'école si l'ordinateur et la clé disparaissent ensemble (vol, incendie,
+inondation). GESCO peut aussi déposer une copie chiffrée de la sauvegarde dans un dossier que
+Google Drive, OneDrive ou Dropbox envoie sur un compte en ligne. Les comptes gratuits suffisent :
+une copie pèse quelques mégaoctets, et GESCO en garde 16 au plus.
+
+1. **Le compte.** Créez un compte **au nom de l'école**, pas à celui d'un employé qui peut
+   partir ; le promoteur en garde l'accès. Google (le plus courant, celui des téléphones
+   Android), Microsoft ou Dropbox : GESCO marche de la même façon avec les trois, et avec tout
+   autre logiciel qui synchronise un dossier.
+2. **Le logiciel du fournisseur**, sur le poste principal, dans la session Windows où GESCO est
+   utilisé :
+   - *Google Drive* : installez « Google Drive pour ordinateur » depuis le site de Google, puis
+     connectez-vous ; un lecteur (souvent `G:`) apparaît, avec le dossier « Mon Drive ».
+   - *OneDrive* : il est déjà dans Windows 10 et 11 ; ouvrez-le et connectez-vous avec le compte
+     de l'école.
+   - *Dropbox* : installez l'application depuis le site de Dropbox, puis connectez-vous.
+3. **Dans GESCO**, Outils → Sauvegarde, section « Copie hors de l'école » : cliquez sur
+   **Choisir** à côté du dossier proposé (par exemple « Google Drive — G:\Mon Drive\GESCO »). Si
+   rien n'est proposé, **Choisir un autre dossier…** et désignez le dossier du fournisseur.
+   Choisissez le rythme : à la demande, chaque semaine ou chaque mois.
+4. **Envoyez une copie** : « Envoyer une copie maintenant ».
+5. **Vérifiez sur le site du fournisseur**, depuis un téléphone ou un autre ordinateur, que le
+   dossier `GESCO` contient un fichier `gesco-….gsv` daté du jour. GESCO affiche aussi l'état de
+   la dernière copie ; selon le fournisseur, il reste « Déposée dans le dossier », sans que ce
+   soit une erreur.
+
+À savoir :
+- **Le forfait Internet.** Chaque copie part par Internet ; GESCO dit avant combien de
+  mégaoctets. OneDrive suspend l'envoi sur une connexion « limitée » ; un partage de connexion du
+  téléphone l'est souvent. La copie part alors au retour d'une connexion ordinaire.
+- **La corbeille du fournisseur** garde quelques jours les copies que GESCO retire.
+- **Plusieurs comptes Windows sur le poste principal** : la copie n'est déposée que lorsque GESCO
+  tourne sous le compte où le logiciel du fournisseur est connecté.
+- **Ce que le fournisseur voit** : le nom du fichier, sa taille, le nom de l'école et la version
+  de GESCO. Le reste est chiffré ; sans les douze mots, personne ne le lit.
+- **Ne rangez jamais le certificat des douze mots**, ni sa photo, sur ce compte.
+- **Restaurer** depuis le compte : téléchargez la dernière copie `.gsv` sur le site du
+  fournisseur, puis suivez le §10 en désignant ce fichier.
+
 ## 7. Préparer l'école
 
 Dans cet ordre (le manuel d'utilisation détaille chaque écran) :

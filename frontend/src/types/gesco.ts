@@ -1905,9 +1905,13 @@ export type Contrat = {
 	sauvegarde_destinations_lister: Signature<null, Destination[]>,
 	/**  Signature de la commande du même nom. */
 	sauvegarde_destinations_definir: Signature<Destination[], Destination[]>,
+	/**  Signature de la commande du même nom. */
 	sauvegarde_hors_ecole_regler: Signature<DemandeRythmeHorsEcole, RythmeHorsEcole>,
+	/**  Signature de la commande du même nom. */
 	sauvegarde_hors_ecole_envoyer: Signature<null, Sauvegarde[]>,
+	/**  Signature de la commande du même nom. */
 	sauvegarde_hors_ecole_etat: Signature<null, EtatHorsEcole>,
+	/**  Signature de la commande du même nom. */
 	sauvegarde_dossiers_synchronises: Signature<null, DossierSynchronise[]>,
 	/**  Signature de la commande du même nom. */
 	certificat_confirmer: Signature<null, null>,
@@ -5172,12 +5176,6 @@ export type DemandeRepriseInventaire = {
 	cycle: Cycle | null,
 };
 
-/**  Rythme de la copie hors de l'école, demandé par l'école. */
-export type DemandeRythmeHorsEcole = {
-	/**  À la demande, chaque semaine ou chaque mois. */
-	rythme: RythmeHorsEcole,
-};
-
 /**  Restauration d'une archive. */
 export type DemandeRestauration = {
 	/**  Chemin du fichier. */
@@ -5266,6 +5264,12 @@ export type DemandeRubriqueFiche = {
 	choix: string[],
 	/**  Vrai si la réponse vaut pour une année. */
 	annuelle: boolean,
+};
+
+/**  Rythme de la copie hors de l'école, demandé par l'école. */
+export type DemandeRythmeHorsEcole = {
+	/**  À la demande, chaque semaine ou chaque mois. */
+	rythme: RythmeHorsEcole,
 };
 
 /**  Heures saisies pour une vacation et un mois. */
@@ -5619,38 +5623,6 @@ export type Depenses = {
 	droits: DroitsDepenses,
 };
 
-/**  Un dossier synchronisé trouvé sur le poste. */
-export type DossierSynchronise = {
-	/**  Logiciel qui l'envoie. */
-	fournisseur: FournisseurEnLigne,
-	/**  Nom affiché : celui du fournisseur, ou celui qu'il donne à Windows. */
-	nom: string,
-	/**  Racine du compte sur le poste. */
-	racine: string,
-	/**  Dossier proposé : le sous-dossier `GESCO` de la racine. */
-	propose: string,
-};
-
-/**  Un dossier synchronisé et sa dernière copie. */
-export type DossierHorsEcole = {
-	/**  Dossier choisi par l'école. */
-	chemin: string,
-	/**  Dernière copie déposée ou essayée dans ce dossier, avec son état. */
-	derniere: Sauvegarde | null,
-};
-
-/**  Où en est la copie hors de l'école. */
-export type EtatHorsEcole = {
-	/**  Rythme choisi. */
-	rythme: RythmeHorsEcole,
-	/**  Dossiers synchronisés choisis, chacun avec sa dernière copie ; vide sans dossier. */
-	dossiers: DossierHorsEcole[],
-	/**  Taille de la dernière sauvegarde du poste, en octets : ce que pèsera la prochaine copie. */
-	taille_copie: number | null,
-	/**  Instant où la prochaine copie du rythme sera due ; rien à la demande ou sans dossier. */
-	prochaine_copie: number | null,
-};
-
 /**  Destination de sauvegarde. */
 export type Destination = {
 	/**  Dossier. */
@@ -5659,13 +5631,13 @@ export type Destination = {
 	 *  Sorte : dossier, support amovible ou dossier synchronisé. Absente des réglages de la 1.2,
 	 *  elle se déduit de la case « amovible ».
 	 */
-	sorte: SorteDestination,
+	sorte?: SorteDestination,
 	/**
 	 *  Case de la 1.2, encore lue : support physiquement déconnectable (clé USB, disque externe),
 	 *  seule protection réelle contre un rançongiciel (§11.3). Toujours égale à la sorte
 	 *  « support amovible » une fois la destination relue.
 	 */
-	amovible: boolean,
+	amovible?: boolean,
 };
 
 /**
@@ -5825,6 +5797,26 @@ export type DossierDiscipline = {
 	periodes: PeriodeConseil[],
 	/**  Droits de qui consulte. */
 	droits: DroitsDiscipline,
+};
+
+/**  Un dossier synchronisé et sa dernière copie. */
+export type DossierHorsEcole = {
+	/**  Dossier choisi par l'école. */
+	chemin: string,
+	/**  Dernière copie déposée ou essayée dans ce dossier, avec son état. */
+	derniere: Sauvegarde | null,
+};
+
+/**  Un dossier synchronisé trouvé sur le poste. */
+export type DossierSynchronise = {
+	/**  Logiciel qui l'envoie. */
+	fournisseur: FournisseurEnLigne,
+	/**  Nom affiché : celui du fournisseur, ou celui qu'il donne à Windows. */
+	nom: string,
+	/**  Racine du compte sur le poste. */
+	racine: string,
+	/**  Dossier proposé : le sous-dossier `GESCO` de la racine. */
+	propose: string,
 };
 
 /**  Un maître qui peut publier lui-même. */
@@ -6509,6 +6501,24 @@ export type EtatDemarrage = {
 	version_applicative: string,
 };
 
+/**
+ *  État d'une copie hors de l'école. Les noms ne parlent pas de dossier : un serveur de
+ *  l'éditeur reprendra les mêmes.
+ */
+export type EtatEnvoi = 
+/**  Intacte dans le dossier ; Windows ne dit rien de l'envoi. */
+"deposee" | 
+/**  Windows dit que le fichier n'est pas encore envoyé. */
+"en_attente" | 
+/**  Windows dit que le fichier est à jour sur le compte. */
+"envoyee" | 
+/**  Windows dit que le logiciel du fournisseur n'a pas pu l'envoyer. */
+"echec_envoi" | 
+/**  Dossier absent, plein ou refusé ; copie interrompue. */
+"non_deposee" | 
+/**  Fichier effacé ou modifié depuis le dépôt. */
+"absente";
+
 /**  État d'une grille de frais. */
 export type EtatGrille = 
 /**  En préparation : se modifie librement, ne facture rien. */
@@ -6530,6 +6540,18 @@ export type EtatHeures = {
 	montant: Montant | null,
 	/**  Vrai si le compte voit les taux et les montants. */
 	montants: boolean,
+};
+
+/**  Où en est la copie hors de l'école. */
+export type EtatHorsEcole = {
+	/**  Rythme choisi. */
+	rythme: RythmeHorsEcole,
+	/**  Dossiers synchronisés choisis, chacun avec sa dernière copie ; vide sans dossier. */
+	dossiers: DossierHorsEcole[],
+	/**  Taille de la dernière sauvegarde du poste, en octets : ce que pèsera la prochaine copie. */
+	taille_copie: number | null,
+	/**  Instant où la prochaine copie du rythme sera due ; rien à la demande ou sans dossier. */
+	prochaine_copie: number | null,
 };
 
 /**  Ce que l'import ferait d'une ligne du fichier. */
@@ -7229,6 +7251,17 @@ export type FournisseurAffiche = {
 	/**  Instant de dernière modification, à renvoyer avec la modification. */
 	modifiee_le: number,
 };
+
+/**  Logiciel qui envoie le dossier sur un compte en ligne. */
+export type FournisseurEnLigne = 
+/**  Google Drive pour ordinateur. */
+"google_drive" | 
+/**  OneDrive, compte personnel ou professionnel. */
+"one_drive" | 
+/**  Dropbox. */
+"dropbox" | 
+/**  Un autre logiciel qui déclare sa racine à Windows. */
+"autre";
 
 /**  Les fournisseurs et leurs factures. */
 export type Fournisseurs = {
@@ -8616,63 +8649,6 @@ export type MotConsultation =
 "note" | 
 /**  La liste des mots. */
 "aide";
-
-/**
- *  État d'une copie hors de l'école. Les noms ne parlent pas de dossier : un serveur de
- *  l'éditeur reprendra les mêmes.
- */
-export type EtatEnvoi =
-/**  Intacte dans le dossier ; Windows ne dit rien de l'envoi. */
-"deposee" |
-/**  Windows dit que le fichier n'est pas encore envoyé. */
-"en_attente" |
-/**  Windows dit que le fichier est à jour sur le compte. */
-"envoyee" |
-/**  Windows dit que le logiciel du fournisseur n'a pas pu l'envoyer. */
-"echec_envoi" |
-/**  Dossier absent, plein ou refusé ; copie interrompue. */
-"non_deposee" |
-/**  Fichier effacé ou modifié depuis le dépôt. */
-"absente";
-
-/**  Logiciel qui envoie le dossier sur un compte en ligne. */
-export type FournisseurEnLigne =
-/**  Google Drive pour ordinateur. */
-"google_drive" |
-/**  OneDrive, compte personnel ou professionnel. */
-"one_drive" |
-/**  Dropbox. */
-"dropbox" |
-/**  Un autre logiciel qui déclare sa racine à Windows. */
-"autre";
-
-/**
- *  Rythme de la copie hors de l'école, un seul pour tous les dossiers synchronisés. Jamais
- *  chaque jour.
- */
-export type RythmeHorsEcole =
-/**  Rien ne part sans un geste de l'école. Réglage livré. */
-"demande" |
-/**  Une copie quand la dernière bien déposée a sept jours ou plus. */
-"semaine" |
-/**  Une copie quand la dernière bien déposée date du même jour du mois précédent ou d'avant. */
-"mois";
-
-/**
- *  Sorte d'une destination de sauvegarde. Les réglages venus de la 1.2 n'ont qu'une case
- *  « amovible » : vraie, elle donne [`SorteDestination::Amovible`], fausse,
- *  [`SorteDestination::Dossier`].
- */
-export type SorteDestination =
-/**  Dossier du poste ou du réseau. */
-"dossier" |
-/**  Clé USB, disque externe : seule protection réelle contre un rançongiciel. */
-"amovible" |
-/**
- *  Dossier que le logiciel d'un fournisseur envoie sur un compte en ligne : la copie hors de
- *  l'école. Il ne reçoit que la copie à la demande et la copie du rythme.
- */
-"synchronise";
 
 /**  Ce qui a déclenché une sauvegarde (§11.1). */
 export type MotifSauvegarde = 
@@ -10421,6 +10397,18 @@ export type RubriqueFiche = {
 	retiree_le: number | null,
 };
 
+/**
+ *  Rythme de la copie hors de l'école, un seul pour tous les dossiers synchronisés. Jamais
+ *  chaque jour.
+ */
+export type RythmeHorsEcole = 
+/**  Rien ne part sans un geste de l'école. Réglage livré. */
+"demande" | 
+/**  Une copie quand la dernière bien déposée a sept jours ou plus. */
+"semaine" | 
+/**  Une copie quand la dernière bien déposée date du même jour du mois précédent ou d'avant. */
+"mois";
+
 /**  Montant saisi dans la paie, avec le nom du membre et de l'élément. */
 export type SaisieAffichee = {
 	/**  Saisie. */
@@ -11018,6 +11006,22 @@ export type Soldes = {
 	/**  Lignes à cocher. */
 	a_pointer: number,
 };
+
+/**
+ *  Sorte d'une destination de sauvegarde. Les réglages venus de la 1.2 n'ont qu'une case
+ *  « amovible » : vraie, elle donne [`SorteDestination::Amovible`], fausse,
+ *  [`SorteDestination::Dossier`].
+ */
+export type SorteDestination = 
+/**  Dossier du poste ou du réseau. */
+"dossier" | 
+/**  Clé USB, disque externe : seule protection réelle contre un rançongiciel. */
+"amovible" | 
+/**
+ *  Dossier que le logiciel d'un fournisseur envoie sur un compte en ligne : la copie hors de
+ *  l'école. Il ne reçoit que la copie à la demande et la copie du rythme.
+ */
+"synchronise";
 
 /**  Sorte d'une ligne du bulletin. */
 export type SorteLigne = 
