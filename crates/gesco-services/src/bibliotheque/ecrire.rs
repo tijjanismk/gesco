@@ -147,6 +147,11 @@ pub enum DepartBrouillon {
         /// Identifiant de la version.
         version_id: String,
     },
+    /// Une version reçue d'une autre école (« Repartir de cette version »).
+    Recue {
+        /// Identifiant de la version reçue.
+        version_recue_id: String,
+    },
 }
 
 /// Commencer un brouillon.
@@ -310,6 +315,17 @@ pub struct MouvementContenu {
     pub qui: String,
 }
 
+/// Une version reçue d'une autre école alors qu'un brouillon existait.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct VersionRecueAffichee {
+    /// Identifiant.
+    pub id: String,
+    /// Reçue le, millisecondes depuis l'époque.
+    pub recue_le: i64,
+    /// Nom de qui a importé le fichier.
+    pub importe_par: String,
+}
+
 /// L'historique d'un contenu.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 pub struct HistoriqueContenu {
@@ -321,6 +337,8 @@ pub struct HistoriqueContenu {
     pub versions: Vec<VersionAffichee>,
     /// Retraits et remises, les plus récents d'abord.
     pub mouvements: Vec<MouvementContenu>,
+    /// Versions reçues d'une autre école, les plus récentes d'abord.
+    pub recues: Vec<VersionRecueAffichee>,
     /// Le contenu a une version livrée lisible sur ce poste.
     pub a_une_version_livree: bool,
     /// La bibliothèque a une version plus récente que celle d'où la version de l'école est
@@ -342,6 +360,11 @@ pub enum TexteCompare {
     Version {
         /// Identifiant de la version.
         version_id: String,
+    },
+    /// Une version reçue d'une autre école.
+    Recue {
+        /// Identifiant de la version reçue.
+        version_recue_id: String,
     },
 }
 
@@ -766,6 +789,14 @@ impl ServiceBibliotheque<'_> {
                         v.depart_livre_sha256.clone(),
                     )
                 }
+            }
+            DepartBrouillon::Recue { version_recue_id } => {
+                let r = depot::versions_recues(unite.connexion(), &demande.contenu_id, &contexte)
+                    .await?
+                    .into_iter()
+                    .find(|r| &r.id == version_recue_id)
+                    .ok_or_else(|| introuvable("version_recue", version_recue_id))?;
+                (r.texte, None, livree)
             }
         };
         self.creer_brouillon(
@@ -1511,11 +1542,23 @@ impl ServiceBibliotheque<'_> {
             }
         }
         mouvements.sort_by_key(|m| std::cmp::Reverse(m.quand));
+        let mut recues: Vec<VersionRecueAffichee> =
+            depot::versions_recues(&mut cnx, &demande.contenu_id, &contexte)
+                .await?
+                .into_iter()
+                .map(|r| VersionRecueAffichee {
+                    id: r.id,
+                    recue_le: r.recue_le,
+                    importe_par: r.importe_par,
+                })
+                .collect();
+        recues.reverse();
         Ok(HistoriqueContenu {
             contenu_id: contenu.id.vers_chaine(),
             titre: contenu.titre.clone(),
             versions,
             mouvements,
+            recues,
             a_une_version_livree: self.texte_livre(&contenu).is_some(),
             livree_plus_recente: Self::livree_plus_recente(&contenu, &lignes),
             peut_ecrire,
@@ -1534,6 +1577,7 @@ impl ServiceBibliotheque<'_> {
             .await?
             .ok_or_else(|| introuvable("contenu", &demande.contenu_id))?;
         let versions = depot::versions(&mut cnx, &demande.contenu_id, &contexte).await?;
+        let recues = depot::versions_recues(&mut cnx, &demande.contenu_id, &contexte).await?;
         let texte = |t: &TexteCompare| -> Resultat<String> {
             Ok(match t {
                 TexteCompare::Livree => self.texte_livre(&contenu).unwrap_or_default(),
@@ -1552,6 +1596,12 @@ impl ServiceBibliotheque<'_> {
                         v.texte.clone()
                     }
                 }
+                TexteCompare::Recue { version_recue_id } => recues
+                    .iter()
+                    .find(|r| &r.id == version_recue_id)
+                    .ok_or_else(|| introuvable("version_recue", version_recue_id))?
+                    .texte
+                    .clone(),
             })
         };
         let rangees = comparer_lignes(&texte(&demande.gauche)?, &texte(&demande.droite)?);

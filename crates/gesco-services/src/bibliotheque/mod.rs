@@ -31,6 +31,7 @@ use crate::noyau::Noyau;
 use crate::session::Session;
 
 mod classes;
+mod echange;
 mod ecrire;
 mod fichiers;
 mod imprimer;
@@ -40,13 +41,18 @@ mod retirer;
 mod word;
 
 pub use classes::{ClassePourQui, DemandePourQui, DemandeReglerPourQui, PourQuiContenu};
+pub use echange::{
+    ApercuExport, ApercuImport, ArriveeLecon, DemandeExportApercu, DemandeExportLecons,
+    DemandeImportLecons, DemandeImportPublier, ExportFait, ImportAffiche, ImportFait, LeconArrivee,
+    LeconExportee, PublicationImport, SelectionExport,
+};
 pub use ecrire::{
     ApercuLecon, BrouillonOuvert, ChapitreAjoute, ChoixEcriture, ComparaisonTextes,
     DemandeAjoutContenu, DemandeApercuLecon, DemandeBrouillon, DemandeBrouillonCommencer,
     DemandeBrouillonVersion, DemandeChapitreBibliotheque, DemandeComparaison,
     DemandeContenuBibliotheque, DepartBrouillon, EcritureOuverte, HistoriqueContenu,
     MouvementContenu, NiveauChoisissable, PlaceEcriture, SerieChoisissable, SorteMouvement,
-    TexteCompare, VersionAffichee,
+    TexteCompare, VersionAffichee, VersionRecueAffichee,
 };
 
 pub use fichiers::{

@@ -290,6 +290,9 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("bibliotheque_image_ajouter", Fichier::Lu("chemin")),
     ("bibliotheque_son_ajouter", Fichier::Lu("chemin")),
     ("bibliotheque_word_importer", Fichier::Lu("chemin")),
+    ("bibliotheque_exporter", Fichier::Ecrit("chemin")),
+    ("bibliotheque_import_apercu", Fichier::Lu("chemin")),
+    ("bibliotheque_importer", Fichier::Lu("chemin")),
     (
         "bibliotheque_document_fichier_ajouter",
         Fichier::Lu("chemin"),
@@ -378,6 +381,8 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "bibliotheque_image_ajouter",
     "bibliotheque_son_ajouter",
     "bibliotheque_word_importer",
+    "bibliotheque_export_apercu",
+    "bibliotheque_exporter",
     "bibliotheque_classes_lire",
     "bibliotheque_classes_regler",
     "bibliotheque_document_fichier_ajouter",
@@ -643,6 +648,13 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("bibliotheque_image_ajouter", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_son_ajouter", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_word_importer", Permission::LIBRARY_EDIT),
+    // Échange de leçons entre écoles (SPEC_PHASE_12_LOT_2 §6).
+    Commande::permise("bibliotheque_export_apercu", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_exporter", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_import_apercu", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_importer", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_imports_lister", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_import_publier", Permission::LIBRARY_PUBLISH),
     Commande::permise("bibliotheque_classes_lire", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_classes_regler", Permission::LIBRARY_EDIT),
     Commande::permise(

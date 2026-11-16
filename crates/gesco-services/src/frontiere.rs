@@ -1261,6 +1261,12 @@ contrat! {
     bibliotheque_image_ajouter(crate::bibliotheque::DemandeImageBibliotheque) -> crate::bibliotheque::ImageAjoutee;
     bibliotheque_son_ajouter(crate::bibliotheque::DemandeSonBibliotheque) -> crate::bibliotheque::SonAjoute;
     bibliotheque_word_importer(crate::bibliotheque::DemandeImportWord) -> crate::bibliotheque::ImportWord;
+    bibliotheque_export_apercu(crate::bibliotheque::DemandeExportApercu) -> crate::bibliotheque::ApercuExport;
+    bibliotheque_exporter(crate::bibliotheque::DemandeExportLecons) -> crate::bibliotheque::ExportFait;
+    bibliotheque_import_apercu(crate::bibliotheque::DemandeImportLecons) -> crate::bibliotheque::ApercuImport;
+    bibliotheque_importer(crate::bibliotheque::DemandeImportLecons) -> crate::bibliotheque::ImportFait;
+    bibliotheque_imports_lister(()) -> Vec<crate::bibliotheque::ImportAffiche>;
+    bibliotheque_import_publier(crate::bibliotheque::DemandeImportPublier) -> crate::bibliotheque::PublicationImport;
     bibliotheque_classes_lire(crate::bibliotheque::DemandePourQui) -> crate::bibliotheque::PourQuiContenu;
     bibliotheque_classes_regler(crate::bibliotheque::DemandeReglerPourQui) -> crate::bibliotheque::PourQuiContenu;
     bibliotheque_document_fichier_ajouter(crate::bibliotheque::DemandeFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
@@ -5309,6 +5315,74 @@ impl Application {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .importer_word(appel.session()?, &entree)
             .await
+    }
+
+    async fn bibliotheque_export_apercu(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeExportApercu,
+    ) -> Resultat<crate::bibliotheque::ApercuExport> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .export_apercu(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_exporter(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeExportLecons,
+    ) -> Resultat<crate::bibliotheque::ExportFait> {
+        Box::pin(
+            self.bibliotheque(&appel.ouverte()?.noyau)
+                .exporter_lecons(appel.session()?, &entree),
+        )
+        .await
+    }
+
+    async fn bibliotheque_import_apercu(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeImportLecons,
+    ) -> Resultat<crate::bibliotheque::ApercuImport> {
+        Box::pin(
+            self.bibliotheque(&appel.ouverte()?.noyau)
+                .import_apercu(appel.session()?, &entree),
+        )
+        .await
+    }
+
+    async fn bibliotheque_importer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeImportLecons,
+    ) -> Resultat<crate::bibliotheque::ImportFait> {
+        Box::pin(
+            self.bibliotheque(&appel.ouverte()?.noyau)
+                .importer_lecons(appel.session()?, &entree),
+        )
+        .await
+    }
+
+    async fn bibliotheque_imports_lister(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<Vec<crate::bibliotheque::ImportAffiche>> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .imports(appel.session()?)
+            .await
+    }
+
+    async fn bibliotheque_import_publier(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeImportPublier,
+    ) -> Resultat<crate::bibliotheque::PublicationImport> {
+        Box::pin(
+            self.bibliotheque(&appel.ouverte()?.noyau)
+                .publier_import(appel.session()?, &entree),
+        )
+        .await
     }
 
     async fn bibliotheque_classes_lire(

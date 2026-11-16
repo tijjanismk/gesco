@@ -1953,3 +1953,227 @@ pub async fn retirer_classe_choisie(
     .await?;
     Ok(())
 }
+
+// --- Leçons reçues d'une autre école (lot 2) ------------------------------------------------
+
+/// Un fichier de leçons importé, avec le nom de qui l'a importé.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct LigneImport {
+    /// Identifiant.
+    pub id: String,
+    /// Empreinte SHA-256 du fichier.
+    pub empreinte_sha256: String,
+    /// Nom du fichier.
+    pub nom_fichier: String,
+    /// Importé le.
+    pub importe_le: i64,
+    /// Nom de qui l'a importé.
+    pub importe_par: String,
+    /// Leçons reçues (brouillons et versions reçues).
+    pub nombre_lecons: i64,
+    /// Leçons ignorées, déjà là.
+    pub nombre_ignorees: i64,
+    /// Brouillons et versions soumises de cet import encore à publier.
+    pub a_publier: i64,
+}
+
+/// Écrit un import, ses nombres à zéro ; rend son identifiant.
+pub async fn inserer_import(
+    cnx: &mut Connexion,
+    empreinte: &str,
+    nom_fichier: &str,
+    importe_par: &str,
+    contexte: &Contexte,
+) -> Resultat<String> {
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    sqlx::query(
+        "INSERT INTO import_lecons (id, etablissement_id, empreinte_sha256, nom_fichier,
+            importe_le, importe_par, nombre_lecons, nombre_ignorees, cree_le, cree_par,
+            mis_a_jour_le, mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?5, ?7, ?5, ?7, ?8)",
+    )
+    .bind(&id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(empreinte)
+    .bind(nom_fichier)
+    .bind(maintenant)
+    .bind(importe_par)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(id)
+}
+
+/// Écrit les nombres d'un import, une fois ses leçons rangées.
+pub async fn compter_import(
+    cnx: &mut Connexion,
+    import_id: &str,
+    lecons: i64,
+    ignorees: i64,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE import_lecons SET nombre_lecons = ?1, nombre_ignorees = ?2
+         WHERE etablissement_id = ?3 AND id = ?4",
+    )
+    .bind(lecons)
+    .bind(ignorees)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(import_id)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}
+
+/// Imports de l'établissement, les plus récents d'abord.
+pub async fn imports(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<Vec<LigneImport>> {
+    Ok(sqlx::query_as(
+        "SELECT i.id, i.empreinte_sha256, i.nom_fichier, i.importe_le,
+                COALESCE(u.nom_affiche, '') AS importe_par, i.nombre_lecons, i.nombre_ignorees,
+                (SELECT COUNT(*) FROM version_contenu v
+                 WHERE v.import_id = i.id AND v.etat IN ('brouillon', 'soumise')) AS a_publier
+         FROM import_lecons i LEFT JOIN utilisateur u ON u.id = i.importe_par
+         WHERE i.etablissement_id = ?1 ORDER BY i.importe_le DESC, i.id DESC",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Premier import d'un fichier de cette empreinte : importé le, s'il l'a été.
+pub async fn import_par_empreinte(
+    cnx: &mut Connexion,
+    empreinte: &str,
+    contexte: &Contexte,
+) -> Resultat<Option<i64>> {
+    let ligne: Option<(Option<i64>,)> = sqlx::query_as(
+        "SELECT MIN(importe_le) FROM import_lecons
+         WHERE etablissement_id = ?1 AND empreinte_sha256 = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(empreinte)
+    .fetch_optional(cnx)
+    .await?;
+    Ok(ligne.and_then(|(quand,)| quand))
+}
+
+/// Pose l'import d'où vient un brouillon.
+pub async fn poser_import(
+    cnx: &mut Connexion,
+    version_id: &str,
+    import_id: &str,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE version_contenu SET import_id = ?1
+         WHERE etablissement_id = ?2 AND id = ?3",
+    )
+    .bind(import_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(version_id)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}
+
+/// Versions d'un import encore à publier (brouillons et versions soumises) : (contenu, version).
+pub async fn versions_de_l_import(
+    cnx: &mut Connexion,
+    import_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<(String, String)>> {
+    Ok(sqlx::query_as(
+        "SELECT contenu_id, id FROM version_contenu
+         WHERE etablissement_id = ?1 AND import_id = ?2 AND etat IN ('brouillon', 'soumise')
+         ORDER BY cree_le, id",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(import_id)
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Une version reçue alors que l'école avait déjà un brouillon.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct LigneVersionRecue {
+    /// Identifiant.
+    pub id: String,
+    /// Texte.
+    pub texte: String,
+    /// Empreinte SHA-256 du texte.
+    pub empreinte_sha256: String,
+    /// Reçue le.
+    pub recue_le: i64,
+    /// Nom de qui a importé le fichier.
+    pub importe_par: String,
+}
+
+/// Écrit une version reçue ; rend son identifiant.
+pub async fn inserer_version_recue(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    texte: &str,
+    empreinte: &str,
+    import_id: &str,
+    contexte: &Contexte,
+) -> Resultat<String> {
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    sqlx::query(
+        "INSERT INTO version_recue (id, etablissement_id, contenu_id, texte, empreinte_sha256,
+            import_id, recue_le, cree_le, cree_par, mis_a_jour_le, mis_a_jour_par,
+            identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, ?8, ?7, ?8, ?9)",
+    )
+    .bind(&id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu_id)
+    .bind(texte)
+    .bind(empreinte)
+    .bind(import_id)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(id)
+}
+
+/// Versions reçues d'un contenu, de la plus ancienne à la plus récente.
+pub async fn versions_recues(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneVersionRecue>> {
+    Ok(sqlx::query_as(
+        "SELECT r.id, r.texte, r.empreinte_sha256, r.recue_le,
+                COALESCE(u.nom_affiche, '') AS importe_par
+         FROM version_recue r
+         JOIN import_lecons i ON i.id = r.import_id
+         LEFT JOIN utilisateur u ON u.id = i.importe_par
+         WHERE r.etablissement_id = ?1 AND r.contenu_id = ?2
+         ORDER BY r.recue_le, r.id",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu_id)
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Identifiants des fichiers joints un jour à un document, retirés compris.
+pub async fn fichiers_joints_ids(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<String>> {
+    let lignes: Vec<(String,)> = sqlx::query_as(
+        "SELECT fichier_id FROM fichier_contenu WHERE etablissement_id = ?1 AND contenu_id = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu_id)
+    .fetch_all(cnx)
+    .await?;
+    Ok(lignes.into_iter().map(|(id,)| id).collect())
+}

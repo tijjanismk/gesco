@@ -73,3 +73,13 @@ export async function choisirDossier(): Promise<string | null> {
 export async function choisirWord(libelleFiltre: string): Promise<string | null> {
   return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["docx", "doc"] }] });
 }
+
+/** Dialogue d'ouverture d'un fichier de leçons d'une autre école `.gles`. */
+export async function choisirLecons(libelleFiltre: string): Promise<string | null> {
+  return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["gles"] }] });
+}
+
+/** Dialogue d'enregistrement d'un fichier de leçons `.gles`, sous le nom proposé. */
+export async function enregistrerLeconsSous(nom: string, libelleFiltre: string): Promise<string | null> {
+  return save({ defaultPath: nom, filters: [{ name: libelleFiltre, extensions: ["gles"] }] });
+}

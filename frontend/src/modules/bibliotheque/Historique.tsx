@@ -6,7 +6,7 @@ import { Bouton } from "../../composants/Bouton";
 import { Selection } from "../../composants/Champ";
 import { MessageErreur } from "../../composants/Messages";
 import { date, heure, t } from "../../i18n";
-import type { EtatVersion, HistoriqueContenu, RangeeComparaison, TexteCompare, VersionAffichee } from "../../types/gesco";
+import type { DepartBrouillon, EtatVersion, HistoriqueContenu, RangeeComparaison, TexteCompare, VersionAffichee } from "../../types/gesco";
 import { LignePlusRecente } from "./Editeur";
 
 function libelleEtat(etat: EtatVersion): string {
@@ -30,21 +30,25 @@ const quand = (millis: number) => `${date(millis)} ${heure(millis)}`;
 
 /** Valeur d'un choix de texte à comparer. */
 function versValeur(c: TexteCompare): string {
-  return c.type === "version" ? `v:${c.version_id}` : c.type;
+  if (c.type === "version") return `v:${c.version_id}`;
+  return c.type === "recue" ? `r:${c.version_recue_id}` : c.type;
 }
 
 function depuisValeur(v: string): TexteCompare {
   if (v.startsWith("v:")) return { type: "version", version_id: v.slice(2) };
+  if (v.startsWith("r:")) return { type: "recue", version_recue_id: v.slice(2) };
   return v === "livree" ? { type: "livree" } : { type: "visible" };
 }
 
-/** Choix proposés : la version livrée, la version visible, chaque version de l'école. */
+/** Choix proposés : la version livrée, la version visible, chaque version de l'école, chaque
+ *  version reçue d'une autre école. */
 function choixTextes(h: HistoriqueContenu): { valeur: string; libelle: string }[] {
   const choix = [];
   if (h.a_une_version_livree) choix.push({ valeur: "livree", libelle: t("bibliotheque.vue.livree") });
   choix.push({ valeur: "visible", libelle: t("bibliotheque.vue.visible") });
   for (const v of h.versions)
     choix.push({ valeur: `v:${v.id}`, libelle: t("bibliotheque.historique.version_etat", { numero: v.numero, etat: libelleEtat(v.etat) }) });
+  for (const r of h.recues) choix.push({ valeur: `r:${r.id}`, libelle: t("bibliotheque.historique.recue_le", { quand: quand(r.recue_le) }) });
   return choix;
 }
 
@@ -153,13 +157,14 @@ function LigneVersion({
 export function Historique({ contenuId, surEcrire, comparerLivree }: { contenuId: string; surEcrire: () => void; comparerLivree: boolean }) {
   const client = useQueryClient();
   const [comparer, setComparer] = useState(comparerLivree);
+  // Comparer une version reçue : la version visible à gauche, la version reçue à droite.
+  const [initialRecue, setInitialRecue] = useState<[TexteCompare, TexteCompare] | null>(null);
   const historique = useQuery({
     queryKey: ["bibliotheque", "historique", contenuId],
     queryFn: () => appeler("bibliotheque_historique", { contenu_id: contenuId }),
   });
   const repartir = useMutation({
-    mutationFn: (versionId: string) =>
-      appeler("bibliotheque_brouillon_commencer", { contenu_id: contenuId, depart: { type: "version", version_id: versionId } }),
+    mutationFn: (depart: DepartBrouillon) => appeler("bibliotheque_brouillon_commencer", { contenu_id: contenuId, depart }),
     onSuccess: (e) => {
       client.setQueryData(["bibliotheque", "ecriture", contenuId], e);
       void client.invalidateQueries({ queryKey: ["bibliotheque"] });
@@ -176,18 +181,57 @@ export function Historique({ contenuId, surEcrire, comparerLivree }: { contenuId
     <div className="flex flex-col gap-3">
       {h.livree_plus_recente ? <LignePlusRecente surComparer={() => setComparer(true)} /> : null}
       <div>
-        <Bouton variante="secondaire" onClick={() => setComparer(!comparer)} aria-pressed={comparer}>
+        <Bouton
+          variante="secondaire"
+          onClick={() => {
+            setInitialRecue(null);
+            setComparer(!comparer);
+          }}
+          aria-pressed={comparer}
+        >
           {t("bibliotheque.comparer")}
         </Bouton>
       </div>
-      {comparer ? <Comparaison historique={h} initial={comparerLivree ? [{ type: "livree" }, { type: "visible" }] : initial} /> : null}
+      {comparer ? (
+        <Comparaison
+          key={initialRecue === null ? "versions" : versValeur(initialRecue[1])}
+          historique={h}
+          initial={initialRecue ?? (comparerLivree ? [{ type: "livree" }, { type: "visible" }] : initial)}
+        />
+      ) : null}
       <MessageErreur erreur={repartir.error} />
       {h.versions.length === 0 ? (
         <p className="text-sm text-muet">{t("bibliotheque.historique.aucune")}</p>
       ) : (
         <ul className="flex flex-col">
           {h.versions.map((v) => (
-            <LigneVersion key={v.id} v={v} peutEcrire={h.peut_ecrire} surRepartir={(id) => repartir.mutate(id)} enCours={repartir.isPending} />
+            <LigneVersion key={v.id} v={v} peutEcrire={h.peut_ecrire} surRepartir={(id) => repartir.mutate({ type: "version", version_id: id })} enCours={repartir.isPending} />
+          ))}
+        </ul>
+      )}
+      {h.recues.length === 0 ? null : (
+        <ul className="flex flex-col" aria-label={t("bibliotheque.historique.recues")}>
+          {h.recues.map((r) => (
+            <li key={r.id} className="flex flex-col gap-1 border-b border-muet/30 py-2 text-sm text-encre">
+              <p className="font-semibold">{t("bibliotheque.historique.recue")}</p>
+              <p className="text-muet">{t("bibliotheque.historique.recue_par", { quand: quand(r.recue_le), qui: r.importe_par })}</p>
+              <div className="flex flex-wrap gap-2">
+                <Bouton
+                  variante="secondaire"
+                  onClick={() => {
+                    setInitialRecue([{ type: "visible" }, { type: "recue", version_recue_id: r.id }]);
+                    setComparer(true);
+                  }}
+                >
+                  {t("bibliotheque.comparer")}
+                </Bouton>
+                {h.peut_ecrire ? (
+                  <Bouton variante="secondaire" onClick={() => repartir.mutate({ type: "recue", version_recue_id: r.id })} disabled={repartir.isPending}>
+                    {t("bibliotheque.historique.repartir")}
+                  </Bouton>
+                ) : null}
+              </div>
+            </li>
           ))}
         </ul>
       )}

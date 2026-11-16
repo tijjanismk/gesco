@@ -3,6 +3,7 @@
 
 pub mod catalogue;
 pub mod classes;
+pub mod echange;
 pub mod ecriture;
 pub mod fichiers;
 pub mod lecon;
@@ -16,6 +17,11 @@ pub use catalogue::{
     PaquetInstalle, correspondances_par_code,
 };
 pub use classes::{ClasseChoisie, classes_de_l_annee, visible_pour_classe};
+pub use echange::{
+    ChapitreEchange, EchangeLu, ErreurEchange, FichierRecu, JointEchange, LeconEchange,
+    ManifesteEchange, TAILLE_ECHANGE_MAX, cle_recue, fabriquer_echange, lire_echange,
+    nom_fichier_echange, nom_texte_echange, preparer_fichier_recu, remplacer_empreintes,
+};
 pub use ecriture::{
     EtatVersion, LigneNumerotee, PLAN_LECON, RangeeComparaison, TEXTE_MAX, comparer_lignes,
     images_a_ajouter,

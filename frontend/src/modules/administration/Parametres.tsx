@@ -11,6 +11,7 @@ import { commandeAutorisee } from "../../app/navigation";
 import { DocumentEssai } from "../accueil/Accueil";
 import { CorrespondanceBibliotheque } from "../bibliotheque/CorrespondanceBibliotheque";
 import { DroitsPublication } from "../bibliotheque/DroitsPublication";
+import { ImportLecons } from "../bibliotheque/Echange";
 import { ReglagesBibliotheque } from "../bibliotheque/ReglagesBibliotheque";
 import { CompetencesJardin } from "./CompetencesJardin";
 import { FicheEtablissement } from "./FicheEtablissement";
@@ -115,6 +116,7 @@ export function Parametres() {
       <ReglagesBulletin />
       {peutTenirJardin ? <CompetencesJardin /> : null}
       {peutTenirBibliotheque && bibliothequeActive ? <ReglagesBibliotheque /> : null}
+      {peutTenirBibliotheque && bibliothequeActive ? <ImportLecons /> : null}
       {peutTenirBibliotheque && bibliothequeActive ? <CorrespondanceBibliotheque /> : null}
       {peutDonnerPublication && bibliothequeActive ? <DroitsPublication /> : null}
       <LargeursColonnes />

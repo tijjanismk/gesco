@@ -3142,3 +3142,641 @@ async fn une_fiche_word_devient_un_brouillon_et_un_doc_est_refuse() {
         .await;
     assert_eq!(refus.cle, "bibliotheque.word_illisible");
 }
+
+// --- Échange de leçons entre écoles (lot 2, étape 5) ----------------------------------------
+
+/// Le contenu du catalogue qui porte ce titre.
+fn contenu_titre(catalogue: &Value, titre: &str) -> Value {
+    contenus_de(catalogue)
+        .into_iter()
+        .find(|c| c["titre"] == titre)
+        .unwrap_or_else(|| panic!("{titre} absent du catalogue"))
+}
+
+/// Ajoute une leçon de l'école dans un chapitre, écrit son texte et la publie.
+async fn lecon_publiee(
+    p: &crate::commun::Poste_,
+    jeton: &gesco_services::session::Jeton,
+    chapitre_id: &Value,
+    titre: &str,
+    texte: &str,
+) -> Value {
+    let ouverte = p
+        .ok(
+            "bibliotheque_contenu_ajouter",
+            Some(jeton),
+            json!({ "nature": "lecon", "chapitre_id": chapitre_id, "niveau_id": null,
+                "matiere_id": null, "titre": titre, "presentation": "", "examen": null,
+                "serie_code": null, "session": null, "sujet_id": null, "apres_cle": null }),
+        )
+        .await;
+    let id = ouverte["contenu_id"].clone();
+    let ecrite = p
+        .ok(
+            "bibliotheque_brouillon_enregistrer",
+            Some(jeton),
+            enregistrer(&id, &ouverte, texte),
+        )
+        .await;
+    p.ok(
+        "bibliotheque_publier",
+        Some(jeton),
+        version(&id, &ecrite["brouillon"]["version_id"]),
+    )
+    .await;
+    id
+}
+
+/// Écrit et publie une version de l'école d'une leçon (livrée ou non).
+async fn version_publiee(
+    p: &crate::commun::Poste_,
+    jeton: &gesco_services::session::Jeton,
+    contenu: &Value,
+    texte: &str,
+) {
+    let ouverte = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(jeton),
+            commencer(contenu, json!({ "type": "visible" })),
+        )
+        .await;
+    let ecrite = p
+        .ok(
+            "bibliotheque_brouillon_enregistrer",
+            Some(jeton),
+            enregistrer(contenu, &ouverte, texte),
+        )
+        .await;
+    p.ok(
+        "bibliotheque_publier",
+        Some(jeton),
+        version(contenu, &ecrite["brouillon"]["version_id"]),
+    )
+    .await;
+}
+
+/// L'école B : même paquet, mathématiques rangées sous sa matière « Maths » (code MAT).
+async fn ecole_b(
+    dossier: &Path,
+    livre: &[u8],
+) -> (crate::commun::Poste_, gesco_services::session::Jeton) {
+    deposer(dossier, "bibliotheque-mali-1.gbib", livre);
+    let b = poste_vierge(dossier).await;
+    b.installer().await;
+    let admin = b.connecter("admin", MOT_DE_PASSE).await;
+    let maths = b
+        .ok(
+            "matiere_enregistrer",
+            Some(&admin),
+            json!({ "id": null, "code": "MAT", "libelle": "Maths", "libelle_court": "Maths",
+                "groupe": "scientifique", "active": true }),
+        )
+        .await;
+    b.ok(
+        "bibliotheque_correspondance_regler",
+        Some(&admin),
+        json!({ "discipline_code": "MATH", "niveau_code": "9", "matiere_id": maths["id"] }),
+    )
+    .await;
+    (b, admin)
+}
+
+#[tokio::test]
+async fn un_chapitre_passe_d_une_ecole_a_l_autre_en_brouillons() {
+    let dossier = tempfile::tempdir().unwrap();
+    let fichiers = tempfile::tempdir().unwrap();
+    let livre = paquet("2026.11.1", &[RACINE, PUISSANCES]);
+
+    // École A : une version de l'école de la racine carrée, deux leçons de l'école dans le
+    // même chapitre livré, l'une avec une image et un son.
+    deposer(
+        &dossier.path().join("a"),
+        "bibliotheque-mali-1.gbib",
+        &livre,
+    );
+    let a = poste_vierge(&dossier.path().join("a")).await;
+    a.installer().await;
+    let admin_a = a.connecter("admin", MOT_DE_PASSE).await;
+    let image = a
+        .ok(
+            "bibliotheque_image_ajouter",
+            Some(&admin_a),
+            json!({ "chemin": ecrire(fichiers.path(), "figure.png", &png(2000)) }),
+        )
+        .await;
+    let voix = a
+        .ok(
+            "bibliotheque_son_ajouter",
+            Some(&admin_a),
+            json!({ "chemin": ecrire(fichiers.path(), "voix.mp3", &son(b"ID3\x04\0\0\0\0\0\0", 4000, 3)) }),
+        )
+        .await;
+    let catalogue = a
+        .ok("bibliotheque_catalogue", Some(&admin_a), Value::Null)
+        .await;
+    let chapitre =
+        catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"][0]["chapitres"][0].clone();
+    assert_eq!(chapitre["titre"], "Racines carrées");
+    let racine = contenu_titre(&catalogue, "La racine carrée")["id"].clone();
+    version_publiee(
+        &a,
+        &admin_a,
+        &racine,
+        "# La racine carrée\n\nVersion de l'école A.\n",
+    )
+    .await;
+    lecon_publiee(
+        &a,
+        &admin_a,
+        &chapitre["id"],
+        "Encadrer une racine",
+        &format!(
+            "# Encadrer\n\n![Figure]({}) ![Écouter]({})\n",
+            image["reference"].as_str().unwrap(),
+            voix["reference"].as_str().unwrap()
+        ),
+    )
+    .await;
+    lecon_publiee(
+        &a,
+        &admin_a,
+        &chapitre["id"],
+        "Racines et carrés",
+        "# Carrés\n\n$3^2 = 9$.\n",
+    )
+    .await;
+
+    // Ce qui partira : les trois leçons de l'école, pas la leçon livrée intacte.
+    let selection = json!({ "type": "chapitre", "chapitre_cle": chapitre["cle"] });
+    let apercu = a
+        .ok(
+            "bibliotheque_export_apercu",
+            Some(&admin_a),
+            json!({ "selection": selection }),
+        )
+        .await;
+    let titres: Vec<&str> = apercu["lecons"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["titre"].as_str().unwrap())
+        .collect();
+    assert_eq!(titres.len(), 3, "{titres:?}");
+    assert!(!titres.contains(&"Les puissances"));
+    assert!(apercu["nom_propose"].as_str().unwrap().ends_with(".gles"));
+    let chemin = fichiers.path().join("lecons.gles");
+    let fait = a
+        .ok(
+            "bibliotheque_exporter",
+            Some(&admin_a),
+            json!({ "selection": selection, "chemin": chemin }),
+        )
+        .await;
+    assert_eq!(fait["lecons"], 3);
+    assert_eq!(fait["fichiers"], 2);
+    let octets = std::fs::read(&chemin).unwrap();
+    let texte = String::from_utf8_lossy(&octets);
+    assert!(
+        !texte.contains("Administrateur") && !texte.contains("admin"),
+        "aucun nom ne part"
+    );
+
+    // École B : l'aperçu dit où chaque leçon se range, puis l'import.
+    let (b, admin_b) = ecole_b(&dossier.path().join("b"), &livre).await;
+    let arrivee = b
+        .ok(
+            "bibliotheque_import_apercu",
+            Some(&admin_b),
+            json!({ "chemin": chemin }),
+        )
+        .await;
+    assert!(arrivee["deja_importe_le"].is_null());
+    let sortes: Vec<&str> = arrivee["lecons"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["arrivee"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        sortes.iter().filter(|s| **s == "nouvelle").count(),
+        2,
+        "{sortes:?}"
+    );
+    assert_eq!(
+        sortes.iter().filter(|s| **s == "brouillon").count(),
+        1,
+        "{sortes:?}"
+    );
+    assert!(
+        arrivee["lecons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|l| l["matiere"] == "Maths")
+    );
+    let resume = b
+        .ok(
+            "bibliotheque_importer",
+            Some(&admin_b),
+            json!({ "chemin": chemin }),
+        )
+        .await;
+    assert_eq!(resume["brouillons"], 3);
+    assert_eq!(resume["ignorees"], 0);
+    let import_id = resume["import_id"].clone();
+
+    // Rangées sous la matière de B, en brouillons ; l'image et le son sont arrivés.
+    let catalogue_b = b
+        .ok("bibliotheque_catalogue", Some(&admin_b), Value::Null)
+        .await;
+    let matiere = &catalogue_b["niveaux"][0]["series"][0]["matieres"][0];
+    assert_eq!(matiere["libelle"], "Maths");
+    for titre in [
+        "Encadrer une racine",
+        "Racines et carrés",
+        "La racine carrée",
+    ] {
+        let c = contenu_titre(&catalogue_b, titre);
+        assert_eq!(c["brouillon"], true, "{titre}");
+    }
+    let encadrer = contenu_titre(&catalogue_b, "Encadrer une racine")["id"].clone();
+    let ecriture = b
+        .ok(
+            "bibliotheque_ecriture_lire",
+            Some(&admin_b),
+            json!({ "contenu_id": encadrer }),
+        )
+        .await;
+    assert_eq!(ecriture["brouillon"]["mien"], true, "au nom de qui importe");
+    let apercu_b = b
+        .ok(
+            "bibliotheque_apercu",
+            Some(&admin_b),
+            json!({ "contenu_id": encadrer, "texte": ecriture["brouillon"]["texte"] }),
+        )
+        .await;
+    assert_eq!(apercu_b["images"].as_array().unwrap().len(), 1);
+    assert_eq!(apercu_b["sons"][0]["disponible"], true);
+
+    // Rien n'est visible des élèves avant publication.
+    b.ok(
+        "utilisateur_creer",
+        Some(&admin_b),
+        json!({ "identifiant": "awa", "nom_affiche": "Awa Diarra",
+            "mot_de_passe_initial": "secretaire-2026", "roles": ["secretaire"] }),
+    )
+    .await;
+    let lecteur = b.connecter("awa", "secretaire-2026").await;
+    let vu = b
+        .ok("bibliotheque_catalogue", Some(&lecteur), Value::Null)
+        .await;
+    assert!(
+        !contenus_de(&vu)
+            .iter()
+            .any(|c| c["titre"] == "Encadrer une racine")
+    );
+    let racine_b = contenu_titre(&vu, "La racine carrée")["id"].clone();
+    let lue = b
+        .ok(
+            "bibliotheque_lire",
+            Some(&lecteur),
+            json!({ "contenu_id": racine_b, "vue": null }),
+        )
+        .await;
+    assert!(!lue["lecon"].to_string().contains("École A"));
+
+    // Le même fichier une seconde fois : rien n'est ajouté, et le résumé le dit.
+    let encore = b
+        .ok(
+            "bibliotheque_import_apercu",
+            Some(&admin_b),
+            json!({ "chemin": chemin }),
+        )
+        .await;
+    assert!(encore["deja_importe_le"].is_number());
+    let resume = b
+        .ok(
+            "bibliotheque_importer",
+            Some(&admin_b),
+            json!({ "chemin": chemin }),
+        )
+        .await;
+    assert_eq!(resume["brouillons"], 0);
+    assert_eq!(resume["versions_recues"], 0);
+    assert_eq!(resume["ignorees"], 3);
+    let catalogue_b = b
+        .ok("bibliotheque_catalogue", Some(&admin_b), Value::Null)
+        .await;
+    assert_eq!(
+        contenus_de(&catalogue_b)
+            .iter()
+            .filter(|c| c["titre"] == "Encadrer une racine")
+            .count(),
+        1
+    );
+
+    // A récrit la racine carrée : chez B, un brouillon existe déjà, elle arrive en version reçue.
+    version_publiee(
+        &a,
+        &admin_a,
+        &racine,
+        "# La racine carrée\n\nSeconde version de A.\n",
+    )
+    .await;
+    let chemin_2 = fichiers.path().join("lecons-2.gles");
+    a.ok(
+        "bibliotheque_exporter",
+        Some(&admin_a),
+        json!({ "selection": { "type": "contenus", "contenu_ids": [racine] }, "chemin": chemin_2 }),
+    )
+    .await;
+    let resume = b
+        .ok(
+            "bibliotheque_importer",
+            Some(&admin_b),
+            json!({ "chemin": chemin_2 }),
+        )
+        .await;
+    assert_eq!(resume["versions_recues"], 1);
+    let historique = b
+        .ok(
+            "bibliotheque_historique",
+            Some(&admin_b),
+            json!({ "contenu_id": racine_b }),
+        )
+        .await;
+    let recue = historique["recues"][0]["id"].clone();
+    assert!(recue.is_string());
+    let comparaison = b
+        .ok(
+            "bibliotheque_comparer",
+            Some(&admin_b),
+            json!({ "contenu_id": racine_b, "gauche": { "type": "visible" },
+                "droite": { "type": "recue", "version_recue_id": recue } }),
+        )
+        .await;
+    assert!(comparaison["ajoutees"].as_u64().unwrap() > 0);
+
+    // « Publier les leçons reçues de cet import » : les trois brouillons du premier import.
+    let imports = b
+        .ok("bibliotheque_imports_lister", Some(&admin_b), Value::Null)
+        .await;
+    assert_eq!(imports.as_array().unwrap().len(), 3);
+    let publication = b
+        .ok(
+            "bibliotheque_import_publier",
+            Some(&admin_b),
+            json!({ "import_id": import_id }),
+        )
+        .await;
+    assert_eq!(publication["publiees"], 3);
+    let vu = b
+        .ok("bibliotheque_catalogue", Some(&lecteur), Value::Null)
+        .await;
+    assert!(
+        contenus_de(&vu)
+            .iter()
+            .any(|c| c["titre"] == "Encadrer une racine")
+    );
+
+    // Repartir de la version reçue.
+    let ouverte = b
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(&admin_b),
+            commencer(
+                &racine_b,
+                json!({ "type": "recue", "version_recue_id": recue }),
+            ),
+        )
+        .await;
+    assert!(
+        ouverte["brouillon"]["texte"]
+            .as_str()
+            .unwrap()
+            .contains("Seconde version")
+    );
+
+    // Sans la gestion de la bibliothèque, aucun import.
+    let refus = b
+        .refus("bibliotheque_imports_lister", Some(&lecteur), Value::Null)
+        .await;
+    assert_eq!(refus.cle, "erreur.permission_refusee");
+}
+
+#[tokio::test]
+async fn un_chapitre_de_l_ecole_se_cree_sous_la_matiere_de_l_autre_ecole() {
+    let dossier = tempfile::tempdir().unwrap();
+    let fichiers = tempfile::tempdir().unwrap();
+    let livre = paquet("2026.11.1", &[RACINE]);
+    deposer(
+        &dossier.path().join("a"),
+        "bibliotheque-mali-1.gbib",
+        &livre,
+    );
+    let a = poste_vierge(&dossier.path().join("a")).await;
+    a.installer().await;
+    let admin_a = a.connecter("admin", MOT_DE_PASSE).await;
+    let choix = a
+        .ok("bibliotheque_ecriture_choix", Some(&admin_a), Value::Null)
+        .await;
+    let neuvieme = choix["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .unwrap()["id"]
+        .clone();
+    let catalogue = a
+        .ok("bibliotheque_catalogue", Some(&admin_a), Value::Null)
+        .await;
+    let math = catalogue["niveaux"][0]["series"][0]["matieres"][0]["matiere_id"].clone();
+    let chapitre = a
+        .ok(
+            "bibliotheque_chapitre_ajouter",
+            Some(&admin_a),
+            json!({ "niveau_id": neuvieme, "matiere_id": math, "series": [],
+                "partie": "Algèbre", "titre": "Les équations", "apres_cle": null }),
+        )
+        .await;
+    lecon_publiee(
+        &a,
+        &admin_a,
+        &chapitre["id"],
+        "Résoudre une équation",
+        "# Équations\n\n$x + 1 = 2$.\n",
+    )
+    .await;
+    // Un brouillon ne part jamais.
+    a.ok(
+        "bibliotheque_contenu_ajouter",
+        Some(&admin_a),
+        json!({ "nature": "lecon", "chapitre_id": chapitre["id"], "niveau_id": null,
+            "matiere_id": null, "titre": "Brouillon de A", "presentation": "", "examen": null,
+            "serie_code": null, "session": null, "sujet_id": null, "apres_cle": null }),
+    )
+    .await;
+    let matiere_cle = catalogue["niveaux"][0]["series"][0]["matieres"][0]["cle"].clone();
+    let chemin = fichiers.path().join("matiere.gles");
+    let fait = a
+        .ok(
+            "bibliotheque_exporter",
+            Some(&admin_a),
+            json!({ "selection": { "type": "matiere", "niveau_code": "9", "matiere_cle": matiere_cle },
+                "chemin": chemin }),
+        )
+        .await;
+    assert_eq!(fait["lecons"], 1);
+
+    let (b, admin_b) = ecole_b(&dossier.path().join("b"), &livre).await;
+    let resume = b
+        .ok(
+            "bibliotheque_importer",
+            Some(&admin_b),
+            json!({ "chemin": chemin }),
+        )
+        .await;
+    assert_eq!(resume["brouillons"], 1);
+    assert_eq!(resume["chapitres"], 1);
+    let catalogue_b = b
+        .ok("bibliotheque_catalogue", Some(&admin_b), Value::Null)
+        .await;
+    let matiere = &catalogue_b["niveaux"][0]["series"][0]["matieres"][0];
+    assert_eq!(matiere["libelle"], "Maths");
+    let chapitres: Vec<&str> = matiere["parties"][0]["chapitres"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["titre"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        chapitres,
+        ["Racines carrées", "Les équations"],
+        "à la fin de sa partie"
+    );
+    assert!(
+        !contenus_de(&catalogue_b)
+            .iter()
+            .any(|c| c["titre"] == "Brouillon de A")
+    );
+}
+
+#[tokio::test]
+async fn un_fichier_abime_est_refuse_et_un_fichier_piege_arrive_nettoye() {
+    use gesco_core::bibliotheque::paquet::empreinte;
+    use gesco_core::bibliotheque::{
+        ChapitreEchange, LeconEchange, ManifesteEchange, fabriquer_echange, nom_fichier_echange,
+        nom_texte_echange,
+    };
+
+    let dossier = tempfile::tempdir().unwrap();
+    let fichiers = tempfile::tempdir().unwrap();
+    let livre = paquet("2026.11.1", &[RACINE]);
+    let (b, admin_b) = ecole_b(&dossier.path().join("b"), &livre).await;
+
+    let svg = b"<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script>\
+        <circle r=\"4\" onload=\"vol()\"/></svg>"
+        .to_vec();
+    let empreinte_svg = empreinte(&svg);
+    let texte = format!(
+        "# Piège\n\n<script>alert(1)</script>\n\nVoir [ici](https://exemple.org).\n\n![Figure](image:{empreinte_svg})\n"
+    );
+    let manifeste = ManifesteEchange {
+        date: "2026-11-16".to_owned(),
+        gesco: "2.0.0".to_owned(),
+        lecons: vec![LeconEchange {
+            cle: "ecole/01JPIEGE000000000000000000".to_owned(),
+            livre: false,
+            nature: NatureContenu::Lecon,
+            titre: "Leçon piégée".to_owned(),
+            presentation: String::new(),
+            examen: None,
+            serie: None,
+            session: None,
+            lie: None,
+            chapitre: ChapitreEchange {
+                cle: "ecole/01JCHAPITREPIEGE0000000000".to_owned(),
+                livre: false,
+                niveau: "9".to_owned(),
+                discipline: "MATH".to_owned(),
+                discipline_libelle: "Mathématiques".to_owned(),
+                series: vec![],
+                partie: String::new(),
+                titre: "Pièges".to_owned(),
+            },
+            texte: nom_texte_echange(0),
+            joints: vec![],
+        }],
+        noms: Default::default(),
+        fichiers: vec![],
+    };
+    let octets = fabriquer_echange(
+        &manifeste,
+        &[
+            (nom_texte_echange(0), texte.into_bytes()),
+            (nom_fichier_echange(&empreinte_svg), svg),
+        ],
+    )
+    .unwrap();
+
+    // Un octet changé : refusé entier.
+    let mut abime = octets.clone();
+    let milieu = abime.len() / 2;
+    abime[milieu] ^= 0x01;
+    let refus = b
+        .refus(
+            "bibliotheque_import_apercu",
+            Some(&admin_b),
+            json!({ "chemin": ecrire(fichiers.path(), "abime.gles", &abime) }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.echange_abime");
+    let refus = b
+        .refus(
+            "bibliotheque_importer",
+            Some(&admin_b),
+            json!({ "chemin": ecrire(fichiers.path(), "abime.gles", &abime) }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.echange_abime");
+
+    // Le fichier piégé arrive filtré : le HTML reste du texte, le lien perd sa cible, le SVG est
+    // nettoyé et le texte appelle l'image nettoyée.
+    let resume = b
+        .ok(
+            "bibliotheque_importer",
+            Some(&admin_b),
+            json!({ "chemin": ecrire(fichiers.path(), "piege.gles", &octets) }),
+        )
+        .await;
+    assert_eq!(resume["brouillons"], 1);
+    let catalogue = b
+        .ok("bibliotheque_catalogue", Some(&admin_b), Value::Null)
+        .await;
+    let piege = contenu_titre(&catalogue, "Leçon piégée")["id"].clone();
+    let ecriture = b
+        .ok(
+            "bibliotheque_ecriture_lire",
+            Some(&admin_b),
+            json!({ "contenu_id": piege }),
+        )
+        .await;
+    let texte_recu = ecriture["brouillon"]["texte"].as_str().unwrap().to_owned();
+    assert!(
+        !texte_recu.contains(&empreinte_svg),
+        "l'appel suit l'image nettoyée"
+    );
+    let apercu = b
+        .ok(
+            "bibliotheque_apercu",
+            Some(&admin_b),
+            json!({ "contenu_id": piege, "texte": texte_recu }),
+        )
+        .await;
+    assert!(!apercu["lecon"].to_string().contains("exemple.org"));
+    let image = base64_vers_octets(&apercu["images"][0]["donnees"]);
+    let image = String::from_utf8(image).unwrap();
+    assert!(!image.contains("script") && !image.contains("onload"));
+    assert!(image.contains("circle"));
+}

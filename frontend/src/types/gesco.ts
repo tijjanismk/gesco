@@ -2255,6 +2255,12 @@ export type Contrat = {
 	bibliotheque_image_ajouter: Signature<DemandeImageBibliotheque, ImageAjoutee>,
 	bibliotheque_son_ajouter: Signature<DemandeSonBibliotheque, SonAjoute>,
 	bibliotheque_word_importer: Signature<DemandeImportWord, ImportWord>,
+	bibliotheque_export_apercu: Signature<DemandeExportApercu, ApercuExport>,
+	bibliotheque_exporter: Signature<DemandeExportLecons, ExportFait>,
+	bibliotheque_import_apercu: Signature<DemandeImportLecons, ApercuImport>,
+	bibliotheque_importer: Signature<DemandeImportLecons, ImportFait>,
+	bibliotheque_imports_lister: Signature<null, ImportAffiche[]>,
+	bibliotheque_import_publier: Signature<DemandeImportPublier, PublicationImport>,
 	bibliotheque_classes_lire: Signature<DemandePourQui, PourQuiContenu>,
 	bibliotheque_classes_regler: Signature<DemandeReglerPourQui, PourQuiContenu>,
 	/**  Signature de la commande du même nom. */
@@ -5614,7 +5620,11 @@ export type DepartBrouillon =
 /**  Une version de l'école, ancienne ou non (« Repartir de cette version »). */
 { type: "version"; 
 /**  Identifiant de la version. */
-version_id: string };
+version_id: string } | 
+/**  Une version reçue d'une autre école (« Repartir de cette version »). */
+{ type: "recue"; 
+/**  Identifiant de la version reçue. */
+version_recue_id: string };
 
 /**  Dépense de l'école. */
 export type Depense = {
@@ -7485,6 +7495,8 @@ export type HistoriqueContenu = {
 	versions: VersionAffichee[],
 	/**  Retraits et remises, les plus récents d'abord. */
 	mouvements: MouvementContenu[],
+	/**  Versions reçues d'une autre école, les plus récentes d'abord. */
+	recues: VersionRecueAffichee[],
 	/**  Le contenu a une version livrée lisible sur ce poste. */
 	a_une_version_livree: boolean,
 	/**
@@ -7513,6 +7525,176 @@ export type ImageAjoutee = {
 	reference: string,
 	/**  Nom du fichier, proposé comme description. */
 	nom: string,
+};
+
+/**  Une version reçue d'une autre école alors qu'un brouillon existait. */
+export type VersionRecueAffichee = {
+	/**  Identifiant. */
+	id: string,
+	/**  Reçue le, millisecondes depuis l'époque. */
+	recue_le: number,
+	/**  Nom de qui a importé le fichier. */
+	importe_par: string,
+};
+
+/**  Ce que l'on exporte. */
+export type SelectionExport =
+/**  Un chapitre du catalogue. */
+{ type: "chapitre"; 
+/**  Clé du chapitre. */
+chapitre_cle: string } | 
+/**  Une matière d'un niveau du catalogue. */
+{ type: "matiere"; 
+/**  Code du niveau. */
+niveau_code: string; 
+/**  Clé de la matière au catalogue (`m:<identifiant>` ou `d:<code>`). */
+matiere_cle: string } | 
+/**  Des contenus choisis. */
+{ type: "contenus"; 
+/**  Identifiants des contenus. */
+contenu_ids: string[] };
+
+/**  Voir ce qui partira. */
+export type DemandeExportApercu = {
+	/**  Ce que l'on exporte. */
+	selection: SelectionExport,
+};
+
+/**  Une leçon qui partira. */
+export type LeconExportee = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Nature. */
+	nature: NatureContenu,
+	/**  Titre du chapitre. */
+	chapitre: string,
+	/**  Version de l'école d'une leçon livrée. */
+	version_d_une_livree: boolean,
+};
+
+/**  Ce qui partira, et le nom proposé pour le fichier. */
+export type ApercuExport = {
+	/**  Leçons, dans l'ordre du catalogue. */
+	lecons: LeconExportee[],
+	/**  Nom proposé : « Leçons — Classe — Matière.gles ». */
+	nom_propose: string,
+};
+
+/**  Exporter dans un fichier. */
+export type DemandeExportLecons = {
+	/**  Ce que l'on exporte. */
+	selection: SelectionExport,
+	/**  Chemin du fichier `.gles` à écrire. */
+	chemin: string,
+};
+
+/**  Un export fait. */
+export type ExportFait = {
+	/**  Leçons parties. */
+	lecons: number,
+	/**  Images, sons et fichiers de documents partis avec elles. */
+	fichiers: number,
+};
+
+/**  Lire ou importer un fichier de leçons. */
+export type DemandeImportLecons = {
+	/**  Chemin du fichier `.gles` (sur un poste relié, son contenu voyage à sa place). */
+	chemin: string,
+};
+
+/**  Où une leçon reçue se rangera. */
+export type ArriveeLecon =
+/**  Brouillon d'une leçon que l'école a déjà. */
+"brouillon" | 
+/**  L'école a déjà un brouillon : version reçue, dans l'historique. */
+"version_recue" | 
+/**  Leçon nouvelle de l'école, en brouillon. */
+"nouvelle" | 
+/**  Ce texte est déjà dans l'historique : rien n'est ajouté. */
+"deja_la" | 
+/**  Aucune place : ni ce niveau ni cette matière dans l'école. */
+"sans_place";
+
+/**  Une leçon du fichier et où elle se rangera. */
+export type LeconArrivee = {
+	/**  Titre. */
+	titre: string,
+	/**  Nature. */
+	nature: NatureContenu,
+	/**  Niveau de l'école (libellé), sinon le code reçu. */
+	niveau: string,
+	/**  Matière où elle se range (libellé de l'école, sinon de référence). */
+	matiere: string,
+	/**  Titre du chapitre. */
+	chapitre: string,
+	/**  Le chapitre sera créé. */
+	chapitre_nouveau: boolean,
+	/**  Ce qui arrivera. */
+	arrivee: ArriveeLecon,
+};
+
+/**  Ce qu'un fichier apporte, avant de confirmer. */
+export type ApercuImport = {
+	/**  Nom du fichier. */
+	nom_fichier: string,
+	/**  Date de fabrication écrite dans le fichier. */
+	date: string,
+	/**  Leçons, dans l'ordre du fichier. */
+	lecons: LeconArrivee[],
+	/**  Ce fichier a déjà été importé : quand, millisecondes depuis l'époque. */
+	deja_importe_le: number | null,
+};
+
+/**  Un import tel que les réglages le montrent. */
+export type ImportAffiche = {
+	/**  Identifiant. */
+	id: string,
+	/**  Nom du fichier. */
+	nom_fichier: string,
+	/**  Importé le, millisecondes depuis l'époque. */
+	importe_le: number,
+	/**  Nom de qui l'a importé. */
+	importe_par: string,
+	/**  Leçons reçues. */
+	lecons: number,
+	/**  Leçons déjà là, ignorées. */
+	ignorees: number,
+	/**  Leçons reçues encore à publier. */
+	a_publier: number,
+};
+
+/**  Résumé d'un import. */
+export type ImportFait = {
+	/**  Identifiant de l'import. */
+	import_id: string,
+	/**  Leçons reçues en brouillon. */
+	brouillons: number,
+	/**  Versions reçues ajoutées à l'historique. */
+	versions_recues: number,
+	/**  Leçons déjà là, ignorées. */
+	ignorees: number,
+	/**  Leçons sans place dans l'école. */
+	sans_place: number,
+	/**  Chapitres créés. */
+	chapitres: number,
+	/**  Imports de l'école, les plus récents d'abord. */
+	imports: ImportAffiche[],
+};
+
+/**  Publier les leçons reçues d'un import. */
+export type DemandeImportPublier = {
+	/**  Identifiant de l'import. */
+	import_id: string,
+};
+
+/**  Leçons publiées d'un geste. */
+export type PublicationImport = {
+	/**  Versions publiées. */
+	publiees: number,
+	/**  Imports de l'école, les plus récents d'abord. */
+	imports: ImportAffiche[],
 };
 
 /**  Le cours après l'import, et ce que l'auteur lit sous l'aperçu. */
@@ -11530,7 +11712,11 @@ export type TexteCompare =
 /**  Une version de l'école. */
 { type: "version"; 
 /**  Identifiant de la version. */
-version_id: string };
+version_id: string } | 
+/**  Une version reçue d'une autre école. */
+{ type: "recue"; 
+/**  Identifiant de la version reçue. */
+version_recue_id: string };
 
 /**  Thème d'une rubrique : l'ordre des groupes à l'écran. */
 export type ThemeRubrique = 

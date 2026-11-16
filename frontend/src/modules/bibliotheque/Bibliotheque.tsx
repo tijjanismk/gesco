@@ -11,9 +11,11 @@ import type {
   ContenuCatalogue,
   NiveauCatalogue,
   ResultatRechercheBibliotheque,
+  SelectionExport,
 } from "../../types/gesco";
 import { Ajouter } from "./Ajouter";
 import { DroitsPublication } from "./DroitsPublication";
+import { ExporterLecons } from "./Echange";
 import { ListeEnAttente, useLeconsAValider } from "./EnAttente";
 import { Lecture, libelleNature } from "./Lecture";
 import { type CiblePourQui, MarqueClasses, PourQui } from "./PourQui";
@@ -79,19 +81,36 @@ function Extrait({ texte }: { texte: string }) {
   return <p className="text-sm text-encre">{morceaux}</p>;
 }
 
+/** Leçons cochées pour l'export, quand l'utilisateur choisit des leçons à envoyer. */
+interface ChoixExport {
+  coches: ReadonlySet<string>;
+  basculer: (id: string) => void;
+}
+
 function LigneContenu({
   contenu,
   peutEcrire,
   choisi,
   surOuvrir,
+  choix,
 }: {
   contenu: ContenuCatalogue;
   peutEcrire: boolean;
   choisi: boolean;
   surOuvrir: (id: string) => void;
+  choix: ChoixExport | null;
 }) {
   return (
-    <li>
+    <li className="flex items-start gap-1">
+      {choix === null ? null : (
+        <input
+          type="checkbox"
+          className="mt-2 size-4 shrink-0 accent-primaire"
+          checked={choix.coches.has(contenu.id)}
+          onChange={() => choix.basculer(contenu.id)}
+          aria-label={t("bibliotheque.echange.cocher", { titre: contenu.titre })}
+        />
+      )}
       <button
         type="button"
         onClick={() => surOuvrir(contenu.id)}
@@ -116,11 +135,15 @@ function Arbre({
   peutEcrire,
   choisi,
   surOuvrir,
+  choix,
+  surExporter,
 }: {
   niveaux: readonly NiveauCatalogue[];
   peutEcrire: boolean;
   choisi: string | null;
   surOuvrir: (id: string) => void;
+  choix: ChoixExport | null;
+  surExporter: (s: SelectionExport) => void;
 }) {
   const ouvert = niveaux.length === 1;
   const [pourQui, setPourQui] = useState<CiblePourQui | null>(null);
@@ -140,6 +163,17 @@ function Arbre({
                     {m.libelle}
                   </summary>
                   <div className="ml-3 flex flex-col gap-1">
+                    {peutEcrire ? (
+                      <div className="flex flex-wrap gap-1 py-0.5">
+                        <Bouton
+                          variante="secondaire"
+                          className="px-2! py-0.5! text-xs!"
+                          onClick={() => surExporter({ type: "matiere", niveau_code: n.code, matiere_cle: m.cle })}
+                        >
+                          {t("bibliotheque.echange.exporter_matiere")}
+                        </Bouton>
+                      </div>
+                    ) : null}
                     {m.parties.map((p) => (
                       <div key={p.titre}>
                         {p.titre === "" ? null : <p className="px-1 pt-1 text-xs font-semibold text-muet">{p.titre}</p>}
@@ -148,16 +182,25 @@ function Arbre({
                             <summary className="cursor-pointer rounded px-1 py-0.5 text-sm text-encre focus-visible:outline-2 focus-visible:outline-primaire">
                               {c.titre} <MarqueClasses classes={c.classes_seulement} />
                             </summary>
-                            {peutEcrire && c.origine === "ecole" ? (
+                            {peutEcrire ? (
                               <div className="ml-3 flex flex-wrap gap-1 py-0.5">
-                                <Bouton variante="secondaire" className="px-2! py-0.5! text-xs!" onClick={() => setPourQui({ contenu_id: null, chapitre_id: c.id })}>
-                                  {t("bibliotheque.pour_qui.bouton")}
+                                {c.origine === "ecole" ? (
+                                  <Bouton variante="secondaire" className="px-2! py-0.5! text-xs!" onClick={() => setPourQui({ contenu_id: null, chapitre_id: c.id })}>
+                                    {t("bibliotheque.pour_qui.bouton")}
+                                  </Bouton>
+                                ) : null}
+                                <Bouton
+                                  variante="secondaire"
+                                  className="px-2! py-0.5! text-xs!"
+                                  onClick={() => surExporter({ type: "chapitre", chapitre_cle: c.cle })}
+                                >
+                                  {t("bibliotheque.echange.exporter")}
                                 </Bouton>
                               </div>
                             ) : null}
                             <ul className="ml-3">
                               {c.contenus.map((x) => (
-                                <LigneContenu key={x.id} contenu={x} peutEcrire={peutEcrire} choisi={x.id === choisi} surOuvrir={surOuvrir} />
+                                <LigneContenu key={x.id} contenu={x} peutEcrire={peutEcrire} choisi={x.id === choisi} surOuvrir={surOuvrir} choix={choix} />
                               ))}
                             </ul>
                           </details>
@@ -291,6 +334,21 @@ export function Bibliotheque() {
   const [enEcriture, setEnEcriture] = useState(false);
   const [attente, setAttente] = useState(false);
   const [droits, setDroits] = useState(false);
+  // Leçons cochées pour l'export (null : pas de choix en cours) et export ouvert.
+  const [coches, setCoches] = useState<ReadonlySet<string> | null>(null);
+  const [exportant, setExportant] = useState<SelectionExport | null>(null);
+  const choix: ChoixExport | null =
+    coches === null
+      ? null
+      : {
+          coches,
+          basculer: (id) => {
+            const suivant = new Set(coches);
+            if (suivant.has(id)) suivant.delete(id);
+            else suivant.add(id);
+            setCoches(suivant);
+          },
+        };
   const aValider = useLeconsAValider(catalogue.data?.peut_valider === true);
   const ouvrir = (id: string) => {
     setEnEcriture(false);
@@ -353,6 +411,16 @@ export function Bibliotheque() {
             {t("bibliotheque.ajouter")}
           </button>
         ) : null}
+        {donnees?.peut_ecrire === true ? (
+          <button
+            type="button"
+            onClick={() => setCoches(coches === null ? new Set() : null)}
+            aria-pressed={coches !== null}
+            className="rounded border border-muet px-3 py-1.5 text-sm text-encre hover:bg-fond focus-visible:outline-2 focus-visible:outline-primaire"
+          >
+            {t("bibliotheque.echange.choisir")}
+          </button>
+        ) : null}
         {donnees?.peut_gerer === true ? (
           <button
             type="button"
@@ -367,6 +435,18 @@ export function Bibliotheque() {
       </div>
       {ajout && donnees !== undefined ? <Ajouter catalogue={donnees} surOuvrir={ecrire} surFermer={() => setAjout(false)} /> : null}
       {retires ? <ListeRetraits /> : null}
+      {exportant === null ? null : <ExporterLecons key={JSON.stringify(exportant)} selection={exportant} surFin={() => setExportant(null)} />}
+      {coches === null ? null : (
+        <div className="flex flex-wrap items-center gap-2 rounded border border-muet/40 p-2 text-sm text-encre">
+          <span>{t("bibliotheque.echange.cochees", { nombre: coches.size })}</span>
+          <Bouton onClick={() => setExportant({ type: "contenus", contenu_ids: [...coches] })} disabled={coches.size === 0}>
+            {t("bibliotheque.echange.exporter_selection")}
+          </Bouton>
+          <Bouton variante="secondaire" onClick={() => setCoches(null)}>
+            {t("bibliotheque.echange.choix_fin")}
+          </Bouton>
+        </div>
+      )}
       {droits ? <DroitsPublication /> : null}
       {attente ? (
         <ListeEnAttente
@@ -414,7 +494,7 @@ export function Bibliotheque() {
                   {donnees.niveaux.length === 0 ? t("bibliotheque.vide") : t("bibliotheque.vide.filtre")}
                 </p>
               ) : (
-                <Arbre niveaux={niveaux} peutEcrire={donnees.peut_ecrire} choisi={choisi} surOuvrir={ouvrir} />
+                <Arbre niveaux={niveaux} peutEcrire={donnees.peut_ecrire} choisi={choisi} surOuvrir={ouvrir} choix={choix} surExporter={setExportant} />
               )}
             </>
           )}
