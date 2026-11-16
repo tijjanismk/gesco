@@ -289,6 +289,7 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("bibliotheque_installer", Fichier::Lu("chemin")),
     ("bibliotheque_image_ajouter", Fichier::Lu("chemin")),
     ("bibliotheque_son_ajouter", Fichier::Lu("chemin")),
+    ("bibliotheque_word_importer", Fichier::Lu("chemin")),
     (
         "bibliotheque_document_fichier_ajouter",
         Fichier::Lu("chemin"),
@@ -376,6 +377,7 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "bibliotheque_publier",
     "bibliotheque_image_ajouter",
     "bibliotheque_son_ajouter",
+    "bibliotheque_word_importer",
     "bibliotheque_classes_lire",
     "bibliotheque_classes_regler",
     "bibliotheque_document_fichier_ajouter",
@@ -640,6 +642,7 @@ pub const COMMANDES: &[Commande] = &[
     // Images, documents, vidéos et impression de la bibliothèque (SPEC_PHASE_12_LOT_1 §10, §11).
     Commande::permise("bibliotheque_image_ajouter", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_son_ajouter", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_word_importer", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_classes_lire", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_classes_regler", Permission::LIBRARY_EDIT),
     Commande::permise(

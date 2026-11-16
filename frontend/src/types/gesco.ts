@@ -2254,6 +2254,7 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	bibliotheque_image_ajouter: Signature<DemandeImageBibliotheque, ImageAjoutee>,
 	bibliotheque_son_ajouter: Signature<DemandeSonBibliotheque, SonAjoute>,
+	bibliotheque_word_importer: Signature<DemandeImportWord, ImportWord>,
 	bibliotheque_classes_lire: Signature<DemandePourQui, PourQuiContenu>,
 	bibliotheque_classes_regler: Signature<DemandeReglerPourQui, PourQuiContenu>,
 	/**  Signature de la commande du même nom. */
@@ -4281,6 +4282,21 @@ export type DemandeImportReleve = {
 	chemin: string,
 	/**  Colonnes. */
 	format: FormatReleve,
+};
+
+/**  Importer un fichier Word dans le brouillon d'un cours. */
+export type DemandeImportWord = {
+	/**  Identifiant du cours. */
+	contenu_id: string,
+	/**  Chemin du fichier `.docx`. */
+	chemin: string,
+	/**
+	 *  Brouillon ouvert dans l'éditeur, dont le texte sera remplacé ; aucun si le cours n'en a
+	 *  pas.
+	 */
+	version_id: string | null,
+	/**  Révision de ce brouillon lue par l'éditeur. */
+	revision: number | null,
 };
 
 /**  Imprimer un chapitre entier. */
@@ -7499,6 +7515,14 @@ export type ImageAjoutee = {
 	nom: string,
 };
 
+/**  Le cours après l'import, et ce que l'auteur lit sous l'aperçu. */
+export type ImportWord = {
+	/**  Le cours ouvert pour l'écriture, avec son brouillon. */
+	ecriture: EcritureOuverte,
+	/**  Ce qui n'est pas passé. */
+	notes: NoteWord[],
+};
+
 /**  Une image appelée par la leçon, prête à afficher. */
 export type ImageLecon = {
 	/**  Nom du fichier du paquet, ou empreinte d'une image de l'école. */
@@ -9025,6 +9049,28 @@ export type NiveauInventaire = {
 	/**  Cycle du niveau. */
 	cycle: Cycle,
 };
+
+/**  Ce que l'auteur lit sous l'aperçu après un import : ce qui n'est pas passé. */
+export type NoteWord =
+/**  Formules remplacées par « Formule à retaper ici ». */
+{ type: "formules";
+/**  Nombre de formules. */
+nombre: number } |
+/**  Images de plus de 5 Mo laissées de côté. */
+{ type: "images_trop_lourdes";
+/**  Nombre d'images. */
+nombre: number } |
+/**
+ *  Images dans un format que la bibliothèque ne prend pas (EMF, WMF, GIF…) ou liées à un
+ *  fichier extérieur.
+ */
+{ type: "images_non_reprises";
+/**  Nombre d'images. */
+nombre: number } |
+/**  Zones de texte ignorées. */
+{ type: "zones_de_texte" } |
+/**  En-têtes, pieds de page, commentaires ou révisions supprimées ignorés. */
+{ type: "elements_ignores" };
 
 /**
  *  Note de conduite saisie pour un élève et une période : la note du mode manuel, ou la

@@ -472,7 +472,7 @@ fn hors_portee(id: &str) -> ErreurService {
     }
 }
 
-fn nombre(n: i64) -> u32 {
+pub(super) fn nombre(n: i64) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
 }
 
@@ -559,7 +559,7 @@ impl ServiceBibliotheque<'_> {
     }
 
     /// Le texte visible et la version publiée non « retour » d'où il vient, s'il y en a une.
-    fn texte_visible<'v>(
+    pub(super) fn texte_visible<'v>(
         &self,
         contenu: &ContenuBibliotheque,
         versions: &'v [LigneVersion],
@@ -650,7 +650,7 @@ impl ServiceBibliotheque<'_> {
 
     /// Écrit un brouillon nouveau dans une unité de travail, avec son audit et son événement.
     #[allow(clippy::too_many_arguments)]
-    async fn creer_brouillon(
+    pub(super) async fn creer_brouillon(
         &self,
         unite: &mut gesco_db::UniteDeTravail<crate::effets::Effet>,
         session: &Session,
@@ -660,7 +660,7 @@ impl ServiceBibliotheque<'_> {
         depart_version_id: Option<&str>,
         depart_livre_sha256: Option<&str>,
         origine: &str,
-    ) -> Resultat<()> {
+    ) -> Resultat<String> {
         let empreinte_texte = empreinte(texte.as_bytes());
         let auteur = session.utilisateur_id.vers_chaine();
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
@@ -705,7 +705,7 @@ impl ServiceBibliotheque<'_> {
                 "etat": EtatVersion::Brouillon.nom(),
             }),
         );
-        Ok(())
+        Ok(id)
     }
 
     /// Commence un brouillon : depuis la version visible, la version livrée ou une version de

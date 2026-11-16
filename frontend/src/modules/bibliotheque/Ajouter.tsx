@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { appeler } from "../../api";
 import { Bouton } from "../../composants/Bouton";
 import { CaseACocher, Champ, Formulaire, Selection } from "../../composants/Champ";
 import { MessageErreur } from "../../composants/Messages";
 import { t } from "../../i18n";
-import type { CatalogueBibliotheque, ChoixEcriture, ExamenSujet, NatureContenu } from "../../types/gesco";
+import type { CatalogueBibliotheque, ChoixEcriture, DemandeAjoutContenu, EcritureOuverte, ExamenSujet, NatureContenu } from "../../types/gesco";
+import { choisirWord } from "../../api/fichiers";
+import { cleNotesWord } from "./Editeur";
 
 type Sorte = "chapitre" | "lecon" | "sujet" | "document";
 
@@ -205,25 +207,52 @@ function AjoutContenu({
   const niveau = choix.niveaux.find((n) => n.id === niveauId);
   const nature: NatureContenu = sorte;
   const sujetSansChapitre = sorte === "sujet";
+  const demande = (): DemandeAjoutContenu => ({
+    nature,
+    chapitre_id: sujetSansChapitre ? null : chapitreId,
+    niveau_id: sujetSansChapitre ? niveauId : null,
+    matiere_id: sujetSansChapitre ? matiereId : null,
+    titre,
+    presentation,
+    examen: sorte === "sujet" ? examen : null,
+    serie_code: sorte === "sujet" && serie !== "" ? serie : null,
+    session: sorte === "sujet" && session !== "" ? Number(session) : null,
+    sujet_id: null,
+    apres_cle: null,
+  });
   const ajouter = useMutation({
-    mutationFn: () =>
-      appeler("bibliotheque_contenu_ajouter", {
-        nature,
-        chapitre_id: sujetSansChapitre ? null : chapitreId,
-        niveau_id: sujetSansChapitre ? niveauId : null,
-        matiere_id: sujetSansChapitre ? matiereId : null,
-        titre,
-        presentation,
-        examen: sorte === "sujet" ? examen : null,
-        serie_code: sorte === "sujet" && serie !== "" ? serie : null,
-        session: sorte === "sujet" && session !== "" ? Number(session) : null,
-        sujet_id: null,
-        apres_cle: null,
-      }),
+    mutationFn: () => appeler("bibliotheque_contenu_ajouter", demande()),
     onSuccess: (e) => {
       void client.invalidateQueries({ queryKey: ["bibliotheque", "catalogue"] });
       client.setQueryData(["bibliotheque", "ecriture", e.contenu_id], e);
       surOuvrir(e.contenu_id);
+    },
+  });
+  // La fiche se choisit d'abord : annuler le choix n'ajoute rien. Puis l'ajout, l'import et
+  // l'éditeur, le brouillon déjà écrit. Si la fiche est refusée, le cours ajouté est gardé : un
+  // nouvel essai l'utilise au lieu d'en ajouter un second.
+  const ajoutWord = useRef<EcritureOuverte | null>(null);
+  const depuisWord = useMutation({
+    mutationFn: async () => {
+      const chemin = await choisirWord(t("bibliotheque.word.filtre"));
+      if (chemin === null) return null;
+      const ajoute = ajoutWord.current ?? (await appeler("bibliotheque_contenu_ajouter", demande()));
+      ajoutWord.current = ajoute;
+      void client.invalidateQueries({ queryKey: ["bibliotheque", "catalogue"] });
+      // Le cours ajouté naît avec son brouillon : la fiche en remplace le texte.
+      return appeler("bibliotheque_word_importer", {
+        contenu_id: ajoute.contenu_id,
+        chemin,
+        version_id: ajoute.brouillon?.version_id ?? null,
+        revision: ajoute.brouillon?.revision ?? null,
+      });
+    },
+    onSuccess: (r) => {
+      if (r === null) return;
+      ajoutWord.current = null;
+      client.setQueryData(cleNotesWord(r.ecriture.contenu_id), r.notes);
+      client.setQueryData(["bibliotheque", "ecriture", r.ecriture.contenu_id], r.ecriture);
+      surOuvrir(r.ecriture.contenu_id);
     },
   });
   const pret = titre.trim() !== "" && (sujetSansChapitre ? niveauId !== "" && matiereId !== "" : chapitreId !== "");
@@ -268,12 +297,17 @@ function AjoutContenu({
       {sorte === "document" ? (
         <Champ id="ajout-presentation" libelle={t("bibliotheque.ajouter.presentation")} value={presentation} onChange={(e) => setPresentation(e.target.value)} maxLength={500} />
       ) : null}
-      <div>
-        <Bouton type="submit" disabled={!pret || ajouter.isPending}>
+      <div className="flex flex-wrap gap-2">
+        <Bouton type="submit" disabled={!pret || ajouter.isPending || depuisWord.isPending}>
           {libelles(sorte).bouton}
         </Bouton>
+        {sorte === "document" ? null : (
+          <Bouton variante="secondaire" onClick={() => depuisWord.mutate()} disabled={!pret || ajouter.isPending || depuisWord.isPending}>
+            {depuisWord.isPending ? t("bibliotheque.word.en_cours") : t("bibliotheque.ajouter.depuis_word")}
+          </Bouton>
+        )}
       </div>
-      <MessageErreur erreur={ajouter.error} />
+      <MessageErreur erreur={ajouter.error ?? depuisWord.error} />
     </Formulaire>
   );
 }

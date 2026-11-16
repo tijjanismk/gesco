@@ -21,6 +21,8 @@ zeroize.workspace = true
 ed25519-dalek.workspace = true
 pulldown-cmark.workspace = true
 flate2.workspace = true
+zip.workspace = true
+quick-xml.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

@@ -340,6 +340,35 @@ impl ServiceBibliotheque<'_> {
                 return Err(regle("bibliotheque.pas_un_document"));
             }
         }
+        let (fichier_id, _) =
+            Self::enregistrer_dans(&mut unite, &contexte, sorte, &nom, octets).await?;
+        if let Some(contenu_id) = joindre_a {
+            let lien =
+                depot::joindre_fichier(unite.connexion(), contenu_id, &fichier_id, &contexte)
+                    .await?;
+            unite.auditer(
+                "fichier_contenu",
+                &lien,
+                Operation::Creation,
+                None,
+                Some(serde_json::json!({ "contenu_id": contenu_id, "fichier_id": fichier_id })),
+                "bibliotheque.document_fichier_ajouter",
+            );
+        }
+        self.noyau.terminer(unite).await?;
+        Ok(cle)
+    }
+
+    /// Range dans l'unité un fichier déjà lu, borné et nettoyé, avec son audit et son événement
+    /// s'il est nouveau : (identifiant, empreinte). Un fichier déjà là n'est pas doublé.
+    pub(super) async fn enregistrer_dans(
+        unite: &mut gesco_db::UniteDeTravail<crate::effets::Effet>,
+        contexte: &gesco_db::contexte::Contexte,
+        sorte: SorteFichier,
+        nom: &str,
+        octets: &[u8],
+    ) -> Resultat<(String, String)> {
+        let cle = empreinte(octets);
         let nature = if sorte == SorteFichier::Pdf {
             "document"
         } else if sorte.est_son() {
@@ -351,10 +380,10 @@ impl ServiceBibliotheque<'_> {
             unite.connexion(),
             nature,
             sorte.type_mime(),
-            &nom,
+            nom,
             &cle,
             octets,
-            &contexte,
+            contexte,
         )
         .await?;
         if nouveau {
@@ -378,21 +407,7 @@ impl ServiceBibliotheque<'_> {
                 serde_json::json!({ "empreinte_sha256": cle, "nature": nature }),
             );
         }
-        if let Some(contenu_id) = joindre_a {
-            let lien =
-                depot::joindre_fichier(unite.connexion(), contenu_id, &fichier_id, &contexte)
-                    .await?;
-            unite.auditer(
-                "fichier_contenu",
-                &lien,
-                Operation::Creation,
-                None,
-                Some(serde_json::json!({ "contenu_id": contenu_id, "fichier_id": fichier_id })),
-                "bibliotheque.document_fichier_ajouter",
-            );
-        }
-        self.noyau.terminer(unite).await?;
-        Ok(cle)
+        Ok((fichier_id, cle))
     }
 
     /// Ajoute une image : rend l'appel à écrire dans le texte.

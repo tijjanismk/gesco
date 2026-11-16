@@ -5,8 +5,8 @@ import { appeler, ErreurApi } from "../../api";
 import { Bouton } from "../../composants/Bouton";
 import { MessageEnregistre, MessageErreur } from "../../composants/Messages";
 import { date, t } from "../../i18n";
-import type { BrouillonOuvert, DepartBrouillon, EcritureOuverte, VersionSoumise } from "../../types/gesco";
-import { choisirImageBibliotheque, choisirSon, choisirVideo } from "../../api/fichiers";
+import type { BrouillonOuvert, DepartBrouillon, EcritureOuverte, ImportWord, NoteWord, VersionSoumise } from "../../types/gesco";
+import { choisirImageBibliotheque, choisirSon, choisirVideo, choisirWord } from "../../api/fichiers";
 import { VideosCle } from "./Fichiers";
 import { Comparaison } from "./Historique";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
@@ -130,6 +130,78 @@ function BoutonsFichiers({ surAppel }: { surAppel: (b: Balise) => void }) {
   );
 }
 
+/** Clé des notes du dernier import Word d'un cours, lues sous l'aperçu. */
+export function cleNotesWord(contenuId: string): readonly unknown[] {
+  return ["bibliotheque", "notes-word", contenuId];
+}
+
+/** Une note d'import Word, en une phrase pour l'auteur. */
+function phraseNoteWord(n: NoteWord): string {
+  switch (n.type) {
+    case "formules":
+      return t("bibliotheque.word.formules", { nombre: n.nombre });
+    case "images_trop_lourdes":
+      return n.nombre === 1 ? t("bibliotheque.word.image_trop_lourde") : t("bibliotheque.word.images_trop_lourdes", { nombre: n.nombre });
+    case "images_non_reprises":
+      return n.nombre === 1 ? t("bibliotheque.word.image_non_reprise") : t("bibliotheque.word.images_non_reprises", { nombre: n.nombre });
+    case "zones_de_texte":
+      return t("bibliotheque.word.zones_de_texte");
+    case "elements_ignores":
+      return t("bibliotheque.word.elements_ignores");
+  }
+}
+
+/** Importe une fiche Word dans le brouillon d'un cours : le commence, ou remplace son texte. */
+export async function importerWord(contenuId: string, brouillon: { version_id: string; revision: number } | null): Promise<ImportWord | null> {
+  const chemin = await choisirWord(t("bibliotheque.word.filtre"));
+  if (chemin === null) return null;
+  return appeler("bibliotheque_word_importer", {
+    contenu_id: contenuId,
+    chemin,
+    version_id: brouillon?.version_id ?? null,
+    revision: brouillon?.revision ?? null,
+  });
+}
+
+/** Le bouton « Importer depuis Word » ; sur un brouillon, il demande d'abord la confirmation. */
+function BoutonWord({ contenuId, brouillon }: { contenuId: string; brouillon: { version_id: string; revision: number } | null }) {
+  const client = useQueryClient();
+  const [confirmer, setConfirmer] = useState(false);
+  const importer = useMutation({
+    mutationFn: () => importerWord(contenuId, brouillon),
+    onSuccess: (r) => {
+      setConfirmer(false);
+      if (r === null) return;
+      client.setQueryData(cleNotesWord(contenuId), r.notes);
+      client.setQueryData(["bibliotheque", "ecriture", contenuId], r.ecriture);
+      void client.invalidateQueries({ queryKey: ["bibliotheque", "catalogue"] });
+      void client.invalidateQueries({ queryKey: ["bibliotheque", "lire", contenuId] });
+      void client.invalidateQueries({ queryKey: ["bibliotheque", "historique", contenuId] });
+    },
+  });
+  return (
+    <>
+      <Bouton variante="secondaire" onClick={() => (brouillon === null ? importer.mutate() : setConfirmer(true))} disabled={importer.isPending}>
+        {importer.isPending ? t("bibliotheque.word.en_cours") : t("bibliotheque.word.importer")}
+      </Bouton>
+      <MessageErreur erreur={importer.error} />
+      {confirmer ? (
+        <div role="alertdialog" aria-labelledby="word-remplacer" className="flex w-full flex-col gap-2 rounded border border-ocre bg-fond p-3 text-sm text-encre">
+          <p id="word-remplacer">{t("bibliotheque.word.remplacer")}</p>
+          <div className="flex gap-2">
+            <Bouton onClick={() => importer.mutate()} disabled={importer.isPending}>
+              {t("bibliotheque.word.remplacer_confirmer")}
+            </Bouton>
+            <Bouton variante="secondaire" onClick={() => setConfirmer(false)}>
+              {t("commun.annuler")}
+            </Bouton>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 /** Écrit une balise autour de la sélection de la zone de texte ; rend le texte et la sélection. */
 function baliser(texte: string, debut: number, fin: number, b: Balise): { texte: string; debut: number; fin: number } {
   const choisi = texte.slice(debut, fin) || b.exemple;
@@ -141,7 +213,7 @@ function baliser(texte: string, debut: number, fin: number, b: Balise): { texte:
 }
 
 /** Le texte tapé, rendu comme la lecture, avec les notes de l'auteur dessous. */
-function Apercu({ contenuId, texte }: { contenuId: string; texte: string }) {
+function Apercu({ contenuId, texte, notesWord = [] }: { contenuId: string; texte: string; notesWord?: NoteWord[] }) {
   const [vu, setVu] = useState(texte);
   useEffect(() => {
     const minuterie = window.setTimeout(() => setVu(texte), DELAI_APERCU);
@@ -162,9 +234,12 @@ function Apercu({ contenuId, texte }: { contenuId: string; texte: string }) {
           <div className="min-h-64 rounded border border-muet/40 p-3">
             <RenduLecon lecon={donnees.lecon} images={images} sons={donnees.sons} />
           </div>
-          {donnees.formules_brutes.length === 0 && donnees.images_a_ajouter.length === 0 ? null : (
+          {donnees.formules_brutes.length === 0 && donnees.images_a_ajouter.length === 0 && notesWord.length === 0 ? null : (
             <div className="flex flex-col gap-1 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">
               <p className="font-semibold">{t("bibliotheque.editeur.notes_auteur")}</p>
+              {notesWord.map((n) => (
+                <p key={`w-${n.type}`}>{phraseNoteWord(n)}</p>
+              ))}
               {donnees.formules_brutes.map((f) => (
                 <p key={`f-${f}`}>
                   {t("bibliotheque.editeur.formule_brute")} <code className="font-condensee">{f}</code>
@@ -187,11 +262,13 @@ function EditeurBrouillon({
   brouillon,
   peutPublier,
   surAutreVersion,
+  notesWord,
 }: {
   contenuId: string;
   brouillon: BrouillonOuvert;
   peutPublier: boolean;
   surAutreVersion: () => void;
+  notesWord: NoteWord[];
 }) {
   const client = useQueryClient();
   const zone = useRef<HTMLTextAreaElement>(null);
@@ -243,6 +320,7 @@ function EditeurBrouillon({
           </Bouton>
         ))}
         <BoutonsFichiers surAppel={appliquer} />
+        <BoutonWord contenuId={contenuId} brouillon={{ version_id: brouillon.version_id, revision }} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <label htmlFor="bibliotheque-editeur" className="flex flex-col gap-1 text-sm text-encre">
@@ -259,7 +337,7 @@ function EditeurBrouillon({
         </label>
         <div className="flex flex-col gap-1 text-sm text-encre">
           <span>{t("bibliotheque.editeur.apercu")}</span>
-          <Apercu contenuId={contenuId} texte={texte} />
+          <Apercu contenuId={contenuId} texte={texte} notesWord={notesWord} />
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -505,6 +583,7 @@ function Commencer({ ecriture, surComparer }: { ecriture: EcritureOuverte; surCo
             {t("bibliotheque.editeur.retour_livree")}
           </Bouton>
         ) : null}
+        {ecriture.nature === "document" ? null : <BoutonWord contenuId={ecriture.contenu_id} brouillon={null} />}
       </div>
       <MessageErreur erreur={commencer.error} />
       <MessageErreur erreur={retour.error} />
@@ -537,6 +616,14 @@ export function Editeur({ contenuId, surComparer }: { contenuId: string; surComp
     queryKey: ["bibliotheque", "ecriture", contenuId],
     queryFn: () => appeler("bibliotheque_ecriture_lire", { contenu_id: contenuId }),
   });
+  // Notes du dernier import Word, posées par l'import ; un import remet l'éditeur à neuf.
+  const notesWord = useQuery({
+    queryKey: cleNotesWord(contenuId),
+    queryFn: (): NoteWord[] => [],
+    initialData: [],
+    initialDataUpdatedAt: 0,
+    staleTime: Infinity,
+  });
   const reprendre = useMutation({
     mutationFn: (versionId: string) => appeler("bibliotheque_brouillon_reprendre", { contenu_id: contenuId, version_id: versionId }),
     onSuccess: (e) => {
@@ -568,11 +655,12 @@ export function Editeur({ contenuId, surComparer }: { contenuId: string; surComp
           {e.livree_plus_recente ? <LignePlusRecente surComparer={surComparer} /> : null}
           <LigneRenvoi brouillon={b} />
           <EditeurBrouillon
-            key={b.version_id}
+            key={`${b.version_id}-${notesWord.dataUpdatedAt}`}
             contenuId={contenuId}
             brouillon={b}
             peutPublier={e.peut_publier}
             surAutreVersion={() => setAutre(true)}
+            notesWord={notesWord.data ?? []}
           />
         </>
       )}

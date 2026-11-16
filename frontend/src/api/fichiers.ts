@@ -67,3 +67,9 @@ export async function enregistrerPdfSous(nom: string, libelleFiltre: string): Pr
 export async function choisirDossier(): Promise<string | null> {
   return open({ multiple: false, directory: true });
 }
+
+/** Dialogue d'ouverture d'une fiche Word ; un ancien `.doc` se choisit aussi, pour que GESCO
+ *  dise comment l'enregistrer. */
+export async function choisirWord(libelleFiltre: string): Promise<string | null> {
+  return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["docx", "doc"] }] });
+}

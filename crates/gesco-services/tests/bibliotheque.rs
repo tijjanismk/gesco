@@ -2949,3 +2949,196 @@ async fn une_lecon_de_l_ecole_se_reserve_a_la_9e_a() {
         .await;
     assert_eq!(refus.cle, "bibliotheque.pour_qui_livre");
 }
+
+// --- Lot 2, étape 4 : importer une leçon depuis Word --------------------------------------------
+
+/// Un `.docx` d'essai (critère 3) : titres, gras, liste, tableau, deux images, une formule.
+fn docx_d_essai(titre: &str) -> Vec<u8> {
+    use std::io::Write;
+    let w = "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" \
+        xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" \
+        xmlns:m=\"http://schemas.openxmlformats.org/officeDocument/2006/math\" \
+        xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" \
+        xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\"";
+    let image = |lien: &str| {
+        format!(
+            "<w:p><w:r><w:drawing><wp:inline><wp:docPr id=\"1\" name=\"x\" descr=\"Figure\"/>\
+             <a:graphic><a:graphicData><a:blip r:embed=\"{lien}\"/></a:graphicData></a:graphic>\
+             </wp:inline></w:drawing></w:r></w:p>"
+        )
+    };
+    let corps = format!(
+        "<w:p><w:pPr><w:pStyle w:val=\"Titre1\"/></w:pPr><w:r><w:t>{titre}</w:t></w:r></w:p>\
+         <w:p><w:r><w:t xml:space=\"preserve\">Un </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>mot gras</w:t></w:r></w:p>\
+         <w:p><w:pPr><w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"1\"/></w:numPr></w:pPr><w:r><w:t>premier point</w:t></w:r></w:p>\
+         <w:tbl><w:tr><w:tc><w:p><w:r><w:t>a</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>b</w:t></w:r></w:p></w:tc></w:tr>\
+         <w:tr><w:tc><w:p><w:r><w:t>1</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>2</w:t></w:r></w:p></w:tc></w:tr></w:tbl>\
+         {}{}<w:p><m:oMathPara><m:oMath><m:r><m:t>x</m:t></m:r></m:oMath></m:oMathPara></w:p>",
+        image("rIdA"),
+        image("rIdB"),
+    );
+    let mut sortie = Vec::new();
+    {
+        let mut z = zip::ZipWriter::new(std::io::Cursor::new(&mut sortie));
+        let options = zip::write::SimpleFileOptions::default();
+        let mut mettre = |nom: &str, octets: &[u8]| {
+            z.start_file(nom, options).unwrap();
+            z.write_all(octets).unwrap();
+        };
+        mettre(
+            "_rels/.rels",
+            b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/></Relationships>",
+        );
+        mettre(
+            "word/document.xml",
+            format!("<w:document {w}><w:body>{corps}</w:body></w:document>").as_bytes(),
+        );
+        mettre(
+            "word/_rels/document.xml.rels",
+            b"<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\
+              <Relationship Id=\"rIdS\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>\
+              <Relationship Id=\"rIdA\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image1.png\"/>\
+              <Relationship Id=\"rIdB\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image2.png\"/>\
+              </Relationships>",
+        );
+        mettre(
+            "word/styles.xml",
+            b"<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:style w:type=\"paragraph\" w:styleId=\"Titre1\"><w:name w:val=\"heading 1\"/></w:style></w:styles>",
+        );
+        mettre("word/media/image1.png", &png(300));
+        let mut autre = png(400);
+        autre[300] = 9;
+        mettre("word/media/image2.png", &autre);
+        z.finish().unwrap();
+    }
+    sortie
+}
+
+/// Lot 2, critère 3 : un `.docx` devient un brouillon dont l'aperçu montre titres, liste,
+/// tableau et images ; la formule devient une note pour l'auteur ; un `.doc` est refusé.
+#[tokio::test]
+async fn une_fiche_word_devient_un_brouillon_et_un_doc_est_refuse() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let id = premier_contenu(&p, &admin).await;
+    let fichiers = tempfile::tempdir().unwrap();
+
+    // Un cours sans brouillon : l'import en commence un, parti de la version livrée.
+    let chemin = ecrire(
+        fichiers.path(),
+        "Fiche racines.docx",
+        &docx_d_essai("Racines"),
+    );
+    let import = p
+        .ok(
+            "bibliotheque_word_importer",
+            Some(&admin),
+            json!({ "contenu_id": id, "chemin": chemin, "version_id": null, "revision": null }),
+        )
+        .await;
+    assert_eq!(
+        import["notes"],
+        json!([{ "type": "formules", "nombre": 1 }])
+    );
+    let brouillon = &import["ecriture"]["brouillon"];
+    assert_eq!(brouillon["numero"], 1);
+    let texte = brouillon["texte"].as_str().unwrap().to_owned();
+    assert!(
+        texte.starts_with(
+            "# Racines\n\nUn **mot gras**\n\n- premier point\n\n| a | b |\n|---|---|\n| 1 | 2 |"
+        ),
+        "{texte}"
+    );
+    assert!(texte.contains("Formule à retaper ici"));
+
+    // L'aperçu montre les titres, la liste, le tableau et les deux images rangées.
+    let apercu = p
+        .ok(
+            "bibliotheque_apercu",
+            Some(&admin),
+            json!({ "contenu_id": id, "texte": texte }),
+        )
+        .await;
+    let types: Vec<&str> = apercu["lecon"]["blocs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["type"].as_str().unwrap())
+        .collect();
+    for attendu in ["titre", "liste", "tableau", "note_maitre"] {
+        assert!(types.contains(&attendu), "{types:?}");
+    }
+    assert_eq!(apercu["images"].as_array().unwrap().len(), 2);
+    // La version visible reste la livrée tant que rien n'est publié.
+    let visible = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": id, "vue": null }),
+        )
+        .await;
+    assert_eq!(visible["version_ecole"], false);
+
+    // Un second import remplace le texte du brouillon ouvert, à la révision lue.
+    let chemin2 = ecrire(
+        fichiers.path(),
+        "Fiche 2.docx",
+        &docx_d_essai("Racines, suite"),
+    );
+    let refus = p
+        .refus(
+            "bibliotheque_word_importer",
+            Some(&admin),
+            json!({ "contenu_id": id, "chemin": chemin2, "version_id": null, "revision": null }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.modifiee_ailleurs");
+    let import2 = p
+        .ok(
+            "bibliotheque_word_importer",
+            Some(&admin),
+            json!({ "contenu_id": id, "chemin": chemin2,
+                "version_id": brouillon["version_id"], "revision": brouillon["revision"] }),
+        )
+        .await;
+    assert_eq!(import2["ecriture"]["brouillon"]["numero"], 1);
+    assert_eq!(
+        import2["ecriture"]["brouillon"]["revision"],
+        brouillon["revision"].as_u64().unwrap() + 1
+    );
+    assert!(
+        import2["ecriture"]["brouillon"]["texte"]
+            .as_str()
+            .unwrap()
+            .starts_with("# Racines, suite")
+    );
+
+    // Un ancien fichier Word et un fichier qui n'en est pas un sont refusés.
+    let mut doc = vec![0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+    doc.resize(2048, 0);
+    let refus = p
+        .refus(
+            "bibliotheque_word_importer",
+            Some(&admin),
+            json!({ "contenu_id": id, "chemin": ecrire(fichiers.path(), "ancienne.doc", &doc),
+                "version_id": null, "revision": null }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.word_ancien_format");
+    let refus = p
+        .refus(
+            "bibliotheque_word_importer",
+            Some(&admin),
+            json!({ "contenu_id": id, "chemin": ecrire(fichiers.path(), "image.docx", &png(100)),
+                "version_id": null, "revision": null }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.word_illisible");
+}

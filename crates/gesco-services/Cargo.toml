@@ -37,6 +37,7 @@ gesco-core.workspace = true
 gesco-db.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+zip.workspace = true
 
 [[test]]
 name = "services"

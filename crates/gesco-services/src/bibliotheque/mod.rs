@@ -37,6 +37,7 @@ mod imprimer;
 mod lire;
 mod publier;
 mod retirer;
+mod word;
 
 pub use classes::{ClassePourQui, DemandePourQui, DemandeReglerPourQui, PourQuiContenu};
 pub use ecrire::{
@@ -71,6 +72,7 @@ pub use retirer::{
     ApercuRetrait, CorrespondanceAffichee, CorrespondancesBibliotheque, DemandeCorrespondance,
     DemandeRemiseBibliotheque, DemandeRetrait, MatiereChoisissable, RetraitAffiche,
 };
+pub use word::{DemandeImportWord, ImportWord};
 
 /// Clé publique des paquets de la bibliothèque, distincte de celle des licences.
 const CLE_PUBLIQUE_PAQUETS_HEX: &str = include_str!("../../cle-publique-bibliotheque.txt");

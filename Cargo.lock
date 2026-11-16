@@ -1877,6 +1877,7 @@ dependencies = [
  "hex",
  "proptest",
  "pulldown-cmark",
+ "quick-xml 0.42.0",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -1884,6 +1885,7 @@ dependencies = [
  "thiserror 2.0.21",
  "ulid",
  "zeroize",
+ "zip",
 ]
 
 [[package]]
@@ -2005,6 +2007,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "zeroize",
+ "zip",
 ]
 
 [[package]]

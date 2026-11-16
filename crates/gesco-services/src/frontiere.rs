@@ -1260,6 +1260,7 @@ contrat! {
     bibliotheque_droit_publication_retirer(crate::bibliotheque::DemandeDroitPublication) -> crate::bibliotheque::DroitsPublication;
     bibliotheque_image_ajouter(crate::bibliotheque::DemandeImageBibliotheque) -> crate::bibliotheque::ImageAjoutee;
     bibliotheque_son_ajouter(crate::bibliotheque::DemandeSonBibliotheque) -> crate::bibliotheque::SonAjoute;
+    bibliotheque_word_importer(crate::bibliotheque::DemandeImportWord) -> crate::bibliotheque::ImportWord;
     bibliotheque_classes_lire(crate::bibliotheque::DemandePourQui) -> crate::bibliotheque::PourQuiContenu;
     bibliotheque_classes_regler(crate::bibliotheque::DemandeReglerPourQui) -> crate::bibliotheque::PourQuiContenu;
     bibliotheque_document_fichier_ajouter(crate::bibliotheque::DemandeFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
@@ -5297,6 +5298,16 @@ impl Application {
     ) -> Resultat<crate::bibliotheque::SonAjoute> {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .ajouter_son(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_word_importer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeImportWord,
+    ) -> Resultat<crate::bibliotheque::ImportWord> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .importer_word(appel.session()?, &entree)
             .await
     }
 

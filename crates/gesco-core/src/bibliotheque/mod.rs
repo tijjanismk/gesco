@@ -9,6 +9,7 @@ pub mod lecon;
 pub mod lecture;
 pub mod paquet;
 pub mod reglages;
+pub mod word;
 
 pub use catalogue::{
     BilanInstallation, ChapitreBibliotheque, ContenuBibliotheque, OrigineBibliotheque,
@@ -34,3 +35,4 @@ pub use paquet::{
     ChapitrePaquet, ContenuPaquet, DisciplinePaquet, ErreurPaquet, ExamenSujet, ManifestePaquet,
     NatureContenu, PaquetLu, comparer_versions, lire_paquet, marques_interdites,
 };
+pub use word::{ErreurWord, ImageWord, LeconWord, NoteWord, TAILLE_WORD_MAX, convertir_docx};
