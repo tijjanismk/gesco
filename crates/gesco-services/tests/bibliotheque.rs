@@ -2640,3 +2640,312 @@ async fn une_lecon_un_chapitre_et_les_faits_s_impriment_en_pdf() {
         );
     }
 }
+
+/// Un son d'essai de la taille voulue, avec l'en-tête de sa sorte.
+fn son(entete: &[u8], taille: usize, graine: u8) -> Vec<u8> {
+    let mut octets = entete.to_vec();
+    octets.resize(taille, graine);
+    octets
+}
+
+/// Lit un son ou une vidéo par morceaux, comme l'écran.
+async fn lire_par_morceaux(
+    p: &crate::commun::Poste_,
+    session: &gesco_services::session::Jeton,
+    empreinte: &str,
+) -> Vec<u8> {
+    let mut lu: Vec<u8> = Vec::new();
+    loop {
+        let morceau = p
+            .ok(
+                "bibliotheque_video_morceau",
+                Some(session),
+                json!({ "empreinte": empreinte, "position": lu.len() }),
+            )
+            .await;
+        let octets = base64_vers_octets(&morceau["contenu"]);
+        if octets.is_empty() {
+            break;
+        }
+        lu.extend(octets);
+        if lu.len() as u64 >= morceau["taille"].as_u64().unwrap() {
+            break;
+        }
+    }
+    lu
+}
+
+/// Lot 2, critères 1 et 2 : un MP3 de 3 Mo et un M4A s'ajoutent et se lisent par morceaux ; un son
+/// de 12 Mo et un faux `.mp3` sont refusés ; après sauvegarde et restauration sur un ordinateur
+/// neuf, les sons sont là ; un son absent ne bloque pas la leçon.
+#[tokio::test]
+async fn un_son_s_ajoute_se_lit_et_revient_avec_la_sauvegarde() {
+    let dossier = tempfile::tempdir().unwrap();
+    let livre = paquet("2026.11.1", &[RACINE]);
+    deposer(
+        &dossier.path().join("origine"),
+        "bibliotheque-mali-1.gbib",
+        &livre,
+    );
+    let origine = poste_vierge(&dossier.path().join("origine")).await;
+    let phrase = origine.installer().await;
+    let admin = origine.connecter("admin", MOT_DE_PASSE).await;
+    let fichiers = tempfile::tempdir().unwrap();
+
+    let mp3 = son(b"ID3\x04\0\0\0\0\0\0", 3 * MO, 5);
+    let ajoute = origine
+        .ok(
+            "bibliotheque_son_ajouter",
+            Some(&admin),
+            json!({ "chemin": ecrire(fichiers.path(), "Hello.mp3", &mp3) }),
+        )
+        .await;
+    let reference_mp3 = ajoute["reference"].as_str().unwrap().to_owned();
+    assert!(reference_mp3.starts_with("son:"));
+    assert_eq!(ajoute["nom"], "Hello");
+    let m4a = son(b"\0\0\0\x20ftypM4A \0\0\0\0", MO / 2, 6);
+    let ajoute_m4a = origine
+        .ok(
+            "bibliotheque_son_ajouter",
+            Some(&admin),
+            json!({ "chemin": ecrire(fichiers.path(), "consigne.m4a", &m4a) }),
+        )
+        .await;
+    let reference_m4a = ajoute_m4a["reference"].as_str().unwrap().to_owned();
+
+    // Un son de 12 Mo, un PNG renommé « .mp3 » : refusés, chacun avec son message.
+    let refus = origine
+        .refus(
+            "bibliotheque_son_ajouter",
+            Some(&admin),
+            json!({ "chemin": ecrire(fichiers.path(), "long.mp3", &son(b"ID3\x03", 12 * MO, 1)) }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.son_trop_lourd");
+    let refus = origine
+        .refus(
+            "bibliotheque_son_ajouter",
+            Some(&admin),
+            json!({ "chemin": ecrire(fichiers.path(), "faux.mp3", &png(1000)) }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.son_inconnu");
+
+    // L'aperçu les connaît ; un son appelé mais absent est dit absent, sans erreur.
+    let lecon = premier_contenu(&origine, &admin).await;
+    let absent = "c".repeat(64);
+    let texte = format!(
+        "![Hello]({reference_mp3})\n\n![Consigne]({reference_m4a})\n\n![Perdu](son:{absent})"
+    );
+    let apercu = origine
+        .ok(
+            "bibliotheque_apercu",
+            Some(&admin),
+            json!({ "contenu_id": lecon, "texte": texte }),
+        )
+        .await;
+    let sons = apercu["sons"].as_array().unwrap();
+    assert_eq!(sons.len(), 3);
+    let empreinte_mp3 = reference_mp3.trim_start_matches("son:");
+    let mp3_lu = sons
+        .iter()
+        .find(|s| s["empreinte"] == empreinte_mp3)
+        .unwrap();
+    assert_eq!(mp3_lu["disponible"], true);
+    assert_eq!(mp3_lu["type_mime"], "audio/mpeg");
+    let m4a_lu = sons
+        .iter()
+        .find(|s| s["empreinte"] == reference_m4a.trim_start_matches("son:"))
+        .unwrap();
+    assert_eq!(m4a_lu["type_mime"], "audio/mp4");
+    assert_eq!(
+        sons.iter()
+            .find(|s| s["empreinte"] == absent.as_str())
+            .unwrap()["disponible"],
+        false
+    );
+
+    // Il se lit par morceaux, par la route des vidéos (celle des postes reliés).
+    assert_eq!(
+        lire_par_morceaux(&origine, &admin, empreinte_mp3).await,
+        mp3
+    );
+
+    let archive = origine
+        .sauvegarder(&admin, &dossier.path().join("cle-usb"))
+        .await;
+    origine.application.fermer().await.unwrap();
+    drop(origine);
+
+    let racine_neuf = dossier.path().join("neuf");
+    deposer(&racine_neuf, "bibliotheque-mali-1.gbib", &livre);
+    let neuf = poste_vierge(&racine_neuf).await;
+    neuf.ok(
+        "sauvegarde_restaurer_initiale",
+        None,
+        json!({ "chemin": archive, "phrase": phrase }),
+    )
+    .await;
+    let admin = neuf.connecter("admin", MOT_DE_PASSE).await;
+    assert_eq!(lire_par_morceaux(&neuf, &admin, empreinte_mp3).await, mp3);
+    assert_eq!(
+        lire_par_morceaux(&neuf, &admin, reference_m4a.trim_start_matches("son:")).await,
+        m4a
+    );
+}
+
+/// Lot 2, critère 4 : une leçon de l'école réservée à la 9e A porte la marque « 9e A
+/// seulement » au catalogue ; un maître ne coche que ses classes ; le livré reste pour tout le
+/// niveau. (La règle « visible pour une classe » est essayée dans le noyau.)
+#[tokio::test]
+async fn une_lecon_de_l_ecole_se_reserve_a_la_9e_a() {
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let jetons = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let sekou = &jetons[0];
+    // Une seconde classe de 9e, où Sékou n'enseigne pas.
+    let annees = p.ok("annees_lister", Some(&admin), Value::Null).await;
+    let annee = annees
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["libelle"] == "2026-2027")
+        .unwrap()["id"]
+        .clone();
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee }))
+        .await;
+    let neuvieme = ped["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .unwrap()["id"]
+        .clone();
+    let neuf_b = p
+        .ok(
+            "classe_creer",
+            Some(&admin),
+            json!({ "annee_id": annee, "niveau_id": neuvieme, "serie_id": null,
+                "libelle": "9e B" }),
+        )
+        .await;
+
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(sekou), Value::Null)
+        .await;
+    let chapitre = catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"][0]["chapitres"]
+        [0]["id"]
+        .clone();
+    let ajout = p
+        .ok(
+            "bibliotheque_contenu_ajouter",
+            Some(sekou),
+            json!({ "nature": "lecon", "chapitre_id": chapitre, "niveau_id": null,
+                "matiere_id": null, "titre": "Exercices de la 9e A", "presentation": "",
+                "examen": null, "serie_code": null, "session": null, "sujet_id": null,
+                "apres_cle": null }),
+        )
+        .await;
+    let lecon = ajout["contenu_id"].clone();
+    let cible = json!({ "contenu_id": lecon, "chapitre_id": null });
+
+    // Sékou voit les deux classes du niveau ; il ne peut cocher que la sienne.
+    let pour_qui = p
+        .ok("bibliotheque_classes_lire", Some(sekou), cible.clone())
+        .await;
+    assert_eq!(pour_qui["modifiable"], true);
+    let classes = pour_qui["classes"].as_array().unwrap();
+    assert_eq!(classes.len(), 2);
+    let neuf_a = classes.iter().find(|c| c["libelle"] == "9e A").unwrap();
+    assert_eq!(neuf_a["permise"], true);
+    assert_eq!(neuf_a["choisie"], false);
+    let b = classes.iter().find(|c| c["libelle"] == "9e B").unwrap();
+    assert_eq!(b["permise"], false);
+    let neuf_a = neuf_a["id"].clone();
+
+    let regle = p
+        .ok(
+            "bibliotheque_classes_regler",
+            Some(sekou),
+            json!({ "contenu_id": lecon, "chapitre_id": null, "classes": [neuf_a] }),
+        )
+        .await;
+    assert!(
+        regle["classes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["id"] == neuf_a && c["choisie"] == true)
+    );
+    // La marque au catalogue du personnel, et à la lecture.
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let marque = catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"][0]["chapitres"][0]
+        ["contenus"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == lecon)
+        .unwrap()["classes_seulement"]
+        .clone();
+    assert_eq!(marque, json!(["9e A"]));
+    let lu = p
+        .ok(
+            "bibliotheque_lire",
+            Some(&admin),
+            json!({ "contenu_id": lecon, "vue": null }),
+        )
+        .await;
+    assert_eq!(lu["classes_seulement"], json!(["9e A"]));
+
+    // La direction ajoute la 9e B ; Sékou retire tout : la 9e B, qui n'est pas à lui, reste.
+    p.ok(
+        "bibliotheque_classes_regler",
+        Some(&admin),
+        json!({ "contenu_id": lecon, "chapitre_id": null, "classes": [neuf_a, neuf_b["id"]] }),
+    )
+    .await;
+    let apres = p
+        .ok(
+            "bibliotheque_classes_regler",
+            Some(sekou),
+            json!({ "contenu_id": lecon, "chapitre_id": null, "classes": [] }),
+        )
+        .await;
+    let choisies: Vec<&str> = apres["classes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["choisie"] == true)
+        .map(|c| c["libelle"].as_str().unwrap())
+        .collect();
+    assert_eq!(choisies, vec!["9e B"]);
+
+    // Une classe d'un autre niveau est refusée ; le livré reste pour tout le niveau.
+    let refus = p
+        .refus(
+            "bibliotheque_classes_regler",
+            Some(&admin),
+            json!({ "contenu_id": lecon, "chapitre_id": null, "classes": ["0".repeat(26)] }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.pour_qui_classe_inconnue");
+    let livre = premier_contenu(&p, &admin).await;
+    let refus = p
+        .refus(
+            "bibliotheque_classes_regler",
+            Some(&admin),
+            json!({ "contenu_id": livre, "chapitre_id": null, "classes": [neuf_a] }),
+        )
+        .await;
+    assert_eq!(refus.cle, "bibliotheque.pour_qui_livre");
+}

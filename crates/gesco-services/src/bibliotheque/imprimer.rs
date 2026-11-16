@@ -202,6 +202,11 @@ fn enlignes(
                 echapper(titre, sortie);
                 sortie.push_str("];");
             }
+            Enligne::Son { titre, .. } => {
+                sortie.push_str("#emph[Son : ");
+                echapper(titre, sortie);
+                sortie.push_str("];");
+            }
             Enligne::Saut => sortie.push_str("\\\n"),
         }
     }
@@ -638,13 +643,14 @@ mod tests {
     fn titres_listes_tableaux_et_videos_se_traduisent() {
         let video = "a".repeat(64);
         let lecon = analyser(&format!(
-            "## Partie\n\n- un\n- deux\n\n| a | b |\n|:-:|--:|\n| 1 | 2 |\n\n![Ma vidéo](video:{video})"
+            "## Partie\n\n- un\n- deux\n\n| a | b |\n|:-:|--:|\n| 1 | 2 |\n\n![Ma vidéo](video:{video})\n\n![Bonjour en anglais](son:{video})"
         ));
         let typst = balisage(&lecon, &HashMap::new(), TOUT);
         assert!(typst.contains("== Partie"));
         assert!(typst.contains("#list(["));
         assert!(typst.contains("align: (center, right, )"));
         assert!(typst.contains("Vidéo : Ma vidéo"));
+        assert!(typst.contains("Son : Bonjour en anglais"));
     }
 
     #[test]

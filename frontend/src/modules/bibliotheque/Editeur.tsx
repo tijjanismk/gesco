@@ -6,7 +6,7 @@ import { Bouton } from "../../composants/Bouton";
 import { MessageEnregistre, MessageErreur } from "../../composants/Messages";
 import { date, t } from "../../i18n";
 import type { BrouillonOuvert, DepartBrouillon, EcritureOuverte, VersionSoumise } from "../../types/gesco";
-import { choisirImageBibliotheque, choisirVideo } from "../../api/fichiers";
+import { choisirImageBibliotheque, choisirSon, choisirVideo } from "../../api/fichiers";
 import { VideosCle } from "./Fichiers";
 import { Comparaison } from "./Historique";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
@@ -45,7 +45,7 @@ function appelFichier(description: string, reference: string): Balise {
   return { libelle: description, avant: "![", apres: `](${reference})\n`, exemple: description, ligne: true };
 }
 
-/** Boutons Image et Vidéo de la barre, et le guide des vidéos. */
+/** Boutons Image, Son et Vidéo de la barre, et le guide des vidéos. */
 function BoutonsFichiers({ surAppel }: { surAppel: (b: Balise) => void }) {
   const [lourde, setLourde] = useState<string | null>(null);
   const [premiere, setPremiere] = useState(false);
@@ -57,6 +57,15 @@ function BoutonsFichiers({ surAppel }: { surAppel: (b: Balise) => void }) {
     },
     onSuccess: (i) => {
       if (i !== null) surAppel(appelFichier(i.nom, i.reference));
+    },
+  });
+  const son = useMutation({
+    mutationFn: async () => {
+      const chemin = await choisirSon(t("bibliotheque.editeur.son_filtre"));
+      return chemin === null ? null : appeler("bibliotheque_son_ajouter", { chemin });
+    },
+    onSuccess: (s) => {
+      if (s !== null) surAppel(appelFichier(s.nom, s.reference));
     },
   });
   const video = useMutation({
@@ -82,13 +91,16 @@ function BoutonsFichiers({ surAppel }: { surAppel: (b: Balise) => void }) {
       <Bouton variante="secondaire" onClick={() => image.mutate()} disabled={image.isPending}>
         {t("bibliotheque.editeur.image")}
       </Bouton>
+      <Bouton variante="secondaire" onClick={() => son.mutate()} disabled={son.isPending}>
+        {t("bibliotheque.editeur.son")}
+      </Bouton>
       <Bouton variante="secondaire" onClick={() => video.mutate(null)} disabled={video.isPending}>
         {video.isPending ? t("bibliotheque.editeur.video_copie") : t("bibliotheque.editeur.video")}
       </Bouton>
       <Bouton variante="secondaire" onClick={() => setGuides(true)}>
         {t("bibliotheque.guide.ouvrir")}
       </Bouton>
-      <MessageErreur erreur={image.error ?? video.error} />
+      <MessageErreur erreur={image.error ?? son.error ?? video.error} />
       {lourde === null ? null : (
         <div role="alertdialog" aria-labelledby="video-lourde" className="flex w-full flex-col gap-2 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">
           <p id="video-lourde">{t("bibliotheque.video.lourde")}</p>
@@ -148,7 +160,7 @@ function Apercu({ contenuId, texte }: { contenuId: string; texte: string }) {
       {donnees === undefined ? null : (
         <>
           <div className="min-h-64 rounded border border-muet/40 p-3">
-            <RenduLecon lecon={donnees.lecon} images={images} />
+            <RenduLecon lecon={donnees.lecon} images={images} sons={donnees.sons} />
           </div>
           {donnees.formules_brutes.length === 0 && donnees.images_a_ajouter.length === 0 ? null : (
             <div className="flex flex-col gap-1 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">

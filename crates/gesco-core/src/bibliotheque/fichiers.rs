@@ -1,6 +1,7 @@
 //! Fichiers que l'école joint à la bibliothèque (§10 de la spécification ; ADR « stockage des
-//! contenus ») : images (SVG, PNG, JPEG ; 5 Mo au plus) et documents (PDF ; 20 Mo au plus) dans
-//! la base, vidéos (MP4) dans un dossier du poste principal. Règles pures : reconnaître un
+//! contenus ») : images (SVG, PNG, JPEG ; 5 Mo au plus), documents (PDF ; 20 Mo au plus) et
+//! sons (MP3, M4A, OGG, WAV ; 10 Mo au plus, lot 2) dans la base, vidéos (MP4) dans un dossier
+//! du poste principal. Règles pures : reconnaître un
 //! fichier par ses premiers octets, borner sa taille, nettoyer un SVG.
 //!
 //! Le nettoyage d'un SVG est écrit ici, sans dépendance : il retire les scripts, les objets
@@ -13,6 +14,9 @@ pub const TAILLE_IMAGE_MAX: u64 = 5 * 1024 * 1024;
 
 /// Taille la plus grande d'un document : 20 Mo (la limite du réseau local).
 pub const TAILLE_DOCUMENT_MAX: u64 = 20 * 1024 * 1024;
+
+/// Taille la plus grande d'un son : 10 Mo, une dizaine de minutes en MP3 (T-127).
+pub const TAILLE_SON_MAX: u64 = 10 * 1024 * 1024;
 
 /// Taille d'un morceau de vidéo qui voyage entre les postes.
 pub const MORCEAU_VIDEO: u64 = 4 * 1024 * 1024;
@@ -30,6 +34,14 @@ pub enum SorteFichier {
     Pdf,
     /// Vidéo MP4.
     Mp4,
+    /// Son MP3.
+    Mp3,
+    /// Son M4A (AAC dans un conteneur MP4).
+    M4a,
+    /// Son OGG (Vorbis ou Opus, comme les messages vocaux de WhatsApp).
+    Ogg,
+    /// Son WAV.
+    Wav,
 }
 
 impl SorteFichier {
@@ -41,6 +53,10 @@ impl SorteFichier {
             Self::Jpeg => "image/jpeg",
             Self::Pdf => "application/pdf",
             Self::Mp4 => "video/mp4",
+            Self::Mp3 => "audio/mpeg",
+            Self::M4a => "audio/mp4",
+            Self::Ogg => "audio/ogg",
+            Self::Wav => "audio/wav",
         }
     }
 
@@ -52,12 +68,42 @@ impl SorteFichier {
             Self::Jpeg => "jpg",
             Self::Pdf => "pdf",
             Self::Mp4 => "mp4",
+            Self::Mp3 => "mp3",
+            Self::M4a => "m4a",
+            Self::Ogg => "ogg",
+            Self::Wav => "wav",
         }
     }
 
     /// Vrai pour une image.
     pub const fn est_image(self) -> bool {
         matches!(self, Self::Svg | Self::Png | Self::Jpeg)
+    }
+
+    /// Vrai pour un son.
+    pub const fn est_son(self) -> bool {
+        matches!(self, Self::Mp3 | Self::M4a | Self::Ogg | Self::Wav)
+    }
+}
+
+/// Reconnaît un son par ses premiers octets, jamais par l'extension. Un conteneur MP4 sans la
+/// marque « M4A » est pris pour un son : un téléphone Android range souvent la voix ainsi.
+pub fn reconnaitre_son(octets: &[u8]) -> Option<SorteFichier> {
+    match reconnaitre(octets)? {
+        SorteFichier::Mp4 | SorteFichier::M4a => Some(SorteFichier::M4a),
+        s if s.est_son() => Some(s),
+        _ => None,
+    }
+}
+
+/// Vrai pour l'en-tête d'une trame MP3 (MPEG audio, couches I à III) : synchronisation sur onze
+/// bits, version et couche non réservées. Une trame AAC nue (couche 0) n'en est pas une.
+fn trame_mp3(octets: &[u8]) -> bool {
+    match (octets.first(), octets.get(1)) {
+        (Some(0xFF), Some(&b)) => {
+            b & 0xE0 == 0xE0 && (b >> 3) & 0b11 != 0b01 && (b >> 1) & 0b11 != 0
+        }
+        _ => false,
     }
 }
 
@@ -74,7 +120,20 @@ pub fn reconnaitre(octets: &[u8]) -> Option<SorteFichier> {
         return Some(SorteFichier::Pdf);
     }
     if octets.get(4..8) == Some(b"ftyp".as_slice()) {
+        let marque = octets.get(8..11);
+        if marque == Some(b"M4A".as_slice()) || marque == Some(b"M4B".as_slice()) {
+            return Some(SorteFichier::M4a);
+        }
         return Some(SorteFichier::Mp4);
+    }
+    if octets.starts_with(b"ID3") || trame_mp3(octets) {
+        return Some(SorteFichier::Mp3);
+    }
+    if octets.starts_with(b"OggS") {
+        return Some(SorteFichier::Ogg);
+    }
+    if octets.starts_with(b"RIFF") && octets.get(8..12) == Some(b"WAVE".as_slice()) {
+        return Some(SorteFichier::Wav);
     }
     let debut = octets.get(..octets.len().min(4096))?;
     let texte = String::from_utf8_lossy(debut).to_ascii_lowercase();
@@ -419,6 +478,35 @@ mod tests {
         );
         assert_eq!(reconnaitre(b"MZ\x90\0"), None);
         assert_eq!(reconnaitre(b""), None);
+        assert_eq!(reconnaitre(b"ID3\x04\0"), Some(SorteFichier::Mp3));
+        assert_eq!(
+            reconnaitre(&[0xFF, 0xFB, 0x90, 0x64]),
+            Some(SorteFichier::Mp3)
+        );
+        assert_eq!(
+            reconnaitre(b"\0\0\0\x20ftypM4A \0"),
+            Some(SorteFichier::M4a)
+        );
+        assert_eq!(reconnaitre(b"OggS\0\x02"), Some(SorteFichier::Ogg));
+        assert_eq!(
+            reconnaitre(b"RIFF\x24\0\0\0WAVEfmt "),
+            Some(SorteFichier::Wav)
+        );
+        // Une trame AAC nue n'est pas un MP3 ; un RIFF qui n'est pas WAVE non plus.
+        assert_eq!(reconnaitre(&[0xFF, 0xF1, 0x50, 0x80]), None);
+        assert_eq!(reconnaitre(b"RIFF\x24\0\0\0AVI LIST"), None);
+    }
+
+    #[test]
+    fn un_son_se_reconnait_meme_dans_un_conteneur_mp4_ordinaire() {
+        assert_eq!(
+            reconnaitre_son(b"\0\0\0\x18ftypisom"),
+            Some(SorteFichier::M4a)
+        );
+        assert_eq!(reconnaitre_son(b"ID3\x03"), Some(SorteFichier::Mp3));
+        // Une image ou un texte renommé « .mp3 » n'est pas un son.
+        assert_eq!(reconnaitre_son(b"\x89PNG\r\n\x1a\nxx"), None);
+        assert_eq!(reconnaitre_son(b"bonjour"), None);
     }
 
     #[test]

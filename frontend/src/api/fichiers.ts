@@ -48,6 +48,11 @@ export async function choisirDocumentBibliotheque(libelleFiltre: string): Promis
   return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["pdf", "svg", "png", "jpg", "jpeg"] }] });
 }
 
+/** Dialogue d'ouverture d'un son ; GESCO le reconnaît ensuite par son contenu. */
+export async function choisirSon(libelleFiltre: string): Promise<string | null> {
+  return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["mp3", "m4a", "ogg", "opus", "wav"] }] });
+}
+
 /** Dialogue d'ouverture d'une vidéo MP4. */
 export async function choisirVideo(libelleFiltre: string): Promise<string | null> {
   return open({ multiple: false, directory: false, filters: [{ name: libelleFiltre, extensions: ["mp4"] }] });

@@ -398,6 +398,8 @@ export type ApercuLecon = {
 	formules_brutes: string[],
 	/**  Images que les notes de la bibliothèque demandent d'ajouter. */
 	images_a_ajouter: string[],
+	/**  Sons appelés et leur présence dans la base. */
+	sons: SonLecon[],
 };
 
 /**
@@ -1174,6 +1176,8 @@ export type ChapitreCatalogue = {
 	origine: OrigineBibliotheque,
 	/**  Contenus, dans l'ordre. */
 	contenus: ContenuCatalogue[],
+	/**  Classes de l'année auxquelles ce chapitre de l'école est réservé (vide : tout le niveau). */
+	classes_seulement: string[],
 };
 
 /**  Ce qu'on peut choisir en ajoutant un chapitre ou un sujet. */
@@ -1645,6 +1649,8 @@ export type ContenuCatalogue = {
 	brouillon: boolean,
 	/**  Le contenu lié (le corrigé d'un sujet, et l'inverse), s'il paraît aussi. */
 	lie_id: string | null,
+	/**  Classes de l'année auxquelles ce contenu de l'école est réservé (vide : tout le niveau). */
+	classes_seulement: string[],
 };
 
 /**  Contenu d'une grille : ses lignes et ses plans. */
@@ -2247,6 +2253,9 @@ export type Contrat = {
 	bibliotheque_droit_publication_retirer: Signature<DemandeDroitPublication, DroitsPublication>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_image_ajouter: Signature<DemandeImageBibliotheque, ImageAjoutee>,
+	bibliotheque_son_ajouter: Signature<DemandeSonBibliotheque, SonAjoute>,
+	bibliotheque_classes_lire: Signature<DemandePourQui, PourQuiContenu>,
+	bibliotheque_classes_regler: Signature<DemandeReglerPourQui, PourQuiContenu>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_document_fichier_ajouter: Signature<DemandeFichierDocument, FichierDocument[]>,
 	/**  Signature de la commande du même nom. */
@@ -4190,6 +4199,50 @@ export type DemandeIdSaisie = {
 
 /**  Ajouter une image à la bibliothèque. */
 export type DemandeImageBibliotheque = {
+	/**  Chemin du fichier. */
+	chemin: string,
+};
+
+/**  Lire « Pour qui » d'un contenu ou d'un chapitre de l'école. */
+export type DemandePourQui = {
+	/**  Contenu visé. */
+	contenu_id: string | null,
+	/**  Chapitre visé. */
+	chapitre_id: string | null,
+};
+
+/**  Régler « Pour qui » : aucune classe, tout le niveau. */
+export type DemandeReglerPourQui = {
+	/**  Contenu visé. */
+	contenu_id: string | null,
+	/**  Chapitre visé. */
+	chapitre_id: string | null,
+	/**  Classes choisies, de l'année en cours. */
+	classes: string[],
+};
+
+/**  Une classe du niveau, cochée ou non. */
+export type ClassePourQui = {
+	/**  Identifiant de la classe. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Le contenu lui est réservé. */
+	choisie: boolean,
+	/**  L'utilisateur peut la cocher (un maître : ses classes). */
+	permise: boolean,
+};
+
+/**  « Pour qui » d'un contenu ou d'un chapitre de l'école. */
+export type PourQuiContenu = {
+	/**  Classes du niveau de l'année en cours. */
+	classes: ClassePourQui[],
+	/**  L'utilisateur peut changer le choix. */
+	modifiable: boolean,
+};
+
+/**  Ajouter un son à la bibliothèque. */
+export type DemandeSonBibliotheque = {
 	/**  Chemin du fichier. */
 	chemin: string,
 };
@@ -6343,6 +6396,12 @@ description: string } |
 empreinte: string; 
 /**  Titre. */
 titre: string } | 
+/**  Son de l'école (`![titre](son:<empreinte>)`), rangé dans la base. */
+{ type: "son"; 
+/**  Empreinte SHA-256 du fichier, en hexadécimal minuscule. */
+empreinte: string; 
+/**  Titre. */
+titre: string } | 
 /**  Retour à la ligne forcé. */
 { type: "saut" };
 
@@ -7651,6 +7710,8 @@ export type Lecon = {
 
 /**  Un contenu ouvert. */
 export type LectureContenu = {
+	/**  Classes de l'année auxquelles ce contenu de l'école est réservé (vide : tout le niveau). */
+	classes_seulement: string[],
 	/**  Identifiant. */
 	id: string,
 	/**  Titre. */
@@ -7683,6 +7744,8 @@ export type LectureContenu = {
 	faits: Lecon | null,
 	/**  Vidéos appelées par le texte, et leur présence sur le poste principal. */
 	videos: VideoLecon[],
+	/**  Sons appelés par le texte, et leur présence dans la base. */
+	sons: SonLecon[],
 	/**  Fichiers d'un document de l'école, dans l'ordre. */
 	fichiers: FichierDocument[],
 };
@@ -11969,6 +12032,24 @@ export type VideoAjoutee = {
 	nom: string,
 	/**  Première vidéo de l'école : l'écran dit une fois qu'elle n'est pas dans la sauvegarde. */
 	premiere: boolean,
+};
+
+/**  Un son rangé : ce que l'éditeur écrit dans le texte. */
+export type SonAjoute = {
+	/**  Appel à écrire dans le texte : `son:<empreinte>`. */
+	reference: string,
+	/**  Nom du fichier sans son extension, proposé comme titre. */
+	nom: string,
+};
+
+/**  Un son appelé par une leçon, telle que la lecture le décrit. */
+export type SonLecon = {
+	/**  Empreinte. */
+	empreinte: string,
+	/**  Le son est dans la base de l'école. */
+	disponible: boolean,
+	/**  Type MIME, vide s'il est absent. */
+	type_mime: string,
 };
 
 /**  Une vidéo appelée par une leçon, telle que la lecture la décrit. */

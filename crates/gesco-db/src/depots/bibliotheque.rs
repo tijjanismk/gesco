@@ -1640,6 +1640,49 @@ pub async fn enregistrer_fichier(
     Ok((id, true))
 }
 
+/// Sons de l'école appelés par leur empreinte : (empreinte, type MIME, taille). Un son absent
+/// n'est pas rendu.
+pub async fn sons_par_empreinte(
+    cnx: &mut Connexion,
+    empreintes: &[String],
+    contexte: &Contexte,
+) -> Resultat<Vec<(String, String, i64)>> {
+    let mut sons = Vec::new();
+    for e in empreintes {
+        let ligne: Option<(String, String, i64)> = sqlx::query_as(
+            "SELECT empreinte_sha256, type_mime, taille FROM fichier_bibliotheque
+             WHERE etablissement_id = ?1 AND empreinte_sha256 = ?2 AND nature = 'son'",
+        )
+        .bind(contexte.etablissement_id.vers_chaine())
+        .bind(e)
+        .fetch_optional(&mut *cnx)
+        .await?;
+        sons.extend(ligne);
+    }
+    Ok(sons)
+}
+
+/// Un morceau d'un son de l'école, lu dans la base sans charger le fichier entier :
+/// (taille du son, octets à partir de `position`, au plus `longueur`).
+pub async fn morceau_son(
+    cnx: &mut Connexion,
+    empreinte: &str,
+    position: i64,
+    longueur: i64,
+    contexte: &Contexte,
+) -> Resultat<Option<(i64, Vec<u8>)>> {
+    Ok(sqlx::query_as(
+        "SELECT taille, substr(contenu, ?3, ?4) FROM fichier_bibliotheque
+         WHERE etablissement_id = ?1 AND empreinte_sha256 = ?2 AND nature = 'son'",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(empreinte)
+    .bind(position.max(0).saturating_add(1))
+    .bind(longueur.max(0))
+    .fetch_optional(cnx)
+    .await?)
+}
+
 /// Un fichier de l'école par son empreinte : (nom, type MIME, contenu).
 pub async fn fichier_par_empreinte(
     cnx: &mut Connexion,
@@ -1765,4 +1808,148 @@ pub async fn videos(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<Vec<Vi
     .bind(contexte.etablissement_id.vers_chaine())
     .fetch_all(cnx)
     .await?)
+}
+
+/// Une classe choisie pour un ajout de l'école, encore active (lot 2).
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct LigneClasseChoisie {
+    /// Ligne du choix.
+    pub id: String,
+    /// Contenu visé.
+    pub contenu_id: Option<String>,
+    /// Chapitre visé.
+    pub chapitre_id: Option<String>,
+    /// Classe choisie.
+    pub classe_id: String,
+    /// Année de la classe.
+    pub annee_id: String,
+    /// Libellé de la classe.
+    pub libelle: String,
+    /// La classe est de l'année en cours.
+    pub courante: bool,
+}
+
+/// Toutes les classes choisies encore actives, de toutes les années.
+pub async fn classes_choisies(
+    cnx: &mut Connexion,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneClasseChoisie>> {
+    Ok(sqlx::query_as(
+        "SELECT cc.id, cc.contenu_id, cc.chapitre_id, cc.classe_id, c.annee_id, c.libelle,
+                y.est_courante AS courante
+         FROM contenu_classe cc
+         JOIN classe c ON c.id = cc.classe_id
+         JOIN annee_scolaire y ON y.id = c.annee_id
+         WHERE cc.etablissement_id = ?1 AND cc.retiree_le IS NULL
+         ORDER BY c.libelle",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Classes de l'année en cours d'un niveau, par son code national : (identifiant, libellé).
+pub async fn classes_courantes_du_niveau(
+    cnx: &mut Connexion,
+    niveau_code: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<(String, String)>> {
+    Ok(sqlx::query_as(
+        "SELECT c.id, c.libelle
+         FROM classe c
+         JOIN niveau n ON n.id = c.niveau_id
+         JOIN annee_scolaire y ON y.id = c.annee_id
+         WHERE c.etablissement_id = ?1 AND n.code = ?2 AND y.est_courante = 1
+           AND c.supprime_le IS NULL
+         ORDER BY c.libelle",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(niveau_code)
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Classes de l'année en cours où un compte de maître enseigne.
+pub async fn classes_du_compte(
+    cnx: &mut Connexion,
+    utilisateur_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT DISTINCT a.classe_id
+         FROM affectation_enseignement a
+         JOIN enseignant e ON e.id = a.enseignant_id
+         JOIN annee_scolaire y ON y.id = a.annee_id
+         WHERE e.utilisateur_id = ?1 AND e.actif = 1 AND a.etablissement_id = ?2
+           AND y.est_courante = 1",
+    )
+    .bind(utilisateur_id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Année scolaire d'une classe : ce que le portail demandera.
+pub async fn annee_de_la_classe(
+    cnx: &mut Connexion,
+    classe_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Option<String>> {
+    Ok(
+        sqlx::query_scalar("SELECT annee_id FROM classe WHERE etablissement_id = ?1 AND id = ?2")
+            .bind(contexte.etablissement_id.vers_chaine())
+            .bind(classe_id)
+            .fetch_optional(cnx)
+            .await?,
+    )
+}
+
+/// Réserve un chapitre ou un contenu de l'école à une classe.
+pub async fn choisir_classe(
+    cnx: &mut Connexion,
+    contenu_id: Option<&str>,
+    chapitre_id: Option<&str>,
+    classe_id: &str,
+    contexte: &Contexte,
+) -> Resultat<String> {
+    let id = nouvel_id::<ContenuBibliotheque>().vers_chaine();
+    let maintenant = contexte.maintenant.millis_epoque();
+    sqlx::query(
+        "INSERT INTO contenu_classe (id, etablissement_id, contenu_id, chapitre_id, classe_id,
+            cree_le, cree_par, mis_a_jour_le, mis_a_jour_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?6, ?7, ?8)",
+    )
+    .bind(&id)
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(contenu_id)
+    .bind(chapitre_id)
+    .bind(classe_id)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(id)
+}
+
+/// Décoche une classe : la ligne reste, avec l'instant et l'auteur du retrait.
+pub async fn retirer_classe_choisie(
+    cnx: &mut Connexion,
+    ligne_id: &str,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    let maintenant = contexte.maintenant.millis_epoque();
+    sqlx::query(
+        "UPDATE contenu_classe SET retiree_le = ?3, retiree_par = ?4, mis_a_jour_le = ?3,
+            mis_a_jour_par = ?4, identifiant_poste = ?5
+         WHERE etablissement_id = ?1 AND id = ?2 AND retiree_le IS NULL",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(ligne_id)
+    .bind(maintenant)
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(())
 }

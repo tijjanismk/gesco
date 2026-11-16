@@ -200,6 +200,8 @@ pub struct ApercuLecon {
     pub formules_brutes: Vec<String>,
     /// Images que les notes de la bibliothèque demandent d'ajouter.
     pub images_a_ajouter: Vec<String>,
+    /// Sons appelés et leur présence dans la base.
+    pub sons: Vec<super::SonLecon>,
 }
 
 /// Ajouter un chapitre de l'école.
@@ -1061,11 +1063,14 @@ impl ServiceBibliotheque<'_> {
             }
         }
         let images_a_ajouter = images_a_ajouter(&lecon);
+        let empreintes: Vec<String> = lecon.sons().into_iter().map(str::to_owned).collect();
+        let sons = self.sons_de(&mut cnx, &empreintes, &contexte).await?;
         Ok(ApercuLecon {
             lecon,
             images,
             formules_brutes,
             images_a_ajouter,
+            sons,
         })
     }
 

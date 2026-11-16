@@ -3,7 +3,8 @@ import "katex/dist/katex.min.css";
 import katex from "katex";
 import { useMemo, type ReactNode } from "react";
 
-import type { Alignement, Bloc, Enligne, ImageLecon, Lecon, VideoLecon } from "../../types/gesco";
+import type { Alignement, Bloc, Enligne, ImageLecon, Lecon, SonLecon, VideoLecon } from "../../types/gesco";
+import { ContexteSons, SonDansLecon } from "./Son";
 import { ContexteVideos, VideoDansLecon } from "./Video";
 
 /** Images de la leçon par leur clé (nom du fichier du paquet ou empreinte d'une image de
@@ -73,6 +74,8 @@ function EnligneRendu({ element, images }: { element: Enligne; images: ReadonlyM
     }
     case "video":
       return <VideoDansLecon empreinte={element.empreinte} titre={element.titre} />;
+    case "son":
+      return <SonDansLecon empreinte={element.empreinte} titre={element.titre} />;
     case "saut":
       return <br />;
   }
@@ -196,19 +199,31 @@ export function RenduLecon({
   images,
   sansNotes = false,
   videos,
+  sons,
+  classe = false,
 }: {
   lecon: Lecon;
   images: ReadonlyMap<string, string>;
   sansNotes?: boolean;
   /** Vidéos de la leçon et leur présence ; absent dans l'aperçu. */
   videos?: readonly VideoLecon[];
+  /** Sons de la leçon et leur présence. */
+  sons?: readonly SonLecon[];
+  /** Mode classe : grand bouton de lecture, rien pour un son absent. */
+  classe?: boolean;
 }) {
   const parEmpreinte = useMemo(() => (videos === undefined ? null : new Map(videos.map((v) => [v.empreinte, v]))), [videos]);
+  const contexteSons = useMemo(
+    () => (sons === undefined ? null : { sons: new Map(sons.map((s) => [s.empreinte, s])), classe }),
+    [sons, classe],
+  );
   return (
     <ContexteVideos.Provider value={parEmpreinte}>
-      <div className="text-encre">
-        <Blocs blocs={lecon.blocs} images={images} sansNotes={sansNotes} />
-      </div>
+      <ContexteSons.Provider value={contexteSons}>
+        <div className="text-encre">
+          <Blocs blocs={lecon.blocs} images={images} sansNotes={sansNotes} />
+        </div>
+      </ContexteSons.Provider>
     </ContexteVideos.Provider>
   );
 }

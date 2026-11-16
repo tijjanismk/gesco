@@ -228,7 +228,7 @@ fn texte_enlignes(contenu: &[Enligne], texte: &mut String) {
             }
             Enligne::Formule { latex, .. } => texte.push_str(latex),
             Enligne::Image { description, .. } => texte.push_str(description),
-            Enligne::Video { titre, .. } => texte.push_str(titre),
+            Enligne::Video { titre, .. } | Enligne::Son { titre, .. } => texte.push_str(titre),
             Enligne::Saut => texte.push(' '),
         }
     }

@@ -1259,6 +1259,9 @@ contrat! {
     bibliotheque_droit_publication_donner(crate::bibliotheque::DemandeDroitPublication) -> crate::bibliotheque::DroitsPublication;
     bibliotheque_droit_publication_retirer(crate::bibliotheque::DemandeDroitPublication) -> crate::bibliotheque::DroitsPublication;
     bibliotheque_image_ajouter(crate::bibliotheque::DemandeImageBibliotheque) -> crate::bibliotheque::ImageAjoutee;
+    bibliotheque_son_ajouter(crate::bibliotheque::DemandeSonBibliotheque) -> crate::bibliotheque::SonAjoute;
+    bibliotheque_classes_lire(crate::bibliotheque::DemandePourQui) -> crate::bibliotheque::PourQuiContenu;
+    bibliotheque_classes_regler(crate::bibliotheque::DemandeReglerPourQui) -> crate::bibliotheque::PourQuiContenu;
     bibliotheque_document_fichier_ajouter(crate::bibliotheque::DemandeFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
     bibliotheque_document_fichier_retirer(crate::bibliotheque::DemandeRetraitFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
     bibliotheque_fichier_enregistrer_sous(crate::bibliotheque::DemandeFichierEnregistrer) -> ();
@@ -5284,6 +5287,36 @@ impl Application {
     ) -> Resultat<crate::bibliotheque::ImageAjoutee> {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .ajouter_image(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_son_ajouter(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeSonBibliotheque,
+    ) -> Resultat<crate::bibliotheque::SonAjoute> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .ajouter_son(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_classes_lire(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandePourQui,
+    ) -> Resultat<crate::bibliotheque::PourQuiContenu> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .pour_qui(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_classes_regler(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeReglerPourQui,
+    ) -> Resultat<crate::bibliotheque::PourQuiContenu> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .regler_pour_qui(appel.session()?, &entree)
             .await
     }
 

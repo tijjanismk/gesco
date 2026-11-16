@@ -213,6 +213,7 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("classe_rapports_regler", SansControle::Reference),
     ("difficulte_eleve_regler", SansControle::Valeur),
     ("complement_membre_regler", SansControle::Grille),
+    ("bibliotheque_classes_regler", SansControle::Valeur),
     ("competence_enregistrer", SansControle::Reference),
     ("categorie_personnel_enregistrer", SansControle::Reference),
     ("fonction_personnel_enregistrer", SansControle::Reference),
@@ -287,6 +288,7 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("releve_importer", Fichier::Lu("chemin")),
     ("bibliotheque_installer", Fichier::Lu("chemin")),
     ("bibliotheque_image_ajouter", Fichier::Lu("chemin")),
+    ("bibliotheque_son_ajouter", Fichier::Lu("chemin")),
     (
         "bibliotheque_document_fichier_ajouter",
         Fichier::Lu("chemin"),
@@ -373,6 +375,9 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "bibliotheque_soumettre",
     "bibliotheque_publier",
     "bibliotheque_image_ajouter",
+    "bibliotheque_son_ajouter",
+    "bibliotheque_classes_lire",
+    "bibliotheque_classes_regler",
     "bibliotheque_document_fichier_ajouter",
     "bibliotheque_document_fichier_retirer",
     "bibliotheque_fichier_enregistrer_sous",
@@ -634,6 +639,9 @@ pub const COMMANDES: &[Commande] = &[
     ),
     // Images, documents, vidéos et impression de la bibliothèque (SPEC_PHASE_12_LOT_1 §10, §11).
     Commande::permise("bibliotheque_image_ajouter", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_son_ajouter", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_classes_lire", Permission::LIBRARY_EDIT),
+    Commande::permise("bibliotheque_classes_regler", Permission::LIBRARY_EDIT),
     Commande::permise(
         "bibliotheque_document_fichier_ajouter",
         Permission::LIBRARY_EDIT,

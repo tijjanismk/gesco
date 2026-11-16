@@ -30,6 +30,7 @@ use crate::espace::EspaceDonnees;
 use crate::noyau::Noyau;
 use crate::session::Session;
 
+mod classes;
 mod ecrire;
 mod fichiers;
 mod imprimer;
@@ -37,6 +38,7 @@ mod lire;
 mod publier;
 mod retirer;
 
+pub use classes::{ClassePourQui, DemandePourQui, DemandeReglerPourQui, PourQuiContenu};
 pub use ecrire::{
     ApercuLecon, BrouillonOuvert, ChapitreAjoute, ChoixEcriture, ComparaisonTextes,
     DemandeAjoutContenu, DemandeApercuLecon, DemandeBrouillon, DemandeBrouillonCommencer,
@@ -49,8 +51,8 @@ pub use ecrire::{
 pub use fichiers::{
     BilanVideos, DemandeDossierVideos, DemandeEnvoiMorceauVideo, DemandeFichierDocument,
     DemandeFichierEnregistrer, DemandeImageBibliotheque, DemandeMorceauVideo,
-    DemandeRetraitFichierDocument, DemandeVideoBibliotheque, FichierDocument, ImageAjoutee,
-    MorceauVideo, VideoAjoutee, VideoLecon,
+    DemandeRetraitFichierDocument, DemandeSonBibliotheque, DemandeVideoBibliotheque,
+    FichierDocument, ImageAjoutee, MorceauVideo, SonAjoute, SonLecon, VideoAjoutee, VideoLecon,
 };
 pub(crate) use fichiers::{chemin_envoi, envoi_sur};
 pub(crate) use imprimer::ecrire_pdf;

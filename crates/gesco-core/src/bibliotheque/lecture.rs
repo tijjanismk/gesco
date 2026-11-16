@@ -305,6 +305,8 @@ pub struct ChapitreCatalogue {
     pub origine: OrigineBibliotheque,
     /// Contenus, dans l'ordre.
     pub contenus: Vec<ContenuCatalogue>,
+    /// Classes de l'année auxquelles ce chapitre de l'école est réservé (vide : tout le niveau).
+    pub classes_seulement: Vec<String>,
 }
 
 /// Un contenu du catalogue.
@@ -332,6 +334,8 @@ pub struct ContenuCatalogue {
     pub brouillon: bool,
     /// Le contenu lié (le corrigé d'un sujet, et l'inverse), s'il paraît aussi.
     pub lie_id: Option<String>,
+    /// Classes de l'année auxquelles ce contenu de l'école est réservé (vide : tout le niveau).
+    pub classes_seulement: Vec<String>,
 }
 
 /// Où se range une matière : une matière de l'école, ou une discipline de référence.
@@ -435,6 +439,7 @@ pub fn construire_catalogue(e: &EntreesCatalogue<'_>) -> Vec<NiveauCatalogue> {
                             .filter(|k| paraissent.contains(k))
                             .and_then(|k| cles_contenus.get(k))
                             .map(|l| l.id.vers_chaine()),
+                        classes_seulement: Vec::new(),
                     }
                 })
                 .collect();
@@ -624,6 +629,7 @@ fn ranger_matieres(
             titre: c.titre.clone(),
             origine: c.origine,
             contenus,
+            classes_seulement: Vec::new(),
         };
         match liste.iter_mut().find(|p| p.titre == c.partie) {
             Some(p) => p.chapitres.push(chapitre),

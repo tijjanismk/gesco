@@ -142,6 +142,13 @@ pub enum Enligne {
         /// Titre.
         titre: String,
     },
+    /// Son de l'école (`![titre](son:<empreinte>)`), rangé dans la base.
+    Son {
+        /// Empreinte SHA-256 du fichier, en hexadécimal minuscule.
+        empreinte: String,
+        /// Titre.
+        titre: String,
+    },
     /// Retour à la ligne forcé.
     Saut,
 }
@@ -228,6 +235,19 @@ impl Lecon {
             });
         }
         videos
+    }
+
+    /// Empreintes des sons de la leçon, dans l'ordre du texte.
+    pub fn sons(&self) -> Vec<&str> {
+        let mut sons = Vec::new();
+        for bloc in &self.blocs {
+            parcourir_enlignes_bloc(bloc, &mut |e| {
+                if let Enligne::Son { empreinte, .. } = e {
+                    sons.push(empreinte.as_str());
+                }
+            });
+        }
+        sons
     }
 
     /// La leçon sans les notes pour le maître : ce que voient les élèves.
@@ -419,7 +439,7 @@ fn texte_enlignes(enlignes: &[Enligne], texte: &mut String) {
                 texte.push(' ');
             }
             Enligne::Image { description, .. } => texte.push_str(description),
-            Enligne::Video { titre, .. } => texte.push_str(titre),
+            Enligne::Video { titre, .. } | Enligne::Son { titre, .. } => texte.push_str(titre),
             Enligne::Saut => texte.push(' '),
         }
     }
@@ -535,6 +555,12 @@ fn crochets_sans_paire(texte: &str) -> bool {
 fn appel_image(cible: &str, description: String) -> Option<Enligne> {
     if let Some(empreinte) = cible.strip_prefix("video:") {
         return est_empreinte(empreinte).then(|| Enligne::Video {
+            empreinte: empreinte.to_owned(),
+            titre: description,
+        });
+    }
+    if let Some(empreinte) = cible.strip_prefix("son:") {
+        return est_empreinte(empreinte).then(|| Enligne::Son {
             empreinte: empreinte.to_owned(),
             titre: description,
         });
@@ -981,6 +1007,18 @@ mod tests {
     }
 
     #[test]
+    fn un_son_de_l_ecole_s_appelle_par_son_empreinte() {
+        let empreinte = "b".repeat(64);
+        let lecon = analyser(&format!(
+            "Écoutez : ![Prononciation](son:{empreinte}) ![Faux](son:abc)\n"
+        ));
+        assert_eq!(lecon.sons(), vec![empreinte.as_str()]);
+        let brut = lecon.texte_brut();
+        assert!(brut.contains("Prononciation") && brut.contains("Faux"));
+        assert!(!brut.contains("son:"));
+    }
+
+    #[test]
     fn images_du_paquet_de_l_ecole_et_videos() {
         let empreinte = "a".repeat(64);
         let lecon = analyser(&format!(
@@ -1000,6 +1038,7 @@ mod tests {
             ]
         );
         assert_eq!(lecon.videos(), vec![empreinte.as_str()]);
+        assert!(lecon.sons().is_empty());
         let brut = lecon.texte_brut();
         assert!(brut.contains("Ailleurs") && brut.contains("Web") && brut.contains("Disque"));
         assert!(!brut.contains("exemple.org") && !brut.contains("C:"));

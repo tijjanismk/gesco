@@ -10,6 +10,9 @@
 //!   taille conseillée, l'écran demande une confirmation : jamais de refus pour la taille. Elle
 //!   se lit par morceaux, sur le poste principal comme depuis un poste relié ; un poste relié
 //!   l'envoie aussi par morceaux. Deux gestes la copient vers une clé et l'en reprennent.
+//! - Un son (MP3, M4A, OGG, WAV ; 10 Mo au plus) se range dans la base comme une image, donc
+//!   dans la sauvegarde ; le texte l'appelle par `son:<empreinte>`. Il se lit par morceaux par la
+//!   même commande que les vidéos, sur le poste principal comme depuis un poste relié.
 
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -19,7 +22,7 @@ use gesco_core::bibliotheque::paquet::empreinte;
 use gesco_core::bibliotheque::reglages::{TAILLE_VIDEO_CONSEILLEE, TAILLE_VIDEO_CONSEILLEE_DEFAUT};
 use gesco_core::bibliotheque::{
     MORCEAU_VIDEO, NatureContenu, OrigineBibliotheque, SorteFichier, TAILLE_DOCUMENT_MAX,
-    TAILLE_IMAGE_MAX, est_empreinte, nettoyer_svg, reconnaitre,
+    TAILLE_IMAGE_MAX, TAILLE_SON_MAX, est_empreinte, nettoyer_svg, reconnaitre, reconnaitre_son,
 };
 use gesco_core::core::{Operation, TypeEvenement};
 use gesco_db::depots::bibliotheque::{self as depot, FichierJoint};
@@ -46,6 +49,33 @@ pub struct ImageAjoutee {
     pub reference: String,
     /// Nom du fichier, proposé comme description.
     pub nom: String,
+}
+
+/// Ajouter un son à la bibliothèque.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct DemandeSonBibliotheque {
+    /// Chemin du fichier.
+    pub chemin: String,
+}
+
+/// Un son rangé : ce que l'éditeur écrit dans le texte.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct SonAjoute {
+    /// Appel à écrire dans le texte : `son:<empreinte>`.
+    pub reference: String,
+    /// Nom du fichier sans son extension, proposé comme titre.
+    pub nom: String,
+}
+
+/// Un son appelé par une leçon, tel que la lecture le décrit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct SonLecon {
+    /// Empreinte.
+    pub empreinte: String,
+    /// Le son est dans la base de l'école.
+    pub disponible: bool,
+    /// Type MIME, vide s'il est absent.
+    pub type_mime: String,
 }
 
 /// Joindre un fichier à un document de l'école.
@@ -312,6 +342,8 @@ impl ServiceBibliotheque<'_> {
         }
         let nature = if sorte == SorteFichier::Pdf {
             "document"
+        } else if sorte.est_son() {
+            "son"
         } else {
             "image"
         };
@@ -383,6 +415,62 @@ impl ServiceBibliotheque<'_> {
             reference: format!("image:{cle}"),
             nom: description,
         })
+    }
+
+    /// Ajoute un son : reconnu par ses premiers octets, 10 Mo au plus ; rend l'appel à écrire
+    /// dans le texte.
+    pub async fn ajouter_son(
+        &self,
+        session: &Session,
+        demande: &DemandeSonBibliotheque,
+    ) -> Resultat<SonAjoute> {
+        let chemin = Path::new(&demande.chemin);
+        let Some(sorte) = reconnaitre_son(&debut_du_fichier(chemin)?) else {
+            return Err(regle("bibliotheque.son_inconnu"));
+        };
+        if std::fs::metadata(chemin)?.len() > TAILLE_SON_MAX {
+            return Err(regle("bibliotheque.son_trop_lourd"));
+        }
+        let octets = std::fs::read(chemin)?;
+        if octets.len() as u64 > TAILLE_SON_MAX {
+            return Err(regle("bibliotheque.son_trop_lourd"));
+        }
+        let cle = self
+            .ranger_fichier(session, chemin, sorte, &octets, None)
+            .await?;
+        let nom = nom_du_fichier(chemin);
+        let titre = nom
+            .rsplit_once('.')
+            .map_or(nom.as_str(), |(base, _)| base)
+            .to_owned();
+        Ok(SonAjoute {
+            reference: format!("son:{cle}"),
+            nom: titre,
+        })
+    }
+
+    /// Sons appelés par une leçon, avec leur présence dans la base.
+    pub(super) async fn sons_de(
+        &self,
+        cnx: &mut gesco_db::Connexion,
+        empreintes: &[String],
+        contexte: &gesco_db::contexte::Contexte,
+    ) -> Resultat<Vec<SonLecon>> {
+        let mut empreintes = empreintes.to_vec();
+        empreintes.sort();
+        empreintes.dedup();
+        let connus = depot::sons_par_empreinte(cnx, &empreintes, contexte).await?;
+        Ok(empreintes
+            .into_iter()
+            .map(|e| {
+                let connu = connus.iter().find(|(c, _, _)| *c == e);
+                SonLecon {
+                    disponible: connu.is_some(),
+                    type_mime: connu.map(|(_, t, _)| t.clone()).unwrap_or_default(),
+                    empreinte: e,
+                }
+            })
+            .collect())
     }
 
     /// Fichiers d'un document de l'école.
@@ -585,7 +673,8 @@ impl ServiceBibliotheque<'_> {
         Ok(())
     }
 
-    /// Lit un morceau d'une vidéo de l'école.
+    /// Lit un morceau d'une vidéo de l'école, ou d'un son : un son se lit dans la base, par la
+    /// même route, pour qu'un poste relié l'écoute sans que le fichier voyage d'un bloc.
     pub async fn lire_morceau_video(
         &self,
         session: &Session,
@@ -597,10 +686,26 @@ impl ServiceBibliotheque<'_> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let connue = {
             let mut cnx = self.connexion().await?;
-            depot::videos(&mut cnx, &contexte)
+            let connue = depot::videos(&mut cnx, &contexte)
                 .await?
                 .iter()
-                .any(|v| v.empreinte_sha256 == demande.empreinte)
+                .any(|v| v.empreinte_sha256 == demande.empreinte);
+            if !connue
+                && let Some((taille, octets)) = depot::morceau_son(
+                    &mut cnx,
+                    &demande.empreinte,
+                    demande.position,
+                    i64::try_from(MORCEAU_VIDEO).unwrap_or(i64::MAX),
+                    &contexte,
+                )
+                .await?
+            {
+                return Ok(MorceauVideo {
+                    taille,
+                    contenu: base64::engine::general_purpose::STANDARD.encode(&octets),
+                });
+            }
+            connue
         };
         let chemin = chemin_video(&self.espace.videos(), &demande.empreinte);
         if !connue || !chemin.exists() {

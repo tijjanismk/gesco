@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { appeler } from "../../api";
+import { Bouton } from "../../composants/Bouton";
 import { CaseACocher } from "../../composants/Champ";
 import { MessageErreur } from "../../composants/Messages";
 import { t } from "../../i18n";
@@ -15,6 +16,7 @@ import { Ajouter } from "./Ajouter";
 import { DroitsPublication } from "./DroitsPublication";
 import { ListeEnAttente, useLeconsAValider } from "./EnAttente";
 import { Lecture, libelleNature } from "./Lecture";
+import { type CiblePourQui, MarqueClasses, PourQui } from "./PourQui";
 import { ListeRetraits, trouverPlace } from "./Retraits";
 
 interface Filtres {
@@ -101,6 +103,7 @@ function LigneContenu({
           {libelleNature(contenu.nature, contenu.examen, contenu.session)}
           {peutEcrire && contenu.version_ecole ? ` · ${t("bibliotheque.marque.version_ecole")}` : ""}
           {peutEcrire && contenu.en_attente ? ` · ${t("bibliotheque.marque.en_attente")}` : ""}
+          {contenu.classes_seulement.length > 0 ? ` · ${t("bibliotheque.pour_qui.marque", { classes: contenu.classes_seulement.join(", ") })}` : ""}
         </span>
       </button>
     </li>
@@ -120,8 +123,10 @@ function Arbre({
   surOuvrir: (id: string) => void;
 }) {
   const ouvert = niveaux.length === 1;
+  const [pourQui, setPourQui] = useState<CiblePourQui | null>(null);
   return (
     <nav aria-label={t("bibliotheque.titre")} className="flex flex-col gap-1">
+      {pourQui === null ? null : <PourQui cible={pourQui} surFermer={() => setPourQui(null)} />}
       {niveaux.map((n) => (
         <details key={n.code} open={ouvert}>
           <summary className="cursor-pointer rounded px-1 py-1 font-semibold text-marine focus-visible:outline-2 focus-visible:outline-primaire">
@@ -141,8 +146,15 @@ function Arbre({
                         {p.chapitres.map((c) => (
                           <details key={c.id}>
                             <summary className="cursor-pointer rounded px-1 py-0.5 text-sm text-encre focus-visible:outline-2 focus-visible:outline-primaire">
-                              {c.titre}
+                              {c.titre} <MarqueClasses classes={c.classes_seulement} />
                             </summary>
+                            {peutEcrire && c.origine === "ecole" ? (
+                              <div className="ml-3 flex flex-wrap gap-1 py-0.5">
+                                <Bouton variante="secondaire" className="px-2! py-0.5! text-xs!" onClick={() => setPourQui({ contenu_id: null, chapitre_id: c.id })}>
+                                  {t("bibliotheque.pour_qui.bouton")}
+                                </Bouton>
+                              </div>
+                            ) : null}
                             <ul className="ml-3">
                               {c.contenus.map((x) => (
                                 <LigneContenu key={x.id} contenu={x} peutEcrire={peutEcrire} choisi={x.id === choisi} surOuvrir={surOuvrir} />

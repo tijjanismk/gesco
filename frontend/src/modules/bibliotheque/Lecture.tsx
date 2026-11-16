@@ -9,6 +9,7 @@ import type { ExamenSujet, LectureContenu, NatureContenu, VueContenu } from "../
 import { Editeur } from "./Editeur";
 import { FichiersDocument, Imprimer } from "./Fichiers";
 import { Historique } from "./Historique";
+import { MarqueClasses, PourQui } from "./PourQui";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
 import { type PlaceAuCatalogue, RetirerAutour } from "./Retraits";
 
@@ -105,7 +106,7 @@ function ModeClasse({ contenu, surFermer }: { contenu: LectureContenu; surFermer
       </button>
       <div className="mx-auto max-w-5xl" style={{ fontSize: "170%" }}>
         <h1 className="mb-4 text-3xl font-semibold text-marine">{contenu.titre}</h1>
-        <RenduLecon lecon={contenu.lecon} images={images} videos={contenu.videos} sansNotes />
+        <RenduLecon lecon={contenu.lecon} images={images} videos={contenu.videos} sons={contenu.sons} sansNotes classe />
       </div>
     </div>
   );
@@ -172,6 +173,7 @@ export function Lecture({
   const [taille, setTaille] = useState(tailleRetenue);
   const [classe, setClasse] = useState(false);
   const [faits, setFaits] = useState(false);
+  const [pourQui, setPourQui] = useState(false);
   const lecture = useQuery({
     queryKey: ["bibliotheque", "lire", contenuId, vue],
     queryFn: () => appeler("bibliotheque_lire", { contenu_id: contenuId, vue }),
@@ -188,7 +190,9 @@ export function Lecture({
     <article className="flex flex-col gap-3">
       <header className="flex flex-col gap-2 border-b border-muet pb-3">
         <p className="text-sm text-muet">{libelleNature(contenu.nature, contenu.examen, contenu.session)}</p>
-        <h2 className="text-xl font-semibold text-marine">{contenu.titre}</h2>
+        <h2 className="text-xl font-semibold text-marine">
+          {contenu.titre} <MarqueClasses classes={contenu.classes_seulement} />
+        </h2>
         <div className="flex flex-wrap items-center gap-2">
           {contenu.vues.length > 1 ? (
             <div role="group" aria-label={t("bibliotheque.vue.libelle")} className="flex gap-1">
@@ -218,6 +222,11 @@ export function Lecture({
           <Bouton variante="secondaire" onClick={() => setClasse(true)}>
             {t("bibliotheque.mode_classe")}
           </Bouton>
+          {contenu.peut_modifier && contenu.origine === "ecole" ? (
+            <Bouton variante="secondaire" onClick={() => setPourQui(true)}>
+              {t("bibliotheque.pour_qui.bouton")}
+            </Bouton>
+          ) : null}
           {contenu.faits === null ? null : (
             <Bouton variante="secondaire" aria-pressed={faits} onClick={() => setFaits((f) => !f)}>
               {t("bibliotheque.faits")}
@@ -268,7 +277,7 @@ export function Lecture({
               {contenu.lecon.blocs.length === 0 ? (
                 <p className="text-muet">{t("bibliotheque.contenu_vide")}</p>
               ) : (
-                <RenduLecon lecon={contenu.lecon} images={images} videos={contenu.videos} />
+                <RenduLecon lecon={contenu.lecon} images={images} videos={contenu.videos} sons={contenu.sons} />
               )}
             </div>
             {contenu.nature === "document" ? <FichiersDocument contenu={contenu} /> : null}
@@ -282,6 +291,7 @@ export function Lecture({
         </div>
       )}
       {classe ? <ModeClasse contenu={contenu} surFermer={() => setClasse(false)} /> : null}
+      {pourQui ? <PourQui cible={{ contenu_id: contenu.id, chapitre_id: null }} surFermer={() => setPourQui(false)} /> : null}
     </article>
   );
 }

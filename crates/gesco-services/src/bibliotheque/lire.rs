@@ -125,6 +125,10 @@ pub struct LectureContenu {
     pub faits: Option<Lecon>,
     /// Vidéos appelées par le texte, et leur présence sur le poste principal.
     pub videos: Vec<super::VideoLecon>,
+    /// Sons appelés par le texte, et leur présence dans la base.
+    pub sons: Vec<super::SonLecon>,
+    /// Classes de l'année auxquelles ce contenu de l'école est réservé (vide : tout le niveau).
+    pub classes_seulement: Vec<String>,
     /// Fichiers d'un document de l'école, dans l'ordre.
     pub fichiers: Vec<super::FichierDocument>,
 }
@@ -284,8 +288,33 @@ impl ServiceBibliotheque<'_> {
     pub async fn catalogue(&self, session: &Session) -> Resultat<CatalogueBibliotheque> {
         let (peut_ecrire, peut_valider) = self.permissions(session).await?;
         let peut_gerer = self.peut_gerer(session).await?;
-        let range = self.ranger_catalogue(session, peut_ecrire, true).await?;
+        let mut range = self.ranger_catalogue(session, peut_ecrire, true).await?;
         let ecrit_partout = peut_ecrire && self.portee(session).await?.partout();
+        // La marque « 9e A seulement » : le personnel voit tout, avec la marque.
+        let marques = {
+            let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+            let mut cnx = self.connexion().await?;
+            Self::marques_classes(&mut cnx, &contexte).await?
+        };
+        if !marques.is_empty() {
+            for chapitre in range
+                .niveaux
+                .iter_mut()
+                .flat_map(|n| n.series.iter_mut())
+                .flat_map(|s| s.matieres.iter_mut())
+                .flat_map(|m| m.parties.iter_mut())
+                .flat_map(|p| p.chapitres.iter_mut())
+            {
+                if let Some(m) = marques.get(&chapitre.id) {
+                    chapitre.classes_seulement.clone_from(m);
+                }
+                for contenu in &mut chapitre.contenus {
+                    if let Some(m) = marques.get(&contenu.id) {
+                        contenu.classes_seulement.clone_from(m);
+                    }
+                }
+            }
+        }
         Ok(CatalogueBibliotheque {
             niveaux: range.niveaux,
             peut_ecrire,
@@ -409,6 +438,14 @@ impl ServiceBibliotheque<'_> {
         };
         let empreintes: Vec<String> = lecon.videos().into_iter().map(str::to_owned).collect();
         let videos = self.videos_de(&mut cnx, &empreintes, &contexte).await?;
+        let empreintes: Vec<String> = lecon.sons().into_iter().map(str::to_owned).collect();
+        let sons = self.sons_de(&mut cnx, &empreintes, &contexte).await?;
+        let marques = Self::marques_classes(&mut cnx, &contexte).await?;
+        let classes_seulement = marques
+            .get(&demande.contenu_id)
+            .or_else(|| marques.get(&contenu.chapitre_id.vers_chaine()))
+            .cloned()
+            .unwrap_or_default();
         let fichiers = if contenu.nature == NatureContenu::Document {
             depot::fichiers_du_contenu(&mut cnx, &demande.contenu_id, &contexte)
                 .await?
@@ -427,6 +464,8 @@ impl ServiceBibliotheque<'_> {
         Ok(LectureContenu {
             faits,
             videos,
+            sons,
+            classes_seulement,
             fichiers,
             peut_modifier,
             id: contenu.id.vers_chaine(),
