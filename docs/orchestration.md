@@ -552,3 +552,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (4) installeur officiel, guide, essais à la main, essai sur deux machines par le porteur.
 - **Sessions à archiver** avec l'accord du porteur : `local_fcca0ca2` (fin de l'étape 10 du lot 1)
   et les sessions de la sauvegarde hors de l'école.
+- 2026-11-16 : spécifications des lots 2 à 5 de la phase 12 commitées (dernier `405c640`,
+  `SPEC_PHASE_12_LOT_2.md` à `_5.md`, dix ADR proposés). 19 questions au porteur, avec
+  recommandations : T-124 à T-129 et T-134 à T-146, à présenter par l'orchestrateur neuf avant le
+  code (lot 4 avant lot 3). Recherche d'images : 51 images trouvées ; un dépôt git local a été créé
+  dans `gesco-bibliotheque` (commit `de7ed5d`, branche `main`, sans dépôt distant). Sessions finies
+  à archiver avec l'accord du porteur : `local_fcca0ca2`, `local_162a9d46`, `local_74ac82be`,
+  `local_e184e227`, `local_f40629f5`.
