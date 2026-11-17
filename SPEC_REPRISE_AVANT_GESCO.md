@@ -4,7 +4,7 @@
 **Objet** : « Reprise avant GESCO » — ce que les parents ont payé avant l'installation réduit le
 reste à payer dès le premier jour, sans versement, sans reçu, sans caisse ; et ce qu'il faut pour
 saisir les absences et les notes des mois passés ; version 2.0.0
-**Statut** : v1.0 — proposée le 17 novembre 2026, d'après la décision du porteur du projet du même
+**Statut** : v1.1 — essais renvoyés à la fin du codage (après le lot 5) ; v1.0 proposée le 17 novembre 2026, d'après la décision du porteur du projet du même
 jour (« ok » à la version simple, `docs/orchestration.md`, commit `0dd1623`) ; trois questions au
 §13, chacune avec une recommandation ; le code peut commencer sur les recommandations
 **Documents parents** : `SPEC_PHASE_3.md` (§4 facture et échéancier, §4.2 arrivée en cours d'année,
@@ -14,8 +14,10 @@ moyennes reprises), `SPEC_PHASE_8.md` (§5 comptes et soldes d'ouverture, §7 jo
 `SPEC_PHASE_11_B.md` et principe du porteur « la flexibilité sans incohérence » (14 novembre
 2026), migration `0053_changement_de_classe` (ajustements et avoirs : règlement sans encaissement)
 **ADR proposé avec cette spécification** : `docs/adr/2026-11-17-reprise-avant-gesco.md`
-**Ordre** : fin du lot 4 de la phase 12 → **code de cette spécification** → installeur pour l'école
-d'essai (deuxième mois de l'année) → lot 3 (quiz) → lot 5 (devoirs) → installeur final.
+**Ordre** : fin du lot 4 de la phase 12 → **code de cette spécification** → lot 3 (quiz) → lot 5
+(devoirs) → tous les essais, une seule fois → installeur, pour l'école d'essai comme pour les
+autres (précision du porteur du 17 novembre 2026 : « on fait les test a la fin du codage » ; plus
+d'installeur intermédiaire).
 **Date** : 17 novembre 2026
 
 ---
@@ -436,8 +438,9 @@ abonné nouveau : ni SMS, ni trésorerie (c'est voulu).
 
 ## 11. Essais
 
-Chaque étape écrit ses essais ; on les lance tous à la dernière étape (façon de travailler du
-16 novembre 2026). Rust :
+Chaque étape écrit ses essais **sans les passer** ; tous les essais de la 2.0.0 (ceux-ci compris)
+se passent une seule fois, à la fin du codage, après le lot 5 de la phase 12 (précision du porteur
+du 17 novembre 2026). Rust :
 
 1. **Caisse intacte** (essai de propriété) : pour une école avec sessions ouvertes et clôturées,
    versements, annulations, sorties, comptes avec soldes d'ouverture, on capture : totaux
@@ -476,8 +479,8 @@ Chaque étape écrit ses essais ; on les lance tous à la dernière étape (faç
     évaluation du 25 octobre montrent l'élève ; date hors de l'année refusée.
 
 TypeScript (vitest) : saisie de la case (montants « 75 000 », « 75.000 », 0, vide), calcul du
-reste affiché. Playwright : dans l'essai global de fin de codage (pas d'essai Playwright par
-étape), le parcours du §9 étapes 3 à 7, avec captures de l'écran « Payé avant GESCO », de la
+reste affiché. Playwright : dans l'essai global de fin de codage, après le lot 5 (pas d'essai
+Playwright par étape), le parcours du §9 étapes 3 à 7, avec captures de l'écran « Payé avant GESCO », de la
 section « Frais » de la fiche et de l'aperçu d'import.
 
 ---
@@ -485,10 +488,11 @@ section « Frais » de la fiche et de l'aperçu d'import.
 ## 12. Ordre de réalisation
 
 Sept étapes courtes, commit et push sur `developpement` après chacune ; fmt, clippy, tsc et ESLint
-à chaque étape, tous les essais à la dernière.
+à chaque étape ; les essais s'écrivent avec le code et ne se passent qu'à la fin du codage, après
+le lot 5.
 
-1. **Date d'arrivée à l'import des élèves** (§8.2) : champ, réglage, écriture, textes ; essai 12.
-   Indépendante du reste, utile à l'école d'essai même seule.
+1. **Date d'arrivée à l'import des élèves** (§8.2) : champ, réglage, écriture, textes ; essai 12
+   écrit. Indépendante du reste.
 2. **Tables** : migration 0065 montante et descendante, ADR, dépôt `gesco-db/src/depots/reprises.rs`
    (insérer, annuler, active de l'inscription, historique, imputations de la facture, insérer et
    annuler les imputations), types du noyau `gesco-core/src/finance/reprise.rs` (reprise,
@@ -501,9 +505,11 @@ Sept étapes courtes, commit et push sur `developpement` après chacune ; fmt, c
    permissions.
 5. **Import Excel** : modèle prérempli, analyse, écriture, rapport et export des refus ; essai 11.
 6. **Rapports** : journal des encaissements (ligne hors totaux, exports), budget ; essais 1 et 10.
-7. **Essais et manuel** : tous les essais (Rust complet, vitest, knip), essai de propriété de la
-   caisse, `docs/manuel-2.0-reprise.md`, essais à la main, notes de version 2.0.0 ; Playwright
-   et captures avec l'essai global.
+7. **Manuel** : `docs/manuel-2.0-reprise.md`, essais à la main, notes de version 2.0.0 ; les
+   essais vitest et l'essai de propriété de la caisse sont écrits, pas passés.
+
+**Après le lot 5** (hors de cette spécification) : tous les essais de la 2.0.0 en une fois (Rust
+complet, vitest, knip, Playwright et captures du §11), corrections, puis l'installeur.
 
 ---
 
@@ -553,3 +559,4 @@ relevé. Si l'école d'essai trouve la saisie trop longue, b) se spécifie aprè
 | Version | Date | Changement |
 |---|---|---|
 | 1.0 | 17 novembre 2026 | Proposée d'après la décision du porteur du jour (version simple) ; vérification du code : absences et notes passées possibles, import des élèves daté du jour (ajout de la date d'arrivée) ; T-161 à T-163 |
+| 1.1 | 17 novembre 2026 | Précision du porteur (« on fait les test a la fin du codage ») : les étapes écrivent leurs essais sans les passer ; tous les essais après le lot 5 ; plus d'installeur intermédiaire pour l'école d'essai |
