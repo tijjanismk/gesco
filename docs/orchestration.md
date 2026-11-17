@@ -634,3 +634,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   - **Le module Bibliothèque coupe tout l'e-learning** : éteint, le portail ne répond plus (fait),
     ses réglages disparaissent (fait), et l'onglet « Suivi des élèves » de l'étape 5 doit lui aussi
     disparaître avec le module. Écran des modules : « E-learning (bibliothèque de cours) ».
+- 2026-11-17, porteur : « T-162 remboursement et le reste oui ». Reprise avant GESCO : T-161 a) et
+  T-163 a) retenues ; T-162 : l'excédent payé avant GESCO est accepté et devient « à rembourser » au
+  parent, remboursé par le geste existant (sortie de caisse le jour du remboursement).
+  `SPEC_REPRISE_AVANT_GESCO.md` passe en v1.2 acceptée. Lot 4, étapes 2 à 7, en cours dans
+  `local_ae0cef40-6e3f-45d8-9f00-d41365356a7e` ; code de la reprise ensuite.
