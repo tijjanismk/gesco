@@ -677,3 +677,48 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   - Disque : `target/debug/incremental` vidé le 17 novembre (3 Go) ; compiler avec
     `CARGO_INCREMENTAL=0` ; 12 Go libres après l'étape 2.
 - Le porteur doit toujours ouvrir la page « GESCO répond » depuis un vrai téléphone (étape 1).
+
+## Passage de relais du 17 novembre 2026 (nuit) — lot 4, après l'étape 4
+
+- Fait : **étape 3** (`e0456ed`, service de lecture du portail) et **étape 4** (`ac5a925`, écrans de
+  l'élève), commitées et poussées ; fmt, clippy `-j 4` (services, réseau, toutes cibles ; puis
+  `gesco-app`), tsc, ESLint et construction des écrans verts ; essais écrits, **aucun lancé**.
+  Détail dans `ETAT_AVANCEMENT.md`, section « Phase 12, lot 4 ».
+- Reste, dans l'ordre : étapes 5, 6 et 7 de `SPEC_PHASE_12_LOT_4.md` §13, commit et push après
+  chacune, aucun essai lancé. Fin : `ETAT_AVANCEMENT.md` dit « lot 4 codé, essais écrits non
+  lancés ».
+- À savoir pour l'étape 5 (suivi) :
+  - Les écrans attendent ces deux routes (types dans `frontend/eleve/src/types.ts`) :
+    `POST /eleve/api/avancement` avec `{contenu_id, version, geste: "ouvert" | "fini"}` → 204 ;
+    `GET /eleve/api/mon-avancement` → `{matieres: [{cle, libelle, finies, visibles}], recentes:
+    [{id, titre, matiere}], finies: [id…]}` (`visibles` : leçons de nature `lecon` visibles, comme
+    `lecons` du catalogue ; `recentes` : dernières ouvertes, la plus récente d'abord, elle sert à
+    « Reprendre »). Elles répondent encore 503 (`a_venir` dans `gesco-reseau/src/portail.rs`) ;
+    les écrans n'appellent `mon-avancement` que si `accueil.suivi` et un élève entré avec son code.
+  - Pour écrire : `Application::portail_lecture` (privée, `frontiere.rs`) rend la session et la
+    `LecturePortail` ; `lecture.visible(id, &session)` et `lecture.contenu(id, &session)` (dont
+    `version`, l'empreinte de la version lue, et `matiere_cle`) ; `lecture.catalogue(&session)`
+    pour compter les leçons visibles par matière. Table `avancement_lecon` (migration 0064,
+    unique sur élève, année, contenu). Écritures groupées toutes les 5 s : une file dans
+    `PortailVivant` vidée par une tâche (comme `file_sms` dans `gesco-app/src/poste.rs`).
+  - Une commande nouvelle du personnel qui change ce que voient les élèves doit entrer dans
+    `COMMANDES_QUI_CHANGENT_LA_LECTURE` (`gesco-services/src/portail/lecture.rs`).
+  - Onglet « Suivi des élèves » : `useElearningActif()` le cache module éteint ; commande dans
+    `COMMANDES_DU_MAITRE` ; T-134 : réglage « Les maîtres ont leur compte » séparé de
+    `notes.saisie_maitres`.
+- Étape 6 : les écrans traitent déjà 503 et 429 comme « Beaucoup d'élèves sont connectés.
+  Réessaie dans un instant. » et réessaient seuls (`frontend/eleve/src/api.ts`, `lecture.ts`) ;
+  les sons et vidéos se servent déjà par morceaux d'un mégaoctet (`MORCEAU_MEDIA`, `Range`).
+  Restent les bornes (48 pages et API, 4 vidéos, 2 PDF) et l'outil de mesure.
+- Écrans : `pnpm build:eleve` (dans `pnpm build`) remplit `crates/gesco-app/ressources/portail-eleve/`
+  (non versionné sauf `LISEZ-MOI.txt`), ressource Tauri `portail-eleve/` ; `pages_du_portail`
+  (`gesco-app/src/main.rs`) le passe au serveur. `pnpm dev:eleve` sert les écrans sur le port 1421
+  avec les appels relayés au 47 801.
+- **Écart à faire valider** : la police Andika 7.000 n'est pas dans le dépôt ; il faut la
+  télécharger depuis SIL (accord du porteur du projet pour le téléchargement) et déposer
+  `andika-regular.woff2` et `andika-bold.woff2` dans `frontend/eleve/public/assets/` ; d'ici là,
+  la police du téléphone.
+- Essais écrits non lancés de ces étapes : `l_eleve_ne_lit_que_les_versions_visibles_de_sa_classe`
+  (`gesco-services/tests/bibliotheque.rs`), unitaires de `portail/lecture.rs` et
+  `gesco-reseau/src/portail/api.rs`, `frontend/eleve/src/replier.test.ts`.
+- Disque : 8,5 Go libres après l'étape 4 (`CARGO_INCREMENTAL=0`).
