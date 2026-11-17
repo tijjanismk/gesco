@@ -357,6 +357,14 @@ export type ApercuAjustement = {
 	avoir: Montant,
 };
 
+/**  Ce qui partira, et le nom proposé pour le fichier. */
+export type ApercuExport = {
+	/**  Leçons, dans l'ordre du catalogue. */
+	lecons: LeconExportee[],
+	/**  Nom proposé : « Leçons — Classe — Matière.gles ». */
+	nom_propose: string,
+};
+
 /**  Ce que la fusion produira, montré avant la confirmation. */
 export type ApercuFusion = {
 	/**  Fiche conservée, telle qu'elle est. */
@@ -372,6 +380,18 @@ export type ApercuFusion = {
 	 *  refusée tant que l'une n'est pas abandonnée.
 	 */
 	annees_concurrentes: string[],
+};
+
+/**  Ce qu'un fichier apporte, avant de confirmer. */
+export type ApercuImport = {
+	/**  Nom du fichier. */
+	nom_fichier: string,
+	/**  Date de fabrication écrite dans le fichier. */
+	date: string,
+	/**  Leçons, dans l'ordre du fichier. */
+	lecons: LeconArrivee[],
+	/**  Ce fichier a déjà été importé : quand, millisecondes depuis l'époque. */
+	deja_importe_le: number | null,
 };
 
 /**  Aperçu, puis bilan, d'un import de notes. */
@@ -491,6 +511,19 @@ export type ArriveeEnCours =
 "prorata_mensuel" | 
 /**  Tout est dû. */
 "plein_tarif";
+
+/**  Où une leçon reçue se rangera. */
+export type ArriveeLecon = 
+/**  Brouillon d'une leçon que l'école a déjà. */
+"brouillon" | 
+/**  L'école a déjà un brouillon : version reçue, dans l'historique. */
+"version_recue" | 
+/**  Leçon nouvelle de l'école, en brouillon. */
+"nouvelle" | 
+/**  Ce texte est déjà dans l'historique : rien n'est ajouté. */
+"deja_la" | 
+/**  Aucune place : ni ce niveau ni cette matière dans l'école. */
+"sans_place";
 
 /**
  *  Arrondi des moyennes au centième, au choix de chaque école (réponse du 11 octobre 2026).
@@ -1253,6 +1286,18 @@ export type ClasseExamen = {
 	libelle: string,
 	/**  Examen. */
 	examen: Examen,
+};
+
+/**  Une classe du niveau, cochée ou non. */
+export type ClassePourQui = {
+	/**  Identifiant de la classe. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Le contenu lui est réservé. */
+	choisie: boolean,
+	/**  L'utilisateur peut la cocher (un maître : ses classes). */
+	permise: boolean,
 };
 
 /**  Une classe de l'année et ses compléments. */
@@ -2253,15 +2298,25 @@ export type Contrat = {
 	bibliotheque_droit_publication_retirer: Signature<DemandeDroitPublication, DroitsPublication>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_image_ajouter: Signature<DemandeImageBibliotheque, ImageAjoutee>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_son_ajouter: Signature<DemandeSonBibliotheque, SonAjoute>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_word_importer: Signature<DemandeImportWord, ImportWord>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_export_apercu: Signature<DemandeExportApercu, ApercuExport>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_exporter: Signature<DemandeExportLecons, ExportFait>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_import_apercu: Signature<DemandeImportLecons, ApercuImport>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_importer: Signature<DemandeImportLecons, ImportFait>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_imports_lister: Signature<null, ImportAffiche[]>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_import_publier: Signature<DemandeImportPublier, PublicationImport>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_classes_lire: Signature<DemandePourQui, PourQuiContenu>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_classes_regler: Signature<DemandeReglerPourQui, PourQuiContenu>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_document_fichier_ajouter: Signature<DemandeFichierDocument, FichierDocument[]>,
@@ -3968,6 +4023,20 @@ export type DemandeExport = {
 	lignes: string[][],
 };
 
+/**  Voir ce qui partira. */
+export type DemandeExportApercu = {
+	/**  Ce que l'on exporte. */
+	selection: SelectionExport,
+};
+
+/**  Exporter dans un fichier. */
+export type DemandeExportLecons = {
+	/**  Ce que l'on exporte. */
+	selection: SelectionExport,
+	/**  Chemin du fichier `.gles` à écrire. */
+	chemin: string,
+};
+
 /**  Export d'un tableau ou d'un onglet entier : une feuille par tableau. */
 export type DemandeExportStatistiques = {
 	/**  Chemin du classeur à écrire, extension `.xlsx`. */
@@ -4210,47 +4279,9 @@ export type DemandeImageBibliotheque = {
 	chemin: string,
 };
 
-/**  Lire « Pour qui » d'un contenu ou d'un chapitre de l'école. */
-export type DemandePourQui = {
-	/**  Contenu visé. */
-	contenu_id: string | null,
-	/**  Chapitre visé. */
-	chapitre_id: string | null,
-};
-
-/**  Régler « Pour qui » : aucune classe, tout le niveau. */
-export type DemandeReglerPourQui = {
-	/**  Contenu visé. */
-	contenu_id: string | null,
-	/**  Chapitre visé. */
-	chapitre_id: string | null,
-	/**  Classes choisies, de l'année en cours. */
-	classes: string[],
-};
-
-/**  Une classe du niveau, cochée ou non. */
-export type ClassePourQui = {
-	/**  Identifiant de la classe. */
-	id: string,
-	/**  Libellé. */
-	libelle: string,
-	/**  Le contenu lui est réservé. */
-	choisie: boolean,
-	/**  L'utilisateur peut la cocher (un maître : ses classes). */
-	permise: boolean,
-};
-
-/**  « Pour qui » d'un contenu ou d'un chapitre de l'école. */
-export type PourQuiContenu = {
-	/**  Classes du niveau de l'année en cours. */
-	classes: ClassePourQui[],
-	/**  L'utilisateur peut changer le choix. */
-	modifiable: boolean,
-};
-
-/**  Ajouter un son à la bibliothèque. */
-export type DemandeSonBibliotheque = {
-	/**  Chemin du fichier. */
+/**  Lire ou importer un fichier de leçons. */
+export type DemandeImportLecons = {
+	/**  Chemin du fichier `.gles` (sur un poste relié, son contenu voyage à sa place). */
 	chemin: string,
 };
 
@@ -4272,6 +4303,12 @@ export type DemandeImportPersonnel = {
 export type DemandeImportProgramme = {
 	/**  Chemin du classeur ou du CSV. */
 	chemin: string,
+};
+
+/**  Publier les leçons reçues d'un import. */
+export type DemandeImportPublier = {
+	/**  Identifiant de l'import. */
+	import_id: string,
 };
 
 /**  Fichier à lire. */
@@ -4915,6 +4952,14 @@ export type DemandePoste = {
 	poste_id: string,
 };
 
+/**  Lire « Pour qui » d'un contenu ou d'un chapitre de l'école. */
+export type DemandePourQui = {
+	/**  Contenu visé. */
+	contenu_id: string | null,
+	/**  Chapitre visé. */
+	chapitre_id: string | null,
+};
+
 /**  Données du premier démarrage. */
 export type DemandePremierDemarrage = {
 	/**  Organisation propriétaire. */
@@ -5061,6 +5106,16 @@ export type DemandeRegle = {
 	cycle: Cycle,
 	/**  Contenu. */
 	contenu: ContenuRegle,
+};
+
+/**  Régler « Pour qui » : aucune classe, tout le niveau. */
+export type DemandeReglerPourQui = {
+	/**  Contenu visé. */
+	contenu_id: string | null,
+	/**  Chapitre visé. */
+	chapitre_id: string | null,
+	/**  Classes choisies, de l'année en cours. */
+	classes: string[],
 };
 
 /**  Réinitialisation du mot de passe d'un compte par un administrateur. */
@@ -5441,6 +5496,12 @@ export type DemandeSimulationSms = {
 	numero: string,
 	/**  Texte. */
 	texte: string,
+};
+
+/**  Ajouter un son à la bibliothèque. */
+export type DemandeSonBibliotheque = {
+	/**  Chemin du fichier. */
+	chemin: string,
 };
 
 /**  Ce que l'écran demande : l'année, la date d'arrêt, le périmètre. */
@@ -6886,6 +6947,14 @@ export type Exigibilite =
 /**  Selon les tranches du plan choisi par le parent. */
 "selon_plan";
 
+/**  Un export fait. */
+export type ExportFait = {
+	/**  Leçons parties. */
+	lecons: number,
+	/**  Images, sons et fichiers de documents partis avec elles. */
+	fichiers: number,
+};
+
 /**  Facture d'une inscription. */
 export type Facture = {
 	/**  Identifiant technique. */
@@ -7527,124 +7596,26 @@ export type ImageAjoutee = {
 	nom: string,
 };
 
-/**  Une version reçue d'une autre école alors qu'un brouillon existait. */
-export type VersionRecueAffichee = {
-	/**  Identifiant. */
-	id: string,
-	/**  Reçue le, millisecondes depuis l'époque. */
-	recue_le: number,
-	/**  Nom de qui a importé le fichier. */
-	importe_par: string,
+/**  Une image appelée par la leçon, prête à afficher. */
+export type ImageLecon = {
+	/**  Nom du fichier du paquet, ou empreinte d'une image de l'école. */
+	cle: string,
+	/**  Type MIME. */
+	type_mime: string,
+	/**  Contenu en base 64. */
+	donnees: string,
 };
 
-/**  Ce que l'on exporte. */
-export type SelectionExport =
-/**  Un chapitre du catalogue. */
-{ type: "chapitre"; 
-/**  Clé du chapitre. */
-chapitre_cle: string } | 
-/**  Une matière d'un niveau du catalogue. */
-{ type: "matiere"; 
-/**  Code du niveau. */
-niveau_code: string; 
-/**  Clé de la matière au catalogue (`m:<identifiant>` ou `d:<code>`). */
-matiere_cle: string } | 
-/**  Des contenus choisis. */
-{ type: "contenus"; 
-/**  Identifiants des contenus. */
-contenu_ids: string[] };
-
-/**  Voir ce qui partira. */
-export type DemandeExportApercu = {
-	/**  Ce que l'on exporte. */
-	selection: SelectionExport,
-};
-
-/**  Une leçon qui partira. */
-export type LeconExportee = {
-	/**  Identifiant du contenu. */
-	contenu_id: string,
-	/**  Titre. */
-	titre: string,
-	/**  Nature. */
-	nature: NatureContenu,
-	/**  Titre du chapitre. */
-	chapitre: string,
-	/**  Version de l'école d'une leçon livrée. */
-	version_d_une_livree: boolean,
-};
-
-/**  Ce qui partira, et le nom proposé pour le fichier. */
-export type ApercuExport = {
-	/**  Leçons, dans l'ordre du catalogue. */
-	lecons: LeconExportee[],
-	/**  Nom proposé : « Leçons — Classe — Matière.gles ». */
-	nom_propose: string,
-};
-
-/**  Exporter dans un fichier. */
-export type DemandeExportLecons = {
-	/**  Ce que l'on exporte. */
-	selection: SelectionExport,
-	/**  Chemin du fichier `.gles` à écrire. */
-	chemin: string,
-};
-
-/**  Un export fait. */
-export type ExportFait = {
-	/**  Leçons parties. */
-	lecons: number,
-	/**  Images, sons et fichiers de documents partis avec elles. */
-	fichiers: number,
-};
-
-/**  Lire ou importer un fichier de leçons. */
-export type DemandeImportLecons = {
-	/**  Chemin du fichier `.gles` (sur un poste relié, son contenu voyage à sa place). */
-	chemin: string,
-};
-
-/**  Où une leçon reçue se rangera. */
-export type ArriveeLecon =
-/**  Brouillon d'une leçon que l'école a déjà. */
-"brouillon" | 
-/**  L'école a déjà un brouillon : version reçue, dans l'historique. */
-"version_recue" | 
-/**  Leçon nouvelle de l'école, en brouillon. */
-"nouvelle" | 
-/**  Ce texte est déjà dans l'historique : rien n'est ajouté. */
-"deja_la" | 
-/**  Aucune place : ni ce niveau ni cette matière dans l'école. */
-"sans_place";
-
-/**  Une leçon du fichier et où elle se rangera. */
-export type LeconArrivee = {
-	/**  Titre. */
-	titre: string,
-	/**  Nature. */
-	nature: NatureContenu,
-	/**  Niveau de l'école (libellé), sinon le code reçu. */
-	niveau: string,
-	/**  Matière où elle se range (libellé de l'école, sinon de référence). */
-	matiere: string,
-	/**  Titre du chapitre. */
-	chapitre: string,
-	/**  Le chapitre sera créé. */
-	chapitre_nouveau: boolean,
-	/**  Ce qui arrivera. */
-	arrivee: ArriveeLecon,
-};
-
-/**  Ce qu'un fichier apporte, avant de confirmer. */
-export type ApercuImport = {
-	/**  Nom du fichier. */
-	nom_fichier: string,
-	/**  Date de fabrication écrite dans le fichier. */
-	date: string,
-	/**  Leçons, dans l'ordre du fichier. */
-	lecons: LeconArrivee[],
-	/**  Ce fichier a déjà été importé : quand, millisecondes depuis l'époque. */
-	deja_importe_le: number | null,
+/**  Impayé d'une facture à une date. */
+export type Impaye = {
+	/**  Reste dû sur les échéances passées (date du jour comprise). */
+	echu: Montant,
+	/**  Reste dû total, échéances à venir comprises. */
+	total: Montant,
+	/**  Plus ancienne échéance passée et non soldée. */
+	plus_ancienne: string,
+	/**  Jours écoulés depuis cette échéance ; [`Tranches::classer`] en donne la tranche. */
+	jours: number,
 };
 
 /**  Un import tel que les réglages le montrent. */
@@ -7683,48 +7654,12 @@ export type ImportFait = {
 	imports: ImportAffiche[],
 };
 
-/**  Publier les leçons reçues d'un import. */
-export type DemandeImportPublier = {
-	/**  Identifiant de l'import. */
-	import_id: string,
-};
-
-/**  Leçons publiées d'un geste. */
-export type PublicationImport = {
-	/**  Versions publiées. */
-	publiees: number,
-	/**  Imports de l'école, les plus récents d'abord. */
-	imports: ImportAffiche[],
-};
-
 /**  Le cours après l'import, et ce que l'auteur lit sous l'aperçu. */
 export type ImportWord = {
 	/**  Le cours ouvert pour l'écriture, avec son brouillon. */
 	ecriture: EcritureOuverte,
 	/**  Ce qui n'est pas passé. */
 	notes: NoteWord[],
-};
-
-/**  Une image appelée par la leçon, prête à afficher. */
-export type ImageLecon = {
-	/**  Nom du fichier du paquet, ou empreinte d'une image de l'école. */
-	cle: string,
-	/**  Type MIME. */
-	type_mime: string,
-	/**  Contenu en base 64. */
-	donnees: string,
-};
-
-/**  Impayé d'une facture à une date. */
-export type Impaye = {
-	/**  Reste dû sur les échéances passées (date du jour comprise). */
-	echu: Montant,
-	/**  Reste dû total, échéances à venir comprises. */
-	total: Montant,
-	/**  Plus ancienne échéance passée et non soldée. */
-	plus_ancienne: string,
-	/**  Jours écoulés depuis cette échéance ; [`Tranches::classer`] en donne la tranche. */
-	jours: number,
 };
 
 /**  Où la moyenne annuelle s'imprime ; elle est toujours calculée et enregistrée (T-33). */
@@ -7914,10 +7849,40 @@ export type Lecon = {
 	blocs: Bloc[],
 };
 
+/**  Une leçon du fichier et où elle se rangera. */
+export type LeconArrivee = {
+	/**  Titre. */
+	titre: string,
+	/**  Nature. */
+	nature: NatureContenu,
+	/**  Niveau de l'école (libellé), sinon le code reçu. */
+	niveau: string,
+	/**  Matière où elle se range (libellé de l'école, sinon de référence). */
+	matiere: string,
+	/**  Titre du chapitre. */
+	chapitre: string,
+	/**  Le chapitre sera créé. */
+	chapitre_nouveau: boolean,
+	/**  Ce qui arrivera. */
+	arrivee: ArriveeLecon,
+};
+
+/**  Une leçon qui partira. */
+export type LeconExportee = {
+	/**  Identifiant du contenu. */
+	contenu_id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Nature. */
+	nature: NatureContenu,
+	/**  Titre du chapitre. */
+	chapitre: string,
+	/**  Version de l'école d'une leçon livrée. */
+	version_d_une_livree: boolean,
+};
+
 /**  Un contenu ouvert. */
 export type LectureContenu = {
-	/**  Classes de l'année auxquelles ce contenu de l'école est réservé (vide : tout le niveau). */
-	classes_seulement: string[],
 	/**  Identifiant. */
 	id: string,
 	/**  Titre. */
@@ -7952,6 +7917,8 @@ export type LectureContenu = {
 	videos: VideoLecon[],
 	/**  Sons appelés par le texte, et leur présence dans la base. */
 	sons: SonLecon[],
+	/**  Classes de l'année auxquelles ce contenu de l'école est réservé (vide : tout le niveau). */
+	classes_seulement: string[],
 	/**  Fichiers d'un document de l'école, dans l'ordre. */
 	fichiers: FichierDocument[],
 };
@@ -9232,28 +9199,6 @@ export type NiveauInventaire = {
 	cycle: Cycle,
 };
 
-/**  Ce que l'auteur lit sous l'aperçu après un import : ce qui n'est pas passé. */
-export type NoteWord =
-/**  Formules remplacées par « Formule à retaper ici ». */
-{ type: "formules";
-/**  Nombre de formules. */
-nombre: number } |
-/**  Images de plus de 5 Mo laissées de côté. */
-{ type: "images_trop_lourdes";
-/**  Nombre d'images. */
-nombre: number } |
-/**
- *  Images dans un format que la bibliothèque ne prend pas (EMF, WMF, GIF…) ou liées à un
- *  fichier extérieur.
- */
-{ type: "images_non_reprises";
-/**  Nombre d'images. */
-nombre: number } |
-/**  Zones de texte ignorées. */
-{ type: "zones_de_texte" } |
-/**  En-têtes, pieds de page, commentaires ou révisions supprimées ignorés. */
-{ type: "elements_ignores" };
-
 /**
  *  Note de conduite saisie pour un élève et une période : la note du mode manuel, ou la
  *  correction d'une note calculée.
@@ -9308,6 +9253,28 @@ export type NoteEleve = {
 	/**  Dispensé. */
 	dispense: boolean,
 };
+
+/**  Ce que l'auteur lit sous l'aperçu après un import : ce qui n'est pas passé. */
+export type NoteWord = 
+/**  Formules remplacées par « Formule à retaper ici ». */
+{ type: "formules"; 
+/**  Nombre de formules. */
+nombre: number } | 
+/**  Images de plus de 5 Mo laissées de côté. */
+{ type: "images_trop_lourdes"; 
+/**  Nombre d'images. */
+nombre: number } | 
+/**
+ *  Images dans un format que la bibliothèque ne prend pas (EMF, WMF, GIF…) ou liées à un
+ *  fichier extérieur.
+ */
+{ type: "images_non_reprises"; 
+/**  Nombre d'images. */
+nombre: number } | 
+/**  Zones de texte ignorées. */
+{ type: "zones_de_texte" } | 
+/**  En-têtes, pieds de page, commentaires ou révisions supprimées ignorés. */
+{ type: "elements_ignores" };
 
 /**  Ce qui est payé. */
 export type ObjetPaiement = 
@@ -9854,6 +9821,14 @@ export type PostesCouverts =
 /**  Formule par poste, ou poste à l'essai quand la licence ne dit rien. */
 { type: "nombre"; nombre: number };
 
+/**  « Pour qui » d'un contenu ou d'un chapitre de l'école. */
+export type PourQuiContenu = {
+	/**  Classes du niveau de l'année en cours. */
+	classes: ClassePourQui[],
+	/**  L'utilisateur peut changer le choix. */
+	modifiable: boolean,
+};
+
 /**  Résultat du premier démarrage. */
 export type PremierDemarrageEffectue = {
 	/**  Établissement créé. */
@@ -9896,6 +9871,14 @@ export type Prorata =
 "calendrier" | 
 /**  Jours ouvrables couverts sur jours ouvrables du mois. */
 "ouvrables";
+
+/**  Leçons publiées d'un geste. */
+export type PublicationImport = {
+	/**  Versions publiées. */
+	publiees: number,
+	/**  Imports de l'école, les plus récents d'abord. */
+	imports: ImportAffiche[],
+};
 
 /**  Qualités d'un responsable pour un élève donné : indépendantes et propres au lien (§3.6, T-03). */
 export type Qualites = {
@@ -11032,6 +11015,23 @@ export type SectionRapport = {
 	propose: string | null,
 };
 
+/**  Ce que l'on exporte. */
+export type SelectionExport = 
+/**  Un chapitre du catalogue. */
+{ type: "chapitre"; 
+/**  Clé du chapitre. */
+chapitre_cle: string } | 
+/**  Une matière d'un niveau du catalogue. */
+{ type: "matiere"; 
+/**  Code du niveau. */
+niveau_code: string; 
+/**  Clé de la matière au catalogue (`m:<identifiant>` ou `d:<code>`). */
+matiere_cle: string } | 
+/**  Des contenus choisis. */
+{ type: "contenus"; 
+/**  Identifiants des contenus. */
+contenu_ids: string[] };
+
 /**  Sens d'une catégorie. */
 export type Sens = 
 /**  L'argent entre. */
@@ -11296,6 +11296,24 @@ export type Soldes = {
 	rapproche: Montant,
 	/**  Lignes à cocher. */
 	a_pointer: number,
+};
+
+/**  Un son rangé : ce que l'éditeur écrit dans le texte. */
+export type SonAjoute = {
+	/**  Appel à écrire dans le texte : `son:<empreinte>`. */
+	reference: string,
+	/**  Nom du fichier sans son extension, proposé comme titre. */
+	nom: string,
+};
+
+/**  Un son appelé par une leçon, tel que la lecture le décrit. */
+export type SonLecon = {
+	/**  Empreinte. */
+	empreinte: string,
+	/**  Le son est dans la base de l'école. */
+	disponible: boolean,
+	/**  Type MIME, vide s'il est absent. */
+	type_mime: string,
 };
 
 /**
@@ -12234,6 +12252,16 @@ export type VersionEnAttente = {
 	retour_livre: boolean,
 };
 
+/**  Une version reçue d'une autre école alors qu'un brouillon existait. */
+export type VersionRecueAffichee = {
+	/**  Identifiant. */
+	id: string,
+	/**  Reçue le, millisecondes depuis l'époque. */
+	recue_le: number,
+	/**  Nom de qui a importé le fichier. */
+	importe_par: string,
+};
+
 /**  La version soumise d'un contenu, en attente de validation. */
 export type VersionSoumise = {
 	/**  Identifiant de la version. */
@@ -12264,24 +12292,6 @@ export type VideoAjoutee = {
 	nom: string,
 	/**  Première vidéo de l'école : l'écran dit une fois qu'elle n'est pas dans la sauvegarde. */
 	premiere: boolean,
-};
-
-/**  Un son rangé : ce que l'éditeur écrit dans le texte. */
-export type SonAjoute = {
-	/**  Appel à écrire dans le texte : `son:<empreinte>`. */
-	reference: string,
-	/**  Nom du fichier sans son extension, proposé comme titre. */
-	nom: string,
-};
-
-/**  Un son appelé par une leçon, telle que la lecture le décrit. */
-export type SonLecon = {
-	/**  Empreinte. */
-	empreinte: string,
-	/**  Le son est dans la base de l'école. */
-	disponible: boolean,
-	/**  Type MIME, vide s'il est absent. */
-	type_mime: string,
 };
 
 /**  Une vidéo appelée par une leçon, telle que la lecture la décrit. */

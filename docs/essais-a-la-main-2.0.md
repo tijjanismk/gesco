@@ -168,6 +168,11 @@ pour F-8.
 | F-8 | Sur le poste relié : ouvrir la même leçon et lire la vidéo | Ouverte en moins de 3 secondes ; la vidéo se lit |
 | F-9 | Se connecter comme secrétaire | La bibliothèque se lit ; ni Écrire, ni Retirer…, ni Faits à vérifier |
 | F-10 | Paramètres → Modules : éteindre la bibliothèque, puis la rallumer | Elle disparaît du menu et du tableau de bord, puis revient telle quelle |
+| F-11 | Enregistrer une consigne de 30 secondes avec un téléphone (MP3 ou M4A) ; l'ajouter à une leçon par Son, publier ; Écouter, puis Mode classe | Le son se lit, avec pause et avancer ; en mode classe, un grand bouton Écouter |
+| F-12 | Sur le poste relié : ouvrir la leçon de F-11 et Écouter | Le son se lit |
+| F-13 | Ajouter… → Leçon → Ajouter depuis une fiche Word, avec une vraie fiche d'un maître (titres, tableau, images, une formule) | Le brouillon montre les titres, le tableau et les images ; la formule est signalée à retaper |
+| F-14 | Une leçon de l'école → Pour qui → cocher la 9e A seulement | Le catalogue porte « 9e A seulement » |
+| F-15 | Exporter la matière de F-11 et F-13 sur une clé ; sur un autre GESCO (une autre école), Paramètres → Importer des leçons d'une autre école ; puis Publier les leçons reçues | Les leçons arrivent en brouillons sous les bonnes matières ; le son et les images sont là ; un second import n'ajoute rien |
 
 ## G. La sauvegarde hors de l'école, à jouer par le porteur du projet
 

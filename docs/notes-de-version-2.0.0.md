@@ -46,6 +46,17 @@ vidéos ne sont pas dans la sauvegarde : elles se copient sur une clé. Une mise
 bibliothèque s'installe depuis un fichier, sans Internet. Une école qui passe de la 1.2 à la 2.0
 trouve la bibliothèque allumée. Le chapitre du manuel est `manuel-2.0-bibliotheque.md`.
 
+**Des sons, des fiches Word et des leçons d'une autre école.** Une leçon reçoit des sons (MP3,
+M4A, OGG ou WAV, 10 Mo au plus) : une consigne lue, une prononciation, un chant ; ils se lisent à
+la demande, en grand en mode classe, sur tous les postes de l'école, et la sauvegarde les garde.
+Une fiche Word (`.docx`) devient un brouillon avec ses titres, ses listes, ses tableaux et ses
+images ; une formule de Word est signalée à l'auteur, à retaper. Un chapitre ou une leçon que
+l'école ajoute peut être réservé à certaines classes (« 9e A seulement »). Deux écoles
+s'échangent les leçons qu'elles ont écrites par un fichier passé sur une clé ou par WhatsApp :
+elles arrivent en brouillons, rangées sous les matières de l'école, et ne sont visibles des élèves
+qu'une fois publiées ; le même fichier importé deux fois n'ajoute rien, un fichier abîmé est
+refusé entier.
+
 **Une copie hors de l'école.** Outils → Sauvegarde, section « Copie hors de l'école » : GESCO
 propose les dossiers Google Drive, OneDrive et Dropbox qu'il trouve sur le poste principal, ou
 tout autre dossier, et y dépose une copie de la sauvegarde, déjà chiffrée, que le logiciel du

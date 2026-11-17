@@ -2,4 +2,5 @@
 //! Un seul fichier : `cargo test -p gesco-db --test db <module>`.
 
 mod chiffrement;
+mod reconstruction_0063;
 mod socle;

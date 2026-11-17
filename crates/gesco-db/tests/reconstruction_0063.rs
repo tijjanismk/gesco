@@ -79,6 +79,7 @@ async fn reconstruction_de_fichier_bibliotheque_garde_tout() {
             adresse: "Bamako".to_owned(),
             telephones: vec![],
             mentions_legales: String::new(),
+            multiple_arrondi: 5,
         },
         &ctx,
     )
@@ -142,7 +143,7 @@ async fn reconstruction_de_fichier_bibliotheque_garde_tout() {
     .execute(base.pool())
     .await
     .unwrap();
-    for (ordre, fichier) in fichiers[1..].iter().enumerate() {
+    for (ordre, fichier) in fichiers.iter().skip(1).enumerate() {
         sqlx::query(
             "INSERT INTO fichier_contenu (id, etablissement_id, contenu_id, fichier_id, ordre,
                 cree_le, mis_a_jour_le, identifiant_poste)
@@ -168,8 +169,16 @@ async fn reconstruction_de_fichier_bibliotheque_garde_tout() {
     base.migrer().await.unwrap();
     assert_eq!(base.version_schema().await.unwrap(), 63);
 
-    assert_eq!(schema(&base).await, schema_avant, "index et déclencheurs refaits à l'identique");
-    assert_eq!(lignes(&base).await, lignes_avant, "toutes les lignes gardées");
+    assert_eq!(
+        schema(&base).await,
+        schema_avant,
+        "index et déclencheurs refaits à l'identique"
+    );
+    assert_eq!(
+        lignes(&base).await,
+        lignes_avant,
+        "toutes les lignes gardées"
+    );
     let liens_apres: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM fichier_contenu fc JOIN fichier_bibliotheque f ON f.id = fc.fichier_id",
     )
@@ -177,11 +186,10 @@ async fn reconstruction_de_fichier_bibliotheque_garde_tout() {
     .await
     .unwrap();
     assert_eq!(liens_apres, liens_avant);
-    let violations: Vec<(String, i64, String, i64)> =
-        sqlx::query_as("PRAGMA foreign_key_check")
-            .fetch_all(base.pool())
-            .await
-            .unwrap();
+    let violations: Vec<(String, i64, String, i64)> = sqlx::query_as("PRAGMA foreign_key_check")
+        .fetch_all(base.pool())
+        .await
+        .unwrap();
     assert!(violations.is_empty(), "{violations:?}");
 
     // Toujours rien ne se supprime ; un son est accepté.

@@ -47,6 +47,31 @@ de la bibliothèque qui ajoute une leçon à une matière retirée ne la fait pa
   l'historique garde la version de l'école.
 - Quand la bibliothèque apporte un texte nouveau d'une leçon que l'école a réécrite, la version de
   l'école reste ; l'éditeur signale la version plus récente et propose de comparer.
+- **Pour qui** : un chapitre ou une leçon que l'école a ajouté sert tout le niveau, sauf si l'on
+  coche certaines classes (par exemple la 9e A seulement). Le bouton est dans la barre du contenu
+  et sous un chapitre de l'école, au catalogue ; le catalogue porte alors la marque « 9e A
+  seulement ». Un maître ne coche que ses classes. Ce qui est livré avec GESCO reste pour tout le
+  niveau. À la nouvelle année, sans nouveau choix, l'ajout revient à tout le niveau.
+
+### Guide : importer une fiche Word
+
+GESCO reprend une fiche écrite dans Word (fichier `.docx`) : ses titres, son gras et son
+italique, ses listes, ses tableaux et ses images.
+
+1. Pour une leçon nouvelle : **Ajouter…**, **Leçon**, choisissez le chapitre et le titre, puis
+   **Ajouter depuis une fiche Word** et choisissez la fiche. Pour un cours qui existe déjà :
+   **Écrire**, puis **Importer depuis Word**. Si un brouillon est déjà ouvert, GESCO prévient que
+   son texte sera remplacé.
+2. Le texte de la fiche arrive dans un brouillon, à gauche ; l'aperçu, à droite, montre la leçon
+   telle qu'elle sera lue.
+3. Lisez les notes sous l'aperçu. Une formule écrite avec l'éditeur d'équations de Word ne passe
+   pas : elle est remplacée par « Formule à retaper ici », visible de vous seul. Retapez-la avec
+   le bouton des formules. Une image trop lourde ou dans un autre format que PNG ou JPEG n'est pas
+   reprise : ajoutez-la avec le bouton Image.
+4. Enregistrez, puis publiez ou soumettez comme d'habitude. Rien n'est visible des élèves avant.
+
+Un ancien fichier Word (`.doc`) est refusé : ouvrez-le dans Word, **Fichier**, **Enregistrer
+sous**, **Document Word**, puis importez le nouveau fichier.
 
 ## 4. Publier
 
@@ -60,9 +85,11 @@ de la bibliothèque qui ajoute une leçon à une matière retirée ne la fait pa
 - **Faits à vérifier** : pour qui écrit, la liste des faits du cours (dates, chiffres, noms) à
   contrôler, à côté du texte ; elle s'imprime aussi.
 
-## 5. Images, documents et vidéos
+## 5. Images, sons, documents et vidéos
 
 - **Image** (barre de l'éditeur) : une image de 5 Mo au plus, en PNG, JPEG ou SVG.
+- **Son** (barre de l'éditeur) : un son de 10 Mo au plus, en MP3, M4A, OGG ou WAV. Les sons sont
+  dans la base de l'école : la sauvegarde les garde.
 - **Document** de l'école : un sujet photographié, une fiche en PDF ; **Joindre un fichier** (20 Mo
   au plus).
 - Les images et les documents sont dans la base de l'école : la sauvegarde les garde.
@@ -91,12 +118,30 @@ de la bibliothèque qui ajoute une leçon à une matière retirée ne la fait pa
 4. Copiez les vidéos vers une clé depuis les réglages de la bibliothèque : elles ne sont pas dans
    la sauvegarde.
 
+### Guide : ajouter un son
+
+Un son sert pour une consigne lue, une prononciation en anglais, un chant ou une récitation.
+
+1. Enregistrez le son avec un téléphone, en MP3 ou M4A (l'application d'enregistrement du
+   téléphone convient). Dix mégaoctets au plus : quelques minutes de voix.
+2. Dans l'éditeur, placez le curseur où le son doit paraître, appuyez sur **Son** et choisissez le
+   fichier. Le titre proposé est le nom du fichier ; changez-le dans le texte si besoin.
+3. Enregistrez, puis publiez ou soumettez la leçon.
+4. À la lecture, appuyez sur **Écouter** : le son se charge, puis le lecteur permet de le mettre
+   en pause et d'avancer. En mode classe, le bouton **Écouter** est en grand. Le son se lit aussi
+   sur les postes reliés.
+
+Un fichier trop lourd, ou qui n'est pas un son (une image renommée, par exemple), est refusé avec
+un message qui dit quoi faire. Si un son manque, la leçon s'ouvre quand même et la ligne « Son non
+disponible » le dit au personnel ; devant les élèves, rien ne paraît.
+
 ## 6. Imprimer
 
 **Imprimer…**, dans la barre d'un cours : **Leçon complète** ou **Sans les corrigés**, puis
 **Enregistrer en PDF**, **Tout le chapitre en PDF** ou **Faits à vérifier en PDF**. Le nom proposé
 est « Classe — Matière — Titre.pdf ». Les notes pour le maître ne s'impriment jamais ; un
-brouillon s'imprime avec la mention « Brouillon ».
+brouillon s'imprime avec la mention « Brouillon ». Un son devient, sur le papier, la ligne « Son :
+» suivie de son titre.
 
 ## 7. Réglages (Paramètres)
 
@@ -107,3 +152,38 @@ brouillon s'imprime avec la mention « Brouillon ».
   mise à jour de la bibliothèque** depuis un fichier reçu. Un fichier abîmé est refusé entier ;
   la bibliothèque en place reste.
 - **Matières de la bibliothèque** : à quelle matière de l'école va chaque matière livrée.
+
+## 8. Passer des leçons à une autre école
+
+Deux écoles qui ont GESCO s'échangent les leçons qu'elles ont écrites ou modifiées, par un fichier
+de leçons (`.gles`) passé sur une clé ou par WhatsApp. Il ne faut pas Internet.
+
+### Envoyer
+
+1. Dans la bibliothèque, sous un chapitre, **Exporter** ; sous une matière d'un niveau,
+   **Exporter cette matière** ; ou bien **Choisir des leçons à exporter**, cochez les leçons, puis
+   **Exporter les leçons choisies**.
+2. GESCO montre la liste des leçons qui partiront, avec leurs images, leurs sons et leurs
+   documents. Ne partent que les leçons que l'école a écrites, ou ses versions des leçons livrées,
+   une fois publiées : jamais un brouillon. Les vidéos, l'historique et les noms de ceux qui ont
+   écrit ne partent pas.
+3. **Enregistrer le fichier**, choisissez où le mettre (une clé, par exemple), puis passez-le à
+   l'autre école.
+
+### Recevoir
+
+1. **Paramètres**, section « Leçons d'une autre école », **Importer des leçons d'une autre
+   école**, et choisissez le fichier reçu.
+2. GESCO montre chaque leçon, où elle se rangera (niveau, matière, chapitre) et ce qui arrivera :
+   un brouillon d'une leçon livrée, une leçon de l'école en brouillon, une version reçue dans
+   l'historique si l'école avait déjà un brouillon de cette leçon, ou « Déjà là ». Les leçons se
+   rangent sous les matières de l'école, même si elles portent un autre nom ; un chapitre qui
+   n'existe pas encore est ajouté.
+3. **Recevoir** : les leçons arrivent en brouillons. Les élèves ne voient rien avant
+   publication.
+4. Relisez les leçons reçues comme un brouillon ordinaire, puis publiez-les une à une, ou toutes
+   ensemble avec **Publier les leçons reçues de cet import**, sous « Leçons reçues ».
+
+Le même fichier importé une seconde fois n'ajoute rien, et GESCO le dit. Un fichier abîmé en
+route est refusé entier : demandez à l'autre école de l'envoyer de nouveau. Ce qu'un fichier
+contiendrait de dangereux (une page web, un programme caché dans une image) est retiré à l'arrivée.

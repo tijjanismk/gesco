@@ -2939,7 +2939,15 @@ async fn une_lecon_de_l_ecole_se_reserve_a_la_9e_a() {
         )
         .await;
     assert_eq!(refus.cle, "bibliotheque.pour_qui_classe_inconnue");
-    let livre = premier_contenu(&p, &admin).await;
+    // La leçon de l'école est en tête du chapitre : on prend une leçon livrée.
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let livre = contenus_de(&catalogue)
+        .into_iter()
+        .find(|c| c["origine"] == "livre")
+        .unwrap()["id"]
+        .clone();
     let refus = p
         .refus(
             "bibliotheque_classes_regler",

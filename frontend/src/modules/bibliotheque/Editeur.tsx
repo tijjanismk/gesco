@@ -152,7 +152,7 @@ function phraseNoteWord(n: NoteWord): string {
 }
 
 /** Importe une fiche Word dans le brouillon d'un cours : le commence, ou remplace son texte. */
-export async function importerWord(contenuId: string, brouillon: { version_id: string; revision: number } | null): Promise<ImportWord | null> {
+async function importerWord(contenuId: string, brouillon: { version_id: string; revision: number } | null): Promise<ImportWord | null> {
   const chemin = await choisirWord(t("bibliotheque.word.filtre"));
   if (chemin === null) return null;
   return appeler("bibliotheque_word_importer", {
