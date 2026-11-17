@@ -61,6 +61,12 @@ impl EspaceDonnees {
         self.racine.join("videos")
     }
 
+    /// PDF des leçons fabriqués pour le portail des élèves, un par version visible : hors de la
+    /// base et de la sauvegarde, vidé sans risque (ils se refont).
+    pub fn pdf_portail(&self) -> PathBuf {
+        self.racine.join("portail-pdf")
+    }
+
     /// Fichiers de travail : instantanés, restaurations en cours.
     pub fn temporaire(&self) -> PathBuf {
         self.racine.join("temp")

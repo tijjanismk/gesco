@@ -160,10 +160,10 @@ pub struct ResultatRechercheBibliotheque {
 }
 
 /// Le catalogue rangé, avec ce qui a servi à le ranger.
-pub(super) struct CatalogueRange {
-    pub(super) niveaux: Vec<NiveauCatalogue>,
-    pub(super) contenus: Vec<ContenuBibliotheque>,
-    pub(super) chapitres: Vec<gesco_core::bibliotheque::ChapitreBibliotheque>,
+pub(crate) struct CatalogueRange {
+    pub(crate) niveaux: Vec<NiveauCatalogue>,
+    pub(crate) contenus: Vec<ContenuBibliotheque>,
+    pub(crate) chapitres: Vec<gesco_core::bibliotheque::ChapitreBibliotheque>,
     pub(super) a_des_matieres: bool,
 }
 
@@ -190,6 +190,34 @@ impl ServiceBibliotheque<'_> {
         avec_retraits: bool,
     ) -> Resultat<CatalogueRange> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        self.ranger_catalogue_dans(
+            &contexte,
+            Some(session.utilisateur_id.vers_chaine()),
+            voit_le_travail,
+            avec_retraits,
+        )
+        .await
+    }
+
+    /// Le catalogue que voient les élèves (portail, lot 4) : versions visibles seulement,
+    /// retraits appliqués, sans compte du personnel.
+    pub(crate) async fn catalogue_des_eleves(
+        &self,
+        etablissement_id: gesco_core::commun::Id<gesco_core::core::Etablissement>,
+    ) -> Resultat<CatalogueRange> {
+        let contexte = self.noyau.contexte(etablissement_id, None);
+        self.ranger_catalogue_dans(&contexte, None, false, true)
+            .await
+    }
+
+    async fn ranger_catalogue_dans(
+        &self,
+        contexte: &gesco_db::contexte::Contexte,
+        utilisateur_id: Option<String>,
+        voit_le_travail: bool,
+        avec_retraits: bool,
+    ) -> Resultat<CatalogueRange> {
+        let contexte = contexte.clone();
         let mut cnx = self.connexion().await?;
         let niveaux: Vec<NiveauReference> = academique::niveaux(&mut cnx, &contexte)
             .await?
@@ -228,11 +256,13 @@ impl ServiceBibliotheque<'_> {
             .flat_map(|p| p.disciplines)
             .collect::<Vec<_>>();
         let correspondances = depot::correspondances(&mut cnx, &contexte).await?;
-        let mes_matieres: HashSet<(String, String)> =
-            depot::matieres_du_compte(&mut cnx, &session.utilisateur_id.vers_chaine(), &contexte)
+        let mes_matieres: HashSet<(String, String)> = match &utilisateur_id {
+            Some(u) => depot::matieres_du_compte(&mut cnx, u, &contexte)
                 .await?
                 .into_iter()
-                .collect();
+                .collect(),
+            None => HashSet::new(),
+        };
         let chapitres = depot::chapitres(&mut cnx, &contexte).await?;
         let contenus = depot::contenus(&mut cnx, &contexte).await?;
         let mut etats: HashMap<String, EtatContenu> = HashMap::new();
@@ -542,9 +572,29 @@ impl ServiceBibliotheque<'_> {
             .map(str::to_owned)
     }
 
-    pub(super) fn texte_livre(&self, contenu: &ContenuBibliotheque) -> Option<String> {
+    pub(crate) fn texte_livre(&self, contenu: &ContenuBibliotheque) -> Option<String> {
         let paquet = self.paquets.paquet(contenu.paquet_code.as_deref()?)?;
         paquet.texte(contenu.fichier.as_deref()?).map(str::to_owned)
+    }
+
+    /// Octets d'une image du paquet appelée par un contenu livré (`nom` tel que la leçon
+    /// l'écrit) ; aucun si le paquet n'est pas lu sur ce poste.
+    pub(crate) fn image_du_paquet(
+        &self,
+        paquet_code: &str,
+        contenu_cle: &str,
+        nom: &str,
+    ) -> Option<Vec<u8>> {
+        let paquet = self.paquets.paquet(paquet_code)?;
+        paquet
+            .fichiers
+            .get(&nom_fichier_image(contenu_cle, nom))
+            .cloned()
+    }
+
+    /// Dossier des vidéos de l'école sur ce poste.
+    pub(crate) fn dossier_videos(&self) -> std::path::PathBuf {
+        self.espace.videos()
     }
 
     /// Cherche dans les titres et le texte des versions visibles, sur ce que le catalogue montre.
@@ -615,7 +665,7 @@ impl ServiceBibliotheque<'_> {
 }
 
 /// Type MIME d'une image du paquet d'après son nom.
-fn type_mime(nom: &str) -> &'static str {
+pub(crate) fn type_mime(nom: &str) -> &'static str {
     let bas = nom.to_ascii_lowercase();
     if bas.ends_with(".png") {
         "image/png"

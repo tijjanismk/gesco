@@ -1627,6 +1627,10 @@ impl Application {
                 entree,
             )
             .await?;
+        // Ce que lisent les élèves au portail se refait après un geste qui le change.
+        if crate::portail::lecture::change_la_lecture(nom) {
+            self.portail.lecture.invalider();
+        }
         match depot {
             Some(depot) => depot.conclure(sortie),
             None => Ok(sortie),
@@ -1768,6 +1772,167 @@ impl Application {
     /// Un élève sort du portail.
     pub fn portail_sortir(&self, jeton: &str) {
         self.portail.sessions.fermer(jeton);
+    }
+
+    /// La session de l'élève et la lecture à jour, sous l'origine du portail.
+    async fn portail_lecture(
+        &self,
+        jeton: Option<&str>,
+    ) -> Result<crate::portail::lecture::ReponseLecture<LecturePortailOuverte>, ErreurCommande>
+    {
+        use crate::portail::lecture::ReponseLecture;
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Ok(ReponseLecture::Ferme);
+        };
+        let Some(session) = jeton.and_then(|j| self.portail_session(j)) else {
+            return Ok(ReponseLecture::SansSession);
+        };
+        let maintenant = self.horloge.maintenant().millis_epoque();
+        let lecture = crate::origine::dans(
+            crate::origine::Origine::Portail,
+            self.portail.lecture.obtenir(maintenant, || async {
+                crate::portail::lecture::LecturePortail::construire(
+                    &self.bibliotheque(&ouverte.noyau),
+                    &ouverte.noyau,
+                    etablissement_id,
+                )
+                .await
+            }),
+        )
+        .await?;
+        Ok(ReponseLecture::Lu(LecturePortailOuverte {
+            ouverte,
+            etablissement_id,
+            session,
+            lecture,
+        }))
+    }
+
+    /// Le catalogue de l'élève : les matières de son niveau, ce qu'il voit seulement.
+    pub async fn portail_catalogue(
+        &self,
+        jeton: Option<&str>,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<crate::portail::lecture::CatalogueEleve>,
+        ErreurCommande,
+    > {
+        Ok(self
+            .portail_lecture(jeton)
+            .await?
+            .et_puis(|l| Some(l.lecture.catalogue(&l.session))))
+    }
+
+    /// Un contenu visible pour l'élève, en arbre de blocs.
+    pub async fn portail_contenu(
+        &self,
+        jeton: Option<&str>,
+        contenu_id: &str,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<crate::portail::lecture::ContenuEleve>,
+        ErreurCommande,
+    > {
+        Ok(self
+            .portail_lecture(jeton)
+            .await?
+            .et_puis(|l| l.lecture.contenu(contenu_id, &l.session)))
+    }
+
+    /// Un fichier appelé par un contenu visible pour l'élève : entier, ou un morceau d'un son
+    /// ou d'une vidéo.
+    pub async fn portail_fichier(
+        &self,
+        jeton: Option<&str>,
+        empreinte: &str,
+        plage: Option<crate::portail::lecture::Plage>,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<crate::portail::lecture::FichierLuPortail>,
+        ErreurCommande,
+    > {
+        use crate::portail::lecture::{FichierLuPortail, ReponseLecture};
+        if !crate::portail::lecture::empreinte_sure(empreinte) {
+            return Ok(ReponseLecture::Introuvable);
+        }
+        let l = match self.portail_lecture(jeton).await? {
+            ReponseLecture::Lu(l) => l,
+            autre => return Ok(autre.et_puis(|_| None)),
+        };
+        let Some((source, type_mime)) = l.lecture.fichier(empreinte, &l.session) else {
+            return Ok(ReponseLecture::Introuvable);
+        };
+        let bibliotheque = self.bibliotheque(&l.ouverte.noyau);
+        let lu = crate::origine::dans(
+            crate::origine::Origine::Portail,
+            crate::portail::lecture::lire_fichier(
+                &bibliotheque,
+                &l.ouverte.noyau,
+                l.etablissement_id,
+                empreinte,
+                source,
+                type_mime,
+                plage,
+            ),
+        )
+        .await?;
+        Ok(match lu {
+            FichierLuPortail::Absent => ReponseLecture::Introuvable,
+            autre => ReponseLecture::Lu(autre),
+        })
+    }
+
+    /// Le PDF « leçon complète » d'un contenu visible : fabriqué une fois par version, gardé
+    /// hors de la sauvegarde. Rend (nom proposé, PDF).
+    pub async fn portail_pdf(
+        &self,
+        jeton: Option<&str>,
+        contenu_id: &str,
+    ) -> Result<crate::portail::lecture::ReponseLecture<(String, Vec<u8>)>, ErreurCommande> {
+        use crate::portail::lecture::{self as lecture_portail, ReponseLecture};
+        let l = match self.portail_lecture(jeton).await? {
+            ReponseLecture::Lu(l) => l,
+            autre => return Ok(autre.et_puis(|_| None)),
+        };
+        if !l.lecture.pdf_permis(contenu_id) {
+            return Ok(ReponseLecture::Introuvable);
+        }
+        let Some(contenu) = l.lecture.contenu(contenu_id, &l.session) else {
+            return Ok(ReponseLecture::Introuvable);
+        };
+        let nom = lecture_portail::nom_du_pdf(&contenu.titre);
+        let dossier = self.espace.pdf_portail();
+        if let Some(pdf) = lecture_portail::pdf_garde(&dossier, &contenu) {
+            return Ok(ReponseLecture::Lu((nom, pdf)));
+        }
+        let bibliotheque = self.bibliotheque(&l.ouverte.noyau);
+        let a_pdf = crate::origine::dans(
+            crate::origine::Origine::Portail,
+            lecture_portail::preparer_pdf(
+                &l.lecture,
+                &bibliotheque,
+                &l.ouverte.noyau,
+                l.etablissement_id,
+                contenu,
+                l.session.niveau.clone(),
+            ),
+        )
+        .await?;
+        let impression = crate::bibliotheque::Impression::pour_le_portail(
+            &a_pdf.contenu.titre,
+            a_pdf.contenu.nature,
+            a_pdf.contenu.examen,
+            a_pdf.contenu.session,
+            (&a_pdf.niveau, &a_pdf.contenu.matiere),
+            &a_pdf.contenu.lecon,
+            a_pdf.images,
+        );
+        let documents = ServiceDocuments::nouveau(&l.ouverte.noyau, &self.atelier);
+        let noter = |t: &str| self.noter_au_journal_technique(t);
+        let pdf = crate::origine::dans(
+            crate::origine::Origine::Portail,
+            Box::pin(impression.composer_pour(&documents, l.etablissement_id, &noter)),
+        )
+        .await?;
+        lecture_portail::garder_pdf(&dossier, &a_pdf.contenu, &pdf);
+        Ok(ReponseLecture::Lu((nom, pdf)))
     }
 
     /// Adresse du portail à imprimer (billets, affiche), quand il écoute.
@@ -1995,6 +2160,7 @@ impl Application {
     }
 
     async fn fermer_base(&self) {
+        self.portail.lecture.invalider();
         if let Some(ouverte) = self.etat.write().await.take() {
             ouverte.tache_effets.abort();
             ouverte.noyau.base().clone().fermer().await;
@@ -7468,4 +7634,13 @@ impl Application {
         )
         .await
     }
+}
+
+/// Ce qu'une route de lecture du portail connaît : la base, l'école, la session de l'élève et
+/// la lecture en mémoire.
+struct LecturePortailOuverte {
+    ouverte: Arc<Ouverte>,
+    etablissement_id: Id<Etablissement>,
+    session: crate::portail::entree::SessionEleve,
+    lecture: Arc<crate::portail::lecture::LecturePortail>,
 }

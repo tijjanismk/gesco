@@ -62,8 +62,9 @@ pub use fichiers::{
     FichierDocument, ImageAjoutee, MorceauVideo, SonAjoute, SonLecon, VideoAjoutee, VideoLecon,
 };
 pub(crate) use fichiers::{chemin_envoi, envoi_sur};
-pub(crate) use imprimer::ecrire_pdf;
 pub use imprimer::{DemandeImpressionChapitre, DemandeImpressionContenu, FormeImpression};
+pub(crate) use imprimer::{Impression, ecrire_pdf};
+pub(crate) use lire::type_mime as type_mime_image;
 
 pub use publier::{
     DemandeDroitPublication, DemandeRenvoiVersion, DroitPublicationAffiche, DroitsPublication,

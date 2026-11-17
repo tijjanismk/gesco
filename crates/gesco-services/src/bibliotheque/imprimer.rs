@@ -330,13 +330,22 @@ fn balisage(lecon: &Lecon, images: &HashMap<String, String>, options: Options) -
 
 /// Ce qui suit le titre : « Sujet du DEF 2024 », « Corrigé du BAC 2023 ».
 fn sous_titre(lecture: &LectureContenu) -> String {
-    let examen = match lecture.examen {
+    sous_titre_de(lecture.nature, lecture.examen, lecture.session)
+}
+
+/// Sous-titre d'un sujet ou d'un corrigé d'examen.
+fn sous_titre_de(
+    nature: NatureContenu,
+    examen: Option<ExamenSujet>,
+    session: Option<u16>,
+) -> String {
+    let examen = match examen {
         Some(ExamenSujet::Def) => "DEF",
         Some(ExamenSujet::Bac) => "BAC",
         None => "",
     };
-    let session = lecture.session.map(|s| format!(" {s}")).unwrap_or_default();
-    match (lecture.nature, examen.is_empty()) {
+    let session = session.map(|s| format!(" {s}")).unwrap_or_default();
+    match (nature, examen.is_empty()) {
         (NatureContenu::Sujet, false) => format!("Sujet du {examen}{session}"),
         (NatureContenu::Corrige, false) => format!("Corrigé du {examen}{session}"),
         (NatureContenu::Corrige, true) => "Corrigé".to_owned(),
@@ -397,6 +406,50 @@ impl Impression {
         session: &Session,
         noter: &(dyn Fn(&str) + Sync),
     ) -> Resultat<Vec<u8>> {
+        self.composer_pour(documents, session.etablissement_id, noter)
+            .await
+    }
+
+    /// Une leçon visible pour le PDF du portail des élèves : la forme « leçon complète »,
+    /// sans les notes pour le maître. `images` : (clé dans la leçon, type MIME, octets).
+    pub(crate) fn pour_le_portail(
+        titre: &str,
+        nature: NatureContenu,
+        examen: Option<ExamenSujet>,
+        session: Option<u16>,
+        place: (&str, &str),
+        lecon: &Lecon,
+        images: Vec<(String, String, Vec<u8>)>,
+    ) -> Self {
+        let sous_titre = sous_titre_de(nature, examen, session);
+        Self {
+            titre: titre.to_owned(),
+            brouillon: false,
+            contenus: vec![ContenuImprime {
+                titre: titre.to_owned(),
+                sous_titre,
+                niveau: place.0.to_owned(),
+                matiere: place.1.to_owned(),
+                lecon: lecon.pour_les_eleves(),
+                images: images
+                    .into_iter()
+                    .map(|(cle, type_mime, octets)| ImageImprimee {
+                        extension: extension(&type_mime),
+                        cle,
+                        octets,
+                    })
+                    .collect(),
+            }],
+        }
+    }
+
+    /// Compose le PDF pour un établissement (voir [`Self::composer`]).
+    pub(crate) async fn composer_pour(
+        &self,
+        documents: &ServiceDocuments<'_>,
+        etablissement_id: gesco_core::commun::Id<gesco_core::core::Etablissement>,
+        noter: &(dyn Fn(&str) + Sync),
+    ) -> Resultat<Vec<u8>> {
         let essais = [
             Options {
                 images: true,
@@ -415,7 +468,7 @@ impl Impression {
         for options in essais {
             let (donnees, pieces) = self.donnees(options);
             match documents
-                .composer_en_memoire_avec(session.etablissement_id, MODELE, donnees, pieces)
+                .composer_en_memoire_avec(etablissement_id, MODELE, donnees, pieces)
                 .await
             {
                 Ok(pdf) => return Ok(pdf),

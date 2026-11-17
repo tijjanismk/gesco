@@ -3788,3 +3788,400 @@ async fn un_fichier_abime_est_refuse_et_un_fichier_piege_arrive_nettoye() {
     assert!(!image.contains("script") && !image.contains("onload"));
     assert!(image.contains("circle"));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Portail des élèves (phase 12, lot 4, étape 3) : ce que lit l'élève.
+// ---------------------------------------------------------------------------------------------
+
+/// Inscrit un élève dans une classe et rend son identifiant.
+async fn eleve_dans(
+    p: &crate::commun::Poste_,
+    admin: &gesco_services::session::Jeton,
+    classe: &Value,
+    prenom: &str,
+    matricule: &str,
+) -> String {
+    let fiche = p
+        .ok(
+            "eleve_creer",
+            Some(admin),
+            json!({ "identite": { "nom": "Diarra", "prenoms": prenom, "sexe": "feminin",
+                "date_naissance": "2011-03-02", "date_naissance_estimee": false,
+                "lieu_naissance": "Kati", "nationalite": "Malienne", "adresse": "",
+                "telephones": [] },
+                "matricule_interne": matricule, "matricule_national": "", "acte_nature": "acte",
+                "acte_numero": "", "acte_date": "", "ecole_origine": "" }),
+        )
+        .await;
+    p.ok(
+        "inscription_creer",
+        Some(admin),
+        json!({ "eleve_id": fiche["eleve"]["id"], "classe_id": classe, "date_inscription": "",
+            "redoublant": false, "etablissement_origine": "" }),
+    )
+    .await;
+    p.ok(
+        "inscriptions_valider_classe",
+        Some(admin),
+        json!({ "id": classe }),
+    )
+    .await;
+    fiche["eleve"]["id"].as_str().unwrap().to_owned()
+}
+
+/// L'élève entre avec son code ; rend son jeton.
+async fn entrer_au_portail(p: &crate::commun::Poste_, eleve_id: &str, matricule: &str) -> String {
+    use gesco_services::portail::entree::{DemandeEntrer, Entree};
+    let code = p
+        .application
+        .portail_code_pour_essai(eleve_id)
+        .await
+        .unwrap();
+    match p
+        .application
+        .portail_entrer(&DemandeEntrer {
+            matricule: matricule.to_owned(),
+            code,
+            pas_mon_telephone: false,
+        })
+        .await
+        .unwrap()
+    {
+        Some(Entree::Entre { jeton, .. }) => jeton,
+        _ => panic!("{matricule} devait entrer"),
+    }
+}
+
+/// Titres des contenus du catalogue de l'élève.
+fn titres_eleve(catalogue: &gesco_services::portail::lecture::CatalogueEleve) -> Vec<String> {
+    catalogue
+        .matieres
+        .iter()
+        .flat_map(|m| m.parties.iter())
+        .flat_map(|p| p.chapitres.iter())
+        .flat_map(|c| c.contenus.iter())
+        .map(|c| c.titre.clone())
+        .collect()
+}
+
+/// Publie un texte de l'école par la direction : brouillon ouvert, enregistré, soumis, publié.
+async fn publier_par_la_direction(
+    p: &crate::commun::Poste_,
+    admin: &gesco_services::session::Jeton,
+    id: &Value,
+    ouverte: &Value,
+    texte: &str,
+) {
+    let apres = p
+        .ok(
+            "bibliotheque_brouillon_enregistrer",
+            Some(admin),
+            enregistrer(id, ouverte, texte),
+        )
+        .await;
+    let v = apres["brouillon"]["version_id"].clone();
+    p.ok("bibliotheque_soumettre", Some(admin), version(id, &v))
+        .await;
+    p.ok("bibliotheque_publier", Some(admin), version(id, &v))
+        .await;
+}
+
+#[tokio::test]
+async fn l_eleve_ne_lit_que_les_versions_visibles_de_sa_classe() {
+    use gesco_services::portail::entree::DemandeLireSansCode;
+    use gesco_services::portail::lecture::{FichierLuPortail, ReponseLecture};
+
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet_avec_faits(
+            "2026.11.1",
+            &[RACINE, PUISSANCES],
+            Some("- Fait à vérifier : la racine de 16."),
+        ),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let _maitres = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let annees = p.ok("annees_lister", Some(&admin), Value::Null).await;
+    let annee = annees
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["libelle"] == "2026-2027")
+        .unwrap()["id"]
+        .clone();
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee }))
+        .await;
+    let neuvieme = ped["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .unwrap()["id"]
+        .clone();
+    let classes = p
+        .ok("classes_lister", Some(&admin), json!({ "annee_id": annee }))
+        .await;
+    let neuf_a = classes
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["classe"]["libelle"] == "9e A")
+        .unwrap()["classe"]["id"]
+        .clone();
+    let neuf_b = p
+        .ok(
+            "classe_creer",
+            Some(&admin),
+            json!({ "annee_id": annee, "niveau_id": neuvieme, "serie_id": null,
+                "libelle": "9e B" }),
+        )
+        .await["id"]
+        .clone();
+    let adama = eleve_dans(&p, &admin, &neuf_a, "Adama", "E-911").await;
+    let binta = eleve_dans(&p, &admin, &neuf_b, "Binta", "E-912").await;
+
+    // Une leçon de l'école, publiée, réservée à la 9e A.
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let chapitre = catalogue["niveaux"][0]["series"][0]["matieres"][0]["parties"][0]["chapitres"]
+        [0]["id"]
+        .clone();
+    let ajout = p
+        .ok(
+            "bibliotheque_contenu_ajouter",
+            Some(&admin),
+            json!({ "nature": "lecon", "chapitre_id": chapitre, "niveau_id": null,
+                "matiere_id": null, "titre": "Exercices de la 9e A", "presentation": "",
+                "examen": null, "serie_code": null, "session": null, "sujet_id": null,
+                "apres_cle": null }),
+        )
+        .await;
+    let exercices = ajout["contenu_id"].clone();
+    publier_par_la_direction(
+        &p,
+        &admin,
+        &exercices,
+        &ajout,
+        "# Exercices de la 9e A\n\nCalcule $\\sqrt{49}$.\n",
+    )
+    .await;
+    p.ok(
+        "bibliotheque_classes_regler",
+        Some(&admin),
+        json!({ "contenu_id": exercices, "chapitre_id": null, "classes": [neuf_a] }),
+    )
+    .await;
+    // Un brouillon en cours sur la leçon livrée : jamais au portail.
+    let racine = contenus_de(&catalogue)
+        .into_iter()
+        .find(|c| c["titre"] == "La racine carrée")
+        .unwrap()["id"]
+        .clone();
+    let brouillon = p
+        .ok(
+            "bibliotheque_brouillon_commencer",
+            Some(&admin),
+            commencer(&racine, json!({ "type": "livree" })),
+        )
+        .await;
+    p.ok(
+        "bibliotheque_brouillon_enregistrer",
+        Some(&admin),
+        enregistrer(
+            &racine,
+            &brouillon,
+            "# La racine carrée\n\nBROUILLON PAS ENCORE PUBLIÉ.\n",
+        ),
+    )
+    .await;
+
+    let a = entrer_au_portail(&p, &adama, "E-911").await;
+    let b = entrer_au_portail(&p, &binta, "E-912").await;
+    let sans_code = match p
+        .application
+        .portail_lire_sans_code(&DemandeLireSansCode {
+            niveau_id: neuvieme.as_str().unwrap().to_owned(),
+            serie_id: None,
+        })
+        .await
+        .unwrap()
+    {
+        Some((jeton, _)) => jeton,
+        None => panic!("la 9e se lit sans code"),
+    };
+
+    let lire = |jeton: String| {
+        let p = &p;
+        async move {
+            match p.application.portail_catalogue(Some(&jeton)).await.unwrap() {
+                ReponseLecture::Lu(c) => c,
+                autre => panic!("catalogue : {autre:?}"),
+            }
+        }
+    };
+    // Sa classe seulement.
+    let cat_a = lire(a.clone()).await;
+    let titres_a = titres_eleve(&cat_a);
+    assert!(titres_a.contains(&"Exercices de la 9e A".to_owned()));
+    assert!(titres_a.contains(&"La racine carrée".to_owned()));
+    assert!(titres_a.contains(&"Les puissances".to_owned()));
+    assert_eq!(cat_a.matieres[0].lecons, 3);
+    let titres_b = titres_eleve(&lire(b.clone()).await);
+    assert!(!titres_b.contains(&"Exercices de la 9e A".to_owned()));
+    assert!(titres_b.contains(&"La racine carrée".to_owned()));
+    let titres_sans = titres_eleve(&lire(sans_code.clone()).await);
+    assert!(!titres_sans.contains(&"Exercices de la 9e A".to_owned()));
+    assert!(titres_sans.contains(&"Les puissances".to_owned()));
+
+    // Le contenu réservé n'est pas lu par la 9e B, même par son adresse.
+    let ex_id = exercices.as_str().unwrap();
+    assert!(matches!(
+        p.application
+            .portail_contenu(Some(&b), ex_id)
+            .await
+            .unwrap(),
+        ReponseLecture::Introuvable
+    ));
+    let ReponseLecture::Lu(ex) = p
+        .application
+        .portail_contenu(Some(&a), ex_id)
+        .await
+        .unwrap()
+    else {
+        panic!("la 9e A lit ses exercices");
+    };
+    assert_eq!(ex.titre, "Exercices de la 9e A");
+
+    // La version visible, sans brouillon, sans faits, sans note pour le maître.
+    let racine_id = racine.as_str().unwrap();
+    let ReponseLecture::Lu(lu) = p
+        .application
+        .portail_contenu(Some(&a), racine_id)
+        .await
+        .unwrap()
+    else {
+        panic!("la racine se lit");
+    };
+    let texte = serde_json::to_string(&lu).unwrap();
+    assert!(texte.contains("16"), "{texte}");
+    for interdit in [
+        "BROUILLON",
+        "Fait à vérifier",
+        "brouillon",
+        "soumise",
+        "faits",
+    ] {
+        assert!(!texte.contains(interdit), "{interdit} dans {texte}");
+    }
+    assert_eq!(lu.version.len(), 64);
+
+    // Sans session : l'élève doit entrer de nouveau.
+    assert!(matches!(
+        p.application.portail_catalogue(None).await.unwrap(),
+        ReponseLecture::SansSession
+    ));
+    assert!(matches!(
+        p.application
+            .portail_catalogue(Some(&"f".repeat(64)))
+            .await
+            .unwrap(),
+        ReponseLecture::SansSession
+    ));
+    // Un fichier qu'aucun contenu visible n'appelle n'est pas servi.
+    assert!(matches!(
+        p.application
+            .portail_fichier(Some(&a), &"a".repeat(64), None)
+            .await
+            .unwrap(),
+        ReponseLecture::Introuvable
+    ));
+    assert!(matches!(
+        p.application
+            .portail_fichier(Some(&a), "../../gesco.db", None)
+            .await
+            .unwrap(),
+        ReponseLecture::Introuvable
+    ));
+    let _ = FichierLuPortail::Absent;
+
+    // Visible tout de suite : la direction publie une version, l'élève qui recharge la voit.
+    let ecriture = p
+        .ok(
+            "bibliotheque_ecriture_lire",
+            Some(&admin),
+            json!({ "contenu_id": racine }),
+        )
+        .await;
+    publier_par_la_direction(
+        &p,
+        &admin,
+        &racine,
+        &ecriture,
+        "# La racine carrée\n\nLa racine carrée de $81$ est $9$.\n",
+    )
+    .await;
+    let ReponseLecture::Lu(relu) = p
+        .application
+        .portail_contenu(Some(&a), racine_id)
+        .await
+        .unwrap()
+    else {
+        panic!("la racine se relit");
+    };
+    let texte = serde_json::to_string(&relu).unwrap();
+    assert!(texte.contains("81"), "{texte}");
+    assert_ne!(relu.version, lu.version);
+
+    // Un contenu retiré disparaît au rechargement.
+    p.ok(
+        "bibliotheque_retirer",
+        Some(&admin),
+        retrait("contenu", PUISSANCES.0, None),
+    )
+    .await;
+    let titres_a = titres_eleve(&lire(a.clone()).await);
+    assert!(!titres_a.contains(&"Les puissances".to_owned()));
+
+    // Le PDF de la leçon complète : fabriqué une fois, gardé hors de la sauvegarde.
+    let ReponseLecture::Lu((nom, pdf)) = p
+        .application
+        .portail_pdf(Some(&a), racine_id)
+        .await
+        .unwrap()
+    else {
+        panic!("le PDF se fabrique");
+    };
+    assert_eq!(nom, "La racine carrée.pdf");
+    assert!(pdf.starts_with(b"%PDF"));
+    let gardes = std::fs::read_dir(dossier.path().join("portail-pdf"))
+        .unwrap()
+        .count();
+    assert_eq!(gardes, 1);
+    let ReponseLecture::Lu((_, encore)) = p
+        .application
+        .portail_pdf(Some(&a), racine_id)
+        .await
+        .unwrap()
+    else {
+        panic!("le PDF se relit");
+    };
+    assert_eq!(encore, pdf);
+    // La direction coupe le PDF : il n'est plus servi.
+    let etat = p.ok("portail_etat", Some(&admin), Value::Null).await;
+    let mut reglages = etat["reglages"].clone();
+    reglages["pdf"] = json!(false);
+    p.ok("portail_regler", Some(&admin), reglages).await;
+    assert!(matches!(
+        p.application
+            .portail_pdf(Some(&a), racine_id)
+            .await
+            .unwrap(),
+        ReponseLecture::Introuvable
+    ));
+}
