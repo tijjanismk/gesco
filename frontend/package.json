@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && pnpm build:eleve",
+    "build:eleve": "node eleve/compresser.mjs --vider && vite build --config eleve/vite.config.ts && node eleve/compresser.mjs",
+    "dev:eleve": "vite --config eleve/vite.config.ts",
     "verifier": "tsc",
     "lint": "eslint .",
     "test": "vitest run",

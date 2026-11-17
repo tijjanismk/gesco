@@ -1,0 +1,8 @@
+Écrans des élèves (portail sur le Wi-Fi de l'école).
+
+Ce dossier est rempli par la construction du frontend (`pnpm build:eleve`, lancée par
+`pnpm build` avant l'installeur) : `index.html`, `assets/` et leurs copies compressées `.gz`.
+L'installeur le livre sous `portail-eleve/` ; le poste principal le sert aux téléphones des
+élèves. Vide, le portail sert seulement sa page d'essai « GESCO répond ».
+
+Rien ici n'est versionné, sauf ce fichier et le `.gitignore`.

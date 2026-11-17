@@ -93,6 +93,8 @@ pub(crate) struct Demarrage {
     pub(crate) cle_licence: [u8; 32],
     pub(crate) cle_bibliotheque: [u8; 32],
     pub(crate) pare_feu: Arc<PareFeu>,
+    /// Écrans des élèves construits (`index.html`, `assets/`), quand ils sont livrés.
+    pub(crate) pages_portail: Option<PathBuf>,
 }
 
 enum Mode {
@@ -148,7 +150,12 @@ async fn file_sms(application: Arc<Application>) {
 /// Serveur du réseau local (SPEC_PHASE_11_A §3.1) : il écoute dès que la direction allume le
 /// réseau et s'arrête quand elle l'éteint. En mode d'essai, il n'écoute que la machine elle-même :
 /// les essais de bout en bout ne font pas paraître la question du pare-feu de Windows.
-fn servir_le_reseau(application: &Arc<Application>, poste: String, essai: bool) {
+fn servir_le_reseau(
+    application: &Arc<Application>,
+    poste: String,
+    essai: bool,
+    pages_portail: Option<PathBuf>,
+) {
     use std::net::{Ipv4Addr, SocketAddr};
     application.declarer_adresses_du_poste(Arc::new(move || {
         if essai {
@@ -175,7 +182,12 @@ fn servir_le_reseau(application: &Arc<Application>, poste: String, essai: bool) 
     };
     // Les superviseurs lancent leur tâche : il leur faut le moteur asynchrone autour d'eux.
     tauri::async_runtime::spawn(async move {
-        gesco_reseau::portail::superviser_portail(Arc::clone(&application), ou.into(), ports, None);
+        gesco_reseau::portail::superviser_portail(
+            Arc::clone(&application),
+            ou.into(),
+            ports,
+            pages_portail,
+        );
         gesco_reseau::superviser(application, move |port| SocketAddr::from((ou, port)));
     });
 }
@@ -239,7 +251,12 @@ impl Demarrage {
         application.brancher_systeme_dossiers(Arc::new(crate::dossiers::SystemeWindows {
             complet: !self.en_essai,
         }));
-        servir_le_reseau(&application, self.nom_ordinateur.clone(), self.en_essai);
+        servir_le_reseau(
+            &application,
+            self.nom_ordinateur.clone(),
+            self.en_essai,
+            self.pages_portail.clone(),
+        );
         let taches = vec![
             tauri::async_runtime::spawn(taches_periodiques(Arc::clone(&application))),
             tauri::async_runtime::spawn(file_sms(Arc::clone(&application))),

@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/**/*.test.ts", "e2e/**/*.spec.ts"],
-  "project": ["src/**/*.{ts,tsx,css}", "e2e/**/*.ts"],
+  "entry": ["src/**/*.test.ts", "eleve/src/**/*.test.ts", "eleve/src/main.tsx", "eleve/vite.config.ts", "eleve/compresser.mjs", "e2e/**/*.spec.ts"],
+  "project": ["src/**/*.{ts,tsx,css}", "eleve/src/**/*.{ts,tsx,css}", "e2e/**/*.ts"],
   "ignore": ["src/types/**"]
 }

@@ -234,6 +234,7 @@ fn main() -> tauri::Result<()> {
                 cle_licence: gesco_services::licence::cle_publique_editeur()?,
                 cle_bibliotheque: gesco_services::bibliotheque::cle_publique_paquets()?,
                 pare_feu,
+                pages_portail: pages_du_portail(app.path().resource_dir().ok()),
             };
             let poste = Arc::new(tauri::async_runtime::block_on(EtatPoste::demarrer(
                 demarrage,
@@ -272,4 +273,16 @@ fn main() -> tauri::Result<()> {
         }
     });
     Ok(())
+}
+
+/// Dossier des écrans des élèves : la ressource livrée par l'installeur ; en développement, le
+/// dossier que remplit `pnpm build:eleve`. Sans eux, le portail sert sa page d'essai.
+fn pages_du_portail(ressources: Option<std::path::PathBuf>) -> Option<std::path::PathBuf> {
+    let livrees = ressources.map(|r| r.join("portail-eleve"));
+    let construites = cfg!(debug_assertions)
+        .then(|| std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("ressources/portail-eleve"));
+    [livrees, construites]
+        .into_iter()
+        .flatten()
+        .find(|d| d.join("index.html").is_file())
 }

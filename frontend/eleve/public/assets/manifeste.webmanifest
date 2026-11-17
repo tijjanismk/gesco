@@ -1,0 +1,11 @@
+{
+  "name": "Les cours",
+  "short_name": "Les cours",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "lang": "fr",
+  "background_color": "#f1f3f7",
+  "theme_color": "#16233f",
+  "icons": [{ "src": "/assets/icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

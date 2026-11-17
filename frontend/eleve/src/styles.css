@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+/* Andika (SIL, licence OFL), conçue pour apprendre à lire ; régulière et grasse. Si le fichier
+   manque, le téléphone garde sa propre police : rien ne bloque la lecture. */
+@font-face {
+  font-family: "Andika";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/andika-regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Andika";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/assets/andika-bold.woff2") format("woff2");
+}
+
+/* Mêmes jetons que le bureau ; tous les couples texte / fond dépassent 6:1 dans les deux thèmes. */
+:root {
+  --fond: #f1f3f7;
+  --surface: #ffffff;
+  --marine: #16233f;
+  --sur-marine: #e3e8f2;
+  --encre: #1e2533;
+  --muet: #56607a;
+  --primaire: #1f4bb8;
+  --rouge: #b4232b;
+  --vert: #2d6a3e;
+  --ocre: #8a5300;
+  --taille-lecon: 1.125rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond: #0f1828;
+    --surface: #18233a;
+    --marine: #0a1220;
+    --encre: #e3e8f2;
+    --muet: #9aa6bf;
+    --primaire: #8fb0ff;
+    --rouge: #ff8e8a;
+    --vert: #8fd19e;
+    --ocre: #e8b460;
+  }
+}
+
+@theme {
+  --color-*: initial;
+  --color-fond: var(--fond);
+  --color-surface: var(--surface);
+  --color-marine: var(--marine);
+  --color-sur-marine: var(--sur-marine);
+  --color-encre: var(--encre);
+  --color-muet: var(--muet);
+  --color-primaire: var(--primaire);
+  --color-rouge: var(--rouge);
+  --color-vert: var(--vert);
+  --color-ocre: var(--ocre);
+  --font-sans: "Andika", system-ui, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--encre);
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+
+/* Cibles d'au moins 44 pixels, focus toujours visible. */
+.cible {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--primaire);
+  outline-offset: 2px;
+}
+
+.lecon {
+  font-size: var(--taille-lecon);
+}
+
+.lecon img,
+.lecon video {
+  max-width: 100%;
+  height: auto;
+}
+
+.lecon .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
