@@ -572,3 +572,18 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   coupe tout l'e-learning (bibliothèque, portail de l'élève, suivi, quiz du lot 3, devoirs du
   lot 5), données gardées, avec un essai. Demandé à la session du lot 4 (`local_ad7235b2`) ; à
   rappeler dans le brief des lots 3 et 5.
+- 2026-11-17, décision du porteur (« ok » à la version simple), pour la 2.0, à spécifier puis coder
+  après le lot en cours : **installer une école en cours d'année, « Reprise avant GESCO »**. Constat :
+  élèves (import Excel), moyennes reprises d'un relevé (`moyenne_reprise_saisir`), périodes non
+  suivies, soldes d'ouverture de trésorerie et import du personnel existent ; mais
+  `DemandeEncaissement` n'a pas de date, donc un versement passé entrerait dans la caisse du jour et
+  compterait deux fois l'argent des soldes d'ouverture. Version retenue :
+  (1) un seul montant par inscription, « déjà payé à l'installation », à l'écran ou par Excel, qui
+  réduit le reste à payer (imputation habituelle, plus ancienne échéance d'abord) ;
+  (2) jamais de versement, de reçu ni de caisse : sessions, journal et totaux de caisse inchangés ;
+  (3) daté avant la première caisse ouverte dans GESCO (incohérence évitée sans bloquer), réservé à
+  la direction, visible à part (« Reprise avant GESCO ») dans la situation de l'élève, une ligne
+  « avant GESCO » dans les rapports, sans répartition par mois ;
+  (4) essai : totaux de caisse identiques avant et après une reprise, reste à payer juste.
+  À vérifier dans la même session : saisie des absences des mois passés et des notes de détail
+  d'une période passée.
