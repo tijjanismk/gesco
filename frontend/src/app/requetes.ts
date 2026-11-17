@@ -72,3 +72,8 @@ export const clientRequetes: QueryClient = new QueryClient({
 for (const cle of DONNEES_DE_REFERENCE) {
   clientRequetes.setQueryDefaults([cle], { staleTime: DELAI_REFERENCE, gcTime: 10 * DELAI_REFERENCE });
 }
+
+// Les notes d'un import Word sont posées par l'ajout d'une leçon avant que l'éditeur ne s'ouvre :
+// sans observateur, elles seraient jetées aussitôt. Elles ne se relisent pas : on les garde le
+// temps d'ouvrir l'éditeur.
+clientRequetes.setQueryDefaults(["bibliotheque", "notes-word"], { gcTime: 60_000 });
