@@ -163,8 +163,19 @@ fn servir_le_reseau(application: &Arc<Application>, poste: String, essai: bool) 
         Ipv4Addr::UNSPECIFIED
     };
     let application = Arc::clone(application);
-    // Le superviseur lance sa tâche : il lui faut le moteur asynchrone autour de lui.
+    // Portail des élèves (SPEC_PHASE_12_LOT_4 §3) : le port 80 s'il est libre, sinon 47 801 ;
+    // en mode d'essai, seulement le 47 801 de la machine elle-même.
+    let ports = if essai {
+        vec![gesco_reseau::portail::PORT_SECOURS]
+    } else {
+        vec![
+            gesco_reseau::portail::PORT_PREFERE,
+            gesco_reseau::portail::PORT_SECOURS,
+        ]
+    };
+    // Les superviseurs lancent leur tâche : il leur faut le moteur asynchrone autour d'eux.
     tauri::async_runtime::spawn(async move {
+        gesco_reseau::portail::superviser_portail(Arc::clone(&application), ou.into(), ports, None);
         gesco_reseau::superviser(application, move |port| SocketAddr::from((ou, port)));
     });
 }

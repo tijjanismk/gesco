@@ -2318,6 +2318,8 @@ export type Contrat = {
 	bibliotheque_classes_lire: Signature<DemandePourQui, PourQuiContenu>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_classes_regler: Signature<DemandeReglerPourQui, PourQuiContenu>,
+	portail_etat: Signature<null, EtatPortail>,
+	portail_regler: Signature<ReglagesPortail, EtatPortail>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_document_fichier_ajouter: Signature<DemandeFichierDocument, FichierDocument[]>,
 	/**  Signature de la commande du même nom. */
@@ -9820,6 +9822,37 @@ export type PostesCouverts =
 { type: "illimites" } | 
 /**  Formule par poste, ou poste à l'essai quand la licence ne dit rien. */
 { type: "nombre"; nombre: number };
+
+/**  Ce que la direction voit du portail : ses réglages, ce qu'il faut allumer d'abord, et
+ *  l'adresse à donner aux élèves quand il écoute. */
+export type EtatPortail = {
+	/**  Réglages. */
+	reglages: ReglagesPortail,
+	/**  Le serveur du réseau local est allumé. */
+	reseau_allume: boolean,
+	/**  Le module Bibliothèque est allumé. */
+	module_allume: boolean,
+	/**  Port écouté en ce moment ; aucun quand le portail n'écoute pas. */
+	port: number | null,
+	/**  Adresses à donner aux élèves (`http://…`), la première d'abord. */
+	adresses: string[],
+};
+
+/**  Réglages du portail des élèves, tels que la direction les voit. */
+export type ReglagesPortail = {
+	/**  « Les élèves lisent les cours sur leurs appareils ». */
+	eleves: boolean,
+	/**  Suivi des élèves par leurs maîtres. */
+	suivi: boolean,
+	/**  Ce que le maître voit du suivi : `eleve` ou `classe`. */
+	grain: string,
+	/**  Minutes sans activité avant qu'un élève doive entrer de nouveau. */
+	duree_session_min: number,
+	/**  Les vidéos se regardent sur les appareils des élèves. */
+	videos: boolean,
+	/**  Le PDF d'une leçon s'enregistre depuis le portail. */
+	pdf: boolean,
+};
 
 /**  « Pour qui » d'un contenu ou d'un chapitre de l'école. */
 export type PourQuiContenu = {

@@ -9,6 +9,7 @@ pub mod fichiers;
 pub mod lecon;
 pub mod lecture;
 pub mod paquet;
+pub mod portail;
 pub mod reglages;
 pub mod word;
 

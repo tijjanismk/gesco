@@ -35,6 +35,22 @@ Validés par le porteur du projet le 16 novembre 2026 (étape 3, choix pris au p
 
 Repère : prochaine migration **0063**.
 
+## Phase 12, lot 4 — le portail de l'élève sur le Wi-Fi de l'école
+
+**État (17 novembre 2026)** : spécification `SPEC_PHASE_12_LOT_4.md` v1.1 acceptée (T-128, T-129, T-134 à T-138 sur leurs recommandations). Lot engagé le 17 novembre 2026 après la validation du lot 2. Règle de travail : à chaque étape, fmt, clippy, tsc et ESLint, puis commit et push ; tous les essais (Rust, vitest, knip, Playwright du lot) à l'étape 7. Prochaine migration : **0064**.
+
+| Étape | Contenu | État |
+|---|---|---|
+| 1 | Serveur du portail (second routeur, ports 80 puis 47 801, écoute privée, `portail.eleves`, `Origine::Portail`, liste des routes, page « GESCO répond ») | faite (17 novembre 2026) ; essais écrits, non lancés |
+| 2 | Codes et entrée (migration 0064, codes, essais comptés, sessions, billets et affiche, lire sans code, permissions) | à faire |
+| 3 | Service du portail (catalogue, contenu, fichiers, PDF, visibilité, cache) | à faire |
+| 4 | Écrans de l'élève (`frontend/eleve/`, Andika, cinq écrans) | à faire |
+| 5 | Suivi (avancement groupé, onglet « Suivi des élèves », grain, comptes des maîtres selon T-134) | à faire |
+| 6 | Charge (bornes, requêtes partielles, message d'attente, mesure) | à faire |
+| 7 | Essais et livraison du lot | à faire |
+
+**Étape 1 (17 novembre 2026)** : noyau `bibliotheque/portail.rs` (clés `portail.eleves`, `portail.suivi_grain`, `portail.duree_session_min`, `portail.videos`, `portail.pdf`, valeurs à la livraison : éteint, `eleve`, 120, allumé, allumé ; bornes 15 à 1 440 minutes ; `GrainSuivi` ; `adresse_a_donner` sans « :80 ») ; réglages ajoutés aux paramètres par défaut, donc posés sur une base existante par `completer_parametres`. `Origine::Portail` (poste « portail des élèves » au journal, `est_reliee` faux) ; `executer_garde` refuse toute commande venue du portail. Service `portail` : `ReglagesPortail`, `EtatPortail`, `PortailVivant` (port écouté, signal propre au portail, pour ne pas relancer le serveur des postes), `a_servir` (portail, module Bibliothèque et réseau local allumés), commandes `portail_etat` et `portail_regler` (`library:manage` ; audit `portail.allumer`, `portail.eteindre`, `portail.suivi_regler`, `portail.regler`). `gesco-reseau/src/portail.rs` : `ROUTES_PORTAIL` (liste écrite, routeur construit depuis elle ; les routes de l'API répondent 503 jusqu'aux étapes 2 et 3), en-têtes (politique de contenu stricte, `no-store` sauf fichiers à empreinte, `nosniff`, `DENY`, `no-referrer`), fichiers des écrans (`index.html`, `assets/…`, `.gz` servi si accepté), page d'essai « GESCO répond » tant que les écrans ne sont pas livrés, connexions d'adresses non privées fermées, `superviser_portail` (ports 80 puis 47 801 ; mode d'essai : 47 801 sur la machine seule ; un réglage qui ne l'éteint pas le laisse écouter). Écran : section « Portail des élèves » des paramètres (interrupteur, adresse en grand, ligne et bouton « Allumer le réseau de l'école » quand le réseau est éteint, durée, vidéos, PDF, suivi par élève / par classe / aucun) ; `portail.*` et `bibliotheque.suivi_eleves` retirés de la liste générale des paramètres. Essais écrits, non lancés : routes de la gestion et commandes du contrat « introuvables » sur le portail, routes de la liste servies avec la politique de contenu (`gesco-reseau/tests/reseau.rs`) ; portail éteint sans écoute, allumé, laissé allumé par un autre réglage, arrêté avec le réseau, éteint, au journal. **À faire par le porteur du projet** (dix minutes, §13 étape 1) : allumer le réseau puis le portail sur le poste principal et ouvrir l'adresse affichée depuis un vrai téléphone sur le Wi-Fi de l'école : la page doit dire « GESCO répond ».
+
 ## Phase 12, lot 2 — enrichir la bibliothèque
 
 **Validé le 17 novembre 2026** : après l'annonce que la suite était le lot 4 (portail de l'élève), le porteur du projet a répondu « on continue » ; compté comme validation du lot 2, avec les choix « à valider » des étapes 2 à 5 tels qu'ils sont décrits plus bas. Lot 4 engagé le même jour.

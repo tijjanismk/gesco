@@ -97,7 +97,7 @@ impl ReseauVivant {
 
     /// Adresses de ce poste à donner aux postes à relier ; aucune tant que le binaire n'a pas dit
     /// comment les trouver. La recherche peut interroger le système : elle se fait à part.
-    async fn adresses(&self) -> Vec<String> {
+    pub(crate) async fn adresses(&self) -> Vec<String> {
         match self.source_adresses() {
             Some(source) => tokio::task::spawn_blocking(move || source())
                 .await

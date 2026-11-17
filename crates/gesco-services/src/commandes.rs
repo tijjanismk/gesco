@@ -214,6 +214,7 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
     ("difficulte_eleve_regler", SansControle::Valeur),
     ("complement_membre_regler", SansControle::Grille),
     ("bibliotheque_classes_regler", SansControle::Valeur),
+    ("portail_regler", SansControle::Valeur),
     ("competence_enregistrer", SansControle::Reference),
     ("categorie_personnel_enregistrer", SansControle::Reference),
     ("fonction_personnel_enregistrer", SansControle::Reference),
@@ -657,6 +658,10 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("bibliotheque_import_publier", Permission::LIBRARY_PUBLISH),
     Commande::permise("bibliotheque_classes_lire", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_classes_regler", Permission::LIBRARY_EDIT),
+    // Portail des élèves (SPEC_PHASE_12_LOT_4 §10) : l'allumer et le régler relèvent de la
+    // direction de la bibliothèque.
+    Commande::permise("portail_etat", Permission::LIBRARY_MANAGE),
+    Commande::permise("portail_regler", Permission::LIBRARY_MANAGE),
     Commande::permise(
         "bibliotheque_document_fichier_ajouter",
         Permission::LIBRARY_EDIT,

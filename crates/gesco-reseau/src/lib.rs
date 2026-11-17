@@ -9,6 +9,7 @@
 
 pub mod chiffrement;
 pub mod pare_feu;
+pub mod portail;
 pub mod relais;
 
 use std::collections::HashMap;
@@ -343,7 +344,7 @@ pub async fn ecouter_boucle_locale(port: u16) -> std::io::Result<TcpListener> {
 }
 
 /// Sert une connexion : chaque appel connaît l'adresse d'où il vient.
-async fn servir_connexion<F>(flux: F, adresse: SocketAddr, routes: Router)
+pub(crate) async fn servir_connexion<F>(flux: F, adresse: SocketAddr, routes: Router)
 where
     F: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {

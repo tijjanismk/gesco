@@ -14,12 +14,23 @@ pub enum Origine {
     Locale,
     /// Un poste relié, sous le nom que le poste principal lui connaît.
     Relie(Poste),
+    /// Le portail des élèves sur le Wi-Fi de l'école (SPEC_PHASE_12_LOT_4 §3) : il n'atteint
+    /// jamais une commande de gestion, et n'est jamais pris pour un poste relié.
+    Portail,
 }
+
+/// Nom de poste écrit au journal d'audit pour ce que fait le portail des élèves.
+pub const POSTE_PORTAIL: &str = "portail des élèves";
 
 impl Origine {
     /// Vrai pour un appel venu d'un poste relié.
     pub fn est_reliee(&self) -> bool {
         matches!(self, Self::Relie(_))
+    }
+
+    /// Vrai pour un appel venu du portail des élèves.
+    pub fn est_portail(&self) -> bool {
+        matches!(self, Self::Portail)
     }
 }
 
@@ -52,5 +63,12 @@ mod tests {
         .await;
         assert_eq!(vue, relie);
         assert_eq!(courante(), Origine::Locale);
+    }
+
+    #[test]
+    fn le_portail_n_est_pas_un_poste_relie() {
+        assert!(!Origine::Portail.est_reliee());
+        assert!(Origine::Portail.est_portail());
+        assert!(!Origine::Locale.est_portail());
     }
 }

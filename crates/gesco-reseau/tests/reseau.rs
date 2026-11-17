@@ -24,7 +24,7 @@ use gesco_reseau::chiffrement::{NOM_CERTIFICAT, configuration_client};
 use gesco_reseau::{
     CLE_POSTE_INCONNU, CLE_TROP_D_ESSAIS, CLE_VERSION_DIFFERENTE, ENTETE_POSTE, ENTETE_SECRET,
     ENTETE_VERSION, EtatServeur, REFUS_MAX_PAR_MINUTE, Reconnaissance, ecouter_boucle_locale,
-    relais, servir, superviser,
+    portail, relais, servir, superviser,
 };
 use gesco_services::cles::TrousseauMemoire;
 use gesco_services::commandes::{COMMANDES, Lieu};
@@ -1305,4 +1305,131 @@ async fn le_jardin_repond_pareil_par_le_reseau_et_ne_s_ecrase_pas() {
             .sur_place("bulletins_lire", Some(&sp), grille_obs)
             .await
     );
+}
+
+// --- Le portail des élèves (SPEC_PHASE_12_LOT_4 §0.3, critères 1 et 2) -------------------------
+
+/// Appel en clair au portail : le code HTTP, les en-têtes et le corps en texte.
+async fn portail_brut(adresse: SocketAddr, methode: &str, chemin: &str) -> (u16, String, String) {
+    let mut flux = TcpStream::connect(adresse).await.unwrap();
+    let requete = format!(
+        "{methode} {chemin} HTTP/1.1\r\nHost: portail\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"
+    );
+    flux.write_all(requete.as_bytes()).await.unwrap();
+    let mut brut = Vec::new();
+    let _ = flux.read_to_end(&mut brut).await;
+    let texte = String::from_utf8_lossy(&brut).into_owned();
+    let (tete, corps) = texte.split_once("\r\n\r\n").unwrap_or((&texte, ""));
+    let statut = tete
+        .split_whitespace()
+        .nth(1)
+        .and_then(|code| code.parse().ok())
+        .unwrap();
+    (statut, tete.to_lowercase(), corps.to_owned())
+}
+
+#[tokio::test]
+async fn le_portail_ne_repond_a_aucune_route_de_la_gestion() {
+    let ecole = ecole().await;
+    ecole.installer().await;
+    let ecoute = ecouter_boucle_locale(0).await.unwrap();
+    let adresse = ecoute.local_addr().unwrap();
+    let (_arret, attente) = oneshot::channel::<()>();
+    tokio::spawn(portail::servir_portail(
+        ecoute,
+        Arc::clone(&ecole.application),
+        None,
+        async move {
+            let _ = attente.await;
+        },
+    ));
+    // Les routes du serveur des postes, et chaque commande du contrat : « introuvable ».
+    let mut gestion = vec![
+        ("GET", "/api/etat".to_owned()),
+        ("POST", "/api/appairage".to_owned()),
+    ];
+    for commande in COMMANDES {
+        gestion.push(("POST", format!("/api/commandes/{}", commande.nom)));
+        gestion.push(("POST", format!("/eleve/api/{}", commande.nom)));
+    }
+    for (methode, chemin) in &gestion {
+        let (statut, _, corps) = portail_brut(adresse, methode, chemin).await;
+        assert_eq!(statut, 404, "{methode} {chemin}");
+        assert!(corps.is_empty(), "{methode} {chemin}");
+    }
+    // Chaque route de la liste écrite répond, avec la politique de contenu stricte.
+    for (methode, chemin) in portail::ROUTES_PORTAIL {
+        let chemin = chemin
+            .replace("{fichier}", "index.js")
+            .replace("{id}", "01ARZ3NDEKTSV4RRFFQ69G5FAV")
+            .replace("{empreinte}", &"a".repeat(64));
+        let (statut, tete, corps) = portail_brut(adresse, methode, &chemin).await;
+        assert!(
+            !(statut == 404 && corps.is_empty()) || chemin.starts_with("/assets/"),
+            "{methode} {chemin} ne répond pas"
+        );
+        assert!(
+            tete.contains("content-security-policy: default-src 'self'"),
+            "{chemin}"
+        );
+    }
+    // Sans les écrans des élèves livrés, la racine dit que le portail répond.
+    let (statut, _, corps) = portail_brut(adresse, "GET", "/").await;
+    assert_eq!(statut, 200);
+    assert!(corps.contains("GESCO répond"));
+}
+
+#[tokio::test]
+async fn le_portail_eteint_n_ecoute_pas_et_s_allume_avec_la_direction() {
+    let e = ecole_reliee().await;
+    // Un port libre de la machine, que le portail prendra quand il sera allumé.
+    let port = {
+        let essai = ecouter_boucle_locale(0).await.unwrap();
+        essai.local_addr().unwrap().port()
+    };
+    let mut portail = portail::superviser_portail(
+        Arc::clone(&e.ecole.application),
+        Ipv4Addr::LOCALHOST.into(),
+        vec![port],
+        None,
+    );
+    let ou = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
+    // Éteint à la livraison : rien n'écoute sur son port.
+    let etat = e.sur_place("portail_etat", Value::Null).await;
+    assert_eq!(etat["reglages"]["eleves"], false);
+    assert_eq!(etat["port"], Value::Null);
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    assert!(TcpStream::connect(ou).await.is_err());
+
+    // La direction l'allume : il écoute, et la page répond.
+    let mut reglages = etat["reglages"].clone();
+    reglages["eleves"] = Value::Bool(true);
+    e.sur_place("portail_regler", reglages.clone()).await;
+    let ecoutee = (*portail.wait_for(Option::is_some).await.unwrap()).unwrap();
+    assert_eq!(ecoutee.port(), port);
+    let (statut, _, corps) = portail_brut(ou, "GET", "/").await;
+    assert_eq!(statut, 200);
+    assert!(corps.contains("GESCO répond"));
+    let etat = e.sur_place("portail_etat", Value::Null).await;
+    assert_eq!(etat["port"], port);
+
+    // Un autre réglage le laisse écouter ; le réseau local éteint l'arrête.
+    reglages["videos"] = Value::Bool(false);
+    e.sur_place("portail_regler", reglages.clone()).await;
+    assert_eq!(portail_brut(ou, "GET", "/").await.0, 200);
+    e.sur_place("reseau_eteindre", Value::Null).await;
+    portail.wait_for(Option::is_none).await.unwrap();
+    assert!(TcpStream::connect(ou).await.is_err());
+    e.sur_place("reseau_activer", Value::Null).await;
+    portail.wait_for(Option::is_some).await.unwrap();
+
+    // La direction l'éteint : il n'écoute plus ; allumer et éteindre sont au journal.
+    reglages["eleves"] = Value::Bool(false);
+    e.sur_place("portail_regler", reglages).await;
+    portail.wait_for(Option::is_none).await.unwrap();
+    assert!(TcpStream::connect(ou).await.is_err());
+    let journal = e
+        .sur_place("audit_lister", json!({ "utilisateur_id": null, "entite": "parametre", "operation": null, "depuis": null, "jusqua": null, "page": 0 }))
+        .await;
+    assert!(journal.to_string().contains("portail.allumer"), "{journal}");
 }

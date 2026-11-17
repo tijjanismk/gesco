@@ -881,6 +881,8 @@ pub struct Application {
     certificat_initial: std::sync::Mutex<Option<Id<Etablissement>>>,
     /// Réseau local : code d'appairage en attente et signal du serveur (SPEC_PHASE_11_A §4).
     reseau: ReseauVivant,
+    /// Portail des élèves : port écouté et signal de son serveur (SPEC_PHASE_12_LOT_4 §3).
+    portail: crate::portail::PortailVivant,
     /// Opération qui demande d'être seul, tant qu'elle dure (SPEC_PHASE_11_A §6.3).
     seule: crate::seul::Exclusivite,
     /// Lecture de l'état d'envoi des copies hors de l'école : simulée tant que le binaire n'a pas
@@ -1269,6 +1271,8 @@ contrat! {
     bibliotheque_import_publier(crate::bibliotheque::DemandeImportPublier) -> crate::bibliotheque::PublicationImport;
     bibliotheque_classes_lire(crate::bibliotheque::DemandePourQui) -> crate::bibliotheque::PourQuiContenu;
     bibliotheque_classes_regler(crate::bibliotheque::DemandeReglerPourQui) -> crate::bibliotheque::PourQuiContenu;
+    portail_etat(()) -> crate::portail::EtatPortail;
+    portail_regler(crate::portail::ReglagesPortail) -> crate::portail::EtatPortail;
     bibliotheque_document_fichier_ajouter(crate::bibliotheque::DemandeFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
     bibliotheque_document_fichier_retirer(crate::bibliotheque::DemandeRetraitFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
     bibliotheque_fichier_enregistrer_sous(crate::bibliotheque::DemandeFichierEnregistrer) -> ();
@@ -1473,6 +1477,7 @@ impl Application {
             modem: std::sync::Mutex::new(None),
             certificat_initial: std::sync::Mutex::new(None),
             reseau: ReseauVivant::default(),
+            portail: crate::portail::PortailVivant::default(),
             seule: crate::seul::Exclusivite::default(),
             lecteur_etat: std::sync::RwLock::new(
                 Arc::clone(&lecteur_simule) as Arc<dyn LecteurEtatEnvoi>
@@ -1559,6 +1564,12 @@ impl Application {
         jeton: Option<Jeton>,
         entree: serde_json::Value,
     ) -> Resultat<serde_json::Value> {
+        // Le portail des élèves n'atteint jamais une commande (SPEC_PHASE_12_LOT_4 §9.1).
+        if origine.est_portail() {
+            return Err(ErreurService::Regle {
+                cle: "commande.inconnue",
+            });
+        }
         let commande = Commande::par_nom(nom).ok_or(ErreurService::Regle {
             cle: "commande.inconnue",
         })?;
@@ -1638,6 +1649,29 @@ impl Application {
     /// doit servir ([`Self::reseau_a_servir`]).
     pub fn suivre_reseau(&self) -> tokio::sync::watch::Receiver<u64> {
         self.reseau.suivre()
+    }
+
+    /// Suit les changements des réglages du portail des élèves : quand la valeur change, son
+    /// serveur relit s'il doit écouter ([`Self::portail_a_servir`]).
+    pub fn suivre_portail(&self) -> tokio::sync::watch::Receiver<u64> {
+        self.portail.suivre()
+    }
+
+    /// Vrai quand le portail des élèves doit écouter : base ouverte, école créée, portail,
+    /// module Bibliothèque et réseau local allumés (SPEC_PHASE_12_LOT_4 §3).
+    pub async fn portail_a_servir(&self) -> bool {
+        let Ok(Some((ouverte, etablissement_id))) = self.etablissement_ouvert().await else {
+            return false;
+        };
+        crate::portail::ServicePortail::nouveau(&ouverte.noyau)
+            .a_servir(etablissement_id)
+            .await
+            .unwrap_or(false)
+    }
+
+    /// Retient le port que le serveur du portail écoute, ou qu'il s'est arrêté.
+    pub fn declarer_ecoute_portail(&self, port: Option<u16>) {
+        self.portail.declarer_ecoute(port);
     }
 
     /// Établissement installé sur ce poste et son noyau, quand la base est ouverte.
@@ -5402,6 +5436,31 @@ impl Application {
     ) -> Resultat<crate::bibliotheque::PourQuiContenu> {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .regler_pour_qui(appel.session()?, &entree)
+            .await
+    }
+
+    async fn portail_etat(&self, appel: Appel, _: ()) -> Resultat<crate::portail::EtatPortail> {
+        let adresses = self.reseau.adresses().await;
+        crate::portail::ServicePortail::nouveau(&appel.ouverte()?.noyau)
+            .etat(appel.session()?, self.portail.port(), &adresses)
+            .await
+    }
+
+    async fn portail_regler(
+        &self,
+        appel: Appel,
+        entree: crate::portail::ReglagesPortail,
+    ) -> Resultat<crate::portail::EtatPortail> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        crate::portail::ServicePortail::nouveau(&ouverte.noyau)
+            .regler(session, &entree)
+            .await?;
+        // Le serveur du portail relit aussitôt s'il doit écouter ; l'écran relit l'état ensuite.
+        self.portail.signaler();
+        let adresses = self.reseau.adresses().await;
+        crate::portail::ServicePortail::nouveau(&ouverte.noyau)
+            .etat(session, self.portail.port(), &adresses)
             .await
     }
 

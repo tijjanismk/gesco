@@ -12,6 +12,7 @@ import { DocumentEssai } from "../accueil/Accueil";
 import { CorrespondanceBibliotheque } from "../bibliotheque/CorrespondanceBibliotheque";
 import { DroitsPublication } from "../bibliotheque/DroitsPublication";
 import { ImportLecons } from "../bibliotheque/Echange";
+import { PortailEleves } from "../bibliotheque/PortailEleves";
 import { ReglagesBibliotheque } from "../bibliotheque/ReglagesBibliotheque";
 import { CompetencesJardin } from "./CompetencesJardin";
 import { FicheEtablissement } from "./FicheEtablissement";
@@ -103,7 +104,7 @@ export function Parametres() {
       {titres.map((titre) => {
         // Les réglages du bulletin, par cycle, la largeur des colonnes imprimées et l'échelle du
         // jardin ont leur bloc à eux.
-        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("colonnes.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && !p.cle.startsWith("module.") && !p.cle.startsWith("jardin.") && p.cle !== "sms.actif" && (smsActif || !p.cle.startsWith("sms.")) && (bibliothequeActive || !p.cle.startsWith("bibliotheque.")) && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
+        const lignes = (parametres.data ?? []).filter((p) => !p.cle.startsWith("bulletin.") && !p.cle.startsWith("colonnes.") && !p.cle.startsWith("paie.") && !p.cle.startsWith("passage.") && !p.cle.startsWith("depense.") && !p.cle.startsWith("cantine.") && !p.cle.startsWith("sms.modele_") && p.cle !== "sms.port" && !p.cle.startsWith("module.") && !p.cle.startsWith("jardin.") && p.cle !== "sms.actif" && (smsActif || !p.cle.startsWith("sms.")) && (bibliothequeActive || !p.cle.startsWith("bibliotheque.")) && !p.cle.startsWith("portail.") && p.cle !== "bibliotheque.suivi_eleves" && theme(p.cle) === titre).sort((a, b) => rang(a.cle) - rang(b.cle));
         return lignes.length === 0 ? null : (
           <Section key={titre} titre={t(titre)}>
             {lignes.map((p) => (
@@ -116,6 +117,7 @@ export function Parametres() {
       <ReglagesBulletin />
       {peutTenirJardin ? <CompetencesJardin /> : null}
       {peutTenirBibliotheque && bibliothequeActive ? <ReglagesBibliotheque /> : null}
+      {peutTenirBibliotheque && bibliothequeActive && commandeAutorisee("portail_etat", session.data?.permissions ?? []) ? <PortailEleves peutAllumerReseau={commandeAutorisee("reseau_activer", session.data?.permissions ?? [])} /> : null}
       {peutTenirBibliotheque && bibliothequeActive ? <ImportLecons /> : null}
       {peutTenirBibliotheque && bibliothequeActive ? <CorrespondanceBibliotheque /> : null}
       {peutDonnerPublication && bibliothequeActive ? <DroitsPublication /> : null}

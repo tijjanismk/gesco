@@ -211,6 +211,7 @@ impl Noyau {
         match origine::courante() {
             Origine::Locale => self.poste.clone(),
             Origine::Relie(poste) => poste,
+            Origine::Portail => Poste(origine::POSTE_PORTAIL.to_owned()),
         }
     }
 

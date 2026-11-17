@@ -1,0 +1,96 @@
+//! Portail des élèves sur le Wi-Fi de l'école (SPEC_PHASE_12_LOT_4) : ses réglages, leurs valeurs
+//! à la livraison et leurs bornes. Règles pures, sans E/S (R-03).
+
+/// « Les élèves lisent les cours sur leurs appareils » : éteint à la livraison ; la direction
+/// l'allume quand le Wi-Fi et les billets sont prêts.
+pub const ELEVES: &str = "portail.eleves";
+
+/// Ce que le maître voit du suivi : `eleve` (qui a lu quoi) ou `classe` (nombres sans noms).
+pub const SUIVI_GRAIN: &str = "portail.suivi_grain";
+
+/// Minutes sans activité au bout desquelles un élève entré avec son code doit entrer de nouveau.
+pub const DUREE_SESSION_MIN: &str = "portail.duree_session_min";
+
+/// Les vidéos de l'école se regardent aussi sur les appareils des élèves.
+pub const VIDEOS: &str = "portail.videos";
+
+/// Le PDF d'une leçon s'enregistre depuis le portail.
+pub const PDF: &str = "portail.pdf";
+
+/// Durée d'une session à la livraison : un cours dure une à deux heures.
+pub const DUREE_SESSION_DEFAUT: i64 = 120;
+
+/// Bornes de la durée d'une session : de quinze minutes à une journée.
+pub const DUREE_SESSION_BORNES: std::ops::RangeInclusive<i64> = 15..=1_440;
+
+/// Port du portail quand il est libre : l'adresse à taper reste courte.
+pub const PORT_PREFERE: u16 = 80;
+
+/// Port du portail quand le 80 est pris.
+pub const PORT_SECOURS: u16 = 47_801;
+
+/// Ce que le maître voit du suivi de ses élèves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GrainSuivi {
+    /// Par élève : qui a ouvert et fini quelles leçons.
+    #[default]
+    Eleve,
+    /// Par classe seulement : des nombres, sans noms.
+    Classe,
+}
+
+impl GrainSuivi {
+    /// Nom du grain, tel qu'il est rangé dans le réglage.
+    pub fn nom(self) -> &'static str {
+        match self {
+            Self::Eleve => "eleve",
+            Self::Classe => "classe",
+        }
+    }
+
+    /// Grain d'après son nom ; `None` pour un nom inconnu.
+    pub fn depuis_nom(nom: &str) -> Option<Self> {
+        match nom {
+            "eleve" => Some(Self::Eleve),
+            "classe" => Some(Self::Classe),
+            _ => None,
+        }
+    }
+}
+
+/// Adresse à donner aux élèves : le port n'y paraît que s'il n'est pas le 80.
+pub fn adresse_a_donner(hote: &str, port: u16) -> String {
+    if port == PORT_PREFERE {
+        format!("http://{hote}")
+    } else {
+        format!("http://{hote}:{port}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn la_duree_livree_est_dans_ses_bornes() {
+        assert!(DUREE_SESSION_BORNES.contains(&DUREE_SESSION_DEFAUT));
+    }
+
+    #[test]
+    fn le_grain_se_relit_par_son_nom() {
+        for grain in [GrainSuivi::Eleve, GrainSuivi::Classe] {
+            assert_eq!(GrainSuivi::depuis_nom(grain.nom()), Some(grain));
+        }
+        assert_eq!(GrainSuivi::depuis_nom("ecole"), None);
+        assert_eq!(GrainSuivi::default(), GrainSuivi::Eleve);
+    }
+
+    #[test]
+    fn le_port_80_ne_se_tape_pas() {
+        assert_eq!(adresse_a_donner("192.168.1.10", 80), "http://192.168.1.10");
+        assert_eq!(
+            adresse_a_donner("192.168.1.10", PORT_SECOURS),
+            "http://192.168.1.10:47801"
+        );
+    }
+}

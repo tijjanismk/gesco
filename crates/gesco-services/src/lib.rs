@@ -88,6 +88,7 @@ pub mod paie_mois;
 pub mod paiements_personnel;
 pub mod pedagogie;
 pub mod personnel;
+pub mod portail;
 pub mod postes;
 pub mod rapports;
 pub mod rapports_tableaux;

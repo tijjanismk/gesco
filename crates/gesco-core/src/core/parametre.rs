@@ -111,6 +111,14 @@ pub fn hors_bornes(cle: &str, valeur: &ValeurParametre) -> bool {
         (cle, ValeurParametre::Texte(t)) if cle.starts_with("jardin.echelle_") => {
             crate::pedagogie::jardin::echelle_hors_bornes(cle, t).unwrap_or(true)
         }
+        // Portail des élèves : une durée de session d'un quart d'heure à une journée, un grain
+        // du suivi parmi deux.
+        (crate::bibliotheque::portail::DUREE_SESSION_MIN, ValeurParametre::Entier(n)) => {
+            !crate::bibliotheque::portail::DUREE_SESSION_BORNES.contains(n)
+        }
+        (crate::bibliotheque::portail::SUIVI_GRAIN, ValeurParametre::Texte(t)) => {
+            crate::bibliotheque::portail::GrainSuivi::depuis_nom(t).is_none()
+        }
         // Bibliothèque : la taille conseillée d'une vidéo, en mégaoctets.
         (crate::bibliotheque::reglages::TAILLE_VIDEO_CONSEILLEE, ValeurParametre::Entier(n)) => {
             !crate::bibliotheque::reglages::TAILLE_VIDEO_CONSEILLEE_BORNES.contains(n)
@@ -391,6 +399,37 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         p(
             crate::bibliotheque::reglages::TAILLE_VIDEO_CONSEILLEE,
             ValeurParametre::Entier(crate::bibliotheque::reglages::TAILLE_VIDEO_CONSEILLEE_DEFAUT),
+            true,
+        ),
+        // Portail des élèves (SPEC_PHASE_12_LOT_4 §8) : éteint ; suivi par élève ; deux heures
+        // de session ; vidéos et PDF permis.
+        p(
+            crate::bibliotheque::portail::ELEVES,
+            ValeurParametre::Booleen(false),
+            true,
+        ),
+        p(
+            crate::bibliotheque::portail::SUIVI_GRAIN,
+            ValeurParametre::Texte(
+                crate::bibliotheque::portail::GrainSuivi::Eleve
+                    .nom()
+                    .to_owned(),
+            ),
+            true,
+        ),
+        p(
+            crate::bibliotheque::portail::DUREE_SESSION_MIN,
+            ValeurParametre::Entier(crate::bibliotheque::portail::DUREE_SESSION_DEFAUT),
+            true,
+        ),
+        p(
+            crate::bibliotheque::portail::VIDEOS,
+            ValeurParametre::Booleen(true),
+            true,
+        ),
+        p(
+            crate::bibliotheque::portail::PDF,
+            ValeurParametre::Booleen(true),
             true,
         ),
         p(

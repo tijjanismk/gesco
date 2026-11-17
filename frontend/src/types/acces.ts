@@ -162,6 +162,8 @@ export const ACCES = {
   bibliotheque_import_publier: { type: "permission", permission: "library:publish" },
   bibliotheque_classes_lire: { type: "permission", permission: "library:edit" },
   bibliotheque_classes_regler: { type: "permission", permission: "library:edit" },
+  portail_etat: { type: "permission", permission: "library:manage" },
+  portail_regler: { type: "permission", permission: "library:manage" },
   bibliotheque_document_fichier_ajouter: { type: "permission", permission: "library:edit" },
   bibliotheque_document_fichier_retirer: { type: "permission", permission: "library:edit" },
   bibliotheque_fichier_enregistrer_sous: { type: "permission", permission: "library:read" },
