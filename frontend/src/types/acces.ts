@@ -164,6 +164,12 @@ export const ACCES = {
   bibliotheque_classes_regler: { type: "permission", permission: "library:edit" },
   portail_etat: { type: "permission", permission: "library:manage" },
   portail_regler: { type: "permission", permission: "library:manage" },
+  portail_affiche: { type: "permission", permission: "library:manage" },
+  portail_codes_classe: { type: "permission", permission: "portal:codes" },
+  portail_billets_produire: { type: "permission", permission: "portal:codes" },
+  portail_code_lire: { type: "permission", permission: "portal:codes" },
+  portail_code_remettre: { type: "permission", permission: "portal:codes" },
+
   bibliotheque_document_fichier_ajouter: { type: "permission", permission: "library:edit" },
   bibliotheque_document_fichier_retirer: { type: "permission", permission: "library:edit" },
   bibliotheque_fichier_enregistrer_sous: { type: "permission", permission: "library:read" },

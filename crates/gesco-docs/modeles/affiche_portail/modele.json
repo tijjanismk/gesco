@@ -1,0 +1,9 @@
+{
+  "id": "affiche_portail",
+  "version": 1,
+  "libelle": "Affiche de classe : les cours sur ton téléphone",
+  "variables": [
+    { "nom": "adresse", "requise": true },
+    { "nom": "qr", "requise": true }
+  ]
+}

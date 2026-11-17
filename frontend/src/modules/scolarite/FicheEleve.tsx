@@ -15,6 +15,8 @@ import { FraisEleve } from "../finance/FraisEleve";
 import { NotesEleve } from "../pedagogie/NotesEleve";
 import { InscriptionsEleve } from "./InscriptionsEleve";
 import { ResponsablesEleve } from "./Responsables";
+import { useElearningActif } from "../../app/modules";
+import { CodePortailEleve } from "../bibliotheque/CodesPortail";
 import { Webcam } from "./Webcam";
 
 const ACTES: Record<NatureActe, Cle> = { acte: "eleves.acte.acte", jugement_suppletif: "eleves.acte.jugement_suppletif" };
@@ -69,6 +71,7 @@ export function ChampsEleve({ prefixe, valeur, surChangement }: { prefixe: strin
 /** Fiche d'un élève : identité, photo, responsables. */
 export function FicheEleveEcran({ id, permissions, maitre, surOuvrir }: { id: string; permissions: readonly string[]; maitre: boolean; surOuvrir: (id: string) => void }) {
   const fiche = useQuery({ queryKey: ["eleve", id], queryFn: () => appeler("eleve_lire", { id }) });
+  const elearning = useElearningActif();
   // Une relecture qui échoue (liaison coupée) ne remplace pas la fiche affichée ni sa saisie.
   if (fiche.data === undefined) {
     return fiche.isError ? <MessageErreur erreur={fiche.error} /> : <p className="text-sm text-muet">{t("commun.chargement")}</p>;
@@ -101,7 +104,9 @@ export function FicheEleveEcran({ id, permissions, maitre, surOuvrir }: { id: st
       {commandeAutorisee("eleve_notes", permissions, maitre) ? <NotesEleve eleveId={eleve.id} /> : null}
       {/* Un compte de maître lit la fiche des élèves de ses classes, sans leur situation financière. */}
       {commandeAutorisee("situation_financiere", permissions, maitre) ? <FraisEleve eleveId={eleve.id} permissions={permissions} /> : null}
+      {elearning && eleve.fusionne_dans === null && commandeAutorisee("portail_code_lire", permissions, maitre) ? <CodePortailEleve eleveId={eleve.id} /> : null}
       {modifiable && commandeAutorisee("eleves_fusionner", permissions) ? <FusionEleve fiche={fiche.data} surOuvrir={surOuvrir} /> : null}
+
     </div>
   );
 }

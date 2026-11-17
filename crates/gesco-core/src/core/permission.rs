@@ -142,6 +142,8 @@ catalogue! {
     LIBRARY_EDIT = "library:edit",
     LIBRARY_PUBLISH = "library:publish",
     LIBRARY_MANAGE = "library:manage",
+    PORTAL_CODES = "portal:codes",
+    LIBRARY_FOLLOW = "library:follow",
 }
 
 /// Version de la composition des rôles livrés. Une phase qui ajoute des permissions à
@@ -200,7 +202,11 @@ catalogue! {
 /// Caissier, le Comptable et le Gestionnaire RH ; écrire : le Directeur, le Directeur des études
 /// et l'Enseignant (dans ses matières) ; publier : le Directeur et le Directeur des études ;
 /// gérer (retirer, installer, régler) : le Directeur.
-pub const COMPOSITION_ROLES_LIVRES: i64 = 17;
+/// Version 18 (portail des élèves, phase 12, lot 4) : `portal:codes`, nouvelle (billets et codes
+/// des élèves), pour le Directeur, le Directeur des études et le Secrétaire ; `library:follow`,
+/// nouvelle (suivi des élèves, dans ses classes pour un maître), pour le Directeur, le Directeur
+/// des études et l'Enseignant.
+pub const COMPOSITION_ROLES_LIVRES: i64 = 18;
 
 /// Rôles livrés avec le produit (§11.4), composés selon SPEC_PHASE_1 §5.2 (Q-44).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -343,6 +349,8 @@ impl RoleSysteme {
                 P::LIBRARY_EDIT,
                 P::LIBRARY_PUBLISH,
                 P::LIBRARY_MANAGE,
+                P::PORTAL_CODES,
+                P::LIBRARY_FOLLOW,
             ],
             Self::DirecteurDesEtudes => vec![
                 P::STUDENTS_READ,
@@ -362,6 +370,8 @@ impl RoleSysteme {
                 P::LIBRARY_READ,
                 P::LIBRARY_EDIT,
                 P::LIBRARY_PUBLISH,
+                P::PORTAL_CODES,
+                P::LIBRARY_FOLLOW,
             ],
             Self::Secretaire => vec![
                 P::STUDENTS_CREATE,
@@ -391,6 +401,7 @@ impl RoleSysteme {
                 P::SCHOOL_PROFILE_MANAGE,
                 P::INVENTORY_MANAGE,
                 P::LIBRARY_READ,
+                P::PORTAL_CODES,
             ],
             Self::Caissier => vec![
                 P::STUDENTS_READ,
@@ -429,6 +440,7 @@ impl RoleSysteme {
                 P::ATTENDANCE_CREATE,
                 P::LIBRARY_READ,
                 P::LIBRARY_EDIT,
+                P::LIBRARY_FOLLOW,
             ],
             Self::Surveillant => vec![
                 P::STUDENTS_READ,

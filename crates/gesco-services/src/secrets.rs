@@ -111,6 +111,37 @@ pub fn code_acces_correspond(code: &str, empreinte: &str) -> bool {
     verifier(code.as_bytes(), empreinte)
 }
 
+/// Argon2id léger du code d'un élève (ADR « identité de l'élève ») : 4 Mio et deux passes, une
+/// vingtaine de millisecondes. Le code n'ouvre que le portail local, et la base est chiffrée.
+fn argon2_eleve() -> Argon2<'static> {
+    let parametres = argon2::Params::new(4 * 1024, 2, 1, None).unwrap_or_default();
+    Argon2::new(
+        argon2::Algorithm::Argon2id,
+        argon2::Version::V0x13,
+        parametres,
+    )
+}
+
+/// Empreinte PHC du code d'un élève : le code ne se garde pas.
+pub fn empreinte_code_eleve(code: &str) -> Resultat<String> {
+    let empreinte: PasswordHash = argon2_eleve()
+        .hash_password(code.as_bytes())
+        .map_err(|e| ErreurService::Secret(e.to_string()))?;
+    Ok(empreinte.to_string())
+}
+
+/// Vérifie le code d'un élève sur un fil à part. Les paramètres sont lus dans l'empreinte.
+pub async fn code_eleve_correspond_a_part(code: &str, empreinte: &str) -> bool {
+    let code = zeroize::Zeroizing::new(code.as_bytes().to_vec());
+    let empreinte = empreinte.to_owned();
+    tokio::task::spawn_blocking(move || {
+        PasswordHash::new(&empreinte)
+            .is_ok_and(|e| argon2_eleve().verify_password(&code, &e).is_ok())
+    })
+    .await
+    .unwrap_or(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

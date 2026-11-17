@@ -1,0 +1,10 @@
+{
+  "id": "billets_portail",
+  "version": 1,
+  "libelle": "Billets des élèves pour les cours sur leurs appareils",
+  "variables": [
+    { "nom": "billets", "requise": true },
+    { "nom": "adresse", "requise": true },
+    { "nom": "remis_le", "requise": true }
+  ]
+}

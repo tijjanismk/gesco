@@ -10,6 +10,8 @@ import { Tableau } from "../../composants/Tableau";
 import { t } from "../../i18n";
 import type { FicheClasse, Referentiel } from "../../types/gesco";
 import { FicheScolaire } from "../rapports/FicheScolaire";
+import { useElearningActif } from "../../app/modules";
+import { CodesPortailClasse } from "../bibliotheque/CodesPortail";
 
 /** Classes d'une année (SPEC_PHASE_2 §3) : aucun effectif maximal, la série suit le niveau. */
 export function Classes() {
@@ -26,6 +28,8 @@ export function Classes() {
   const [choisie, setChoisie] = useState<string | null>(null);
   const fiche = classes.data?.find((c) => c.classe.id === choisie);
   const organise = commandeAutorisee("classe_creer", session.data?.permissions ?? []);
+  const elearning = useElearningActif();
+  const anneeCourante = annees.data?.find((a) => a.est_courante)?.id;
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-encre">{t("classes.titre")}</h1>
@@ -67,6 +71,10 @@ export function Classes() {
         ) : null}
       </div>
       {fiche !== undefined && commandeAutorisee("fiche_scolaire_produire", session.data?.permissions ?? []) ? <FicheScolaire key={fiche.classe.id} classeId={fiche.classe.id} /> : null}
+      {fiche !== undefined && elearning && anneeId === anneeCourante && commandeAutorisee("portail_billets_produire", session.data?.permissions ?? []) ? (
+        <CodesPortailClasse key={`codes-${fiche.classe.id}`} classeId={fiche.classe.id} />
+      ) : null}
+
     </div>
   );
 }

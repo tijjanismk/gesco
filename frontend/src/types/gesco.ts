@@ -2320,6 +2320,11 @@ export type Contrat = {
 	bibliotheque_classes_regler: Signature<DemandeReglerPourQui, PourQuiContenu>,
 	portail_etat: Signature<null, EtatPortail>,
 	portail_regler: Signature<ReglagesPortail, EtatPortail>,
+	portail_codes_classe: Signature<DemandeCodesClasse, CodesClasse>,
+	portail_billets_produire: Signature<DemandeBilletsPortail, BilletsPortail>,
+	portail_code_lire: Signature<DemandeCodeEleve, CodeEleveEtat>,
+	portail_code_remettre: Signature<DemandeCodeEleve, BilletsPortail>,
+	portail_affiche: Signature<null, AffichePortail>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_document_fichier_ajouter: Signature<DemandeFichierDocument, FichierDocument[]>,
 	/**  Signature de la commande du même nom. */
@@ -9825,7 +9830,58 @@ export type PostesCouverts =
 
 /**  Ce que la direction voit du portail : ses réglages, ce qu'il faut allumer d'abord, et
  *  l'adresse à donner aux élèves quand il écoute. */
+/**  Une classe dont on veut les codes du portail. */
+export type DemandeCodesClasse = {
+	/**  Classe. */
+	classe_id: string,
+};
+
+/**  Combien d'élèves d'une classe ont leur code. */
+export type CodesClasse = {
+	/**  Élèves inscrits dans la classe. */
+	eleves: number,
+	/**  Élèves qui ont un code. */
+	avec_code: number,
+};
+
+/**  Billets d'une classe à produire. */
+export type DemandeBilletsPortail = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Pour tous les élèves (les anciens codes ne marchent plus) ; sinon pour ceux qui n'ont pas de code. */
+	tous: boolean,
+};
+
+/**  Un élève dont on lit ou remet le code. */
+export type DemandeCodeEleve = {
+	/**  Élève. */
+	eleve_id: string,
+};
+
+/**  État du code d'un élève, sur sa fiche. */
+export type CodeEleveEtat = {
+	/**  Date de remise du code actif (`AAAA-MM-JJ`) ; aucune s'il n'a pas de code. */
+	remis_le: string | null,
+	/**  L'élève est inscrit dans une classe de l'année en cours : un code peut lui être remis. */
+	inscrit: boolean,
+};
+
+/**  Billets produits, en PDF (base64) ; le code n'est écrit nulle part ailleurs. */
+export type BilletsPortail = {
+	/**  PDF des billets, en base64 ; vide si aucun élève n'en avait besoin. */
+	pdf: string,
+	/**  Nombre de billets. */
+	billets: number,
+};
+
+/**  Affiche de classe, en PDF (base64). */
+export type AffichePortail = {
+	/**  PDF de l'affiche, en base64. */
+	pdf: string,
+};
+
 export type EtatPortail = {
+
 	/**  Réglages. */
 	reglages: ReglagesPortail,
 	/**  Le serveur du réseau local est allumé. */

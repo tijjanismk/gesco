@@ -6,6 +6,7 @@ import { CaseACocher, Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { t } from "../../i18n";
 import type { ReglagesPortail } from "../../types/gesco";
+import { AffichePortail } from "./CodesPortail";
 
 /** Suivi : « par élève », « par classe seulement » ou éteint ; un seul choix pour la direction. */
 type ChoixSuivi = "eleve" | "classe" | "eteint";
@@ -81,7 +82,9 @@ export function PortailEleves({ peutAllumerReseau }: { peutAllumerReseau: boolea
               {t("portail.reglages.autres_adresses", { adresses: donnees.adresses.slice(1).join(", ") })}
             </p>
           ) : null}
+          <AffichePortail />
         </div>
+
       ) : null}
       {r.eleves && donnees.reseau_allume && donnees.port === null ? (
         <p className="text-sm text-encre">{t("portail.reglages.demarrage")}</p>

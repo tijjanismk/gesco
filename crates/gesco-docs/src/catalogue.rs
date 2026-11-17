@@ -109,6 +109,14 @@ const MODELES_INTEGRES: &[(&str, &str)] = &[
         include_str!("../modeles/lecon/modele.json"),
         include_str!("../modeles/lecon/modele.typ"),
     ),
+    (
+        include_str!("../modeles/billets_portail/modele.json"),
+        include_str!("../modeles/billets_portail/modele.typ"),
+    ),
+    (
+        include_str!("../modeles/affiche_portail/modele.json"),
+        include_str!("../modeles/affiche_portail/modele.typ"),
+    ),
 ];
 
 /// Variable déclarée par un modèle.

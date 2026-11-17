@@ -1273,6 +1273,11 @@ contrat! {
     bibliotheque_classes_regler(crate::bibliotheque::DemandeReglerPourQui) -> crate::bibliotheque::PourQuiContenu;
     portail_etat(()) -> crate::portail::EtatPortail;
     portail_regler(crate::portail::ReglagesPortail) -> crate::portail::EtatPortail;
+    portail_codes_classe(crate::portail::codes::DemandeCodesClasse) -> crate::portail::codes::CodesClasse;
+    portail_billets_produire(crate::portail::codes::DemandeBilletsPortail) -> crate::portail::codes::BilletsPortail;
+    portail_code_lire(crate::portail::codes::DemandeCodeEleve) -> crate::portail::codes::CodeEleveEtat;
+    portail_code_remettre(crate::portail::codes::DemandeCodeEleve) -> crate::portail::codes::BilletsPortail;
+    portail_affiche(()) -> crate::portail::codes::AffichePortail;
     bibliotheque_document_fichier_ajouter(crate::bibliotheque::DemandeFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
     bibliotheque_document_fichier_retirer(crate::bibliotheque::DemandeRetraitFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
     bibliotheque_fichier_enregistrer_sous(crate::bibliotheque::DemandeFichierEnregistrer) -> ();
@@ -1672,6 +1677,134 @@ impl Application {
     /// Retient le port que le serveur du portail écoute, ou qu'il s'est arrêté.
     pub fn declarer_ecoute_portail(&self, port: Option<u16>) {
         self.portail.declarer_ecoute(port);
+    }
+
+    /// La session d'un élève au portail, si son jeton vit encore ; son activité est notée.
+    pub fn portail_session(&self, jeton: &str) -> Option<crate::portail::entree::SessionEleve> {
+        self.portail
+            .sessions
+            .lire(jeton, self.horloge.maintenant().millis_epoque())
+    }
+
+    /// Ce que lit le téléphone en arrivant au portail ; `None` tant que l'école n'est pas
+    /// ouverte.
+    pub async fn portail_accueil(
+        &self,
+        jeton: Option<&str>,
+    ) -> Result<Option<crate::portail::entree::AccueilPortail>, ErreurCommande> {
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Ok(None);
+        };
+        let session = jeton.and_then(|j| self.portail_session(j));
+        Ok(Some(
+            crate::origine::dans(
+                crate::origine::Origine::Portail,
+                crate::portail::entree::accueil(&ouverte.noyau, etablissement_id, session.as_ref()),
+            )
+            .await?,
+        ))
+    }
+
+    /// Un élève entre au portail avec son matricule et son code ; `None` tant que l'école
+    /// n'est pas ouverte.
+    pub async fn portail_entrer(
+        &self,
+        demande: &crate::portail::entree::DemandeEntrer,
+    ) -> Result<Option<crate::portail::entree::Entree>, ErreurCommande> {
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Ok(None);
+        };
+        Ok(Some(
+            crate::origine::dans(
+                crate::origine::Origine::Portail,
+                crate::portail::entree::entrer(
+                    &ouverte.noyau,
+                    &self.portail.sessions,
+                    &self.portail.verifications,
+                    etablissement_id,
+                    demande,
+                ),
+            )
+            .await?,
+        ))
+    }
+
+    /// Un élève lit sans code, au niveau choisi ; `None` si ce niveau n'est pas ouvert.
+    pub async fn portail_lire_sans_code(
+        &self,
+        demande: &crate::portail::entree::DemandeLireSansCode,
+    ) -> Result<Option<(String, crate::portail::entree::SessionEleve)>, ErreurCommande> {
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Ok(None);
+        };
+        Ok(crate::origine::dans(
+            crate::origine::Origine::Portail,
+            crate::portail::entree::lire_sans_code(
+                &ouverte.noyau,
+                &self.portail.sessions,
+                etablissement_id,
+                demande,
+            ),
+        )
+        .await?)
+    }
+
+    /// Remet un code à un élève sans billet et le rend en clair : réservé aux essais, aucune
+    /// commande n'y mène.
+    #[doc(hidden)]
+    pub async fn portail_code_pour_essai(&self, eleve_id: &str) -> Result<String, ErreurCommande> {
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Err(ErreurService::Regle {
+                cle: "portail.eteint",
+            }
+            .into());
+        };
+        Ok(
+            crate::portail::entree::code_pour_essai(&ouverte.noyau, etablissement_id, eleve_id)
+                .await?,
+        )
+    }
+
+    /// Un élève sort du portail.
+    pub fn portail_sortir(&self, jeton: &str) {
+        self.portail.sessions.fermer(jeton);
+    }
+
+    /// Adresse du portail à imprimer (billets, affiche), quand il écoute.
+    async fn adresse_du_portail(&self) -> Option<String> {
+        let port = self.portail.port()?;
+        let adresses = self.reseau.adresses().await;
+        adresses
+            .first()
+            .map(|hote| gesco_core::bibliotheque::portail::adresse_a_donner(hote, port))
+    }
+
+    /// Compose les billets du portail ; aucun PDF quand aucun élève n'en avait besoin.
+    async fn composer_billets(
+        &self,
+        ouverte: &Ouverte,
+        session: &Session,
+        a_composer: crate::portail::codes::AComposer,
+    ) -> Resultat<crate::portail::codes::BilletsPortail> {
+        if a_composer.billets == 0 {
+            return Ok(crate::portail::codes::BilletsPortail {
+                pdf: String::new(),
+                billets: 0,
+            });
+        }
+        // Les billets se composent en mémoire : ils portent les codes, que rien ne garde.
+        let compose = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+            .composer_portail(
+                session.etablissement_id,
+                "billets_portail",
+                a_composer.donnees,
+                a_composer.pieces,
+            )
+            .await?;
+        Ok(crate::portail::codes::BilletsPortail {
+            pdf: base64(&compose.pdf),
+            billets: a_composer.billets,
+        })
     }
 
     /// Établissement installé sur ce poste et son noyau, quand la base est ouverte.
@@ -5471,8 +5604,83 @@ impl Application {
             .await
     }
 
+    async fn portail_codes_classe(
+        &self,
+        appel: Appel,
+        entree: crate::portail::codes::DemandeCodesClasse,
+    ) -> Resultat<crate::portail::codes::CodesClasse> {
+        crate::portail::codes::ServiceCodesPortail::nouveau(&appel.ouverte()?.noyau)
+            .classe(appel.session()?, &entree)
+            .await
+    }
+
+    async fn portail_billets_produire(
+        &self,
+        appel: Appel,
+        entree: crate::portail::codes::DemandeBilletsPortail,
+    ) -> Resultat<crate::portail::codes::BilletsPortail> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let adresse = self.adresse_du_portail().await;
+        let a_composer = crate::portail::codes::ServiceCodesPortail::nouveau(&ouverte.noyau)
+            .billets(session, &entree, adresse.as_deref())
+            .await?;
+        self.composer_billets(ouverte, session, a_composer).await
+    }
+
+    async fn portail_code_lire(
+        &self,
+        appel: Appel,
+        entree: crate::portail::codes::DemandeCodeEleve,
+    ) -> Resultat<crate::portail::codes::CodeEleveEtat> {
+        crate::portail::codes::ServiceCodesPortail::nouveau(&appel.ouverte()?.noyau)
+            .etat(appel.session()?, &entree)
+            .await
+    }
+
+    async fn portail_code_remettre(
+        &self,
+        appel: Appel,
+        entree: crate::portail::codes::DemandeCodeEleve,
+    ) -> Resultat<crate::portail::codes::BilletsPortail> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let adresse = self.adresse_du_portail().await;
+        let a_composer = crate::portail::codes::ServiceCodesPortail::nouveau(&ouverte.noyau)
+            .remettre_un(session, &entree, adresse.as_deref())
+            .await?;
+        self.composer_billets(ouverte, session, a_composer).await
+    }
+
+    async fn portail_affiche(
+        &self,
+        appel: Appel,
+        _: (),
+    ) -> Resultat<crate::portail::codes::AffichePortail> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let Some(adresse) = self.adresse_du_portail().await else {
+            return Err(ErreurService::Regle {
+                cle: "portail.sans_adresse",
+            });
+        };
+        let a_composer = crate::portail::codes::ServiceCodesPortail::affiche(&adresse)?;
+        let compose = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+            .composer_portail(
+                session.etablissement_id,
+                "affiche_portail",
+                a_composer.donnees,
+                a_composer.pieces,
+            )
+            .await?;
+        Ok(crate::portail::codes::AffichePortail {
+            pdf: base64(&compose.pdf),
+        })
+    }
+
     async fn bibliotheque_document_fichier_ajouter(
         &self,
+
         appel: Appel,
         entree: crate::bibliotheque::DemandeFichierDocument,
     ) -> Resultat<Vec<crate::bibliotheque::FichierDocument>> {

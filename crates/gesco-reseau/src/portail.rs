@@ -26,6 +26,8 @@ use tokio::sync::watch;
 
 use crate::adresse_privee;
 
+mod api;
+
 /// Port du portail quand il est libre : l'adresse à taper reste courte.
 pub const PORT_PREFERE: u16 = gesco_core::bibliotheque::portail::PORT_PREFERE;
 
@@ -67,6 +69,7 @@ p { font-size: 1.125rem; line-height: 1.5; }
 pub const ROUTES_PORTAIL: &[(&str, &str)] = &[
     ("GET", "/"),
     ("GET", "/assets/{fichier}"),
+    ("GET", "/eleve/api/accueil"),
     ("POST", "/eleve/api/entrer"),
     ("POST", "/eleve/api/lire-sans-code"),
     ("POST", "/eleve/api/sortir"),
@@ -81,10 +84,6 @@ pub const ROUTES_PORTAIL: &[(&str, &str)] = &[
 /// Ce que chaque route du portail connaît.
 #[derive(Clone)]
 pub struct EtatPortail {
-    #[expect(
-        dead_code,
-        reason = "lu par les routes de l'API, aux étapes 2 et 3 du lot"
-    )]
     application: Arc<Application>,
     /// Dossier des écrans des élèves construits (`index.html`, `assets/`) ; sans lui, la racine
     /// sert la page d'essai.
@@ -96,9 +95,14 @@ fn routes() -> Vec<(&'static str, &'static str, MethodRouter<EtatPortail>)> {
     vec![
         ("GET", "/", get(racine)),
         ("GET", "/assets/{fichier}", get(fichier_des_pages)),
-        ("POST", "/eleve/api/entrer", post(a_venir)),
-        ("POST", "/eleve/api/lire-sans-code", post(a_venir)),
-        ("POST", "/eleve/api/sortir", post(a_venir)),
+        ("GET", "/eleve/api/accueil", get(api::accueil)),
+        ("POST", "/eleve/api/entrer", post(api::entrer)),
+        (
+            "POST",
+            "/eleve/api/lire-sans-code",
+            post(api::lire_sans_code),
+        ),
+        ("POST", "/eleve/api/sortir", post(api::sortir)),
         ("GET", "/eleve/api/catalogue", get(a_venir)),
         ("GET", "/eleve/api/contenu/{id}", get(a_venir)),
         ("GET", "/eleve/api/fichier/{empreinte}", get(a_venir)),

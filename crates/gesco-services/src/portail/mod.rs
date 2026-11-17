@@ -3,6 +3,9 @@
 //! `gesco-reseau` ; il n'appelle que les fonctions écrites ici pour lui, sous
 //! [`crate::Origine::Portail`], jamais une commande de gestion.
 
+pub mod codes;
+pub mod entree;
+
 use std::sync::Mutex;
 
 use gesco_core::bibliotheque::portail::{
@@ -61,6 +64,10 @@ pub struct EtatPortail {
 pub struct PortailVivant {
     ecoute: Mutex<Option<u16>>,
     signal: watch::Sender<u64>,
+    /// Sessions des élèves entrés.
+    pub sessions: entree::SessionsPortail,
+    /// Vérifications de code menées en même temps, au plus.
+    pub verifications: tokio::sync::Semaphore,
 }
 
 impl Default for PortailVivant {
@@ -69,6 +76,10 @@ impl Default for PortailVivant {
         Self {
             ecoute: Mutex::new(None),
             signal,
+            sessions: entree::SessionsPortail::default(),
+            verifications: tokio::sync::Semaphore::new(
+                gesco_core::bibliotheque::portail::VERIFICATIONS_SIMULTANEES,
+            ),
         }
     }
 }

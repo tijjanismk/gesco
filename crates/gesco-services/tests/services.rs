@@ -56,6 +56,7 @@ mod paie_mois;
 mod pedagogie;
 mod personnel;
 mod plusieurs;
+mod portail_entree;
 mod postes;
 mod rapports;
 mod recettes;

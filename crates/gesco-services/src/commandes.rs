@@ -662,6 +662,12 @@ pub const COMMANDES: &[Commande] = &[
     // direction de la bibliothèque.
     Commande::permise("portail_etat", Permission::LIBRARY_MANAGE),
     Commande::permise("portail_regler", Permission::LIBRARY_MANAGE),
+    Commande::permise("portail_affiche", Permission::LIBRARY_MANAGE),
+    // Codes des élèves : billets d'une classe, code remis à un élève (SPEC_PHASE_12_LOT_4 §4).
+    Commande::permise("portail_codes_classe", Permission::PORTAL_CODES),
+    Commande::permise("portail_billets_produire", Permission::PORTAL_CODES),
+    Commande::permise("portail_code_lire", Permission::PORTAL_CODES),
+    Commande::permise("portail_code_remettre", Permission::PORTAL_CODES),
     Commande::permise(
         "bibliotheque_document_fichier_ajouter",
         Permission::LIBRARY_EDIT,

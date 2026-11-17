@@ -367,6 +367,20 @@ impl<'a> ServiceDocuments<'a> {
             .await
     }
 
+    /// Compose les billets ou l'affiche du portail des élèves, en mémoire seulement : les
+    /// billets portent les codes, que la base ne garde pas. L'audit de la remise en garde la
+    /// trace.
+    pub async fn composer_portail(
+        &self,
+        etablissement_id: Id<Etablissement>,
+        modele: &str,
+        donnees: serde_json::Value,
+        pieces: Vec<Piece>,
+    ) -> Resultat<DocumentCompose> {
+        self.composer(etablissement_id, modele, donnees, pieces)
+            .await
+    }
+
     /// Compose le certificat de clé de secours, en mémoire seulement : il porte la phrase, il
     /// n'est jamais écrit sur le disque du poste (R-25). L'audit de l'opération appelante en
     /// garde la trace (enveloppe, version du modèle).

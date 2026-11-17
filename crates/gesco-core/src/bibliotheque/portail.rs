@@ -29,6 +29,31 @@ pub const PORT_PREFERE: u16 = 80;
 /// Port du portail quand le 80 est pris.
 pub const PORT_SECOURS: u16 = 47_801;
 
+/// Codes faux dans la journée qui bloquent un matricule jusqu'au lendemain ; « Lire sans code »
+/// reste possible.
+pub const CODES_FAUX_MAX: i64 = 5;
+
+/// Vérifications de code menées en même temps, au plus : le reste attend son tour.
+pub const VERIFICATIONS_SIMULTANEES: usize = 4;
+
+/// Billets par page A4.
+pub const BILLETS_PAR_PAGE: usize = 10;
+
+/// Jour d'un instant, `AAAA-MM-JJ` (le Mali vit à l'heure universelle).
+pub fn jour_de(instant: crate::commun::Horodatage) -> String {
+    instant.vers_rfc3339().chars().take(10).collect()
+}
+
+/// Matricule saisi sous sa forme comparable : sans espace autour, en majuscules.
+pub fn normaliser_matricule(saisie: &str) -> String {
+    saisie.trim().to_uppercase()
+}
+
+/// Vrai pour un matricule qu'on peut chercher : ni vide ni démesuré.
+pub fn matricule_plausible(matricule: &str) -> bool {
+    (1..=64).contains(&matricule.chars().count())
+}
+
 /// Ce que le maître voit du suivi de ses élèves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GrainSuivi {
@@ -83,6 +108,16 @@ mod tests {
         }
         assert_eq!(GrainSuivi::depuis_nom("ecole"), None);
         assert_eq!(GrainSuivi::default(), GrainSuivi::Eleve);
+    }
+
+    #[test]
+    fn le_jour_et_le_matricule() {
+        let h = crate::commun::Horodatage::depuis_millis_epoque(1_794_960_000_000);
+        assert_eq!(jour_de(h).len(), 10);
+        assert_eq!(normaliser_matricule("  ab-12 "), "AB-12");
+        assert!(matricule_plausible("A1"));
+        assert!(!matricule_plausible(""));
+        assert!(!matricule_plausible(&"9".repeat(65)));
     }
 
     #[test]

@@ -11,7 +11,14 @@ function useModules(): readonly ModuleEcole[] {
   return session.data?.modules ?? [];
 }
 
+/** Vrai si l'école a allumé l'e-learning (bibliothèque de cours, portail des élèves, suivi) :
+ *  éteint, ses écrans disparaissent pour tous les comptes ; rien ne s'efface. */
+export function useElearningActif(): boolean {
+  return useModules().includes("bibliotheque");
+}
+
 /** Vrai si l'école a allumé les messages aux familles. */
+
 export function useSmsActif(): boolean {
   return useModules().includes("sms");
 }
