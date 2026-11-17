@@ -559,3 +559,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   dans `gesco-bibliotheque` (commit `de7ed5d`, branche `main`, sans dépôt distant). Sessions finies
   à archiver avec l'accord du porteur : `local_fcca0ca2`, `local_162a9d46`, `local_74ac82be`,
   `local_e184e227`, `local_f40629f5`.
+- 2026-11-17 : lot 2 de la phase 12 livré (`184be5a`, tous essais verts) ; le porteur a écrit « on
+  continue » après qu'on lui a dit que la suite était le lot 4 : compté comme validation du lot 2.
+  T-124 à T-129 et T-134 à T-146 sur recommandations (relues par le porteur). Lot 4 (portail de
+  l'élève) proposé en carte (`task_12ce0b61`), avec `cargo clean` d'abord (6,5 Go libres) et
+  un son d'essai audible à la place de `son-essai.mp3`. Sessions archivées sur accord du porteur,
+  sauf `local_a74b8b25` (tâche de fond encore active).
