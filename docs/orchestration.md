@@ -627,3 +627,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   - `frontend/src/types/gesco.ts` a été complété à la main (`EtatPortail`, `ReglagesPortail`) : le
     régénérer à l'étape 7 (`GESCO_REGENERER_TYPES=1`).
   - Le porteur doit ouvrir la page « GESCO répond » depuis un vrai téléphone (étape 1 de la spec).
+- Décisions du porteur arrivées après l'étape 1 (17 novembre 2026), qui priment sur ce qui précède :
+  - **Essais à la fin du codage** : au lot 4, chaque étape compile (clippy, tsc, ESLint), est commitée
+    et poussée ; les essais sont écrits mais **aucun n'est lancé**, pas même à l'étape 7. Toute la
+    batterie (Rust, frontend, Playwright) se passe une fois après le lot 5, dans une session dédiée.
+  - **Le module Bibliothèque coupe tout l'e-learning** : éteint, le portail ne répond plus (fait),
+    ses réglages disparaissent (fait), et l'onglet « Suivi des élèves » de l'étape 5 doit lui aussi
+    disparaître avec le module. Écran des modules : « E-learning (bibliothèque de cours) ».

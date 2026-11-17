@@ -3251,6 +3251,13 @@ impl Application {
         let parametre = ServiceAdministration::nouveau(&ouverte.noyau)
             .definir_parametre(session, &entree.cle, entree.valeur)
             .await?;
+        // Le module Bibliothèque coupe tout l'e-learning : son serveur relit aussitôt s'il doit
+        // écouter (module éteint, portail fermé ; rallumé, il rouvre tel quel).
+        if entree.cle == gesco_core::core::ModuleEcole::Bibliotheque.cle_reglage()
+            || entree.cle.starts_with("portail.")
+        {
+            self.portail.signaler();
+        }
         // Les durées de session valent dès qu'on les change.
         if entree.cle.starts_with("session.") {
             ouverte

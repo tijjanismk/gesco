@@ -1423,6 +1423,29 @@ async fn le_portail_eteint_n_ecoute_pas_et_s_allume_avec_la_direction() {
     e.sur_place("reseau_activer", Value::Null).await;
     portail.wait_for(Option::is_some).await.unwrap();
 
+    // Le module Bibliothèque coupe tout l'e-learning : éteint, le portail se ferme même s'il
+    // est allumé ; rallumé, il rouvre tel quel.
+    e.sur_place(
+        "parametre_definir",
+        json!({ "cle": "module.bibliotheque", "valeur": { "type": "booleen", "valeur": false } }),
+    )
+    .await;
+    portail.wait_for(Option::is_none).await.unwrap();
+    assert!(TcpStream::connect(ou).await.is_err());
+    let etat = e.sur_place("portail_etat", Value::Null).await;
+    assert_eq!(
+        etat["reglages"]["eleves"], true,
+        "le réglage du portail reste"
+    );
+    assert_eq!(etat["module_allume"], false);
+    e.sur_place(
+        "parametre_definir",
+        json!({ "cle": "module.bibliotheque", "valeur": { "type": "booleen", "valeur": true } }),
+    )
+    .await;
+    portail.wait_for(Option::is_some).await.unwrap();
+    assert_eq!(portail_brut(ou, "GET", "/").await.0, 200);
+
     // La direction l'éteint : il n'écoute plus ; allumer et éteindre sont au journal.
     reglages["eleves"] = Value::Bool(false);
     e.sur_place("portail_regler", reglages).await;
