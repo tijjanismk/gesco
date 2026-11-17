@@ -595,3 +595,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (`local_b624ebe7-3de6-4a9a-b68d-3cbd4939b9e0`, spécification seule). L'orchestrateur principal
   (`local_4dff60fa`) enchaîne lui-même ces sessions, puisque le porteur lui parle ; cette session-ci
   tient le tableau et suit `git log`, sans lancer ni proposer ces étapes.
+- 2026-11-17, porteur : « on fait les tests à la fin du codage ». **Ordre corrigé** (remplace le
+  précédent) : lot 4 → reprise avant GESCO → lot 3 → lot 5, chaque étape commitée sans essais
+  complets (code compilé, essais écrits, fmt, clippy, tsc, ESLint) ; puis une seule session passe
+  tous les essais (Rust complet, vitest, knip, Playwright) et corrige ; puis l'installeur 2.0.0 pour
+  l'école d'essai du porteur. Plus d'installeur intermédiaire. L'orchestrateur principal enchaîne.
