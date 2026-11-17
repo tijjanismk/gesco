@@ -600,3 +600,30 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   complets (code compilé, essais écrits, fmt, clippy, tsc, ESLint) ; puis une seule session passe
   tous les essais (Rust complet, vitest, knip, Playwright) et corrige ; puis l'installeur 2.0.0 pour
   l'école d'essai du porteur. Plus d'installeur intermédiaire. L'orchestrateur principal enchaîne.
+
+## Passage de relais du 17 novembre 2026 — lot 4 de la phase 12 (portail de l'élève)
+
+- Fait : lot 2 noté validé (`e7bbc43`) ; `cargo clean` (10,3 Go rendus, 15 Go libres) ; **étape 1 du
+  lot 4** commitée et poussée (`ebfbf08`), clippy, fmt, tsc et ESLint verts, essais écrits non lancés.
+  Détail dans `ETAT_AVANCEMENT.md`, section « Phase 12, lot 4 ».
+- Reste, dans l'ordre : étapes 2 à 7 de `SPEC_PHASE_12_LOT_4.md` §13 (commit et push après chacune,
+  tous les essais seulement à l'étape 7), puis le son d'essai : remplacer le « ting » d'une seconde
+  des essais de son (`son-essai.mp3`) par une courte voix française de quelques secondes faite avec
+  la synthèse vocale de Windows (System.Speech), sans nom réel. Fin : `ETAT_AVANCEMENT.md` dit que
+  le lot 4 attend la validation du porteur.
+- À savoir pour l'étape 2 et la suite :
+  - `crates/gesco-reseau/src/portail.rs` : `ROUTES_PORTAIL` est la liste écrite ; `routes()` construit
+    le routeur depuis elle (un essai unitaire compare). Les routes de l'API répondent 503 (`a_venir`)
+    jusqu'à ce qu'on les branche. Le champ `application` de `EtatPortail` porte un
+    `#[expect(dead_code)]` à retirer dès qu'une route l'utilise.
+  - Les routes prennent l'**identifiant** du contenu (`/eleve/api/contenu/{id}`, `/pdf/{id}`), pas la
+    clé : les clés contiennent des « / ».
+  - Le serveur ne sert les écrans des élèves que si `superviser_portail` reçoit le dossier construit
+    (`pages`) ; aujourd'hui `gesco-app/src/poste.rs` passe `None` (page « GESCO répond »). L'étape 4
+    doit construire `frontend/eleve/` (fichiers `.gz` à côté), l'embarquer comme ressource Tauri et
+    passer son chemin. Mode d'essai : port 47 801 de la machine seule.
+  - `PortailVivant` (service `portail`) tient le port écouté et un signal propre au portail ;
+    `portail_regler` le déclenche. `executer_garde` refuse toute commande sous `Origine::Portail`.
+  - `frontend/src/types/gesco.ts` a été complété à la main (`EtatPortail`, `ReglagesPortail`) : le
+    régénérer à l'étape 7 (`GESCO_REGENERER_TYPES=1`).
+  - Le porteur doit ouvrir la page « GESCO répond » depuis un vrai téléphone (étape 1 de la spec).
