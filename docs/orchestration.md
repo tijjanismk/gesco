@@ -565,3 +565,5 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   l'élève) proposé en carte (`task_12ce0b61`), avec `cargo clean` d'abord (6,5 Go libres) et
   un son d'essai audible à la place de `son-essai.mp3`. Sessions archivées sur accord du porteur,
   sauf `local_a74b8b25` (tâche de fond encore active).
+- 2026-11-17 : lot 4 lancé par l'orchestrateur principal après « on continue » du porteur, dans
+  `local_ad7235b2-8b28-458f-a08d-b1dcb2f18209` (même brief que la carte, retirée).
