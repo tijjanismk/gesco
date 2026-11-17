@@ -639,3 +639,41 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   parent, remboursé par le geste existant (sortie de caisse le jour du remboursement).
   `SPEC_REPRISE_AVANT_GESCO.md` passe en v1.2 acceptée. Lot 4, étapes 2 à 7, en cours dans
   `local_ae0cef40-6e3f-45d8-9f00-d41365356a7e` ; code de la reprise ensuite.
+
+## Passage de relais du 17 novembre 2026 (soir) — lot 4, après l'étape 2
+
+- Fait : **étape 2** commitée et poussée (`d5cf070`) ; fmt, clippy `-j 4` (noyau, base, documents,
+  services, réseau, toutes cibles), tsc et ESLint verts ; essais écrits, **aucun lancé**. Son
+  d'essai remplacé (voix française de 3 s, System.Speech, même commit). Détail dans
+  `ETAT_AVANCEMENT.md`, section « Phase 12, lot 4 ».
+- Reste, dans l'ordre : étapes 3 à 7 de `SPEC_PHASE_12_LOT_4.md` §13, commit et push après chacune,
+  aucun essai lancé (batterie complète après le lot 5). Fin : `ETAT_AVANCEMENT.md` dit que le lot 4
+  attend la validation du porteur, essais écrits et restant à passer.
+- À savoir pour l'étape 3 et la suite :
+  - Prochaine migration libre : **0065** (la 0064 a créé `code_eleve`, `essai_code_eleve` et
+    `avancement_lecon`, cette dernière pour l'étape 5 : unique sur élève, année, contenu).
+  - Sessions des élèves : `gesco_services::portail::entree::SessionEleve` (niveau, série, classe,
+    élève, année ; `eleve_id` vide pour une lecture sans code). Côté serveur,
+    `Application::portail_session(jeton)` la rend et note l'activité ; le jeton se lit avec
+    `api::jeton(&entetes)` dans `gesco-reseau/src/portail/api.rs` (témoin `gesco_eleve`). Les
+    routes de l'étape 3 (`catalogue`, `contenu/{id}`, `fichier/{empreinte}`, `pdf/{id}`) et de
+    l'étape 5 (`avancement`, `mon-avancement`) répondent encore 503 (`a_venir`) : les brancher sur
+    des méthodes publiques d'`Application` menées sous `origine::dans(Origine::Portail, …)`, comme
+    `portail_entrer`.
+  - La liste des routes compte désormais `GET /eleve/api/accueil` (école, élève entré, niveaux de
+    la lecture sans code, réglages `suivi`, `videos`, `pdf`) : les écrans de l'étape 4 commencent
+    par elle. Réponses : `entrer` 200 `{eleve}` ou 403 `{refus: "incorrect" | "bloque"}` ;
+    `lire-sans-code` 200 ou 404 ; `sortir` 204.
+  - Visibilité pour une classe : `visible_pour_classe` du service bibliothèque (lot 2). Une lecture
+    sans code voit le niveau sauf les ajouts réservés à une classe.
+  - Écrans de l'e-learning : `useElearningActif()` (`frontend/src/app/modules.ts`) les cache quand
+    le module est éteint, pour tous les comptes ; l'onglet « Suivi des élèves » (étape 5) doit
+    l'utiliser aussi. `library:follow` est déjà dans les rôles (Directeur, Directeur des études,
+    Enseignant) ; la commande du suivi devra entrer dans `COMMANDES_DU_MAITRE`.
+  - `frontend/src/types/gesco.ts` et `acces.ts` complétés à la main : à régénérer à l'étape 7
+    (`GESCO_REGENERER_TYPES=1`) ; `docs/matrice-permissions.md` aussi, par son essai.
+  - Essai de l'entrée : `crates/gesco-services/tests/portail_entree.rs` ; le code en clair d'un
+    élève ne s'obtient que par `Application::portail_code_pour_essai` (aucune commande n'y mène).
+  - Disque : `target/debug/incremental` vidé le 17 novembre (3 Go) ; compiler avec
+    `CARGO_INCREMENTAL=0` ; 12 Go libres après l'étape 2.
+- Le porteur doit toujours ouvrir la page « GESCO répond » depuis un vrai téléphone (étape 1).
