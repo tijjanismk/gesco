@@ -587,3 +587,11 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (4) essai : totaux de caisse identiques avant et après une reprise, reste à payer juste.
   À vérifier dans la même session : saisie des absences des mois passés et des notes de détail
   d'une période passée.
+- 2026-11-17, porteur (à l'orchestrateur principal) : « on fait ta recommandation sur la reprise et
+  les deux lots et construit l'app ; j'ai une école de test mais on est au deuxième mois de l'année ».
+  **Ordre retenu** : fin du lot 4 → code de la reprise avant GESCO → installeur pour son école
+  d'essai (au 2e mois de l'année) → lot 3 (quiz) → lot 5 (devoirs) → installeur final.
+  Spécification de la reprise lancée par l'orchestrateur principal
+  (`local_b624ebe7-3de6-4a9a-b68d-3cbd4939b9e0`, spécification seule). L'orchestrateur principal
+  (`local_4dff60fa`) enchaîne lui-même ces sessions, puisque le porteur lui parle ; cette session-ci
+  tient le tableau et suit `git log`, sans lancer ni proposer ces étapes.
