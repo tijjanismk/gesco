@@ -567,3 +567,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   sauf `local_a74b8b25` (tâche de fond encore active).
 - 2026-11-17 : lot 4 lancé par l'orchestrateur principal après « on continue » du porteur, dans
   `local_ad7235b2-8b28-458f-a08d-b1dcb2f18209` (même brief que la carte, retirée).
+- 2026-11-17, porteur : « on doit pouvoir désactiver e-learning aussi ». Règle pour tous les lots de
+  la phase 12 : le module `ModuleEcole::Bibliotheque` (`module.bibliotheque`, allumé à la livraison)
+  coupe tout l'e-learning (bibliothèque, portail de l'élève, suivi, quiz du lot 3, devoirs du
+  lot 5), données gardées, avec un essai. Demandé à la session du lot 4 (`local_ad7235b2`) ; à
+  rappeler dans le brief des lots 3 et 5.
