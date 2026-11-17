@@ -37,6 +37,8 @@ Repère : prochaine migration **0063**.
 
 ## Phase 12, lot 2 — enrichir la bibliothèque
 
+**Validé le 17 novembre 2026** : après l'annonce que la suite était le lot 4 (portail de l'élève), le porteur du projet a répondu « on continue » ; compté comme validation du lot 2, avec les choix « à valider » des étapes 2 à 5 tels qu'ils sont décrits plus bas. Lot 4 engagé le même jour.
+
 **État (16 novembre 2026)** : spécification `SPEC_PHASE_12_LOT_2.md` v1.1 et dix ADR du 16 novembre 2026 (lots 2 à 5) acceptés par le porteur du projet (« Recommandations acceptées, commence le lot 2 ») ; toutes les questions des lots 2 à 5 (T-124 à T-129, T-134 à T-146) prises sur leurs recommandations. Ordre des lots : 2, 4 (portail de l'élève), 3 (quiz), 5 (devoirs). Lot 2 engagé le 16 novembre 2026. Règle de travail : à chaque étape, fmt, clippy, tsc et ESLint, puis commit et push ; tous les essais à l'étape 6. Prochaine migration : **0064**.
 
 | Étape | Contenu | État |
@@ -46,7 +48,7 @@ Repère : prochaine migration **0063**.
 | 3 | Ajout réservé à certaines classes | faite (16 novembre 2026) ; essais passés le 17 novembre 2026 |
 | 4 | Importer une leçon depuis Word | faite (16 novembre 2026) ; essais passés le 17 novembre 2026 |
 | 5 | Échange de leçons entre écoles (`.gles`) | faite (16 novembre 2026) ; essais passés le 17 novembre 2026 |
-| 6 | Essais et livraison du lot | faite (17 novembre 2026) ; les huit critères du §0.3 passent ; lot 2 à valider par le porteur du projet |
+| 6 | Essais et livraison du lot | faite (17 novembre 2026) ; les huit critères du §0.3 passent ; **lot 2 validé par le porteur du projet le 17 novembre 2026** |
 
 **Étape 1 (16 novembre 2026)** : migration **0063** (`0063_bibliotheque_enrichie`). `fichier_bibliotheque` reconstruite pour la nature `son` et les types `audio/mpeg`, `audio/mp4`, `audio/ogg`, `audio/wav` : contraintes de clé étrangère différées le temps de la migration (`PRAGMA defer_foreign_keys`), lignes copiées dans une table d'attente sans lien, ancienne table retirée, nouvelle créée sous le même nom, lignes remises (ce qui décompte les liens de `fichier_contenu`), index unique et déclencheur refaits à l'identique ; tout reste dans la transaction de la migration. Tables nouvelles : `contenu_classe` (un chapitre ou un contenu de l'école réservé à une classe ; décocher remplit `retiree_le`, aucune ligne active pour les classes d'une année : tout le niveau), `import_lecons` (empreinte du fichier, nom, quand, qui, leçons reçues, leçons ignorées), `version_recue` (texte reçu quand un brouillon existait déjà, avec son import) ; colonne `version_contenu.import_id` (le brouillon né d'un import, pour « Publier les leçons reçues de cet import »), sans clé étrangère déclarée pour que la descente puisse la retirer. Aucune ligne ne se supprime (déclencheurs). Méthode essayée d'abord sur une base jetable (toutes les migrations rejouées, une image, un document de deux fichiers) : lignes, index, déclencheur et liens gardés, un son accepté. Essais écrits, non lancés : `gesco-db/tests/reconstruction_0063.rs` (base arrêtée à la 0062 par `run_to`, établissement, chapitre livré, document de deux fichiers, image ; après la 0063, mêmes index et déclencheurs, mêmes lignes octet pour octet, liens de `fichier_contenu` intacts, `foreign_key_check` vide, suppression refusée, son accepté, unicité par empreinte) ; nombre de migrations (63) dans `socle.rs`. Vérifiés : fmt, clippy (`gesco-db`, toutes cibles).
 
