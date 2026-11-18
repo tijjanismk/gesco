@@ -20,6 +20,7 @@ import { Classes } from "../modules/scolarite/Classes";
 import { Caisse, SessionsCaisse } from "../modules/finance/Caisse";
 import { Impayes, JournalEncaissements } from "../modules/finance/Recouvrement";
 import { Frais } from "../modules/finance/Frais";
+import { PayeAvantGesco } from "../modules/finance/PayeAvantGesco";
 import { Eleves } from "../modules/scolarite/Eleves";
 import { Inscriptions } from "../modules/scolarite/Inscriptions";
 import { Enseignants } from "../modules/pedagogie/Enseignants";
@@ -371,6 +372,8 @@ function Contenu({
       return <Impayes surOuvrirEleve={surOuvrirEleve} />;
     case "journal-encaissements":
       return <JournalEncaissements />;
+    case "paye-avant-gesco":
+      return <PayeAvantGesco />;
     case "inscriptions":
       return <Inscriptions surOuvrirEleve={surOuvrirEleve} />;
     case "eleves":

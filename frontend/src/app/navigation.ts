@@ -2,7 +2,7 @@ import type { Cle } from "../i18n";
 import { ACCES, COMMANDES_DE_LA_SAISIE, COMMANDES_DU_MAITRE, COMMANDES_POSTE_PRINCIPAL, type NomCommande } from "../types/acces";
 import type { ModuleEcole } from "../types/gesco";
 
-export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "bibliotheque" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes" | "statistiques" | "inventaire" | "rapports";
+export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "bibliotheque" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "paye-avant-gesco" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes" | "statistiques" | "inventaire" | "rapports";
 
 interface Section {
   id: IdSection;
@@ -37,6 +37,7 @@ const SECTIONS: readonly Section[] = [
   { id: "caisse", libelle: "nav.caisse", groupe: "nav.groupe.finance", commande: "caisse_ouvrir" },
   { id: "impayes", libelle: "nav.impayes", groupe: "nav.groupe.finance", commande: "impayes_lister" },
   { id: "sessions-caisse", libelle: "nav.sessions_caisse", groupe: "nav.groupe.finance", commande: "caisse_sessions_lister" },
+  { id: "paye-avant-gesco", libelle: "nav.paye_avant_gesco", groupe: "nav.groupe.finance", commande: "reprises_lister" },
   { id: "journal-encaissements", libelle: "nav.journal_encaissements", groupe: "nav.groupe.finance", commande: "encaissements_lister" },
   { id: "depenses", libelle: "nav.depenses", groupe: "nav.groupe.finance", commande: "depense_saisir", module: "tresorerie" },
   { id: "recettes", libelle: "nav.recettes", groupe: "nav.groupe.finance", commande: "recettes_lire", module: "tresorerie" },

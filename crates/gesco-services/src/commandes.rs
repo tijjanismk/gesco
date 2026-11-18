@@ -166,6 +166,8 @@ pub const COMMANDES_DE_FICHE: &[&str] = &[
     "observation_saisir",
     "observations_colonne",
     "rapport_texte_enregistrer",
+    "reprise_enregistrer",
+    "reprise_annuler",
 ];
 
 /// Pourquoi une commande qui modifie ne vérifie pas l'instant de dernière modification.
@@ -763,6 +765,15 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("remise_refuser", Permission::INVOICES_DISCOUNT),
     Commande::permise("remise_annuler", Permission::INVOICES_DISCOUNT),
     Commande::permise("remises_en_attente", Permission::INVOICES_DISCOUNT),
+    // Payé avant GESCO (SPEC_REPRISE_AVANT_GESCO §6) : geste de direction, comme une remise ;
+    // la lecture suit la situation de l'élève. Le frais oublié suit le changement de plan.
+    Commande::permise("reprises_lister", Permission::INVOICES_DISCOUNT),
+    Commande::permise("reprise_enregistrer", Permission::INVOICES_DISCOUNT),
+    Commande::permise("reprise_annuler", Permission::INVOICES_DISCOUNT),
+    Commande::permise("reprise_historique", Permission::STUDENTS_READ),
+    Commande::permise("frais_ajouter_apercu", Permission::ENROLLMENTS_CREATE),
+    Commande::permise("frais_ajouter", Permission::ENROLLMENTS_CREATE),
+    Commande::permise("frais_retirer", Permission::ENROLLMENTS_CREATE),
     Commande::connectee("caisse_session_courante"),
     Commande::permise("caisse_ouvrir", Permission::CASHBOX_OPEN),
     Commande::permise("caisse_cloturer", Permission::CASHBOX_CLOSE),

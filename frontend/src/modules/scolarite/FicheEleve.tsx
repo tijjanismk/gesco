@@ -103,7 +103,12 @@ export function FicheEleveEcran({ id, permissions, maitre, surOuvrir }: { id: st
       {eleve.fusionne_dans === null ? <InscriptionsEleve fiche={fiche.data} permissions={permissions} maitre={maitre} /> : null}
       {commandeAutorisee("eleve_notes", permissions, maitre) ? <NotesEleve eleveId={eleve.id} /> : null}
       {/* Un compte de maître lit la fiche des élèves de ses classes, sans leur situation financière. */}
-      {commandeAutorisee("situation_financiere", permissions, maitre) ? <FraisEleve eleveId={eleve.id} permissions={permissions} /> : null}
+      {commandeAutorisee("situation_financiere", permissions, maitre) ? <FraisEleve
+          eleveId={eleve.id}
+          permissions={permissions}
+          eleve={`${identite.prenoms} ${identite.nom}`}
+          payeurs={fiche.data.responsables.filter((r) => r.qualites.est_payeur).map((r) => `${r.identite.prenoms} ${r.identite.nom}`)}
+        /> : null}
       {elearning && eleve.fusionne_dans === null && commandeAutorisee("portail_code_lire", permissions, maitre) ? <CodePortailEleve eleveId={eleve.id} /> : null}
       {modifiable && commandeAutorisee("eleves_fusionner", permissions) ? <FusionEleve fiche={fiche.data} surOuvrir={surOuvrir} /> : null}
 

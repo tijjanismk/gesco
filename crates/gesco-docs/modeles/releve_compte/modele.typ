@@ -1,5 +1,5 @@
 // Relevé de compte (SPEC_PHASE_3 §4.4) : par année, la facture, ses échéances avec remise,
-// payé et reste, les versements avec leur reçu. Remis au parent qui demande où il en est.
+// payé et reste, ce qui était payé avant GESCO, les versements avec leur reçu. Remis au parent qui demande où il en est.
 #import "/commun/entete.typ": page-standard
 
 #let d = json("/donnees.json")
@@ -30,15 +30,29 @@
         table.header[*Échéance*][*Date*][*Dû*][*Remise ou baisse*][*Payé*][*Reste*],
         ..f.echeances.map(e => ([#e.libelle], [#e.date], [#e.montant], [#e.remise], [#e.paye], [#e.reste])).flatten(),
       )
-      if i.versements.len() > 0 {
+      // Payé avant GESCO : en tête des paiements, sans reçu, avec sa date d'arrêt.
+      let r = i.at("reprise", default: none)
+      let avant = if r == none or r.montant == none { () } else {
+        ([Payé avant GESCO], [#r.arret], [—], [#r.montant])
+      }
+      if i.versements.len() > 0 or avant.len() > 0 {
         table(
           columns: (largeur("recu", auto), largeur("date_versement", auto), largeur("mode", 1fr), largeur("montant", auto)),
           stroke: 0.4pt,
           inset: 4pt,
           align: (left, left, left, right),
           table.header[*Reçu*][*Date*][*Mode*][*Montant*],
+          ..avant,
           ..i.versements.map(v => ([#v.numero], [#v.date], [#v.mode], [#v.montant])).flatten(),
         )
+      }
+      if r != none {
+        for x in r.rembourse {
+          [Remboursé au parent le #x.date (#x.mode) : #x.montant \ ]
+        }
+        if r.a_rembourser != none {
+          [*Reste à rembourser au parent : #r.a_rembourser*]
+        }
       }
     }
   }

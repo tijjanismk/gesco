@@ -37,7 +37,7 @@ Repère : prochaine migration **0063**.
 
 ## Reprise avant GESCO — installer GESCO en cours d'année
 
-**État (18 novembre 2026) : étapes 1 à 4 codées, essais écrits non lancés ; étapes 5 à 8 à faire.**
+**État (18 novembre 2026) : étapes 1 à 5 codées, essais écrits non lancés ; étapes 6 à 8 à faire.**
 Spécification `SPEC_REPRISE_AVANT_GESCO.md` v1.2 (acceptée le 17 novembre 2026), ADR
 `docs/adr/2026-11-17-reprise-avant-gesco.md` accepté (complément à l'acceptation : colonne
 `depense.inscription_id` et catégorie « Remboursements aux parents » dans la même migration).
@@ -50,7 +50,7 @@ après le lot 5.
 | 2 | Migration 0065, dépôt `reprises.rs`, `depense.inscription_id`, catégorie livrée, noyau `finance/reprise.rs` | faite (18 novembre 2026) ; essai 8 (base) écrit, non lancé |
 | 3 | `etat_echeances` et réimputation dans `recalculer_dans`, cantine, `ServiceReprises`, plan, remise annulée, événements | faite (18 novembre 2026) ; essais 2, 4 à 9 écrits, non lancés |
 | 4 | Remboursement par une dépense liée (refus au-delà de l'excédent, recalcul au paiement et à l'annulation), « Ajouter un frais » et « Retirer un frais » (`frais_ajoutes.rs`) | faite (18 novembre 2026) ; essais 3 et 3 bis écrits, non lancés |
-| 5 | Commandes et écrans | à faire |
+| 5 | Commandes (`reprises_lister`, `reprise_enregistrer`, `reprise_annuler`, `reprise_historique`, `frais_ajouter_apercu`, `frais_ajouter`, `frais_retirer`), écran « Payé avant GESCO », section « Frais » de la fiche (ligne, historique, excédent, « Rembourser », « Ajouter un frais »), relevé de compte, textes | faite (18 novembre 2026) ; fmt, clippy, tsc, ESLint verts |
 | 6 | Import Excel des reprises | à faire |
 | 7 | Rapports (journal des encaissements, budget) | à faire |
 | 8 | Manuel, essais à la main, notes de version, vitest et propriété de la caisse | à faire |
@@ -89,6 +89,20 @@ après le lot 5.
   la validation n'est pas gardé en base).
 - Essai 3 (exemple de la spécification : 185 000 F et 200 000 F) adapté à la grille des essais
   (160 000 F et 175 000 F) ; essai 3 bis : le refus sur une facture annulée n'est pas écrit.
+- Types renommés : `DemandeRepriseAvantGesco` et `LigneRepriseAvantGesco` (les noms
+  `DemandeReprise` et `LigneReprise` sont déjà ceux des moyennes reprises du bulletin, et le
+  contrat TypeScript n'admet qu'un type par nom).
+- `docs/matrice-permissions.md` inchangée : elle est générée depuis les permissions des rôles,
+  et la reprise n'en ajoute aucune (`invoices:discount`, `students:read`, `enrollments:create`).
+- Depuis la fiche de l'élève, « Modifier » et « Annuler » n'envoient pas d'instant de lecture
+  (la fiche ne garde pas celui de la facture) : le dernier geste gagne ; l'écran « Payé avant
+  GESCO » envoie le sien. L'historique montre montant, dates et motif, pas le nom de l'auteur
+  (le journal le garde).
+- « Retirer un frais » est proposé pour toute ligne de la facture qui n'est ni l'inscription ni la
+  scolarité ; le noyau refuse une ligne obligatoire (`frais.non_retirable`).
+- `Tableau` gagne un rendu facultatif par colonne (la case de saisie) ; l'export garde le texte.
+- Contrat TypeScript (`gesco.ts`, `acces.ts`) écrit à la main comme specta l'écrirait : la
+  régénération (`types_typescript`) le vérifiera avec les essais.
 
 **Reste (étapes 5 à 8)** : voir le relais du 18 novembre 2026 dans `docs/orchestration.md`.
 

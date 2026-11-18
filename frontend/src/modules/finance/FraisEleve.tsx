@@ -12,6 +12,7 @@ import type { Remise, SituationInscription, StatutRemise, TypeFrais, TypeRemise,
 import { EcartsFrais } from "./AjustementFrais";
 import { lireJour } from "./echeances";
 import { MODES } from "./Encaissement";
+import { AjouterFrais, RepriseInscription } from "./RepriseEleve";
 
 export const TYPES_REMISE: Record<TypeRemise, Cle> = {
   bourse: "remise.type.bourse",
@@ -43,8 +44,19 @@ export function valeurRemise(valeur: ValeurRemise): string {
 }
 
 /** Section « Frais » de la fiche élève (SPEC_PHASE_3 §4.4, §5) : facture, échéances nettes de
- *  remise, reste à payer, changement de plan, remises proposées et accordées. */
-export function FraisEleve({ eleveId, permissions }: { eleveId: string; permissions: readonly string[] }) {
+ *  remise, reste à payer, payé avant GESCO, changement de plan, frais oublié, remises proposées
+ *  et accordées. `eleve` et `payeurs` préremplissent le remboursement d'un excédent. */
+export function FraisEleve({
+  eleveId,
+  permissions,
+  eleve = "",
+  payeurs = [],
+}: {
+  eleveId: string;
+  permissions: readonly string[];
+  eleve?: string;
+  payeurs?: readonly string[];
+}) {
   const situation = useQuery({ queryKey: ["situation", eleveId], queryFn: () => appeler("situation_financiere", { id: eleveId }) });
   const vivantes = (situation.data ?? []).filter((s) => s.inscription.statut === "brouillon" || s.inscription.statut === "validee" || s.facture !== null);
   const releve = useMutation({ mutationFn: () => appeler("releve_compte_produire", { id: eleveId }) });
@@ -62,17 +74,33 @@ export function FraisEleve({ eleveId, permissions }: { eleveId: string; permissi
       ) : null}
       {situation.isSuccess && vivantes.length === 0 ? <p className="text-sm text-muet">{t("facture.aucune")}</p> : null}
       {vivantes.map((s) => (
-        <FraisInscription key={s.inscription.id} situation={s} eleveId={eleveId} permissions={permissions} avoirDisponible={avoirDisponible} />
+        <FraisInscription key={s.inscription.id} situation={s} eleveId={eleveId} permissions={permissions} avoirDisponible={avoirDisponible} eleve={eleve} payeurs={payeurs} />
       ))}
     </Section>
   );
 }
 
-function FraisInscription({ situation, eleveId, permissions, avoirDisponible }: { situation: SituationInscription; eleveId: string; permissions: readonly string[]; avoirDisponible: number }) {
+function FraisInscription({
+  situation,
+  eleveId,
+  permissions,
+  avoirDisponible,
+  eleve,
+  payeurs,
+}: {
+  situation: SituationInscription;
+  eleveId: string;
+  permissions: readonly string[];
+  avoirDisponible: number;
+  eleve: string;
+  payeurs: readonly string[];
+}) {
   const client = useQueryClient();
   const rafraichir = () => {
     void client.invalidateQueries({ queryKey: ["situation", eleveId] });
     void client.invalidateQueries({ queryKey: ["remises-en-attente"] });
+    void client.invalidateQueries({ queryKey: ["reprises"] });
+    void client.invalidateQueries({ queryKey: ["reprise-historique", situation.inscription.id] });
   };
   const facture = situation.facture;
   const [plan, setPlan] = useState(facture?.facture.plan_paiement_id ?? "");
@@ -138,6 +166,7 @@ function FraisInscription({ situation, eleveId, permissions, avoirDisponible }: 
                 {(["facture.echeance", "facture.date", "facture.montant", "facture.remise", "facture.ajustement", "facture.net"] as const).map((cle) => (
                   <th key={cle} className="px-2 py-1 font-normal">{t(cle)}</th>
                 ))}
+                {facture.reprise === 0 ? null : <th className="px-2 py-1 font-normal">{t("facture.avant_gesco")}</th>}
               </tr>
             </thead>
             <tbody>
@@ -149,6 +178,7 @@ function FraisInscription({ situation, eleveId, permissions, avoirDisponible }: 
                   <td className="px-2 py-1">{e.remise === 0 ? "" : `− ${francs(e.remise)}`}</td>
                   <td className="px-2 py-1">{e.ajustement === 0 ? "" : `− ${francs(e.ajustement)}`}</td>
                   <td className="px-2 py-1 font-medium">{francs(e.net)}</td>
+                  {facture.reprise === 0 ? null : <td className="px-2 py-1">{e.reprise === 0 ? "" : francs(e.reprise)}</td>}
                 </tr>
               ))}
             </tbody>
@@ -168,6 +198,11 @@ function FraisInscription({ situation, eleveId, permissions, avoirDisponible }: 
             </div>
           ) : null}
           <MessageErreur erreur={changement.error} />
+          {commandeAutorisee("frais_ajouter", permissions) && situation.inscription.statut === "validee" ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <AjouterFrais inscriptionId={situation.inscription.id} facture={facture} surChange={rafraichir} />
+            </div>
+          ) : null}
           {commandeAutorisee("echeancier_changer_jour", permissions) ? (
             <div className="flex flex-wrap items-end gap-2">
               <div className="w-48">
@@ -206,6 +241,7 @@ function FraisInscription({ situation, eleveId, permissions, avoirDisponible }: 
           {t("facture.avoir", { montant: francs(a.montant), solde: francs(a.montant - a.utilise) })}
         </p>
       ))}
+      <RepriseInscription situation={situation} eleve={eleve} payeurs={payeurs} permissions={permissions} surChange={rafraichir} />
       {situation.versements.length === 0 ? null : (
         <ul className="flex flex-col gap-1">
           {situation.versements.map((v) => (

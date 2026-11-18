@@ -54,7 +54,7 @@ pub struct DemandeReprises {
 
 /// Ligne de l'écran : une inscription validée.
 #[derive(Debug, Clone, Serialize, specta::Type)]
-pub struct LigneReprise {
+pub struct LigneRepriseAvantGesco {
     /// Inscription.
     pub inscription_id: Id<Inscription>,
     /// Élève.
@@ -99,7 +99,7 @@ pub struct ListeReprises {
     /// Vrai tant qu'aucune caisse n'a été ouverte dans l'année (« à ce jour »).
     pub a_ce_jour: bool,
     /// Lignes, par classe puis par nom.
-    pub lignes: Vec<LigneReprise>,
+    pub lignes: Vec<LigneRepriseAvantGesco>,
     /// Total payé avant GESCO de la sélection.
     pub total: Montant,
     /// Nombre d'élèves qui ont une reprise.
@@ -114,7 +114,7 @@ pub struct ListeReprises {
 
 /// Enregistrer, remplacer ou (montant zéro) annuler la reprise d'une inscription.
 #[derive(Debug, Clone, Deserialize, specta::Type)]
-pub struct DemandeReprise {
+pub struct DemandeRepriseAvantGesco {
     /// Inscription.
     pub inscription_id: Id<Inscription>,
     /// Montant payé avant GESCO ; zéro annule la reprise active.
@@ -475,14 +475,14 @@ impl<'n> ServiceReprises<'n> {
             );
         }
         lignes.sort_by(|a, b| (&a.classe, &a.eleve).cmp(&(&b.classe, &b.eleve)));
-        let somme = |f: fn(&LigneReprise) -> Montant| {
+        let somme = |f: fn(&LigneRepriseAvantGesco) -> Montant| {
             calcul(
                 lignes
                     .iter()
                     .try_fold(Montant::ZERO, |s, l| s.ajouter(f(l))),
             )
         };
-        let compte = |f: fn(&LigneReprise) -> bool| {
+        let compte = |f: fn(&LigneRepriseAvantGesco) -> bool| {
             u32::try_from(lignes.iter().filter(|l| f(l)).count()).unwrap_or(u32::MAX)
         };
         Ok(ListeReprises {
@@ -508,7 +508,7 @@ impl<'n> ServiceReprises<'n> {
         facture: &Facture,
         classes: &HashMap<Id<Classe>, String>,
         eleves: &HashMap<Id<Eleve>, (String, String)>,
-    ) -> Resultat<LigneReprise> {
+    ) -> Resultat<LigneRepriseAvantGesco> {
         let etats = etat_echeances(cnx, facture.id, contexte).await?;
         let somme = |f: fn(&crate::facturation::EcheanceAffichee) -> Montant| {
             calcul(etats.iter().try_fold(Montant::ZERO, |s, e| s.ajouter(f(e))))
@@ -524,7 +524,7 @@ impl<'n> ServiceReprises<'n> {
             .get(&inscription.eleve_id)
             .cloned()
             .unwrap_or_default();
-        Ok(LigneReprise {
+        Ok(LigneRepriseAvantGesco {
             inscription_id: inscription.id,
             eleve_id: inscription.eleve_id,
             classe: classes
@@ -550,7 +550,7 @@ impl<'n> ServiceReprises<'n> {
         &self,
         session: &Session,
         inscription_id: Id<Inscription>,
-    ) -> Resultat<LigneReprise> {
+    ) -> Resultat<LigneRepriseAvantGesco> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
         let (inscription, facture, _) = cible(&mut cnx, inscription_id, &contexte).await?;
@@ -578,8 +578,8 @@ impl<'n> ServiceReprises<'n> {
     pub async fn enregistrer(
         &self,
         session: &Session,
-        demande: &DemandeReprise,
-    ) -> Resultat<LigneReprise> {
+        demande: &DemandeRepriseAvantGesco,
+    ) -> Resultat<LigneRepriseAvantGesco> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut unite = self
             .noyau
@@ -614,7 +614,7 @@ impl<'n> ServiceReprises<'n> {
         &self,
         session: &Session,
         demande: &DemandeAnnulationReprise,
-    ) -> Resultat<LigneReprise> {
+    ) -> Resultat<LigneRepriseAvantGesco> {
         if demande.motif.trim().is_empty() {
             return Err(regle("reprise.motif_obligatoire"));
         }

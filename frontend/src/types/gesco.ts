@@ -1217,6 +1217,20 @@ export type ChapitreCatalogue = {
 	classes_seulement: string[],
 };
 
+/**  Chiffres d'une reprise, recalculés à chaque fois (§3.6 bis). */
+export type ChiffresReprise = {
+	/**  Montant de la reprise active (zéro sans reprise). */
+	montant: Montant,
+	/**  Remboursé au parent : dépenses payées et non annulées liées à l'inscription. */
+	rembourse: Montant,
+	/**  Montant moins remboursé, jamais négatif. */
+	utilisable: Montant,
+	/**  Porté par les échéances. */
+	impute: Montant,
+	/**  Excédent qui reste à rendre au parent : utilisable moins imputé. */
+	a_rembourser: Montant,
+};
+
 /**  Ce qu'on peut choisir en ajoutant un chapitre ou un sujet. */
 export type ChoixEcriture = {
 	/**  Niveaux actifs de l'école. */
@@ -2090,6 +2104,20 @@ export type Contrat = {
 	remise_annuler: Signature<DemandeDecisionRemise, Remise>,
 	/**  Signature de la commande du même nom. */
 	remises_en_attente: Signature<null, RemiseEnAttente[]>,
+	/**  Signature de la commande du même nom. */
+	reprises_lister: Signature<DemandeReprises, ListeReprises>,
+	/**  Signature de la commande du même nom. */
+	reprise_enregistrer: Signature<DemandeRepriseAvantGesco, LigneRepriseAvantGesco>,
+	/**  Signature de la commande du même nom. */
+	reprise_annuler: Signature<DemandeAnnulationReprise, LigneRepriseAvantGesco>,
+	/**  Signature de la commande du même nom. */
+	reprise_historique: Signature<DemandeInscriptionReprise, RepriseAvantGesco[]>,
+	/**  Signature de la commande du même nom. */
+	frais_ajouter_apercu: Signature<DemandeFraisAjoutables, FraisAjoutable[]>,
+	/**  Signature de la commande du même nom. */
+	frais_ajouter: Signature<DemandeFraisAjoute, FactureAffichee>,
+	/**  Signature de la commande du même nom. */
+	frais_retirer: Signature<DemandeFraisRetire, FactureAffichee>,
 	/**  Signature de la commande du même nom. */
 	caisse_session_courante: Signature<null, SessionAffichee | null>,
 	/**  Signature de la commande du même nom. */
@@ -3034,6 +3062,16 @@ export type DemandeAnnulationRecette = {
 	motif: string,
 };
 
+/**  Annuler la reprise d'une inscription. */
+export type DemandeAnnulationReprise = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Motif, obligatoire. */
+	motif: string,
+	/**  Instant de lecture. */
+	lue_le?: number | null,
+};
+
 /**  Annulation motivée d'une sanction. */
 export type DemandeAnnulationSanction = {
 	/**  Sanction. */
@@ -3681,6 +3719,11 @@ export type DemandeDepense = {
 	paiement: PaiementDepense | null,
 	/**  Facture de fournisseur qu'elle paie : son montant ne dépasse pas ce qui en reste. */
 	facture_id?: string | null,
+	/**
+	 *  Inscription dont elle rembourse l'excédent payé avant GESCO : son montant ne dépasse pas
+	 *  ce qui reste à rembourser.
+	 */
+	inscription_id?: string | null,
 };
 
 /**  Compétence montée ou descendue d'un rang dans son domaine. */
@@ -4174,10 +4217,32 @@ export type DemandeFournisseur = {
 	lue_le?: number | null,
 };
 
+/**  Inscription dont on regarde les frais ajoutables. */
+export type DemandeFraisAjoutables = {
+	/**  Inscription. */
+	inscription_id: string,
+};
+
+/**  Ajouter un frais facultatif à la facture d'une inscription. */
+export type DemandeFraisAjoute = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Ligne facultative de la grille. */
+	ligne_tarifaire_id: string,
+};
+
 /**  Inscription dont les frais s'alignent sur sa classe actuelle, ou dont l'avoir règle la facture. */
 export type DemandeFraisInscription = {
 	/**  Inscription. */
 	inscription_id: string,
+};
+
+/**  Retirer un frais ajouté par erreur. */
+export type DemandeFraisRetire = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Ligne de la facture. */
+	ligne_facture_id: string,
 };
 
 /**  Fiches désignées pour la fusion. */
@@ -4389,6 +4454,12 @@ export type DemandeInscription = {
 	redoublant: boolean,
 	/**  École d'où vient l'élève, pour une arrivée par transfert. */
 	etablissement_origine: string,
+};
+
+/**  Inscription visée. */
+export type DemandeInscriptionReprise = {
+	/**  Inscription. */
+	inscription_id: string,
 };
 
 /**  Installer une mise à jour de la bibliothèque depuis un fichier. */
@@ -5303,6 +5374,20 @@ export type DemandeReprise = {
 	piece: string,
 };
 
+/**  Enregistrer, remplacer ou (montant zéro) annuler la reprise d'une inscription. */
+export type DemandeRepriseAvantGesco = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Montant payé avant GESCO ; zéro annule la reprise active. */
+	montant: Montant,
+	/**  Note libre (120 caractères au plus). */
+	note?: string,
+	/**  Motif, pour un montant zéro qui annule ; vide, « Saisie erronée ». */
+	motif?: string,
+	/**  Instant de lecture de la ligne. */
+	lue_le?: number | null,
+};
+
 /**  Reprise des réponses de l'an dernier. */
 export type DemandeRepriseFiche = {
 	/**  Année qui reçoit les réponses. */
@@ -5317,6 +5402,14 @@ export type DemandeRepriseInventaire = {
 	annee_id: string,
 	/**  Partie de l'école ; toute l'école si rien n'est donné. */
 	cycle: Cycle | null,
+};
+
+/**  Sélection de l'écran « Payé avant GESCO ». */
+export type DemandeReprises = {
+	/**  Année ; absente, l'année courante. */
+	annee_id?: string | null,
+	/**  Classe ; absente, toutes. */
+	classe_id?: string | null,
 };
 
 /**  Restauration d'une archive. */
@@ -6095,7 +6188,9 @@ export type EcheanceAffichee = {
 	ajustement: Montant,
 	/**  Dû après remise et baisse. */
 	net: Montant,
-	/**  Versements imputés, et avoirs utilisés. */
+	/**  Part de la reprise avant GESCO portée par l'échéance. */
+	reprise: Montant,
+	/**  Versements imputés, avoirs utilisés et reprise avant GESCO. */
 	paye: Montant,
 	/**  Reste à payer : dû après remise et baisse, moins le payé. */
 	reste: Montant,
@@ -6109,6 +6204,16 @@ export type EcheanceEngagement = {
 	nature: NatureEngagement,
 	/**  Dernier jour prévu. */
 	fin: string,
+};
+
+/**  Échéance qu'un frais ajouté créerait. */
+export type EcheanceProposee = {
+	/**  Libellé. */
+	libelle: string,
+	/**  Date. */
+	date: string,
+	/**  Montant. */
+	montant: Montant,
 };
 
 /**  Un contenu ouvert pour l'écriture. */
@@ -7015,10 +7120,16 @@ export type FactureAffichee = {
 	ajustement: Montant,
 	/**  Ajustements au changement de classe, du plus ancien au plus récent. */
 	ajustements: Ajustement[],
-	/**  Versements imputés, et avoirs utilisés. */
+	/**  Versements imputés, avoirs utilisés et reprise avant GESCO. */
 	paye: Montant,
 	/**  Reste à payer : total, moins les remises et les baisses, moins le payé. */
 	reste: Montant,
+	/**  Payé avant GESCO, porté par les échéances. */
+	reprise: Montant,
+	/**  Excédent payé avant GESCO qui reste à rendre au parent. */
+	a_rembourser: Montant,
+	/**  Déjà rendu au parent. */
+	rembourse: Montant,
 };
 
 /**  Facture d'un fournisseur. */
@@ -7453,6 +7564,20 @@ export type Fournisseurs = {
 	caisse_ouverte: boolean,
 	/**  Droits de qui consulte. */
 	droits: DroitsDepenses,
+};
+
+/**  Frais facultatif de la grille de la facture qui n'y est pas encore. */
+export type FraisAjoutable = {
+	/**  Ligne de la grille. */
+	ligne_tarifaire_id: string,
+	/**  Nature. */
+	type_frais: TypeFrais,
+	/**  Libellé. */
+	libelle: string,
+	/**  Montant que la facture recevrait. */
+	montant: Montant,
+	/**  Échéances qu'il créerait. */
+	echeances: EcheanceProposee[],
 };
 
 /**  À quel grain un retrait cache (ADR « retirer un contenu »). */
@@ -8468,6 +8593,38 @@ export type LigneReprise = {
 	reprise: MoyenneReprise | null,
 };
 
+/**  Ligne de l'écran : une inscription validée. */
+export type LigneRepriseAvantGesco = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Classe. */
+	classe: string,
+	/**  Nom et prénoms. */
+	eleve: string,
+	/**  Matricule interne. */
+	matricule: string,
+	/**  Dû de l'année, net des remises et des baisses. */
+	du: Montant,
+	/**  Payé avant GESCO : montant de la reprise active (zéro sans reprise). */
+	reprise: Montant,
+	/**  Note de la reprise active. */
+	note: string,
+	/**  Payé dans GESCO : versements et avoirs. */
+	paye_gesco: Montant,
+	/**  Reste à payer. */
+	reste: Montant,
+	/**  À rembourser au parent. */
+	a_rembourser: Montant,
+	/**  Déjà remboursé au parent. */
+	rembourse: Montant,
+	/**  Plus petit montant que la reprise peut prendre (déjà remboursé, avoirs à couvrir). */
+	minimum: Montant,
+	/**  Instant de lecture, renvoyé à l'enregistrement (modification simultanée). */
+	lue_le: number,
+};
+
 /**  Une ligne d'un tableau. */
 export type LigneStatistique = {
 	/**  Libellé tiré des données : classe, niveau, année, matière… */
@@ -8524,6 +8681,32 @@ export type ListeRapports = {
 	annee_id: string | null,
 	/**  Un résumé par type de rapport. */
 	rapports: ResumeRapport[],
+};
+
+/**  Contenu de l'écran « Payé avant GESCO ». */
+export type ListeReprises = {
+	/**  Année montrée. */
+	annee_id: string,
+	/**  Libellé de l'année. */
+	annee: string,
+	/**  Année close ou archivée : la liste se lit seulement. */
+	lecture_seule: boolean,
+	/**  Arrêté avant GESCO : la veille de la première caisse de l'année. */
+	date_arret: string,
+	/**  Vrai tant qu'aucune caisse n'a été ouverte dans l'année (« à ce jour »). */
+	a_ce_jour: boolean,
+	/**  Lignes, par classe puis par nom. */
+	lignes: LigneRepriseAvantGesco[],
+	/**  Total payé avant GESCO de la sélection. */
+	total: Montant,
+	/**  Nombre d'élèves qui ont une reprise. */
+	nombre: number,
+	/**  Total à rembourser. */
+	total_a_rembourser: Montant,
+	/**  Nombre de parents à rembourser. */
+	nombre_a_rembourser: number,
+	/**  Inscriptions encore en brouillon dans la sélection. */
+	brouillons: number,
 };
 
 /**  Livre d'un compte pour un mois. */
@@ -9366,6 +9549,13 @@ export type OrigineLigne =
 /**  Une autre recette sur une banque ou un compte mobile money. */
 "recette";
 
+/**  D'où vient une reprise. */
+export type OrigineReprise =
+/**  Saisie à l'écran. */
+"ecran" |
+/**  Importée d'un classeur. */
+"import";
+
 /**  Une page du journal filtré. */
 export type PageJournal = {
 	/**  Lignes, de la plus récente à la plus ancienne. */
@@ -9945,6 +10135,69 @@ export type EleveSuivi = {
 	/**  Dernière visite au portail (millisecondes), toutes matières. */
 	derniere_visite: number | null,
 };
+
+/**  Remboursement fait (ou en attente) au parent, pour la situation de l'élève. */
+export type Remboursement = {
+	/**  Jour de la dépense. */
+	date: string,
+	/**  Montant. */
+	montant: Montant,
+	/**  Statut de la dépense (`a_approuver`, `approuvee`, `payee`). */
+	statut: string,
+	/**  Mode de paiement, une fois payée. */
+	mode: string | null,
+};
+
+/**  Ce qu'un parent avait payé avant GESCO, pour une inscription. */
+export type RepriseAvantGesco = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement propriétaire. */
+	etablissement_id: string,
+	/**  Inscription : la finance référence l'inscription, jamais l'élève. */
+	inscription_id: string,
+	/**  Montant, strictement positif. */
+	montant: Montant,
+	/**  Note libre : la référence du cahier ou des reçus papier. */
+	note: string,
+	/**  Écran ou import. */
+	origine: OrigineReprise,
+	/**  Active ou annulée. */
+	statut: StatutReprise,
+	/**  Motif d'annulation (« remplacée » pour une modification). */
+	motif_annulation: string,
+	/**  Reprise qui la remplace, pour une modification. */
+	remplacee_par: string | null,
+	/**  Instant de la saisie. */
+	cree_le: number,
+	/**  Auteur de la saisie. */
+	cree_par: string | null,
+	/**  Instant de la dernière modification (annulation) : l'écran le renvoie. */
+	mis_a_jour_le: number,
+	/**  Auteur de l'annulation. */
+	mis_a_jour_par: string | null,
+};
+
+/**  Payé avant GESCO d'une inscription, pour la situation et le relevé. */
+export type RepriseDeLInscription = {
+	/**  Reprise active, s'il y en a une. */
+	active: RepriseAvantGesco | null,
+	/**  Chiffres : montant, remboursé, imputé, à rembourser. */
+	chiffres: ChiffresReprise,
+	/**  Remboursements engagés, le plus ancien d'abord. */
+	remboursements: Remboursement[],
+	/**  Date d'arrêt avant GESCO de l'année de l'inscription. */
+	date_arret: string,
+	/**  Vrai tant qu'aucune caisse n'a été ouverte dans l'année. */
+	a_ce_jour: boolean,
+};
+
+/**  État d'une reprise ou d'une de ses parts. */
+export type StatutReprise =
+/**  En vigueur. */
+"active" |
+/**  Annulée ou remplacée ; jamais supprimée (R-14). */
+"annulee";
 
 /**  Le suivi d'une classe dans une matière. */
 export type SuiviClasse = {
@@ -11410,6 +11663,8 @@ export type SituationInscription = {
 	versements: Versement[],
 	/**  Avoirs nés des ajustements de cette facture, avec ce qui en est utilisé. */
 	avoirs: Avoir[],
+	/**  Payé avant GESCO : reprise, excédent, remboursements ; absent sans facture. */
+	reprise: RepriseDeLInscription | null,
 };
 
 /**  SMS reçu, tel que le journal le garde : le code qu'il portait est masqué. */

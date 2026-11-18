@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { appeler } from "../api";
 import { choisirClasseur } from "../api/fichiers";
@@ -9,6 +9,8 @@ import { MessageErreur } from "./Messages";
 export interface Colonne<T> {
   titre: string;
   valeur: (ligne: T) => string;
+  /** Ce que la case montre à l'écran (une saisie, par exemple) ; l'export garde `valeur`. */
+  rendu?: (ligne: T) => ReactNode;
 }
 
 /** CSV au séparateur point-virgule, celui qu'ouvre Excel en français. */
@@ -107,7 +109,7 @@ export function Tableau<T>({
                 >
                   {colonnes.map((c) => (
                     <td key={c.titre} className="border-b border-muet/30 px-2 py-1 text-encre">
-                      {c.valeur(l)}
+                      {c.rendu === undefined ? c.valeur(l) : c.rendu(l)}
                     </td>
                   ))}
                 </tr>

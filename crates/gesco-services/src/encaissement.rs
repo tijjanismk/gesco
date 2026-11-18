@@ -712,6 +712,27 @@ impl ServiceEncaissement<'_> {
                             "reste": e.reste.formater(),
                         })).collect::<Vec<_>>(),
                     })),
+                    // Payé avant GESCO (SPEC_REPRISE_AVANT_GESCO §4) : en tête des paiements,
+                    // sans reçu, avec sa date d'arrêt ; puis ce qui a été rendu au parent.
+                    "reprise": s.reprise.as_ref().filter(|r| !r.chiffres.montant.est_nul()
+                        || !r.remboursements.is_empty()).map(|r| serde_json::json!({
+                        "montant": (!r.chiffres.montant.est_nul())
+                            .then(|| r.chiffres.montant.formater()),
+                        "arret": if r.a_ce_jour {
+                            "arrêté à ce jour".to_owned()
+                        } else {
+                            format!("arrêté avant le {}", date_civile(r.date_arret.decaler(1).unwrap_or(r.date_arret)))
+                        },
+                        "rembourse": r.remboursements.iter().filter(|x| x.statut == "payee").map(|x| serde_json::json!({
+                            "date": date_civile(x.date),
+                            "montant": x.montant.formater(),
+                            "mode": x.mode.as_deref()
+                                .and_then(gesco_core::finance::ModePaiement::depuis_nom)
+                                .map_or("", crate::caisse::libelle_mode),
+                        })).collect::<Vec<_>>(),
+                        "a_rembourser": (!r.chiffres.a_rembourser.est_nul())
+                            .then(|| r.chiffres.a_rembourser.formater()),
+                    })),
                     "versements": s.versements.iter().map(|v| serde_json::json!({
                         "numero": if v.statut == StatutVersement::Annule { format!("{} (annulé)", v.numero_recu) } else { v.numero_recu.clone() },
                         "date": crate::documents::date_longue(v.encaisse_le),

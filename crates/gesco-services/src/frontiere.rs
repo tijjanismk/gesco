@@ -154,6 +154,10 @@ use crate::frais::{
     DemandeCreationGrille, DemandeGrille, DemandeGrillesAnnee, DemandeModificationGrille,
     GrilleAffichee, MiseEnVigueur, ServiceFrais,
 };
+use crate::frais_ajoutes::{
+    DemandeFraisAjoutables, DemandeFraisAjoute, DemandeFraisRetire, FraisAjoutable,
+    ServiceFraisAjoutes,
+};
 use crate::fusion::{ApercuFusion, DemandeFusion, ServiceFusion};
 use crate::garde::{Garde, PorteeTotale};
 use crate::guichet::{DemandeGuichet, Guichet, ServiceGuichet};
@@ -252,6 +256,10 @@ use crate::remises::{
 use crate::remises_documents::{
     DemandeRemiseBulletin, DemandeRemiseId, DemandeRemisesClasse, DemandeSignatureBulletin,
     LigneRemise, RemisesClasse, ServiceRemisesBulletins,
+};
+use crate::reprises::{
+    DemandeAnnulationReprise, DemandeInscriptionReprise, DemandeRepriseAvantGesco, DemandeReprises,
+    LigneRepriseAvantGesco, ListeReprises, ServiceReprises,
 };
 use crate::restauration::{self, RapportRestauration, Tentatives};
 use crate::roles::ServiceRoles;
@@ -1161,6 +1169,13 @@ contrat! {
     remise_refuser(DemandeDecisionRemise) -> gesco_core::finance::Remise;
     remise_annuler(DemandeDecisionRemise) -> gesco_core::finance::Remise;
     remises_en_attente(()) -> Vec<RemiseEnAttente>;
+    reprises_lister(DemandeReprises) -> ListeReprises;
+    reprise_enregistrer(DemandeRepriseAvantGesco) -> LigneRepriseAvantGesco;
+    reprise_annuler(DemandeAnnulationReprise) -> LigneRepriseAvantGesco;
+    reprise_historique(DemandeInscriptionReprise) -> Vec<gesco_core::finance::reprise::RepriseAvantGesco>;
+    frais_ajouter_apercu(DemandeFraisAjoutables) -> Vec<FraisAjoutable>;
+    frais_ajouter(DemandeFraisAjoute) -> FactureAffichee;
+    frais_retirer(DemandeFraisRetire) -> FactureAffichee;
     caisse_session_courante(()) -> Option<SessionAffichee>;
     caisse_ouvrir(DemandeOuverture) -> SessionAffichee;
     caisse_cloturer(DemandeCloture) -> SessionAffichee;
@@ -4570,6 +4585,78 @@ impl Application {
         ServiceRemises::nouveau(&appel.ouverte()?.noyau)
             .en_attente(appel.session()?)
             .await
+    }
+
+    async fn reprises_lister(
+        &self,
+        appel: Appel,
+        entree: DemandeReprises,
+    ) -> Resultat<ListeReprises> {
+        ServiceReprises::nouveau(&appel.ouverte()?.noyau)
+            .lister(appel.session()?, &entree)
+            .await
+    }
+
+    async fn reprise_enregistrer(
+        &self,
+        appel: Appel,
+        entree: DemandeRepriseAvantGesco,
+    ) -> Resultat<LigneRepriseAvantGesco> {
+        ServiceReprises::nouveau(&appel.ouverte()?.noyau)
+            .enregistrer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn reprise_annuler(
+        &self,
+        appel: Appel,
+        entree: DemandeAnnulationReprise,
+    ) -> Resultat<LigneRepriseAvantGesco> {
+        ServiceReprises::nouveau(&appel.ouverte()?.noyau)
+            .annuler(appel.session()?, &entree)
+            .await
+    }
+
+    async fn reprise_historique(
+        &self,
+        appel: Appel,
+        entree: DemandeInscriptionReprise,
+    ) -> Resultat<Vec<gesco_core::finance::reprise::RepriseAvantGesco>> {
+        ServiceReprises::nouveau(&appel.ouverte()?.noyau)
+            .historique(appel.session()?, entree.inscription_id)
+            .await
+    }
+
+    async fn frais_ajouter_apercu(
+        &self,
+        appel: Appel,
+        entree: DemandeFraisAjoutables,
+    ) -> Resultat<Vec<FraisAjoutable>> {
+        ServiceFraisAjoutes::nouveau(&appel.ouverte()?.noyau)
+            .apercu(appel.session()?, entree.inscription_id)
+            .await
+    }
+
+    async fn frais_ajouter(
+        &self,
+        appel: Appel,
+        entree: DemandeFraisAjoute,
+    ) -> Resultat<FactureAffichee> {
+        let service = ServiceFraisAjoutes::nouveau(&appel.ouverte()?.noyau);
+        let session = appel.session()?;
+        let facture = service.ajouter(session, &entree).await?;
+        service.affichee(session, facture).await
+    }
+
+    async fn frais_retirer(
+        &self,
+        appel: Appel,
+        entree: DemandeFraisRetire,
+    ) -> Resultat<FactureAffichee> {
+        let service = ServiceFraisAjoutes::nouveau(&appel.ouverte()?.noyau);
+        let session = appel.session()?;
+        let facture = service.retirer(session, &entree).await?;
+        service.affichee(session, facture).await
     }
 
     async fn caisse_session_courante(
