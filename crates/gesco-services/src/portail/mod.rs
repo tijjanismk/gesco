@@ -27,6 +27,13 @@ use crate::erreur::{ErreurService, Resultat};
 use crate::noyau::Noyau;
 use crate::session::Session;
 
+// Contextes du journal d'audit pour les réglages du portail : étiquettes internes, jamais
+// affichées, donc hors du catalogue des messages.
+const AUDIT_ALLUMER: &str = "portail.allumer";
+const AUDIT_ETEINDRE: &str = "portail.eteindre";
+const AUDIT_SUIVI_REGLER: &str = "portail.suivi_regler";
+const AUDIT_REGLER: &str = "portail.regler";
+
 /// Réglages du portail des élèves, tels que la direction les voit.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 pub struct ReglagesPortail {
@@ -276,10 +283,10 @@ impl<'a> ServicePortail<'a> {
                 continue;
             }
             let action = match (cle, &valeur) {
-                (regles::ELEVES, ValeurParametre::Booleen(true)) => "portail.allumer",
-                (regles::ELEVES, _) => "portail.eteindre",
-                (regles::SUIVI_GRAIN | SUIVI_ELEVES, _) => "portail.suivi_regler",
-                _ => "portail.regler",
+                (regles::ELEVES, ValeurParametre::Booleen(true)) => AUDIT_ALLUMER,
+                (regles::ELEVES, _) => AUDIT_ETEINDRE,
+                (regles::SUIVI_GRAIN | SUIVI_ELEVES, _) => AUDIT_SUIVI_REGLER,
+                _ => AUDIT_REGLER,
             };
             parametre::definir(
                 unite.connexion(),

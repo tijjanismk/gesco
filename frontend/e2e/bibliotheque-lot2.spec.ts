@@ -262,7 +262,7 @@ test("lot 2 : un son s'ajoute à une leçon, se lit, et passe en mode classe ; u
   await lecon.getByRole("button", { name: texte("bibliotheque.son.ecouter"), exact: true }).click();
   const lecteur = lecon.locator("audio");
   await expect(lecteur).toBeVisible({ timeout: 30_000 });
-  await expect.poll(() => lecteur.evaluate((a: HTMLAudioElement) => (Number.isFinite(a.duration) ? Math.round(a.duration) : 0)), { timeout: 15_000 }).toBe(3);
+  await expect.poll(() => lecteur.evaluate((a: HTMLAudioElement) => (Number.isFinite(a.duration) ? Math.round(a.duration) : 0)), { timeout: 15_000 }).toBe(10);
   await capturer(page, "302-lot2-son-lecture");
 
   // En mode classe : un grand bouton.

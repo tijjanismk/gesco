@@ -28,7 +28,8 @@ async fn les_categories_et_les_comptes_de_l_ecole_se_reglent() {
     p.installer().await;
     let admin = p.connecter("admin", MOT_DE_PASSE).await;
 
-    // Livrés : huit catégories de recettes, dix de dépenses, la caisse, un seuil de 50 000 F.
+    // Livrés : neuf catégories de recettes (dont « Versements de l'État »), onze de dépenses (dont
+    // « Remboursements aux parents »), la caisse, un seuil de 50 000 F.
     let t = p.ok("tresorerie_lire", Some(&admin), Value::Null).await;
     let sens = |s: &str| {
         t["categories"]
@@ -38,8 +39,8 @@ async fn les_categories_et_les_comptes_de_l_ecole_se_reglent() {
             .filter(|c| c["sens"] == s)
             .count()
     };
-    assert_eq!(sens("recette"), 8);
-    assert_eq!(sens("depense"), 10);
+    assert_eq!(sens("recette"), 9);
+    assert_eq!(sens("depense"), 11);
     assert_eq!(categorie(&t, "Salaires")["code"], "salaires");
     assert_eq!(t["comptes"].as_array().unwrap().len(), 1);
     assert_eq!(t["comptes"][0]["nature"], "caisse");

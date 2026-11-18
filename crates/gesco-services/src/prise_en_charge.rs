@@ -714,6 +714,13 @@ pub(crate) async fn proposition_changement_classe(
 // Les gestes
 // ---------------------------------------------------------------------------------------------
 
+// Contextes du journal d'audit des gestes : étiquettes internes, jamais affichées, donc hors du
+// catalogue des messages.
+const AUDIT_COCHER: &str = "prise_en_charge.cocher";
+const AUDIT_MODIFIER: &str = "prise_en_charge.modifier";
+const AUDIT_DECOCHER: &str = "prise_en_charge.decocher";
+const AUDIT_ABANDONNER: &str = "prise_en_charge.abandonner";
+
 /// Geste d'écriture, avec ce qu'il porte.
 #[derive(Debug, Clone)]
 pub(crate) enum Geste {
@@ -754,10 +761,10 @@ impl Geste {
 
     const fn contexte_ecran(&self) -> &'static str {
         match self {
-            Self::Cocher { .. } => "prise_en_charge.cocher",
-            Self::Modifier { .. } | Self::AppliquerMontantPropose => "prise_en_charge.modifier",
-            Self::Decocher { .. } => "prise_en_charge.decocher",
-            Self::Abandonner { .. } | Self::DefaireAbandon { .. } => "prise_en_charge.abandonner",
+            Self::Cocher { .. } => AUDIT_COCHER,
+            Self::Modifier { .. } | Self::AppliquerMontantPropose => AUDIT_MODIFIER,
+            Self::Decocher { .. } => AUDIT_DECOCHER,
+            Self::Abandonner { .. } | Self::DefaireAbandon { .. } => AUDIT_ABANDONNER,
         }
     }
 

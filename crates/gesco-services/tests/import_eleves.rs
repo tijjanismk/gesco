@@ -392,7 +392,8 @@ async fn l_import_date_les_inscriptions_de_la_rentree() {
     let chemin = dossier.path().join("arrivee.csv");
     std::fs::write(
         &chemin,
-        "Nom;Prénoms;Sexe;Date de naissance;Classe\r\nSIDIBE;Aminata;F;14/07/2013;7e A\r\n",
+        "Nom;Prénoms;Sexe;Date de naissance;Lieu de naissance;Classe;Téléphone du parent\r\n\
+         SIDIBE;Aminata;F;14/07/2013;Kati;7e A;76 12 34 56\r\n",
     )
     .unwrap();
     let analyse = p
@@ -441,12 +442,14 @@ async fn l_import_date_les_inscriptions_de_la_rentree() {
         .await;
     let inscription = &fiche["inscriptions"][0]["inscription"];
     assert_eq!(inscription["date_inscription"], "2026-10-01");
-    p.ok(
-        "inscriptions_valider_classe",
-        Some(&admin),
-        json!({ "id": inscription["classe_id"] }),
-    )
-    .await;
+    let validation = p
+        .ok(
+            "inscriptions_valider_classe",
+            Some(&admin),
+            json!({ "id": inscription["classe_id"] }),
+        )
+        .await;
+    assert_eq!(validation["validees"], 1, "{validation}");
     // Toutes les tranches : 10 000 F d'inscription et 100 000 F de scolarité.
     let situation = p
         .ok(

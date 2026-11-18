@@ -321,17 +321,22 @@ pub(crate) async fn enregistrer_dans(
         mis_a_jour_le: contexte.maintenant,
         mis_a_jour_par: contexte.utilisateur_id,
     };
+    // L'ancienne s'annule d'abord (une seule reprise active par inscription), la nouvelle entre,
+    // puis l'ancienne la désigne : la clé étrangère de `remplacee_par` exige cet ordre.
     if let Some(ancienne) = &active {
         reprises::annuler(
             unite.connexion(),
             ancienne.id,
             MOTIF_REMPLACEE,
-            Some(nouvelle.id),
+            None,
             contexte,
         )
         .await?;
     }
     reprises::inserer(unite.connexion(), &nouvelle, contexte).await?;
+    if let Some(ancienne) = &active {
+        reprises::lier_remplacante(unite.connexion(), ancienne.id, nouvelle.id, contexte).await?;
+    }
     // Les parts de la nouvelle reprise naissent ici, comme pour tout geste qui change le payé.
     let apres = recalculer_dans(unite, contexte, &facture).await?;
     let chiffres = chiffres_reprise(unite.connexion(), &apres, contexte).await?;

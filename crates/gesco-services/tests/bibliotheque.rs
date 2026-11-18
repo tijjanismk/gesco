@@ -3801,6 +3801,14 @@ async fn eleve_dans(
     prenom: &str,
     matricule: &str,
 ) -> String {
+    // Les essais donnent leurs propres matricules : l'école les saisit elle-même.
+    p.ok(
+        "parametre_definir",
+        Some(admin),
+        json!({ "cle": "matricule.saisie_manuelle",
+            "valeur": { "type": "booleen", "valeur": true } }),
+    )
+    .await;
     let fiche = p
         .ok(
             "eleve_creer",
@@ -3809,10 +3817,23 @@ async fn eleve_dans(
                 "date_naissance": "2011-03-02", "date_naissance_estimee": false,
                 "lieu_naissance": "Kati", "nationalite": "Malienne", "adresse": "",
                 "telephones": [] },
-                "matricule_interne": matricule, "matricule_national": "", "acte_nature": "acte",
-                "acte_numero": "", "acte_date": "", "ecole_origine": "" }),
+                "matricule_interne": matricule, "matricule_national": format!("N{matricule}"),
+                "acte_nature": "acte", "acte_numero": "", "acte_date": "", "ecole_origine": "" }),
         )
         .await;
+    // Un parent joignable et le matricule national : l'inscription se valide même en 9e.
+    p.ok(
+        "responsable_rattacher",
+        Some(admin),
+        json!({ "eleve_id": fiche["eleve"]["id"], "responsable_id": null,
+            "saisie": { "identite": { "nom": "Coulibaly", "prenoms": "Mariam", "sexe": "feminin",
+                "date_naissance": "", "date_naissance_estimee": false, "lieu_naissance": "",
+                "nationalite": "", "adresse": "", "telephones": ["76 12 34 56"] },
+                "profession": "", "employeur": "" },
+            "qualites": { "lien": "mere", "est_responsable_legal": true, "est_payeur": true,
+                "recoit_notifications": true, "vient_chercher": false, "ordre_priorite": 1 } }),
+    )
+    .await;
     p.ok(
         "inscription_creer",
         Some(admin),
@@ -3820,12 +3841,17 @@ async fn eleve_dans(
             "redoublant": false, "etablissement_origine": "" }),
     )
     .await;
-    p.ok(
-        "inscriptions_valider_classe",
-        Some(admin),
-        json!({ "id": classe }),
-    )
-    .await;
+    let validation = p
+        .ok(
+            "inscriptions_valider_classe",
+            Some(admin),
+            json!({ "id": classe }),
+        )
+        .await;
+    assert!(
+        validation["refusees"].as_array().unwrap().is_empty(),
+        "{validation}"
+    );
     fiche["eleve"]["id"].as_str().unwrap().to_owned()
 }
 
@@ -3913,6 +3939,8 @@ async fn l_eleve_ne_lit_que_les_versions_visibles_de_sa_classe() {
         .find(|a| a["libelle"] == "2026-2027")
         .unwrap()["id"]
         .clone();
+    // Une grille de frais en vigueur : sans elle, aucune inscription ne se valide.
+    crate::commun::poser_grille(&p, &admin, &annee).await;
     let ped = p
         .ok("pedagogie_lire", Some(&admin), json!({ "id": annee }))
         .await;
@@ -4231,6 +4259,8 @@ async fn le_maitre_voit_au_suivi_ce_que_ses_eleves_ont_ouvert_et_fini() {
         .find(|a| a["libelle"] == "2026-2027")
         .unwrap()["id"]
         .clone();
+    // Une grille de frais en vigueur : sans elle, aucune inscription ne se valide.
+    crate::commun::poser_grille(&p, &admin, &annee).await;
     let ped = p
         .ok("pedagogie_lire", Some(&admin), json!({ "id": annee }))
         .await;

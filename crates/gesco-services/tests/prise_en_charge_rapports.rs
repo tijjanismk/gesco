@@ -42,7 +42,7 @@ async fn payer(e: &Lycee, inscription: &Value, cle: &str, montant: i64) {
     e.p.ok(
         "encaisser",
         Some(&e.admin),
-        json!({ "cle_idempotence": cle, "inscription_id": inscription["id"], "montant": montant,
+        json!({ "cle_idempotence": format!("essai-{cle}"), "inscription_id": inscription["id"], "montant": montant,
             "mode": "especes", "reference": "", "payeur_id": preparation["payeurs"][0]["responsable_id"],
             "payeur_nom": "", "repartition": null }),
     )

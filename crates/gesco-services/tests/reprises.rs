@@ -208,7 +208,7 @@ pub async fn payer(
     e.p.ok(
         "encaisser",
         Some(jeton),
-        json!({ "cle_idempotence": cle, "inscription_id": inscription["id"], "montant": montant,
+        json!({ "cle_idempotence": format!("essai-{cle}"), "inscription_id": inscription["id"], "montant": montant,
             "mode": "especes", "reference": "", "payeur_id": preparation["payeurs"][0]["responsable_id"],
             "payeur_nom": "", "repartition": null }),
     )
@@ -749,7 +749,7 @@ async fn l_excedent_se_rembourse_par_une_depense_et_jamais_deux_fois() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|l| l["libelle"] == "Remboursements aux parents" && l["montant"] == 10_000)
+            .any(|l| l["categorie"] == "Remboursements aux parents" && l["montant"] == 10_000)
     );
     let s = situation(&e, &awa).await;
     assert_eq!(s["facture"]["a_rembourser"], 5_000);
@@ -1374,20 +1374,18 @@ async fn les_rapports_montrent_la_reprise_a_part() {
 
     // La première caisse ouvre trois jours plus tard : la date d'arrêt en est la veille.
     e.p.horloge.avancer(3 * 86_400_000);
-    e.p.ok(
-        "caisse_ouvrir",
-        Some(&e.admin),
-        json!({ "fonds_initial": 0 }),
-    )
-    .await;
-    payer(&e, &e.admin, &awa, "awa-1", 10_000).await;
-    let liste = e.p.ok("reprises_lister", Some(&e.admin), json!({})).await;
+    // Trois jours sans activité ferment la session : la direction se reconnecte.
+    let admin = e.p.connecter("admin", MOT_DE_PASSE).await;
+    e.p.ok("caisse_ouvrir", Some(&admin), json!({ "fonds_initial": 0 }))
+        .await;
+    payer(&e, &admin, &awa, "awa-1", 10_000).await;
+    let liste = e.p.ok("reprises_lister", Some(&admin), json!({})).await;
     assert_eq!(liste["date_arret"], "2026-10-06");
     assert_eq!(liste["a_ce_jour"], false);
     let octobre =
         e.p.ok(
             "encaissements_lister",
-            Some(&e.admin),
+            Some(&admin),
             journal("2026-10-01", "2026-10-31"),
         )
         .await;
@@ -1409,7 +1407,7 @@ async fn les_rapports_montrent_la_reprise_a_part() {
     let septembre =
         e.p.ok(
             "encaissements_lister",
-            Some(&e.admin),
+            Some(&admin),
             journal("2026-09-01", "2026-09-30"),
         )
         .await;
@@ -1417,7 +1415,7 @@ async fn les_rapports_montrent_la_reprise_a_part() {
 
     // Budget : une ligne à part, comptée dans le total réalisé ; les catégories ne la reçoivent pas.
     let budget =
-        e.p.ok("budget_lire", Some(&e.admin), json!({ "annee_id": null }))
+        e.p.ok("budget_lire", Some(&admin), json!({ "annee_id": null }))
             .await;
     assert_eq!(budget["avant_gesco"], 60_000);
     let categories = |b: &Value| -> i64 {

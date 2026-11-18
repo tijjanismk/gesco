@@ -51,7 +51,7 @@ async fn payer(e: &Lycee, inscription: &Value, cle: &str, montant: i64) -> Value
     e.p.ok(
         "encaisser",
         Some(&e.admin),
-        json!({ "cle_idempotence": cle, "inscription_id": inscription["id"], "montant": montant,
+        json!({ "cle_idempotence": format!("essai-{cle}"), "inscription_id": inscription["id"], "montant": montant,
             "mode": "especes", "reference": "", "payeur_id": preparation["payeurs"][0]["responsable_id"],
             "payeur_nom": "", "repartition": null }),
     )
@@ -1559,6 +1559,8 @@ async fn la_repartition_par_fichier_n_ecrit_que_les_lignes_retenues() {
     .await;
     assert_eq!(encore["parts_actuelles"], 7);
     assert_eq!(encore["retirees"], 0);
+    // Une seconde plus tard (l'horloge des essais est figée), quelqu'un répartit à la main.
+    e.p.horloge.avancer(1_000);
     let awa = i("Awa");
     ok(
         &e,

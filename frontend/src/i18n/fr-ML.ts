@@ -2158,6 +2158,7 @@ export const catalogue = {
   "parametre.non_modifiable": "Ce paramètre est géré par l'application.",
   "parametre.type_incompatible": "La valeur n'a pas le type attendu.",
   "parametre.hors_bornes": "Cette valeur sort des bornes autorisées pour ce paramètre de sécurité.",
+  "portail.eteint": "Aucune école n'est ouverte sur cet ordinateur : le portail des élèves ne peut pas servir.",
   "portail.sans_adresse": "Allumez d'abord le portail des élèves : l'affiche porte son adresse.",
   "portail.eleve_non_inscrit": "Cet élève n'est inscrit dans aucune classe cette année : un code lui sera remis à son inscription.",
 

@@ -58,6 +58,14 @@ async fn classe_de_9e(dossier: &std::path::Path) -> Classe9 {
         )
         .await["id"]
         .clone();
+    // Les essais donnent leurs propres matricules : l'école les saisit elle-même.
+    p.ok(
+        "parametre_definir",
+        Some(&admin),
+        json!({ "cle": "matricule.saisie_manuelle",
+            "valeur": { "type": "booleen", "valeur": true } }),
+    )
+    .await;
     let mut eleves = Vec::new();
     for (prenom, matricule) in [("Adama", "E-901"), ("Kadiatou", "E-902")] {
         let fiche = p
@@ -68,10 +76,24 @@ async fn classe_de_9e(dossier: &std::path::Path) -> Classe9 {
                     "date_naissance": "2011-01-05", "date_naissance_estimee": false,
                     "lieu_naissance": "Ségou", "nationalite": "Malienne", "adresse": "",
                     "telephones": [] },
-                    "matricule_interne": matricule, "matricule_national": "", "acte_nature": "acte",
+                    "matricule_interne": matricule, "matricule_national": format!("N{matricule}"),
+                    "acte_nature": "acte",
                     "acte_numero": "", "acte_date": "", "ecole_origine": "" }),
             )
             .await;
+        // Une 9e se valide avec un parent joignable et le matricule national (classe d'examen).
+        p.ok(
+            "responsable_rattacher",
+            Some(&admin),
+            json!({ "eleve_id": fiche["eleve"]["id"], "responsable_id": null,
+                "saisie": { "identite": { "nom": "Coulibaly", "prenoms": "Mariam", "sexe": "feminin",
+                    "date_naissance": "", "date_naissance_estimee": false, "lieu_naissance": "",
+                    "nationalite": "", "adresse": "", "telephones": ["76 12 34 56"] },
+                    "profession": "", "employeur": "" },
+                "qualites": { "lien": "mere", "est_responsable_legal": true, "est_payeur": true,
+                    "recoit_notifications": true, "vient_chercher": false, "ordre_priorite": 1 } }),
+        )
+        .await;
         p.ok(
             "inscription_creer",
             Some(&admin),
@@ -81,12 +103,14 @@ async fn classe_de_9e(dossier: &std::path::Path) -> Classe9 {
         .await;
         eleves.push((fiche["eleve"]["id"].clone(), matricule.to_owned()));
     }
-    p.ok(
-        "inscriptions_valider_classe",
-        Some(&admin),
-        json!({ "id": classe }),
-    )
-    .await;
+    let validation = p
+        .ok(
+            "inscriptions_valider_classe",
+            Some(&admin),
+            json!({ "id": classe }),
+        )
+        .await;
+    assert_eq!(validation["validees"], 2, "{validation}");
     Classe9 {
         p,
         admin,
@@ -168,11 +192,20 @@ async fn billets_d_une_classe_et_code_d_un_eleve() {
     // Au journal : billets et code remis, jamais le code.
     let journal =
         c.p.ok("audit_lister", Some(&c.admin), json!({ "page": 0 }))
-            .await
-            .to_string();
-    assert!(journal.contains("portail.billets"), "{journal}");
-    assert!(journal.contains("portail.code_remettre"), "{journal}");
-    assert!(!journal.contains("\"code\""), "{journal}");
+            .await;
+    let texte = journal.to_string();
+    assert!(texte.contains("portail.billets"), "{texte}");
+    assert!(texte.contains("portail.code_remettre"), "{texte}");
+    // Les lignes du portail ne portent aucun code (d'autres lignes ont le code d'un niveau).
+    for ligne in journal["lignes"].as_array().unwrap() {
+        if ligne["contexte"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("portail.")
+        {
+            assert!(!ligne.to_string().contains("\"code\""), "{ligne}");
+        }
+    }
 }
 
 #[tokio::test]
@@ -188,13 +221,13 @@ async fn un_eleve_entre_avec_son_code_et_cinq_codes_faux_bloquent_le_matricule()
 
     // Le bon code, en minuscules et avec un espace : il entre, voit son prénom et sa classe.
     let saisi = format!("{} {}", &code[..3], &code[3..]).to_lowercase();
-    let Some(Entree::Entre { jeton, session }) =
+    let issue =
         c.p.application
             .portail_entrer(&demande(" e-901 ", &saisi))
             .await
-            .unwrap()
-    else {
-        panic!("le bon code fait entrer");
+            .unwrap();
+    let Some(Entree::Entre { jeton, session }) = issue else {
+        panic!("le bon code fait entrer : {issue:?}");
     };
     let vue = session.vue();
     assert_eq!(vue.prenom.as_deref(), Some("Adama"));
@@ -236,6 +269,8 @@ async fn un_eleve_entre_avec_son_code_et_cinq_codes_faux_bloquent_le_matricule()
 
     // Le lendemain, il entre de nouveau.
     c.p.horloge.avancer(86_400_000);
+    // Un jour sans activité ferme la session de la direction : elle se reconnecte.
+    let admin = c.p.connecter("admin", MOT_DE_PASSE).await;
     assert!(matches!(
         c.p.application
             .portail_entrer(&demande("E-901", &code))
@@ -247,7 +282,7 @@ async fn un_eleve_entre_avec_son_code_et_cinq_codes_faux_bloquent_le_matricule()
     // Réimprimer remplace le code : l'ancien ne marche plus.
     c.p.ok(
         "portail_code_remettre",
-        Some(&c.admin),
+        Some(&admin),
         json!({ "eleve_id": c.eleves[0].0 }),
     )
     .await;

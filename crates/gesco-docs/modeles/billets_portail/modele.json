@@ -5,6 +5,8 @@
   "variables": [
     { "nom": "billets", "requise": true },
     { "nom": "adresse", "requise": true },
-    { "nom": "remis_le", "requise": true }
+    { "nom": "remis_le", "requise": true },
+    { "nom": "par_page", "requise": true },
+    { "nom": "qr", "requise": false }
   ]
 }

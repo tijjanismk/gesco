@@ -67,7 +67,8 @@ describe("catalogue fr-ML", () => {
       (cle) => !code.includes(`"${cle}"`) && !rust.includes(`"${cle}"`),
     );
     expect(inutilisees).toEqual([]);
-  });
+    // Lit tout le Rust du dépôt : plus de cinq secondes quand une compilation tourne à côté.
+  }, 30_000);
 });
 
 describe("chaînes visibles", () => {

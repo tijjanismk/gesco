@@ -148,6 +148,27 @@ pub async fn annuler(
     Ok(())
 }
 
+/// Note, sur une reprise déjà annulée, celle qui la remplace. À appeler après l'insertion de la
+/// remplaçante : la colonne la désigne par une clé étrangère, et une seule reprise peut être active
+/// à la fois pour une inscription, donc l'ancienne s'annule avant que la nouvelle n'entre.
+pub async fn lier_remplacante(
+    cnx: &mut Connexion,
+    ancienne: Id<RepriseAvantGesco>,
+    nouvelle: Id<RepriseAvantGesco>,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE reprise_avant_gesco SET remplacee_par = ?1
+         WHERE id = ?2 AND etablissement_id = ?3 AND statut = 'annulee'",
+    )
+    .bind(nouvelle.vers_chaine())
+    .bind(ancienne.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .execute(cnx)
+    .await?;
+    Ok(())
+}
+
 /// Reprise active d'une inscription, s'il y en a une.
 pub async fn active(
     cnx: &mut Connexion,

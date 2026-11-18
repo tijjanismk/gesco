@@ -166,7 +166,8 @@ async fn reconstruction_de_fichier_bibliotheque_garde_tout() {
         .await
         .unwrap();
 
-    base.migrer().await.unwrap();
+    // Jusqu'à la 0063 seulement : les migrations suivantes ont leurs propres essais.
+    MIGRATIONS.run_to(63, base.pool_critique()).await.unwrap();
     assert_eq!(base.version_schema().await.unwrap(), 63);
 
     assert_eq!(

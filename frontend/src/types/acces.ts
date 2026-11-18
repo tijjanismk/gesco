@@ -171,7 +171,6 @@ export const ACCES = {
   portail_billets_produire: { type: "permission", permission: "portal:codes" },
   portail_code_lire: { type: "permission", permission: "portal:codes" },
   portail_code_remettre: { type: "permission", permission: "portal:codes" },
-
   bibliotheque_document_fichier_ajouter: { type: "permission", permission: "library:edit" },
   bibliotheque_document_fichier_retirer: { type: "permission", permission: "library:edit" },
   bibliotheque_fichier_enregistrer_sous: { type: "permission", permission: "library:read" },

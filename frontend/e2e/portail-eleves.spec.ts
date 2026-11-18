@@ -375,12 +375,12 @@ test("lot 4 : un élève entre avec son code, écoute le son, finit la leçon et
   await capturer(p, "404-lot4-telephone-mes-matieres");
 
   await ouvrirRacineCarree(p);
-  // Le son se lit depuis le portail, par requêtes partielles : trois secondes.
+  // Le son se lit depuis le portail, par requêtes partielles : dix secondes.
   const son = p.locator("audio").first();
   await expect(son).toBeAttached({ timeout: 30_000 });
   await expect
     .poll(() => son.evaluate((a: HTMLAudioElement) => (Number.isFinite(a.duration) ? Math.round(a.duration) : 0)), { timeout: 30_000 })
-    .toBe(3);
+    .toBe(10);
   await capturer(p, "405-lot4-telephone-lecon");
 
   // « J'ai fini cette leçon » : noté.
