@@ -132,8 +132,8 @@ export function Espace({ etablissement }: { etablissement: string }) {
   // Une relecture ratée (poste principal injoignable) garde la session déjà lue : l'écran et la
   // saisie en cours restent en place, le bandeau du poste dit la coupure.
   if (courante.data === undefined) return <div className="p-6"><MessageErreur erreur={courante.error} /></div>;
-  const { session: ouverte, permissions, doit_changer_mot_de_passe, modules, role_poste, maitre } = courante.data;
-  const sections = sectionsAutorisees(permissions, modules, role_poste === "relie", maitre);
+  const { session: ouverte, permissions, doit_changer_mot_de_passe, modules, role_poste, maitre, maitre_saisit } = courante.data;
+  const sections = sectionsAutorisees(permissions, modules, role_poste === "relie", maitre, !maitre || maitre_saisit);
   const peutChercher = commandeAutorisee("eleves_rechercher", permissions, maitre) && !doit_changer_mot_de_passe;
   const groupes = [...new Set(sections.map((s) => s.groupe))];
 

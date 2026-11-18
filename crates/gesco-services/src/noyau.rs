@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use gesco_core::commun::Id;
 use gesco_core::core::{Etablissement, Permission, Poste, Utilisateur};
-use gesco_db::depots::{parametre, role};
+use gesco_db::depots::role;
 use gesco_db::unite::Durabilite;
 use gesco_db::{Base, Connexion, Contexte, UniteDeTravail, nouvel_id};
 
@@ -81,8 +81,10 @@ pub struct DroitsDuCompte {
     pub permissions: Arc<Vec<Permission>>,
     /// Compte de maître : il ne porte que le rôle Enseignant (SPEC_PHASE_11_A §7).
     pub maitre: bool,
-    /// L'école a ouvert la saisie des notes aux maîtres.
+    /// L'école a ouvert leur compte aux maîtres (ou la saisie des notes, qui l'ouvre aussi).
     pub maitres_admis: bool,
+    /// L'école a ouvert la saisie des notes aux maîtres.
+    pub saisie_admise: bool,
 }
 
 /// Établissement et utilisateur dont les permissions sont gardées.
@@ -184,14 +186,17 @@ impl Noyau {
         let permissions = Arc::new(role::permissions_de(cnx, utilisateur_id, contexte).await?);
         let maitre =
             crate::maitres::est_maitre(&role::roles_de(cnx, utilisateur_id, contexte).await?);
-        // Le réglage ne se lit que pour un compte de maître : lui seul en dépend.
-        let maitres_admis = maitre
-            && parametre::booleen_param(cnx, crate::maitres::PARAMETRE_SAISIE, false, contexte)
-                .await?;
+        // Les réglages ne se lisent que pour un compte de maître : lui seul en dépend.
+        let (maitres_admis, saisie_admise) = if maitre {
+            crate::maitres::reglages(cnx, contexte).await?
+        } else {
+            (false, false)
+        };
         Ok(DroitsDuCompte {
             permissions,
             maitre,
             maitres_admis,
+            saisie_admise,
         })
     }
 

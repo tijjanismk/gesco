@@ -147,6 +147,17 @@ async fn file_sms(application: Arc<Application>) {
     }
 }
 
+/// Avancement des élèves au portail, toutes les cinq secondes (SPEC_PHASE_12_LOT_4 §6, ADR
+/// « charge du portail des élèves ») : une classe entière qui lit n'écrit qu'une fois par
+/// passage. Un échec se retente au passage suivant.
+async fn avancement_portail(application: Arc<Application>) {
+    let mut tic = tokio::time::interval(Duration::from_secs(5));
+    loop {
+        tic.tick().await;
+        let _ = application.portail_avancement_ecrire().await;
+    }
+}
+
 /// Serveur du réseau local (SPEC_PHASE_11_A §3.1) : il écoute dès que la direction allume le
 /// réseau et s'arrête quand elle l'éteint. En mode d'essai, il n'écoute que la machine elle-même :
 /// les essais de bout en bout ne font pas paraître la question du pare-feu de Windows.
@@ -260,6 +271,7 @@ impl Demarrage {
         let taches = vec![
             tauri::async_runtime::spawn(taches_periodiques(Arc::clone(&application))),
             tauri::async_runtime::spawn(file_sms(Arc::clone(&application))),
+            tauri::async_runtime::spawn(avancement_portail(Arc::clone(&application))),
         ];
         Ok(Mode::Local {
             application,

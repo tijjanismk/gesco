@@ -107,8 +107,8 @@ fn routes() -> Vec<(&'static str, &'static str, MethodRouter<EtatPortail>)> {
         ("GET", "/eleve/api/contenu/{id}", get(api::contenu)),
         ("GET", "/eleve/api/fichier/{empreinte}", get(api::fichier)),
         ("GET", "/eleve/api/pdf/{id}", get(api::pdf)),
-        ("POST", "/eleve/api/avancement", post(a_venir)),
-        ("GET", "/eleve/api/mon-avancement", get(a_venir)),
+        ("POST", "/eleve/api/avancement", post(api::avancement)),
+        ("GET", "/eleve/api/mon-avancement", get(api::mon_avancement)),
     ]
 }
 
@@ -147,11 +147,6 @@ async fn entetes(mut reponse: Response) -> Response {
 
 async fn introuvable() -> Response {
     StatusCode::NOT_FOUND.into_response()
-}
-
-/// Route prévue par la liste, servie aux étapes suivantes du lot.
-async fn a_venir() -> Response {
-    StatusCode::SERVICE_UNAVAILABLE.into_response()
 }
 
 /// La page des élèves, ou la page d'essai tant qu'elle n'est pas livrée.

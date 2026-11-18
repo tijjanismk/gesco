@@ -529,6 +529,9 @@ pub struct SessionCourante {
     pub role_poste: RolePoste,
     /// Compte de maître : l'écran ne montre que ce que sa liste de commandes lui ouvre.
     pub maitre: bool,
+    /// Compte de maître et saisie des notes ouverte par l'école : faux, ses écrans de notes,
+    /// d'absences et d'observations ne paraissent pas.
+    pub maitre_saisit: bool,
 }
 
 /// Création d'un utilisateur.
@@ -1278,6 +1281,8 @@ contrat! {
     portail_code_lire(crate::portail::codes::DemandeCodeEleve) -> crate::portail::codes::CodeEleveEtat;
     portail_code_remettre(crate::portail::codes::DemandeCodeEleve) -> crate::portail::codes::BilletsPortail;
     portail_affiche(()) -> crate::portail::codes::AffichePortail;
+    bibliotheque_suivi_lire(crate::portail::suivi::DemandeSuivi) -> crate::portail::suivi::SuiviClasse;
+    bibliotheque_suivi_imprimer(crate::portail::suivi::DemandeSuivi) -> PdfRapport;
     bibliotheque_document_fichier_ajouter(crate::bibliotheque::DemandeFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
     bibliotheque_document_fichier_retirer(crate::bibliotheque::DemandeRetraitFichierDocument) -> Vec<crate::bibliotheque::FichierDocument>;
     bibliotheque_fichier_enregistrer_sous(crate::bibliotheque::DemandeFichierEnregistrer) -> ();
@@ -1933,6 +1938,123 @@ impl Application {
         .await?;
         lecture_portail::garder_pdf(&dossier, &a_pdf.contenu, &pdf);
         Ok(ReponseLecture::Lu((nom, pdf)))
+    }
+
+    /// Un geste d'avancement d'un élève : leçon ouverte ou finie. Il ne s'écrit que pour un
+    /// élève entré avec son code, suivi allumé, sur un contenu qu'il voit ; il attend dans la
+    /// file, écrite toutes les cinq secondes. Rien ne bloque jamais l'élève : sans suivi, le
+    /// geste est simplement oublié.
+    pub async fn portail_avancement(
+        &self,
+        jeton: Option<&str>,
+        demande: &crate::portail::suivi::DemandeAvancement,
+    ) -> Result<crate::portail::lecture::ReponseLecture<()>, ErreurCommande> {
+        use crate::portail::lecture::{ReponseLecture, empreinte_sure};
+        let l = match self.portail_lecture(jeton).await? {
+            ReponseLecture::Lu(l) => l,
+            autre => return Ok(autre.et_puis(|_| None)),
+        };
+        let (Some(eleve), Some(annee)) = (&l.session.eleve_id, &l.session.annee_id) else {
+            return Ok(ReponseLecture::Lu(()));
+        };
+        if !l.lecture.suivi() {
+            return Ok(ReponseLecture::Lu(()));
+        }
+        let Some(contenu) = l.lecture.contenu(&demande.contenu_id, &l.session) else {
+            return Ok(ReponseLecture::Introuvable);
+        };
+        // La version lue est celle que le téléphone a reçue ; une empreinte qui n'en est pas une
+        // est remplacée par la version visible.
+        let version = if empreinte_sure(&demande.version) {
+            demande.version.as_str()
+        } else {
+            contenu.version.as_str()
+        };
+        self.portail.avancement.noter(
+            (eleve, annee, &contenu.id),
+            version,
+            demande.geste,
+            self.horloge.maintenant().millis_epoque(),
+        );
+        Ok(ReponseLecture::Lu(()))
+    }
+
+    /// « Mon avancement » d'un élève entré avec son code, suivi allumé ; ce qui attend encore
+    /// dans la file compte déjà.
+    pub async fn portail_mon_avancement(
+        &self,
+        jeton: Option<&str>,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<crate::portail::suivi::MonAvancement>,
+        ErreurCommande,
+    > {
+        use crate::portail::lecture::ReponseLecture;
+        let l = match self.portail_lecture(jeton).await? {
+            ReponseLecture::Lu(l) => l,
+            autre => return Ok(autre.et_puis(|_| None)),
+        };
+        let (Some(eleve), Some(annee)) = (l.session.eleve_id.clone(), l.session.annee_id.clone())
+        else {
+            return Ok(ReponseLecture::Introuvable);
+        };
+        if !l.lecture.suivi() {
+            return Ok(ReponseLecture::Introuvable);
+        }
+        let contexte = l.ouverte.noyau.contexte(l.etablissement_id, None);
+        let ecrites = crate::origine::dans(crate::origine::Origine::Portail, async {
+            let mut cnx = l
+                .ouverte
+                .noyau
+                .base()
+                .pool()
+                .acquire()
+                .await
+                .map_err(gesco_db::ErreurBase::from)?;
+            gesco_db::depots::portail::avancement_de_l_eleve(&mut cnx, &eleve, &annee, &contexte)
+                .await
+        })
+        .await
+        .map_err(ErreurService::from)?;
+        let attente = self
+            .portail
+            .avancement
+            .en_attente(&annee, &|e: &str| e == eleve);
+        let lignes = crate::portail::suivi::fondre(ecrites, attente);
+        let catalogue = l.lecture.catalogue(&l.session);
+        Ok(ReponseLecture::Lu(crate::portail::suivi::mon_avancement(
+            &catalogue, &lignes,
+        )))
+    }
+
+    /// Écrit d'un coup les gestes d'avancement en attente ; rend leur nombre. Le poste principal
+    /// l'appelle toutes les cinq secondes ; un échec les remet dans la file.
+    pub async fn portail_avancement_ecrire(&self) -> usize {
+        if self.portail.avancement.longueur() == 0 {
+            return 0;
+        }
+        let Ok(Some((ouverte, etablissement_id))) = self.etablissement_ouvert().await else {
+            return 0;
+        };
+        let gestes = self.portail.avancement.prendre();
+        let nombre = gestes.len();
+        let noyau = &ouverte.noyau;
+        let ecrit = crate::origine::dans(crate::origine::Origine::Portail, async {
+            let contexte = noyau.contexte(etablissement_id, None);
+            let mut unite = noyau
+                .commencer(contexte.clone(), gesco_db::unite::Durabilite::Ordinaire)
+                .await?;
+            gesco_db::depots::portail::ecrire_avancement(unite.connexion(), &gestes, &contexte)
+                .await?;
+            noyau.terminer(unite).await?;
+            Ok::<(), ErreurService>(())
+        })
+        .await;
+        if let Err(e) = ecrit {
+            self.noter_au_journal_technique(&format!("portail avancement non ecrit : {e}"));
+            self.portail.avancement.remettre(gestes);
+            return 0;
+        }
+        nombre
     }
 
     /// Adresse du portail à imprimer (billets, affiche), quand il écoute.
@@ -2775,6 +2897,7 @@ impl Application {
         let maitre = crate::maitres::est_maitre(
             &role::roles_de(&mut cnx, session.utilisateur_id, &contexte).await?,
         );
+        let maitre_saisit = maitre && crate::maitres::reglages(&mut cnx, &contexte).await?.1;
         drop(cnx);
         let role_poste = if crate::origine::courante().est_reliee() {
             RolePoste::Relie
@@ -2787,6 +2910,7 @@ impl Application {
             role_poste,
             modules,
             maitre,
+            maitre_saisit,
             session,
             permissions,
             doit_changer_mot_de_passe: compte.doit_changer_mot_de_passe,
@@ -5816,6 +5940,81 @@ impl Application {
             .remettre_un(session, &entree, adresse.as_deref())
             .await?;
         self.composer_billets(ouverte, session, a_composer).await
+    }
+
+    /// La lecture du portail à jour, pour le suivi du personnel.
+    async fn lecture_du_suivi(
+        &self,
+        ouverte: &Ouverte,
+        etablissement_id: Id<Etablissement>,
+    ) -> Resultat<Arc<crate::portail::lecture::LecturePortail>> {
+        let maintenant = self.horloge.maintenant().millis_epoque();
+        self.portail
+            .lecture
+            .obtenir(maintenant, || async {
+                crate::portail::lecture::LecturePortail::construire(
+                    &self.bibliotheque(&ouverte.noyau),
+                    &ouverte.noyau,
+                    etablissement_id,
+                )
+                .await
+            })
+            .await
+    }
+
+    async fn bibliotheque_suivi_lire(
+        &self,
+        appel: Appel,
+        entree: crate::portail::suivi::DemandeSuivi,
+    ) -> Resultat<crate::portail::suivi::SuiviClasse> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let lecture = self
+            .lecture_du_suivi(ouverte, session.etablissement_id)
+            .await?;
+        Ok(crate::portail::suivi::lire(
+            &ouverte.noyau,
+            &lecture,
+            &self.portail.avancement,
+            session,
+            &entree,
+        )
+        .await?
+        .suivi)
+    }
+
+    async fn bibliotheque_suivi_imprimer(
+        &self,
+        appel: Appel,
+        entree: crate::portail::suivi::DemandeSuivi,
+    ) -> Resultat<PdfRapport> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let lecture = self
+            .lecture_du_suivi(ouverte, session.etablissement_id)
+            .await?;
+        let lu = crate::portail::suivi::lire(
+            &ouverte.noyau,
+            &lecture,
+            &self.portail.avancement,
+            session,
+            &entree,
+        )
+        .await?;
+        if !lu.suivi.actif {
+            return Err(ErreurService::Regle {
+                cle: "portail.suivi_eteint",
+            });
+        }
+        let date = crate::documents::date_longue(self.horloge.maintenant());
+        let pdf = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+            .composer_en_memoire(
+                session.etablissement_id,
+                "suivi_eleves",
+                crate::portail::suivi::donnees_impression(&lu, &date),
+            )
+            .await?;
+        Ok(PdfRapport { pdf: base64(&pdf) })
     }
 
     async fn portail_affiche(

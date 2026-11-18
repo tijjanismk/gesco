@@ -80,6 +80,13 @@ impl<'n> Garde<'n> {
                         cle: crate::maitres::REFUS_COMMANDE,
                     });
                 }
+                // Compte ouvert sans la saisie : notes, absences et observations restent à la
+                // direction (SPEC_PHASE_12_LOT_4 §10).
+                if !droits.saisie_admise && commande.de_la_saisie() {
+                    return Err(ErreurService::Regle {
+                        cle: crate::maitres::REFUS_SAISIE,
+                    });
+                }
             }
             if let Acces::Permission(permission) = commande.acces {
                 if !droits.permissions.contains(&permission) {

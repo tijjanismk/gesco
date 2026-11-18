@@ -71,6 +71,12 @@ impl Commande {
         self.acces == Acces::Public || COMMANDES_DU_MAITRE.contains(&self.nom)
     }
 
+    /// Vrai pour une commande de la saisie des maîtres : ouverte seulement quand l'école a
+    /// allumé « Les maîtres saisissent leurs notes ».
+    pub fn de_la_saisie(&self) -> bool {
+        COMMANDES_DE_LA_SAISIE.contains(&self.nom)
+    }
+
     /// Fichier que la commande lit ou écrit, si elle en manie un.
     pub fn fichier(&self) -> Option<Fichier> {
         COMMANDES_A_FICHIER
@@ -395,6 +401,32 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "bibliotheque_imprimer",
     "bibliotheque_faits_imprimer",
     "bibliotheque_chapitre_imprimer",
+    // Le suivi des élèves de ses classes, dans ses matières.
+    "bibliotheque_suivi_lire",
+    "bibliotheque_suivi_imprimer",
+];
+
+/// Commandes de la liste du maître qui relèvent de la saisie (notes, appréciations, absences,
+/// observations du jardin) : un compte de maître ne les a que si l'école a allumé « Les maîtres
+/// saisissent leurs notes » ; « Les maîtres ont leur compte » seul ne les ouvre pas (T-134).
+pub const COMMANDES_DE_LA_SAISIE: &[&str] = &[
+    "evaluations_lister",
+    "evaluation_creer",
+    "notes_grille",
+    "note_saisir",
+    "bulletins_lire",
+    "appreciation_saisir",
+    "appreciations_remplir",
+    "jardin_lire",
+    "observations_grille",
+    "observation_saisir",
+    "observations_colonne",
+    "observation_apprecier",
+    "absences_releve_lire",
+    "absences_releve_enregistrer",
+    "absences_periode_lire",
+    "absences_seances_lire",
+    "absences_seances_enregistrer",
 ];
 
 /// Commandes publiques, énumérées une seule fois : le test d'exhaustivité refuse toute commande
@@ -663,6 +695,8 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("portail_etat", Permission::LIBRARY_MANAGE),
     Commande::permise("portail_regler", Permission::LIBRARY_MANAGE),
     Commande::permise("portail_affiche", Permission::LIBRARY_MANAGE),
+    Commande::permise("bibliotheque_suivi_lire", Permission::LIBRARY_FOLLOW),
+    Commande::permise("bibliotheque_suivi_imprimer", Permission::LIBRARY_FOLLOW),
     // Codes des élèves : billets d'une classe, code remis à un élève (SPEC_PHASE_12_LOT_4 §4).
     Commande::permise("portail_codes_classe", Permission::PORTAL_CODES),
     Commande::permise("portail_billets_produire", Permission::PORTAL_CODES),
@@ -1174,6 +1208,18 @@ mod tests {
             "guichet_lire",
         ] {
             assert!(!COMMANDES_DU_MAITRE.contains(&interdite));
+        }
+        // La saisie est une partie de la liste du maître ; la bibliothèque et le suivi n'en sont
+        // pas.
+        for nom in COMMANDES_DE_LA_SAISIE {
+            assert!(COMMANDES_DU_MAITRE.contains(nom), "{nom} hors de la liste");
+        }
+        for nom in [
+            "bibliotheque_catalogue",
+            "bibliotheque_suivi_lire",
+            "session_courante",
+        ] {
+            assert!(!COMMANDES_DE_LA_SAISIE.contains(&nom));
         }
     }
 

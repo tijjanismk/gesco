@@ -4185,3 +4185,314 @@ async fn l_eleve_ne_lit_que_les_versions_visibles_de_sa_classe() {
         ReponseLecture::Introuvable
     ));
 }
+
+/// Règle un paramètre par la direction.
+async fn regler(
+    p: &crate::commun::Poste_,
+    admin: &gesco_services::session::Jeton,
+    cle: &str,
+    valeur: Value,
+) {
+    p.ok(
+        "parametre_definir",
+        Some(admin),
+        json!({ "cle": cle, "valeur": valeur }),
+    )
+    .await;
+}
+
+/// Phase 12, lot 4, étape 5 (SPEC_PHASE_12_LOT_4 §0.3 critère 6, §6, §10) : un élève entré avec
+/// son code ouvre une leçon et la finit ; le maître de la classe le voit au suivi dès le passage
+/// de la file (cinq secondes) ; un élève sans code n'est jamais compté ; suivi éteint, rien ne
+/// s'écrit et rien ne se montre ; « par classe seulement » cache les noms ; le maître n'a que ses
+/// classes et ses matières ; « Les maîtres ont leur compte » sans la saisie lui ouvre le suivi
+/// mais pas les notes.
+#[tokio::test]
+async fn le_maitre_voit_au_suivi_ce_que_ses_eleves_ont_ouvert_et_fini() {
+    use gesco_services::portail::entree::DemandeLireSansCode;
+    use gesco_services::portail::lecture::ReponseLecture;
+    use gesco_services::portail::suivi::{DemandeAvancement, GesteAvancement};
+
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE, PUISSANCES]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let _maitres = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let annees = p.ok("annees_lister", Some(&admin), Value::Null).await;
+    let annee = annees
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["libelle"] == "2026-2027")
+        .unwrap()["id"]
+        .clone();
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee }))
+        .await;
+    let neuvieme = ped["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .unwrap()["id"]
+        .clone();
+    let classes = p
+        .ok("classes_lister", Some(&admin), json!({ "annee_id": annee }))
+        .await;
+    let neuf_a = classes
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["classe"]["libelle"] == "9e A")
+        .unwrap()["classe"]["id"]
+        .clone();
+    let neuf_b = p
+        .ok(
+            "classe_creer",
+            Some(&admin),
+            json!({ "annee_id": annee, "niveau_id": neuvieme, "serie_id": null,
+                "libelle": "9e B" }),
+        )
+        .await["id"]
+        .clone();
+    let adama = eleve_dans(&p, &admin, &neuf_a, "Adama", "E-921").await;
+    let _awa = eleve_dans(&p, &admin, &neuf_a, "Awa", "E-922").await;
+    let _binta = eleve_dans(&p, &admin, &neuf_b, "Binta", "E-923").await;
+    let catalogue = p
+        .ok("bibliotheque_catalogue", Some(&admin), Value::Null)
+        .await;
+    let racine = contenus_de(&catalogue)
+        .into_iter()
+        .find(|c| c["titre"] == "La racine carrée")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let a = entrer_au_portail(&p, &adama, "E-921").await;
+    let sans_code = match p
+        .application
+        .portail_lire_sans_code(&DemandeLireSansCode {
+            niveau_id: neuvieme.as_str().unwrap().to_owned(),
+            serie_id: None,
+        })
+        .await
+        .unwrap()
+    {
+        Some((jeton, _)) => jeton,
+        None => panic!("la 9e se lit sans code"),
+    };
+    let ReponseLecture::Lu(lu) = p
+        .application
+        .portail_contenu(Some(&a), &racine)
+        .await
+        .unwrap()
+    else {
+        panic!("la racine se lit");
+    };
+    let geste = |g: GesteAvancement| DemandeAvancement {
+        contenu_id: racine.clone(),
+        version: lu.version.clone(),
+        geste: g,
+    };
+    for (jeton, g) in [
+        (&a, GesteAvancement::Ouvert),
+        (&a, GesteAvancement::Fini),
+        (&sans_code, GesteAvancement::Ouvert),
+        (&sans_code, GesteAvancement::Fini),
+    ] {
+        assert!(matches!(
+            p.application
+                .portail_avancement(Some(jeton), &geste(g))
+                .await
+                .unwrap(),
+            ReponseLecture::Lu(())
+        ));
+    }
+    // Sans session, rien.
+    assert!(matches!(
+        p.application
+            .portail_avancement(None, &geste(GesteAvancement::Ouvert))
+            .await
+            .unwrap(),
+        ReponseLecture::SansSession
+    ));
+    // Avant même l'écriture, « Mon avancement » le compte.
+    let ReponseLecture::Lu(mon) = p
+        .application
+        .portail_mon_avancement(Some(&a))
+        .await
+        .unwrap()
+    else {
+        panic!("mon avancement se lit");
+    };
+    assert_eq!(mon.finies, vec![racine.clone()]);
+    assert_eq!(
+        mon.recentes.first().map(|r| r.id.as_str()),
+        Some(racine.as_str())
+    );
+    let math = mon.matieres.first().unwrap();
+    assert_eq!((math.finies, math.visibles), (1, 2));
+    // Un élève sans code n'a pas d'avancement.
+    assert!(matches!(
+        p.application
+            .portail_mon_avancement(Some(&sans_code))
+            .await
+            .unwrap(),
+        ReponseLecture::Introuvable
+    ));
+    // Le passage de la file écrit une seule ligne : celle d'Adama.
+    assert_eq!(p.application.portail_avancement_ecrire().await, 1);
+    assert_eq!(p.application.portail_avancement_ecrire().await, 0);
+
+    // La direction voit toutes les classes, par leçon et par élève.
+    let suivi = p
+        .ok(
+            "bibliotheque_suivi_lire",
+            Some(&admin),
+            json!({ "classe_id": neuf_a }),
+        )
+        .await;
+    assert_eq!(suivi["actif"], true);
+    assert_eq!(suivi["classes"].as_array().unwrap().len(), 2);
+    assert_eq!(suivi["eleves"], 2);
+    let ligne = suivi["lecons"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["titre"] == "La racine carrée")
+        .unwrap()
+        .clone();
+    assert_eq!(
+        (ligne["ouvertes"].clone(), ligne["finies"].clone()),
+        (json!(1), json!(1))
+    );
+    let par_eleve = suivi["par_eleve"].as_array().unwrap();
+    assert_eq!(par_eleve.len(), 2);
+    let d_adama = par_eleve
+        .iter()
+        .find(|e| e["nom"].as_str().unwrap().contains("Adama"))
+        .unwrap();
+    assert_eq!(d_adama["finies"], 1);
+    assert!(d_adama["derniere_visite"].is_i64());
+    let d_awa = par_eleve
+        .iter()
+        .find(|e| e["nom"].as_str().unwrap().contains("Awa"))
+        .unwrap();
+    assert_eq!(d_awa["finies"], 0);
+    assert!(d_awa["derniere_visite"].is_null());
+    // Imprimable.
+    let imprime = p
+        .ok(
+            "bibliotheque_suivi_imprimer",
+            Some(&admin),
+            json!({ "classe_id": neuf_a }),
+        )
+        .await;
+    assert!(!imprime["pdf"].as_str().unwrap().is_empty());
+
+    // Le compte du maître sans la saisie des notes.
+    let non = json!({ "type": "booleen", "valeur": false });
+    let oui = json!({ "type": "booleen", "valeur": true });
+    regler(&p, &admin, "notes.saisie_maitres", non.clone()).await;
+    regler(&p, &admin, "maitres.comptes", oui.clone()).await;
+    let sekou = p.connecter("sekou", "enseignant-2026").await;
+    let du_maitre = p
+        .ok("bibliotheque_suivi_lire", Some(&sekou), json!({}))
+        .await;
+    let siennes: Vec<&str> = du_maitre["classes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["libelle"].as_str().unwrap())
+        .collect();
+    assert_eq!(siennes, vec!["9e A"]);
+    assert_eq!(du_maitre["matieres"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        p.refus(
+            "bibliotheque_suivi_lire",
+            Some(&sekou),
+            json!({ "classe_id": neuf_b }),
+        )
+        .await
+        .cle,
+        "erreur.portee_refusee"
+    );
+    assert_eq!(
+        p.refus(
+            "evaluations_lister",
+            Some(&sekou),
+            json!({ "classe_id": neuf_a }),
+        )
+        .await
+        .cle,
+        "maitre.saisie_fermee"
+    );
+    p.ok("bibliotheque_catalogue", Some(&sekou), Value::Null)
+        .await;
+
+    // Par classe seulement : des nombres, sans noms.
+    regler(
+        &p,
+        &admin,
+        "portail.suivi_grain",
+        json!({ "type": "texte", "valeur": "classe" }),
+    )
+    .await;
+    let par_classe = p
+        .ok("bibliotheque_suivi_lire", Some(&sekou), json!({}))
+        .await;
+    assert!(par_classe["par_eleve"].as_array().unwrap().is_empty());
+    assert!(!par_classe["lecons"].as_array().unwrap().is_empty());
+
+    // Suivi éteint : rien ne s'écrit, rien ne se montre ; ce qui est écrit reste.
+    regler(&p, &admin, "bibliotheque.suivi_eleves", non.clone()).await;
+    let eteint = p
+        .ok("bibliotheque_suivi_lire", Some(&sekou), json!({}))
+        .await;
+    assert_eq!(eteint["actif"], false);
+    assert!(eteint["lecons"].as_array().unwrap().is_empty());
+    p.application
+        .portail_avancement(Some(&a), &geste(GesteAvancement::Ouvert))
+        .await
+        .unwrap();
+    assert_eq!(p.application.portail_avancement_ecrire().await, 0);
+    assert!(matches!(
+        p.application
+            .portail_mon_avancement(Some(&a))
+            .await
+            .unwrap(),
+        ReponseLecture::Introuvable
+    ));
+    regler(&p, &admin, "bibliotheque.suivi_eleves", oui).await;
+    let rallume = p
+        .ok(
+            "bibliotheque_suivi_lire",
+            Some(&admin),
+            json!({ "classe_id": neuf_a }),
+        )
+        .await;
+    assert!(
+        rallume["lecons"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l["titre"] == "La racine carrée" && l["finies"] == 1)
+    );
+
+    // Ni compte ni saisie : le maître n'entre plus.
+    regler(&p, &admin, "maitres.comptes", non).await;
+    let refus = p
+        .refus(
+            "connexion",
+            None,
+            json!({ "identifiant": "sekou", "mot_de_passe": "enseignant-2026" }),
+        )
+        .await;
+    assert_eq!(refus.cle, "connexion.maitres_non_admis");
+}

@@ -1,5 +1,5 @@
 //! Routes de l'API du portail des élèves : entrer, lire sans code, sortir, accueil, catalogue,
-//! contenu, fichiers et PDF. La session
+//! contenu, fichiers, PDF et avancement. La session
 //! de l'élève voyage dans un témoin `HttpOnly`, `SameSite=Strict` ; ni le code ni le jeton ne
 //! vont au journal.
 
@@ -13,6 +13,7 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use gesco_services::portail::entree::{DemandeEntrer, DemandeLireSansCode, Entree};
 use gesco_services::portail::lecture::{FichierLuPortail, Plage, ReponseLecture};
+use gesco_services::portail::suivi::DemandeAvancement;
 use serde_json::json;
 
 use super::EtatPortail;
@@ -275,6 +276,45 @@ pub(crate) async fn pdf(
             h.insert(CONTENT_DISPOSITION, disposition_pdf(&nom));
             reponse
         }
+        Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
+        Err(_) => panne(),
+    }
+}
+
+/// Un geste d'avancement : leçon ouverte ou finie. Rien n'est jamais refusé à l'élève pour le
+/// suivi : sans code ou suivi éteint, la réponse est la même et rien ne s'écrit.
+pub(crate) async fn avancement(
+    State(etat): State<EtatPortail>,
+    entetes: HeaderMap,
+    Json(demande): Json<DemandeAvancement>,
+) -> Response {
+    if !identifiant_sur(&demande.contenu_id) || demande.version.len() > 128 {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let jeton = jeton(&entetes);
+    match etat
+        .application
+        .portail_avancement(jeton.as_deref(), &demande)
+        .await
+    {
+        Ok(ReponseLecture::Lu(())) => StatusCode::NO_CONTENT.into_response(),
+        Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
+        Err(_) => panne(),
+    }
+}
+
+/// « Mon avancement » de l'élève entré avec son code.
+pub(crate) async fn mon_avancement(
+    State(etat): State<EtatPortail>,
+    entetes: HeaderMap,
+) -> Response {
+    let jeton = jeton(&entetes);
+    match etat
+        .application
+        .portail_mon_avancement(jeton.as_deref())
+        .await
+    {
+        Ok(ReponseLecture::Lu(a)) => Json(a).into_response(),
         Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
         Err(_) => panne(),
     }

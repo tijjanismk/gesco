@@ -1,5 +1,5 @@
 import type { Cle } from "../i18n";
-import { ACCES, COMMANDES_DU_MAITRE, COMMANDES_POSTE_PRINCIPAL, type NomCommande } from "../types/acces";
+import { ACCES, COMMANDES_DE_LA_SAISIE, COMMANDES_DU_MAITRE, COMMANDES_POSTE_PRINCIPAL, type NomCommande } from "../types/acces";
 import type { ModuleEcole } from "../types/gesco";
 
 export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "bibliotheque" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes" | "statistiques" | "inventaire" | "rapports";
@@ -71,20 +71,22 @@ const SECTIONS: readonly Section[] = [
 export const GROUPES_REPLIES: readonly Cle[] = ["nav.groupe.parametres", "nav.groupe.outils"];
 
 /** Vrai si la session détient l'accès qu'exige la commande : un confort d'affichage, la garde Rust
- *  décide (R-21). Un compte de maître n'a que les commandes de sa liste. */
-export function commandeAutorisee(commande: NomCommande | null, permissions: readonly string[], maitre = false): boolean {
+ *  décide (R-21). Un compte de maître n'a que les commandes de sa liste, et celles de la saisie
+ *  seulement quand l'école lui a ouvert la saisie des notes. */
+export function commandeAutorisee(commande: NomCommande | null, permissions: readonly string[], maitre = false, saisie = true): boolean {
   if (commande === null) return true;
   if (maitre && !COMMANDES_DU_MAITRE.includes(commande)) return false;
+  if (maitre && !saisie && COMMANDES_DE_LA_SAISIE.includes(commande)) return false;
   const acces: { type: string; permission?: string } = ACCES[commande];
   return acces.type !== "permission" || (acces.permission !== undefined && permissions.includes(acces.permission));
 }
 
 /** Sections affichées. Sur un poste relié, celles de ce qui ne se fait que sur le poste principal
  *  (sauvegardes, postes de l'école) ne paraissent pas. */
-export function sectionsAutorisees(permissions: readonly string[], modules: readonly ModuleEcole[], relie = false, maitre = false): Section[] {
+export function sectionsAutorisees(permissions: readonly string[], modules: readonly ModuleEcole[], relie = false, maitre = false, saisie = true): Section[] {
   return SECTIONS.filter(
     (s) =>
-      commandeAutorisee(s.commande, permissions, maitre) &&
+      commandeAutorisee(s.commande, permissions, maitre, saisie) &&
       (s.module === undefined || modules.includes(s.module)) &&
       !(relie && s.commande !== null && COMMANDES_POSTE_PRINCIPAL.includes(s.commande)),
   );

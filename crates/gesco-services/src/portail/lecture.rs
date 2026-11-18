@@ -295,6 +295,7 @@ pub struct LecturePortail {
     choix_chapitres: HashMap<String, Vec<ClasseChoisie>>,
     annee_courante: Option<String>,
     pdf: bool,
+    suivi: bool,
 }
 
 impl fmt::Debug for LecturePortail {
@@ -636,6 +637,7 @@ impl LecturePortail {
             choix_chapitres,
             annee_courante,
             pdf: reglages.pdf,
+            suivi: reglages.suivi,
         })
     }
 
@@ -808,6 +810,11 @@ impl LecturePortail {
     /// Le PDF est ouvert par la direction pour ce contenu.
     pub fn pdf_permis(&self, contenu_id: &str) -> bool {
         self.pdf && self.contenus.get(contenu_id).is_some_and(|l| l.eleve.pdf)
+    }
+
+    /// Le suivi des élèves est allumé : l'avancement d'un élève entré avec son code s'écrit.
+    pub fn suivi(&self) -> bool {
+        self.suivi
     }
 
     /// Paquet et clé d'un contenu livré, pour retrouver ses images.

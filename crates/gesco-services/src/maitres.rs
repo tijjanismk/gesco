@@ -17,6 +17,23 @@ use crate::session::Session;
 /// Réglage de l'école « Les maîtres saisissent leurs notes », éteint à la livraison.
 pub const PARAMETRE_SAISIE: &str = gesco_core::core::parametre::SAISIE_DES_MAITRES;
 
+/// Réglage de l'école « Les maîtres ont leur compte » (bibliothèque, suivi), éteint à la
+/// livraison (T-134). Un compte de maître ouvre sa session si l'un des deux réglages est allumé.
+pub const PARAMETRE_COMPTES: &str = gesco_core::core::parametre::COMPTES_DES_MAITRES;
+
+/// Clé du refus d'une commande de la saisie quand l'école n'a ouvert aux maîtres que leur compte.
+pub const REFUS_SAISIE: &str = "maitre.saisie_fermee";
+
+/// Les deux réglages des comptes de maîtres : (compte ouvert, saisie ouverte). La saisie ouverte
+/// ouvre le compte.
+pub async fn reglages(cnx: &mut Connexion, contexte: &Contexte) -> Resultat<(bool, bool)> {
+    let saisie =
+        gesco_db::depots::parametre::booleen_param(cnx, PARAMETRE_SAISIE, false, contexte).await?;
+    let comptes =
+        gesco_db::depots::parametre::booleen_param(cnx, PARAMETRE_COMPTES, false, contexte).await?;
+    Ok((comptes || saisie, saisie))
+}
+
 /// Clé du refus d'une commande hors de la liste d'un compte de maître.
 pub const REFUS_COMMANDE: &str = "maitre.commande_refusee";
 

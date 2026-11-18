@@ -5,9 +5,14 @@ use serde::{Deserialize, Serialize};
 use super::etablissement::Etablissement;
 use crate::commun::Id;
 
-/// Clé du réglage « Les maîtres saisissent leurs notes » : éteint, un compte qui n'a que le rôle
-/// Enseignant n'ouvre pas de session.
+/// Clé du réglage « Les maîtres saisissent leurs notes » : allumé, un compte qui n'a que le rôle
+/// Enseignant ouvre sa session et saisit notes, absences et observations de ses classes.
 pub const SAISIE_DES_MAITRES: &str = "notes.saisie_maitres";
+
+/// Clé du réglage « Les maîtres ont leur compte » (SPEC_PHASE_12_LOT_4 §10, T-134) : allumé, un
+/// compte de maître ouvre sa session pour la bibliothèque de cours et le suivi de ses élèves,
+/// sans la saisie des notes tant que [`SAISIE_DES_MAITRES`] reste éteint. Éteint à la livraison.
+pub const COMPTES_DES_MAITRES: &str = "maitres.comptes";
 
 /// Valeur typée d'un paramètre.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
@@ -354,6 +359,9 @@ pub fn parametres_par_defaut(etablissement_id: Id<Etablissement>) -> Vec<Paramet
         // Les maîtres saisissent leurs notes avec leur compte : éteint à la livraison, la
         // direction saisit tout.
         p(SAISIE_DES_MAITRES, ValeurParametre::Booleen(false), true),
+        // T-134 : les maîtres peuvent avoir leur compte (bibliothèque, suivi) sans saisir leurs
+        // notes ; éteint à la livraison, comme la saisie.
+        p(COMPTES_DES_MAITRES, ValeurParametre::Booleen(false), true),
         p(
             "cantine.repas_comptes",
             ValeurParametre::Booleen(false),

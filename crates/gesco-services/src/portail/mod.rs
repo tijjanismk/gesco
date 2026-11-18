@@ -6,6 +6,7 @@
 pub mod codes;
 pub mod entree;
 pub mod lecture;
+pub mod suivi;
 
 use std::sync::Mutex;
 
@@ -71,6 +72,8 @@ pub struct PortailVivant {
     pub verifications: tokio::sync::Semaphore,
     /// Ce que les élèves lisent, en mémoire.
     pub lecture: lecture::CacheLecture,
+    /// Gestes d'avancement qui attendent d'être écrits (toutes les cinq secondes).
+    pub avancement: suivi::FileAvancement,
 }
 
 impl Default for PortailVivant {
@@ -84,6 +87,7 @@ impl Default for PortailVivant {
                 gesco_core::bibliotheque::portail::VERIFICATIONS_SIMULTANEES,
             ),
             lecture: lecture::CacheLecture::default(),
+            avancement: suivi::FileAvancement::default(),
         }
     }
 }

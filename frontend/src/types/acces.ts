@@ -165,6 +165,8 @@ export const ACCES = {
   portail_etat: { type: "permission", permission: "library:manage" },
   portail_regler: { type: "permission", permission: "library:manage" },
   portail_affiche: { type: "permission", permission: "library:manage" },
+  bibliotheque_suivi_lire: { type: "permission", permission: "library:follow" },
+  bibliotheque_suivi_imprimer: { type: "permission", permission: "library:follow" },
   portail_codes_classe: { type: "permission", permission: "portal:codes" },
   portail_billets_produire: { type: "permission", permission: "portal:codes" },
   portail_code_lire: { type: "permission", permission: "portal:codes" },
@@ -563,4 +565,27 @@ export const COMMANDES_DU_MAITRE: readonly NomCommande[] = [
   "bibliotheque_imprimer",
   "bibliotheque_faits_imprimer",
   "bibliotheque_chapitre_imprimer",
+  "bibliotheque_suivi_lire",
+  "bibliotheque_suivi_imprimer",
+];
+
+/** Commandes de la saisie des maîtres : ouvertes seulement quand l'école a ouvert la saisie des notes. */
+export const COMMANDES_DE_LA_SAISIE: readonly NomCommande[] = [
+  "evaluations_lister",
+  "evaluation_creer",
+  "notes_grille",
+  "note_saisir",
+  "bulletins_lire",
+  "appreciation_saisir",
+  "appreciations_remplir",
+  "jardin_lire",
+  "observations_grille",
+  "observation_saisir",
+  "observations_colonne",
+  "observation_apprecier",
+  "absences_releve_lire",
+  "absences_releve_enregistrer",
+  "absences_periode_lire",
+  "absences_seances_lire",
+  "absences_seances_enregistrer",
 ];

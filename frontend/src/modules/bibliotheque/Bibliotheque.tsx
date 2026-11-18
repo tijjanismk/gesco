@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { appeler } from "../../api";
+import { commandeAutorisee } from "../../app/navigation";
 import { Bouton } from "../../composants/Bouton";
 import { CaseACocher } from "../../composants/Champ";
 import { MessageErreur } from "../../composants/Messages";
@@ -17,6 +18,7 @@ import { Ajouter } from "./Ajouter";
 import { DroitsPublication } from "./DroitsPublication";
 import { ExporterLecons } from "./Echange";
 import { ListeEnAttente, useLeconsAValider } from "./EnAttente";
+import { SuiviEleves } from "./SuiviEleves";
 import { Lecture, libelleNature } from "./Lecture";
 import { type CiblePourQui, MarqueClasses, PourQui } from "./PourQui";
 import { ListeRetraits, trouverPlace } from "./Retraits";
@@ -334,6 +336,10 @@ export function Bibliotheque() {
   const [enEcriture, setEnEcriture] = useState(false);
   const [attente, setAttente] = useState(false);
   const [droits, setDroits] = useState(false);
+  const [suiviOuvert, setSuiviOuvert] = useState(false);
+  const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
+  const peutSuivre =
+    session.data !== undefined && commandeAutorisee("bibliotheque_suivi_lire", session.data.permissions, session.data.maitre);
   // Leçons cochées pour l'export (null : pas de choix en cours) et export ouvert.
   const [coches, setCoches] = useState<ReadonlySet<string> | null>(null);
   const [exportant, setExportant] = useState<SelectionExport | null>(null);
@@ -401,6 +407,16 @@ export function Bibliotheque() {
             {t("bibliotheque.droits.titre")}
           </button>
         ) : null}
+        {peutSuivre ? (
+          <button
+            type="button"
+            onClick={() => setSuiviOuvert(!suiviOuvert)}
+            aria-pressed={suiviOuvert}
+            className="rounded border border-muet px-3 py-1.5 text-sm text-encre hover:bg-fond focus-visible:outline-2 focus-visible:outline-primaire"
+          >
+            {t("suivi.titre")}
+          </button>
+        ) : null}
         {donnees?.peut_ecrire === true ? (
           <button
             type="button"
@@ -448,6 +464,7 @@ export function Bibliotheque() {
         </div>
       )}
       {droits ? <DroitsPublication /> : null}
+      {suiviOuvert && peutSuivre ? <SuiviEleves /> : null}
       {attente ? (
         <ListeEnAttente
           surOuvrir={(id) => {

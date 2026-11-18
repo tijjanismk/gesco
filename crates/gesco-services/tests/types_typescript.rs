@@ -15,7 +15,9 @@
 use std::borrow::Cow;
 use std::path::PathBuf;
 
-use gesco_services::commandes::{Acces, COMMANDES, COMMANDES_DU_MAITRE, COMMANDES_POSTE_PRINCIPAL};
+use gesco_services::commandes::{
+    Acces, COMMANDES, COMMANDES_DE_LA_SAISIE, COMMANDES_DU_MAITRE, COMMANDES_POSTE_PRINCIPAL,
+};
 use gesco_services::frontiere::{Contrat, ErreurCommande};
 use specta::datatype::{DataType, Fields, NamedReferenceType, Primitive, Reference};
 use specta::{Format, FormatError, Types};
@@ -173,6 +175,14 @@ fn la_table_des_acces_est_a_jour() {
     );
     texte.push_str("export const COMMANDES_DU_MAITRE: readonly NomCommande[] = [\n");
     for nom in COMMANDES_DU_MAITRE {
+        texte.push_str(&format!("  \"{nom}\",\n"));
+    }
+    texte.push_str("];\n");
+    texte.push_str(
+        "\n/** Commandes de la saisie des maîtres : ouvertes seulement quand l'école a ouvert la saisie des notes. */\n",
+    );
+    texte.push_str("export const COMMANDES_DE_LA_SAISIE: readonly NomCommande[] = [\n");
+    for nom in COMMANDES_DE_LA_SAISIE {
         texte.push_str(&format!("  \"{nom}\",\n"));
     }
     texte.push_str("];\n");

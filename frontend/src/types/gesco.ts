@@ -2325,6 +2325,8 @@ export type Contrat = {
 	portail_code_lire: Signature<DemandeCodeEleve, CodeEleveEtat>,
 	portail_code_remettre: Signature<DemandeCodeEleve, BilletsPortail>,
 	portail_affiche: Signature<null, AffichePortail>,
+	bibliotheque_suivi_lire: Signature<DemandeSuivi, SuiviClasse>,
+	bibliotheque_suivi_imprimer: Signature<DemandeSuivi, PdfRapport>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_document_fichier_ajouter: Signature<DemandeFichierDocument, FichierDocument[]>,
 	/**  Signature de la commande du même nom. */
@@ -9880,6 +9882,85 @@ export type AffichePortail = {
 	pdf: string,
 };
 
+/**
+ *  Ce que demande l'écran « Suivi des élèves » : une classe et une matière ; sans elles, la
+ *  première de la liste.
+ */
+export type DemandeSuivi = {
+	/**  Classe voulue. */
+	classe_id?: string | null,
+	/**  Matière voulue (clé du catalogue). */
+	matiere_cle?: string | null,
+};
+
+/**  Une classe que ce compte peut suivre. */
+export type ClasseASuivre = {
+	/**  Classe. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+};
+
+/**  Une matière de la classe que ce compte peut suivre. */
+export type MatiereSuivie = {
+	/**  Clé du catalogue. */
+	cle: string,
+	/**  Libellé. */
+	libelle: string,
+};
+
+/**  Une leçon dans le suivi : combien d'élèves de la classe l'ont ouverte et finie. */
+export type LeconSuivie = {
+	/**  Contenu. */
+	id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Titre de son chapitre. */
+	chapitre: string,
+	/**  Élèves qui l'ont ouverte. */
+	ouvertes: number,
+	/**  Élèves qui l'ont finie. */
+	finies: number,
+};
+
+/**  Un élève dans le suivi (grain « par élève » seulement). */
+export type EleveSuivi = {
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  Leçons de la matière ouvertes. */
+	ouvertes: number,
+	/**  Leçons de la matière finies. */
+	finies: number,
+	/**  Dernière visite au portail (millisecondes), toutes matières. */
+	derniere_visite: number | null,
+};
+
+/**  Le suivi d'une classe dans une matière. */
+export type SuiviClasse = {
+	/**  Le suivi est allumé (et l'e-learning aussi) ; éteint, rien n'est montré. */
+	actif: boolean,
+	/**  `eleve` ou `classe`. */
+	grain: string,
+	/**  Classes que ce compte peut suivre. */
+	classes: ClasseASuivre[],
+	/**  Classe montrée. */
+	classe_id: string | null,
+	/**  Libellé de la classe montrée. */
+	classe: string,
+	/**  Élèves inscrits dans la classe. */
+	eleves: number,
+	/**  Matières de la classe que ce compte peut suivre. */
+	matieres: MatiereSuivie[],
+	/**  Matière montrée. */
+	matiere_cle: string | null,
+	/**  Leçons de la matière, dans l'ordre du programme. */
+	lecons: LeconSuivie[],
+	/**  Élèves, dans l'ordre alphabétique ; vide au grain « par classe ». */
+	par_eleve: EleveSuivi[],
+};
+
 export type EtatPortail = {
 
 	/**  Réglages. */
@@ -11261,6 +11342,11 @@ export type SessionCourante = {
 	role_poste: RolePoste,
 	/**  Compte de maître : l'écran ne montre que ce que sa liste de commandes lui ouvre. */
 	maitre: boolean,
+	/**
+	 *  Compte de maître et saisie des notes ouverte par l'école : faux, ses écrans de notes,
+	 *  d'absences et d'observations ne paraissent pas.
+	 */
+	maitre_saisit: boolean,
 };
 
 /**  Sexe d'une personne. */
