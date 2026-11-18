@@ -912,3 +912,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - Suite, dans l'ordre du porteur : tous les essais de la 2.0.0 en une fois, avec leurs corrections
   (dont la régénération du contrat TypeScript, écrit à la main) ; puis l'installeur 2.0.0 pour
   l'école d'essai ; puis les lots 3 (quiz) et 5 (devoirs), toujours dans la 2.0.0.
+- 2026-11-18 : reprise avant GESCO finie (étapes 1 à 8, dernier `311e21b`) et prise en charge par
+  l'État finie (étapes 1 à 8, dernier `947ba8a`), sans essais lancés. Essais globaux, corrections,
+  école d'essai refaite (son d'essai audible) et installeur 2.0.0 pour l'école de test
+  (`Documents\GESCO-2.0.0-ecole-test`) lancés sans approbation, comme décidé, dans
+  `local_1357f7c8-3a49-4919-a973-ddb66d320d2f`. Orchestrateur principal prévenu. 22 Go libres.
