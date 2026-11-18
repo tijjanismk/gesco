@@ -767,5 +767,5 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - Essais écrits non lancés de l'étape 5 : `le_maitre_voit_au_suivi_ce_que_ses_eleves_ont_ouvert_et_fini`
   (`gesco-services/tests/bibliotheque.rs`), unitaires de `portail/suivi.rs`, liste du maître
   (`commandes.rs`).
-- Police Andika : toujours pas téléchargée (accord du porteur du projet attendu).
+- Police Andika : déposée le 18 novembre 2026 après l'accord du porteur du projet (régulière et grasse, `OFL.txt`) ; premier chargement au-delà des 300 Ko de la spécification, écart écrit dans `ETAT_AVANCEMENT.md`.
 - Disque : 12 Go libres après l'étape 5 (`CARGO_INCREMENTAL=0`).

@@ -208,6 +208,7 @@ fn type_de_fichier(nom: &str) -> &'static str {
         "png" => "image/png",
         "ico" => "image/x-icon",
         "webmanifest" | "json" => "application/manifest+json",
+        "txt" => "text/plain; charset=utf-8",
         _ => "application/octet-stream",
     }
 }
