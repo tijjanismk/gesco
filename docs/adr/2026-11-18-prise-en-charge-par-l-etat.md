@@ -22,6 +22,10 @@
   pas à la caisse. La table `recette_tresorerie` porte déjà une recette hors des versements, dans un
   compte, sans session hors espèces, et la compte au livre, au rapprochement, au journal et au
   budget.
+- Précisions du porteur du même jour : pas de frais d'inscription pour un élève pris en charge ;
+  la cantine reste due par le parent si l'école en a une ; pour le reste, la solution la plus
+  simple qui ne fausse aucun chiffre.
+- GESCO n'est installé dans aucune école : aucune case cochée ni facture à convertir.
 - Aucune dépendance n'est ajoutée : rien à vérifier sur endoflife.date ni crates.io.
 
 ## Options
@@ -39,10 +43,12 @@
 Option 1, migration 0066 (ou la suivante libre) :
 
 - `prise_en_charge_etat` : une ligne par version de la prise en charge d'une inscription
-  (`en_cours`, `terminee`, `remplacee`), avec les natures de frais prises en charge, le montant
-  attendu, l'abandonné, qui porte l'écart, la référence d'orientation, le motif ; une seule version
-  courante par inscription (index unique partiel). La colonne de la case reste, écrite dans la
-  même transaction, pour les rapports.
+  (`en_cours`, `terminee`, `remplacee`), avec le montant attendu, l'abandonné, la référence
+  d'orientation, le motif ; une seule version courante par inscription (index unique partiel). La
+  colonne de la case reste, écrite dans la même transaction, pour les rapports. Qui doit quoi par
+  nature de frais n'est pas une donnée : la scolarité à l'État, l'inscription non due, la cantine
+  et le reste au parent (précisions du porteur du 18 novembre 2026) ; l'écart entre les frais de
+  l'école et le montant de l'État est toujours renoncé par l'école.
 - `montant_etat` : montant attendu de l'État par année, niveau et série (vide = les frais de
   l'école) ; table de réglage, créée seulement si la réponse à T-164 est b).
 - `versement_etat` : un versement de l'État (date, montant, référence, année concernée), lié à la

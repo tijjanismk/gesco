@@ -4,10 +4,17 @@
 **Objet** : la scolarité d'un élève orienté par l'État est due par l'État, pas par le parent ; le
 parent ne doit que le reste ; les versements de l'État, souvent tardifs et groupés, se répartissent
 sur les élèves ; l'école suit ce que l'État lui doit et l'imprime pour le réclamer ; version 2.0.0
-**Statut** : v1.0 — **proposée** le 18 novembre 2026 au porteur du projet, avec les questions
-T-164 à T-170 (§14)
-**Décision qui la fonde** : porteur du projet, 18 novembre 2026, à la question « pour un élève
-orienté par l'État, qui paie la scolarité ? » : « L'État, pas le parent » (`docs/orchestration.md`)
+**Statut** : v1.1 — **proposée** le 18 novembre 2026 au porteur du projet ; deux questions restent
+ouvertes, T-164 et T-171 (§14) ; T-165 à T-170 sont tranchées dans la spécification, le porteur
+ayant laissé le choix (« pour la gestion de l'État, débrouille pour ne pas fausser ») ; v1.0
+proposée le même jour
+**Décisions qui la fondent** : porteur du projet, 18 novembre 2026, à la question « pour un élève
+orienté par l'État, qui paie la scolarité ? » : « L'État, pas le parent » (`docs/orchestration.md`) ;
+puis, le même jour : « pas d'inscription et la cantine est le parent s'il l'école possède une et pour
+la gestion de l'État débrouille pour ne pas fausser » — un élève pris en charge ne paie pas de frais
+d'inscription, la cantine reste due par le parent si l'école en a une, et le reste de la gestion de
+l'État est laissé au choix le plus simple qui ne fausse aucun chiffre. GESCO n'est encore installé
+dans aucune école : aucune donnée existante à convertir, aucun rôle livré à faire monter
 **Documents parents** : `SPEC_PHASE_9.md` §8.2 (case « Prise en charge par l'État », migration
 `0056_complements_rapports`), `SPEC_PHASE_3.md` (§4 facture et échéancier, §5 remises, §7
 encaissement et imputation, §9 impayés), `SPEC_PHASE_5.md` (relances et consultation par SMS),
@@ -33,9 +40,9 @@ techniques, y compris privés, et paie leur scolarité à l'école. Il paie tard
 plusieurs mois), par un seul virement pour beaucoup d'élèves, parfois pour un montant différent de
 ce que l'école attendait. Pendant ce temps :
 
-- le parent ne doit pas être relancé pour une scolarité qui ne le regarde pas ; il doit le reste
-  (inscription, cantine, tenue…) et ses reçus, sa situation, ses relances et ses SMS ne parlent
-  que de cela ;
+- le parent ne doit pas être relancé pour une scolarité qui ne le regarde pas ; il ne paie pas
+  de frais d'inscription ; il doit le reste (la cantine si l'école en a une, la tenue, le
+  transport…) et ses reçus, sa situation, ses relances et ses SMS ne parlent que de cela ;
 - l'école doit savoir, élève par élève, classe par classe et en tout, ce que l'État lui doit
   encore, et pouvoir l'imprimer pour le réclamer ;
 - l'argent de l'État entre une fois dans la trésorerie, dans le bon compte, au jour où il arrive.
@@ -64,9 +71,9 @@ Ce qui manque :
 La spécification est réalisée quand ces dix assertions sont vraies, chacune démontrée par un essai
 automatisé (§12) :
 
-1. Pour un élève coché, la part de l'État (les lignes que l'école a choisies, la scolarité par
-   défaut, au montant attendu, §3) sort du reste à payer du parent ; le parent ne doit que le
-   reste.
+1. Pour un élève coché, la part de l'État (la scolarité, plus les frais que l'école lui ajoute,
+   au montant attendu, §3) et les frais d'inscription (que personne ne doit, T-171) sortent du
+   reste à payer du parent ; le parent ne doit que le reste, dont la cantine si l'école en a une.
 2. Encaissement, reçu, situation remise au parent, relevé de compte, impayés, relances SMS,
    consultation du solde par SMS, guichet, documents remis, départ (solde exigé) et report de fin
    d'année ne lisent que la part du parent.
@@ -96,8 +103,9 @@ automatisé (§12) :
 
 ## 1. Périmètre
 
-**Inclus** : effet financier de la case ; montant attendu de l'État par élève (§3) ; écart entre les
-frais de l'école et le montant de l'État ; cocher, décocher, modifier, abandonner ce que l'État ne
+**Inclus** : effet financier de la case ; inscription non due ; montant attendu de l'État par élève
+(§3) ; écart entre les frais de l'école et le montant de l'État, à la charge de l'école ; cocher,
+décocher, modifier, abandonner ce que l'État ne
 paiera pas, avec trace ; trop-payé du parent et son remboursement ; versements de l'État, leur
 répartition à l'écran ou par fichier, leur annulation ; versement de l'État reçu avant GESCO ;
 état de ce que doit l'État, écran, Excel et PDF ; effets sur les rapports de recettes, le budget et
@@ -149,10 +157,8 @@ d'une inscription :
 |---|---|
 | `inscription_id` | L'inscription de l'année (la finance référence l'inscription, jamais l'élève) |
 | `statut` | `en_cours` (case cochée), `terminee` (case décochée), `remplacee` (version ancienne) |
-| `types_frais` | Natures de frais prises en charge, au moment où la case est cochée (réglage `etat.frais_pris_en_charge`, `scolarite` par défaut) |
 | `montant_attendu` | Ce que l'État doit payer pour cet élève pour l'année (§3.3), entier, ≥ 0 |
 | `abandonne` | Ce que l'école renonce à attendre de l'État (§3.6), entier, entre 0 et `montant_attendu` |
-| `ecart_a_charge` | `ecole` ou `parent` : qui porte l'écart quand les frais de l'école dépassent le montant attendu (T-165), au moment où la case est cochée |
 | `reference` | Facultative, 60 caractères : numéro de la décision d'orientation, numéro de place au DEF |
 | `motif` | Obligatoire pour `terminee` et pour un abandon |
 | `remplace_id` | La version qu'elle remplace |
@@ -167,29 +173,36 @@ ne se supprime (déclencheur).
 courante est `en_cours`. Le service écrit les deux dans la même transaction ; les rapports
 officiels (`complements::prises_en_charge`) continuent de lire la colonne, sans changement.
 
-### 3.2 Réglages de l'école
+### 3.2 Qui doit quoi, par nature de frais
 
-Dans les réglages de l'école (Finance), visibles seulement si l'école a une classe de lycée ou du
-technique :
+Décision du porteur (18 novembre 2026), sans réglage, pour un élève dont la case est cochée :
 
-- `etat.frais_pris_en_charge` : les natures de frais que paie l'État (cases : inscription,
-  scolarité, cantine, transport, tenue, examen, autre) ; **scolarité seule** par défaut.
-- `etat.ecart_a_charge` : « l'école » (défaut) ou « le parent » (T-165).
-- **Montant attendu de l'État par niveau et série** (T-164) : un tableau des niveaux du lycée et du
-  technique de l'année (et de leurs séries), une case par ligne, vide par défaut ; vide = les frais
-  de l'école. Table `montant_etat` (année, niveau, série facultative, montant facultatif), ADR.
+| Nature de la ligne | Due par | Dans le calcul (§3.4) |
+|---|---|---|
+| Scolarité | **L'État** | Échéance « à l'État » |
+| Inscription | **Personne** : elle n'est pas due (T-171, recommandation) | Échéance « non due » : tout son dû est renoncé, à la charge de l'école |
+| Cantine | **Le parent**, s'il y a une ligne de cantine sur la facture (l'école qui n'a pas de cantine n'en facture pas) | Échéance ordinaire |
+| Tenue, transport, examen, autre | Le parent | Échéance ordinaire |
 
-Changer un réglage ne change pas les élèves déjà cochés (chaque version de prise en charge porte
-ses valeurs) ; l'écran propose ensuite « Appliquer aux 37 élèves déjà cochés », avec l'aperçu de ce
-qui change pour l'État et pour les parents (§6.1).
+Ainsi la seule chose que l'école règle est le montant attendu de l'État (§3.3). Si la réponse à
+T-171 est « l'État paie l'inscription », l'inscription passe simplement en échéance « à l'État » :
+rien d'autre ne change.
+
+**Montant attendu de l'État par niveau et série** (T-164) : dans les réglages de l'école (Finance),
+visibles seulement si l'école a une classe de lycée ou du technique, un tableau des niveaux du
+lycée et du technique de l'année (et de leurs séries), une case par ligne, vide par défaut ; vide =
+les frais de l'école. Table `montant_etat` (année, niveau, série facultative, montant facultatif),
+ADR. Changer ce tableau ne change pas les élèves déjà cochés (chaque version de prise en charge
+porte son montant) ; l'écran propose ensuite « Appliquer aux 37 élèves déjà cochés », avec l'aperçu
+de ce qui change pour l'État (§6.1).
 
 ### 3.3 Montant attendu
 
 À la case cochée, le montant attendu se propose ainsi (T-164, recommandation) :
 1. le montant de `montant_etat` pour le niveau et la série de la classe, s'il est réglé ;
-2. sinon, **les frais de l'école** : la somme des lignes de la facture dont la nature est prise en
-   charge, après les remises et les baisses (le dû net de ces lignes) ; sans facture encore,
-   les lignes de la grille en vigueur pour le niveau et la série.
+2. sinon, **les frais de l'école** : la scolarité de la facture après les remises et les baisses
+   (son dû net) ; sans facture encore, la scolarité de la grille en vigueur pour le niveau et la
+   série.
 
 Il se corrige ensuite élève par élève ou pour une sélection (« Montant attendu : 100 000 F pour
 les 12 élèves cochés »), par le titulaire de la permission (§8). Il ne change pas de lui-même :
@@ -200,8 +213,11 @@ un changement de classe propose le nouveau montant si la règle en donne un autr
 Pour une facture vivante, échéances dues rangées par date puis par rang :
 
 - `net(e)` : dû de l'échéance après remises et baisses, comme aujourd'hui ;
-- une échéance est **couverte** si la nature de sa ligne est dans `types_frais` de la version
-  courante ; `N` = somme des `net` des échéances couvertes ;
+- quand la version courante est `en_cours`, une échéance est **à l'État** si sa ligne est de la
+  scolarité, **non due** si elle est de l'inscription (§3.2) ; on dit **couvertes** les échéances
+  à l'État et non dues ; `N` = somme des `net` des échéances à l'État ; une version `terminee`
+  n'a que des échéances à l'État (la scolarité), aucune non due : l'inscription redevient due par
+  le parent ;
 - `S` = ce que l'État a payé pour cette inscription : somme des parts actives des versements de
   l'État non annulés (§7).
 
@@ -211,20 +227,20 @@ Pour une facture vivante, échéances dues rangées par date puis par rang :
   charge, l'État doit exactement ce qu'il a déjà payé ; le reste revient au parent ;
 - pas de prise en charge : `E = 0`.
 
-**Ce que personne ne doit**, `R` (version `en_cours` seulement) : sur les échéances couvertes, ce
-que l'État ne paiera pas et que l'école prend à sa charge :
-- l'abandon (§3.6), toujours ;
-- l'écart `N − montant_attendu`, s'il est positif et si `ecart_a_charge = ecole`.
-Formellement : écart à la charge de l'école, `R = N − E` ; à la charge du parent,
-`R = min(abandonne, N − E)`.
+**Ce que personne ne doit**, `R` (version `en_cours` seulement), à la charge de l'école, jamais du
+parent (T-165, tranchée) :
+- sur les échéances à l'État, `N − E` : l'écart quand les frais de l'école dépassent le montant
+  attendu, et l'abandon (§3.6) ;
+- sur les échéances non dues (inscription), tout leur `net`.
 
-**Placement**, sur les échéances couvertes :
-- `part_etat(e)` : `E` placé **de la plus ancienne à la plus récente**, chaque part au plus
-  `net(e)` (l'État est en retard dès la première tranche qu'il ne paie pas) ;
-- `renonce(e)` : `R` placé **de la plus récente à la plus ancienne** sur ce qui reste (comme une
-  remise) ;
-- `part_parent(e) = net(e) − part_etat(e) − renonce(e)` ; sur une échéance non couverte,
-  `part_parent(e) = net(e)`.
+**Placement** :
+- `part_etat(e)` : `E` placé sur les échéances à l'État **de la plus ancienne à la plus
+  récente**, chaque part au plus `net(e)` (l'État est en retard dès la première tranche qu'il ne
+  paie pas) ;
+- `renonce(e)` : sur les échéances à l'État, `N − E` placé **de la plus récente à la plus
+  ancienne** sur ce qui reste (comme une remise) ; sur une échéance non due, `renonce(e) = net(e)` ;
+- `part_parent(e) = net(e) − part_etat(e) − renonce(e)` : 0 sur une échéance couverte d'une
+  version `en_cours` ; sur une échéance non couverte (cantine, tenue…), `part_parent(e) = net(e)`.
 
 **Côté État** : `S` placé de la plus ancienne à la plus récente sur `part_etat(e)` donne
 `paye_etat(e)` ; `reste_etat(e) = part_etat(e) − paye_etat(e)` ; ce qui dépasse la somme des
@@ -255,14 +271,15 @@ renonce(e) + part_parent(e)` ; aucun montant négatif.
 Sans prise en charge ni trop-payé, `part_parent = net`, `X = 0`, `B_tp = 0` : le calcul est
 exactement celui d'aujourd'hui et de la reprise (assertion 10).
 
-### 3.5 Le trop-payé du parent (T-166)
+### 3.5 Le trop-payé du parent (T-166, tranchée)
 
-Un parent a payé la 1re tranche de scolarité avant que la case soit cochée. Ses versements gardent
-leurs imputations (le reçu qu'il a en main dit « 1re tranche ») ; l'échéance est maintenant à la
-charge de l'État. Ce qu'il a payé devient un **trop-payé** :
+Un parent a payé l'inscription et la 1re tranche de scolarité avant que la case soit cochée. Ses
+versements gardent leurs imputations (le reçu qu'il a en main dit « Inscription », « 1re
+tranche ») ; l'inscription n'est plus due et la tranche est à la charge de l'État. Ce qu'il a payé
+devient un **trop-payé** :
 
-1. il couvre d'abord ce qui reste de sa propre part (inscription, cantine…), plus ancienne
-   échéance d'abord : c'est le report, calculé, sans écriture ;
+1. il couvre d'abord ce qui reste de sa propre part (cantine, tenue…), plus ancienne échéance
+   d'abord : c'est le report, calculé, sans écriture ;
 2. le surplus est **à rembourser au parent**, dans la même ligne « À rembourser au parent » que le
    trop-payé avant GESCO ; le remboursement est la dépense « Remboursements aux parents » liée à
    l'inscription (`SPEC_REPRISE_AVANT_GESCO.md` §3.6 bis), avec ses règles : seuil d'accord,
@@ -273,9 +290,9 @@ charge de l'État. Ce qu'il a payé devient un **trop-payé** :
    (`remboursement.superieur_a_l_excedent`, avec le montant possible) : rien n'est remboursé deux
    fois ;
 5. un frais ajouté ensuite (cantine oubliée) absorbe d'abord le trop-payé ;
-6. la case décochée après un remboursement : le parent doit de nouveau ce qui lui a été rendu
-   (`b2`, §3.4) ; l'aperçu du décochage le dit avant (« Le parent devra 48 000 F, dont 48 000 F
-   déjà remboursés »).
+6. la case décochée après un remboursement : le parent doit de nouveau l'inscription, la
+   scolarité que l'État n'a pas payée et ce qui lui a été rendu (`b2`, §3.4) ; l'aperçu du
+   décochage le dit avant (« Le parent devra 135 000 F, dont 33 000 F déjà remboursés »).
 7. l'annulation d'un versement du parent qui laisserait le remboursé plus grand que tout l'argent
    du parent est refusée (`versement.deja_rembourse`, avec le montant en cause) : on annule
    d'abord la dépense de remboursement. C'est le seul refus nouveau côté parent, parce que le
@@ -286,15 +303,15 @@ charge de l'État. Ce qu'il a payé devient un **trop-payé** :
 L'État a payé moins que l'attendu et ne paiera pas le reste (règlement définitif de l'année) :
 « Ne plus attendre » sur un élève ou une sélection, montant proposé = ce que l'État doit encore,
 modifiable vers le bas, motif obligatoire. Nouvelle version avec `abandonne` augmenté. L'abandon
-est à la charge de l'école, **jamais du parent**, quel que soit `ecart_a_charge`. Il se défait
+est à la charge de l'école, **jamais du parent**. Il se défait
 par une nouvelle version (abandon ramené à 0, motif).
 
 ### 3.7 Gestes et règles
 
 | Geste | Effet, dans une seule transaction (durabilité critique) |
 |---|---|
-| Cocher (pas de version courante, ou `terminee`) | Version `en_cours` (types et écart pris dans les réglages, montant proposé §3.3) ; colonne de la case à 1 ; `recalculer_dans` sur la facture s'il y en a une ; audit ; `PriseEnChargeEtatCochee` |
-| Modifier (montant attendu, référence, types, écart) | Ancienne version `remplacee`, nouvelle liée ; recalcul ; audit avant et après ; `PriseEnChargeEtatModifiee` |
+| Cocher (pas de version courante, ou `terminee`) | Version `en_cours` (montant proposé §3.3) ; colonne de la case à 1 ; `recalculer_dans` sur la facture s'il y en a une ; audit ; `PriseEnChargeEtatCochee` |
+| Modifier (montant attendu, référence) | Ancienne version `remplacee`, nouvelle liée ; recalcul ; audit avant et après ; `PriseEnChargeEtatModifiee` |
 | Abandonner (§3.6) | Nouvelle version, `abandonne` augmenté, motif ; recalcul ; audit ; `PriseEnChargeEtatModifiee` |
 | Décocher | Motif obligatoire (proposé : « Pas orienté par l'État ») ; nouvelle version `terminee` ; colonne à 0 ; recalcul ; audit ; `PriseEnChargeEtatDecochee` |
 | Les mêmes pour une sélection | Une transaction pour toute la sélection, un audit par élève et un pour le lot |
@@ -305,7 +322,7 @@ Règles :
 - **Inscription sans facture** (brouillon, ou école sans grille) : la version naît quand même ; la
   facture créée à la validation ou au rattrapage porte d'emblée le partage (sa création appelle
   déjà `recalculer_dans` ou le calcul du §3.4 s'applique à la lecture).
-- **Année close** : cocher, décocher, modifier les types ou l'écart sont refusés
+- **Année close** : cocher et décocher sont refusés
   (`prise_en_charge.annee_close`) : le parent de l'année close a été soldé ou reporté. **Abandonner
   et corriger le montant attendu restent permis** : ils ne changent que ce que doit l'État, que
   l'école suit encore après la clôture.
@@ -380,10 +397,11 @@ Deux lecteurs à toucher :
 
 ### 5.1 Remise
 
-Règle inchangée (dernières échéances d'abord, jamais plus que le reste). Sur une ligne prise en
-charge, la borne est le reste du parent **plus** le reste de l'État de la ligne (une remise ne
+Règle inchangée (dernières échéances d'abord, jamais plus que le reste). Sur la scolarité d'un
+élève coché, la borne est le reste de l'État de la ligne plus ce qui en est renoncé (une remise ne
 descend pas sous ce que l'État a déjà payé). Le partage se recalcule : la remise réduit d'abord
-l'écart (à la charge du parent ou de l'école), puis la part de l'État. L'aperçu de la remise le dit.
+l'écart renoncé, puis la part de l'État. L'aperçu de la remise le dit. Une remise sur l'inscription
+d'un élève coché ne change rien tant que la case reste cochée (l'inscription n'est pas due).
 
 ### 5.2 Changement de plan
 
@@ -406,8 +424,8 @@ elles ; ce que l'État avait payé au-delà devient « reçu en plus » (§7.5),
 
 ### 5.5 Frais ajouté après coup (reprise §3.7)
 
-Une ligne d'une nature prise en charge ajoutée à la facture entre dans `N` ; une autre est due par
-le parent et absorbe d'abord son trop-payé.
+Une ligne de scolarité ajoutée à la facture entre dans `N` ; une autre (cantine oubliée, tenue)
+est due par le parent et absorbe d'abord son trop-payé.
 
 ---
 
@@ -459,7 +477,8 @@ L'état du §9.2 à l'écran : filtres année, classe, série ; regroupé par cl
   service ; pour qui n'a pas la permission (§8), la case se lit sans se modifier.
 - **Assistant d'inscription, étape « Frais »** : pour une classe de lycée ou du technique, la case
   « Pris en charge par l'État » (non cochée), montrée au seul titulaire de la permission ; cochée,
-  la facture naît partagée.
+  la facture naît partagée et le premier versement proposé ne porte que la part du parent (pas
+  d'inscription ; cantine s'il l'a cochée).
 - **Écran Caisse** : la ligne du §4.3.
 - **Relevé de compte** (`releve_compte`, remis au parent) : les échéances avec la part du parent
   seulement, et une mention « Scolarité prise en charge par l'État » sans montant de l'État ni
@@ -556,7 +575,7 @@ Deux sommes sont à l'école sans être dues par personne :
 - **reçu en plus** d'un élève : ce que l'État a payé pour lui au-delà de sa part (attendu trop bas,
   case décochée, départ).
 
-Recommandation (T-168) : elles restent visibles, à part, sur le versement et dans l'état de ce que
+Décision (T-168, tranchée) : elles restent visibles, à part, sur le versement et dans l'état de ce que
 doit l'État (« Reçu de l'État à répartir : 120 000 F »), jusqu'à ce que l'école les répartisse
 (corriger l'attendu, répartir sur un autre élève) ou les laisse. **Elles ne sont jamais imputées au
 parent** et ne changent pas la trésorerie : l'argent y est déjà, une fois, par la recette. Si
@@ -584,10 +603,11 @@ reprise : un règlement sans argent reçu dans GESCO).
 
 ## 8. Droits
 
-Décision proposée (T-167) : la case change ce que doit un parent sans argent reçu, comme une remise
-accordée ou une reprise. **`invoices:discount`** (Administrateur, Directeur, Comptable) pour cocher,
-décocher, modifier, abandonner. Pas de permission nouvelle, pas de nouvelle version des rôles livrés.
-Le Secrétaire, qui réglait la case pour les rapports avec `students:update`, la voit sans la changer.
+Décision (T-167, tranchée) : la case change ce que doit un parent sans argent reçu, comme une
+remise accordée ou une reprise. **`invoices:discount`** (Administrateur, Directeur, Comptable) pour
+cocher, décocher, modifier, abandonner. Pas de permission nouvelle. Le Secrétaire voit la case sans
+la changer, y compris dans la grille « Pour les rapports » (GESCO n'étant installé nulle part,
+aucune habitude n'est cassée).
 
 | Commande | Permission | Effet |
 |---|---|---|
@@ -597,7 +617,7 @@ Le Secrétaire, qui réglait la case pour les rapports avec `students:update`, l
 | `prise_en_charge_abandonner` | `invoices:discount` | §3.6 |
 | `prise_en_charge_historique` | `students:read` | Versions d'une inscription |
 | `montants_etat_lire` | `students:read` | §3.2 |
-| `montants_etat_regler` | `fees:manage` | §3.2, avec les deux réglages `etat.*` |
+| `montants_etat_regler` | `fees:manage` | §3.2 |
 | `versements_etat_lister` | `treasury:read` | §6.2 |
 | `versement_etat_enregistrer` | `treasury:manage` (+ `invoices:discount` si avant GESCO) | §7.2, §7.7 |
 | `versement_etat_repartir` | `treasury:manage` | §7.3 |
@@ -717,20 +737,24 @@ seule fois, après le lot 5 (précision du porteur du 17 novembre 2026). Rust :
    en espèces, il ajoute une entrée à la session ; reçu avant GESCO, il ne change rien de tout cela.
 2. **Partage** (exemple) : inscription 15 000 F au 1er octobre, scolarité 120 000 F en trois
    tranches (48 000 F au 15 octobre, 36 000 F au 15 janvier, 36 000 F au 15 avril), cantine
-   30 000 F au 15 octobre. Le parent paie 15 000 F et 48 000 F en octobre. Case cochée le
-   10 novembre, attendu 120 000 F → part de l'État 120 000 F, trop-payé 48 000 F, reporté 30 000 F
-   sur la cantine, à rembourser 18 000 F, reste du parent 0, l'élève absent des impayés, aucune
-   relance. Versement de l'État de 120 000 F → reste de l'État 0, facture soldée.
-3. **Écart** : attendu 100 000 F ; écart à la charge de l'école → renoncé 20 000 F sur la tranche
-   d'avril, parent inchangé ; à la charge du parent → 20 000 F dus par le parent sur la tranche
-   d'avril, couverts d'abord par son trop-payé.
-4. **Décocher** (suite de l'exemple 2, après le remboursement de 18 000 F) : sans versement de
-   l'État → l'État ne doit rien, le parent doit 120 000 F (scolarité 120 000 F et cantine
-   30 000 F, moins 48 000 F payés, plus 18 000 F rendus ; 18 000 F sur la tranche d'octobre) ;
-   après un versement de l'État de 60 000 F pour l'élève → part de l'État 60 000 F (octobre
-   entier, 12 000 F de janvier), reste de l'État 0, le parent doit 60 000 F (24 000 F en janvier,
-   36 000 F en avril). Annuler le versement de 48 000 F du parent ensuite → refusé
-   (`versement.deja_rembourse`).
+   30 000 F au 15 octobre. Le parent paie 15 000 F (inscription) et 48 000 F (1re tranche) en
+   octobre. Case cochée le 10 novembre, attendu 120 000 F → part de l'État 120 000 F, inscription
+   renoncée (15 000 F), trop-payé 63 000 F, reporté 30 000 F sur la cantine, à rembourser
+   33 000 F, reste du parent 0, l'élève absent des impayés, aucune relance. Versement de l'État de
+   120 000 F → reste de l'État 0, facture soldée. Même élève coché à l'inscription → la facture
+   naît avec la cantine seule à la charge du parent : le premier versement proposé est 30 000 F.
+3. **Écart** : attendu 100 000 F → renoncé 20 000 F sur la tranche d'avril, à la charge de
+   l'école ; le parent ne doit rien de plus. Abandon de 36 000 F ensuite → part de l'État
+   64 000 F, renoncé 56 000 F ; le parent ne doit toujours rien de plus.
+4. **Décocher** (suite de l'exemple 2, après le remboursement de 33 000 F) : sans versement de
+   l'État → l'État ne doit rien, le parent doit 135 000 F (inscription 15 000 F, scolarité
+   120 000 F et cantine 30 000 F, moins 63 000 F payés, plus 33 000 F rendus ; 33 000 F sur la
+   tranche d'octobre) ; après un versement de l'État de 60 000 F pour l'élève → part de l'État
+   60 000 F (octobre entier, 12 000 F de janvier), reste de l'État 0, le parent doit 75 000 F
+   (15 000 F de cantine, 24 000 F en janvier, 36 000 F en avril). Annuler le versement de
+   48 000 F du parent ensuite → refusé (`versement.deja_rembourse`).
+4 bis. **École sans cantine** : même élève sans ligne de cantine → trop-payé 63 000 F, rien à
+   reporter, à rembourser 63 000 F, reste du parent 0.
 5. **Propriété du partage** : pour toute suite de versements, remises, ajustements, frais ajoutés,
    reprises, remboursements, cases cochées et décochées, abandons, versements et répartitions de
    l'État : `net = part_etat + renonce + part_parent` ; contrôle du §3.4 ; aucun reste négatif ;
@@ -771,12 +795,12 @@ versement et de la section « Frais » d'un élève coché.
 
 Huit étapes courtes, commit et push sur `developpement` après chacune ; fmt, clippy, tsc et ESLint
 à chaque étape ; essais écrits avec le code, passés seulement à la fin du codage, après le lot 5.
-Les réponses à T-164 à T-170 arrivent avant l'étape 1 ; une réponse autre que la recommandation se
+Les réponses à T-164 et T-171 arrivent avant l'étape 1 ; une réponse autre que la recommandation se
 reporte dans ce document avant de coder.
 
 1. **Tables et noyau** : migration 0066 montante et descendante (`prise_en_charge_etat`,
    `montant_etat`, `versement_etat`, `versement_etat_part`, index, déclencheurs, `CHECK`), ADR,
-   catégorie livrée « Versements de l'État », réglages `etat.*` ; dépôt
+   catégorie livrée « Versements de l'État » ; dépôt
    `gesco-db/src/depots/prise_en_charge.rs` ; calcul pur du §3.4 dans
    `gesco-core/src/finance/prise_en_charge.rs` (partage, renoncé, côté État, trop-payé,
    remboursé, report) ; essais 5 (propriété, sur le calcul pur) et 10 écrits.
@@ -811,11 +835,14 @@ corrections, puis l'installeur.
 ## 14. Questions au porteur du projet
 
 Numérotées à partir de T-164 (T-163 est la dernière employée, vérifié dans `docs/orchestration.md`
-et les spécifications le 18 novembre 2026).
+et les spécifications le 18 novembre 2026). Le porteur ayant laissé le choix pour la gestion de
+l'État (« débrouille pour ne pas fausser »), seules restent ouvertes les deux questions qui
+changent ce que voit l'école : **T-164** et **T-171**. T-165 à T-170 sont tranchées ci-dessous par
+la solution la plus simple qui ne fausse aucun chiffre ; leurs numéros restent pour la trace.
 
-### T-164 — Combien l'État paie-t-il pour un élève ?
+### T-164 — Combien l'État paie-t-il pour un élève ? (ouverte)
 
-- a) toujours **les frais de l'école** pour les lignes prises en charge (rien à régler) ;
+- a) toujours **les frais de l'école** : la scolarité de la facture (rien à régler) ;
 - b) **un montant par niveau et par série**, réglé par l'école pour l'année ; case vide = les frais
   de l'école ; corrigeable élève par élève ;
 - c) un montant unique pour tous les élèves pris en charge de l'école ;
@@ -825,74 +852,59 @@ et les spécifications le 18 novembre 2026).
 série) et ne suivent pas les tarifs de chaque école privée ; b) les règle une fois par niveau et
 série, retombe sur a) quand l'école ne règle rien, contient c) (même montant partout) et permet la
 correction d'un élève (d). L'école qui ne connaît pas encore le montant de l'État laisse vide et
-corrige plus tard pour tous les élèves cochés d'un geste. Étapes 1 et 3.
+corrige plus tard pour tous les élèves cochés d'un geste. Avec a), la table `montant_etat` n'est
+pas créée. Étapes 1 et 3.
 
-### T-165 — L'État paie moins que les frais de l'école : qui paie l'écart ?
+### T-171 — Les frais d'inscription d'un élève pris en charge (ouverte)
 
-Exemple : scolarité de l'école 120 000 F, l'État paie 100 000 F.
-- a) **l'école** y renonce : personne ne doit les 20 000 F ;
-- b) **le parent** paie les 20 000 F ;
-- c) au choix de l'école, par un réglage, a) par défaut.
+Le porteur a dit « pas d'inscription » : le parent ne la paie pas. Reste à savoir si l'État la
+paie.
+- a) **personne ne la doit** : la ligne reste sur la facture (rien n'est réécrit), son dû est
+  renoncé, à la charge de l'école ; l'État n'en doit rien ;
+- b) **l'État la paie** : elle entre dans ce que l'État doit, avec la scolarité.
 
-*Recommandation* : c), a) par défaut. La décision « L'État, pas le parent » dit que le parent ne
-paie pas la scolarité d'un élève orienté ; mais une école peut avoir convenu d'un complément avec
-les familles. Le réglage le permet sans rien changer au calcul. Étape 1.
+*Recommandation* : a). « Pas d'inscription » se lit comme « pas de frais d'inscription pour un
+élève orienté » ; la mettre au compte de l'État gonflerait chaque réclamation d'une somme que
+l'administration risque de refuser, et laisserait un reste dû par l'État qui ne viendra jamais. Si
+l'État la paie dans les faits, b) se règle en une ligne (§3.2) et l'argent reçu en plus en a)
+reste visible (§7.5) en attendant. Étape 2.
 
-### T-166 — Ce que le parent a déjà payé sur la part de l'État
+### T-165 — L'État paie moins que les frais de l'école : qui paie l'écart ? (tranchée)
 
-Le parent a payé la 1re tranche de scolarité avant que la case soit cochée.
-- a) **reporté sur ses autres frais** (inscription, cantine…), le surplus **à rembourser**, par la
-  dépense « Remboursements aux parents », comme le trop-payé avant GESCO ;
-- b) gardé comme avance pour l'année suivante ;
-- c) laissé à l'école : l'État doit d'autant moins.
+**L'école** y renonce : personne ne doit l'écart (exemple : scolarité 120 000 F, État 100 000 F,
+20 000 F renoncés). Pas de réglage. C'est la décision « L'État, pas le parent » prise à la lettre,
+et la plus simple : un seul calcul, aucune somme demandée au parent pour la scolarité. §3.4.
 
-*Recommandation* : a). C'est la règle que le porteur a choisie pour le trop-payé avant GESCO
-(« remboursement ») ; le parent garde son reçu, rien n'est réécrit, rien n'est remboursé deux fois.
-b) laisse une dette envers une famille qui peut partir ; c) est faux dès que l'État paie son
-montant entier : l'école serait payée deux fois. Étape 2.
+### T-166 — Ce que le parent a déjà payé sur la part de l'État (tranchée)
 
-### T-167 — Qui coche la case, maintenant qu'elle change ce que doit le parent ?
+**Reporté sur ses autres frais** (cantine, tenue…), le surplus **à rembourser** par la dépense
+« Remboursements aux parents », comme le trop-payé avant GESCO (« remboursement », réponse du
+porteur à T-162). Le parent garde son reçu, rien n'est réécrit, rien n'est remboursé deux fois ;
+le laisser à l'école (« l'État doit d'autant moins ») ferait payer l'école deux fois dès que l'État
+paie son montant entier. §3.5.
 
-- a) le titulaire de `invoices:discount` : Administrateur, Directeur, Comptable (comme les remises
-  et la reprise) ; le Secrétaire la voit sans la changer ;
-- b) le Secrétaire la coche, la direction confirme (comme une remise proposée) ;
-- c) comme aujourd'hui, quiconque modifie les fiches des élèves (`students:update`).
+### T-167 — Qui coche la case (tranchée)
 
-*Recommandation* : a). Le geste retire une scolarité entière au parent : c'est une décision de
-direction. b) laisserait des élèves « cochés pour les rapports mais pas pour l'argent », deux
-vérités pour une case. Aucune nouvelle version des rôles. Étape 3.
+Le titulaire de **`invoices:discount`** : Administrateur, Directeur, Comptable, comme les remises
+et la reprise ; le Secrétaire voit la case sans la changer. Une seule case, une seule vérité pour
+les rapports et pour l'argent ; aucune permission nouvelle. §8.
 
-### T-168 — L'État paie plus que ce qui était attendu
+### T-168 — L'État paie plus que ce qui était attendu (tranchée)
 
-Un versement dépasse la somme des élèves cochés, ou paie plus pour un élève que sa part.
-- a) l'excédent reste **visible à part** (« reçu de l'État à répartir », « reçu en plus »), jusqu'à
-  ce que l'école le répartisse (autre élève, attendu corrigé) ou le laisse ;
-- b) il devient d'office une « autre recette » ;
-- c) il s'impute sur ce que doit le parent du même élève.
+L'excédent reste **visible à part** (« reçu de l'État à répartir » sur le versement, « reçu en
+plus » sur l'élève) jusqu'à ce que l'école le répartisse ou le laisse ; jamais imputé au parent,
+jamais recompté : l'argent est déjà en trésorerie une fois, par la recette. §7.5.
 
-*Recommandation* : a). L'argent est déjà en trésorerie une fois, par la recette : il n'y a rien à
-recompter. Le laisser visible permet de le réclamer à nouveau ou de corriger une liste ; c)
-contredirait « l'État, pas le parent ». Étape 4.
+### T-169 — L'année suivante, la case suit-elle l'élève ? (tranchée)
 
-### T-169 — L'année suivante, la case suit-elle l'élève ?
+**Proposée cochée** à la réinscription d'un élève qui reste au lycée ou au technique, montant
+recalculé ; la direction la décoche si l'État ne l'a pas reconduit. La case se voit dans
+l'inscription préparée, avant toute facture : rien n'est faux si elle est décochée ensuite. §9.4.
 
-- a) **proposée cochée** à la réinscription d'un élève qui reste au lycée ou au technique, montant
-  recalculé ; la direction la décoche si l'État ne l'a pas reconduit ;
-- b) à recocher chaque année.
+### T-170 — L'État est-il « en retard », et depuis quand ? (tranchée)
 
-*Recommandation* : a). L'orientation vaut d'ordinaire pour la suite du cycle ; proposer évite
-d'oublier un élève, et la case se voit dans l'inscription préparée, avant toute facture. Étape 8.
-
-### T-170 — L'État est-il « en retard », et depuis quand ?
-
-- a) la part de l'État suit **les tranches de la facture** (celles du plan de l'élève) : l'état
-  montre ce qui est échu et ce qui est à venir ;
-- b) une date unique réglée par l'école (ex. 31 mars), à partir de laquelle tout est échu ;
-- c) pas d'échu : tout est « attendu ».
-
-*Recommandation* : a). Rien à régler ; la réclamation montre que les tranches sont passées ; le
-placement de la part de l'État de la plus ancienne tranche à la plus récente donne un retard juste
-dès le premier mois. Étape 2.
+La part de l'État suit **les tranches de la facture**, placée de la plus ancienne à la plus
+récente : l'état montre l'échu et l'à-venir sans aucun réglage. §3.4, §9.
 
 ---
 
@@ -901,3 +913,4 @@ dès le premier mois. Étape 2.
 | Version | Date | Changement |
 |---|---|---|
 | 1.0 | 18 novembre 2026 | Proposée d'après la décision du porteur du jour (« L'État, pas le parent ») ; vérification du code : case des rapports sans effet financier, `etat_echeances` seul calcul du reste, recettes hors versements sans session ; partage calculé de chaque échéance entre l'État et le parent, trop-payé reporté puis à rembourser, versement de l'État par une recette et une répartition, reçu avant GESCO, état imprimable, croisement avec la reprise ; quatre tables (ADR) ; T-164 à T-170 ; huit étapes |
+| 1.1 | 18 novembre 2026 | Précisions du porteur du jour (« pas d'inscription et la cantine est le parent s'il l'école possède une et pour la gestion de l'État débrouille pour ne pas fausser ») et rappel que GESCO n'est installé dans aucune école : inscription non due pour un élève coché (T-171, ouverte : personne ou l'État), cantine due par le parent si la facture en porte une, scolarité seule à l'État, plus de réglage des natures ni de l'écart (colonnes `types_frais` et `ecart_a_charge` retirées) ; T-165 à T-170 tranchées sur leurs recommandations ; exemples et essais refaits (essai 4 bis : école sans cantine) |
