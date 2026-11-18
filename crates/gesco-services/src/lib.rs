@@ -92,6 +92,7 @@ pub mod pedagogie;
 pub mod personnel;
 pub mod portail;
 pub mod postes;
+pub mod prise_en_charge;
 pub mod rapports;
 pub mod rapports_tableaux;
 pub mod recettes;

@@ -5,9 +5,10 @@
 
 use gesco_core::commun::{DateCivile, Horodatage, Id, Montant};
 use gesco_core::core::{Operation, TypeEvenement};
+use gesco_core::finance::{Facture, LigneFacture, TypeFrais};
 use gesco_core::rh::Mois;
 use gesco_core::scolarite::Inscription;
-use gesco_db::depots::{annee_scolaire, budget, cantine, tresorerie};
+use gesco_db::depots::{annee_scolaire, budget, cantine, factures, tresorerie};
 use gesco_db::unite::Durabilite;
 use gesco_db::{Contexte, nouvel_id};
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,29 @@ fn regle(cle: &'static str) -> ErreurService {
 
 /// Code de la catégorie de dépense des vivres.
 const CATEGORIE_VIVRES: &str = "cantine";
+
+/// Cantine échue au jour dit et pas encore payée par le parent, lue par le calcul du reste :
+/// pour une inscription prise en charge par l'État ou remboursée, le report du trop-payé du
+/// parent n'est écrit nulle part (SPEC_PRISE_EN_CHARGE_ETAT §4.4).
+async fn reste_echu_de_la_cantine(
+    cnx: &mut gesco_db::Connexion,
+    facture_id: Id<Facture>,
+    jour: DateCivile,
+    contexte: &Contexte,
+) -> Resultat<Montant> {
+    let lignes: Vec<Id<LigneFacture>> = factures::lignes(cnx, facture_id, contexte)
+        .await?
+        .into_iter()
+        .filter(|l| l.type_frais == TypeFrais::Cantine)
+        .map(|l| l.id)
+        .collect();
+    crate::facturation::etat_echeances(cnx, facture_id, contexte)
+        .await?
+        .iter()
+        .filter(|e| lignes.contains(&e.echeance.ligne_facture_id) && e.echeance.date <= jour)
+        .try_fold(Montant::ZERO, |s, e| s.ajouter(e.reste))
+        .map_err(|_| regle("facture.calcul_impossible"))
+}
 
 /// Élève abonné, au jour dit.
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -139,11 +163,16 @@ impl<'n> ServiceCantine<'n> {
             for a in cantine::abonnes(&mut cnx, annee.id, jour, &contexte).await? {
                 let repas_pris = pris.contains(&a.inscription_id);
                 repas_du_jour += u32::from(repas_pris);
+                let reste_echu = if a.partage {
+                    reste_echu_de_la_cantine(&mut cnx, a.facture_id, jour, &contexte).await?
+                } else {
+                    a.reste_echu
+                };
                 abonnes.push(AbonneCantine {
                     inscription_id: a.inscription_id,
                     eleve: a.eleve,
                     classe: a.classe,
-                    reste_echu: a.reste_echu,
+                    reste_echu,
                     repas_pris,
                 });
             }

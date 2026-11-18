@@ -1014,6 +1014,7 @@ export const catalogue = {
   "versement.regularise": "Sortie de régularisation de {montant} passée dans votre caisse.",
   "versement.motif_obligatoire": "Indiquez le motif de l'annulation : il est imprimé sur le reçu.",
   "versement.deja_annule": "Ce versement est déjà annulé.",
+  "versement.deja_rembourse": "Une partie de cet argent a déjà été rendue au parent : annulez d'abord la dépense de remboursement, puis ce versement.",
   "versement.caisse_requise": "La caisse de ce versement est clôturée : ouvrez votre caisse, la sortie de régularisation y passera.",
   "versement.especes_insuffisantes": "Votre caisse n'a pas assez d'espèces pour rendre ce versement.",
   "versement.montant_invalide": "Le montant du versement doit être positif.",

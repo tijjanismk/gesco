@@ -3,6 +3,7 @@
 
 use gesco_core::commun::{DateCivile, Id, Montant};
 use gesco_core::core::AnneeScolaire;
+use gesco_core::finance::Facture;
 use gesco_core::scolarite::inscription::Inscription;
 
 use crate::Connexion;
@@ -21,16 +22,27 @@ pub struct Abonne {
     pub classe: String,
     /// Cantine échue au jour dite et pas encore payée.
     pub reste_echu: Montant,
+    /// Facture de l'année.
+    pub facture_id: Id<Facture>,
+    /// L'inscription a une prise en charge par l'État ou un remboursement payé : le report du
+    /// trop-payé du parent n'est écrit nulle part, `reste_echu` ne vaut pas ; le service relit
+    /// le reste par `facturation::etat_echeances` (SPEC_PRISE_EN_CHARGE_ETAT §4.4).
+    pub partage: bool,
 }
 
-/// Abonnés d'une année au jour dit, par classe et par nom.
+/// Inscription, prénoms, nom, classe, dû et payé de la cantine échue, facture, partage.
+type LigneAbonne = (String, String, String, String, i64, i64, String, bool);
+
+/// Abonnés d'une année au jour dit, par classe et par nom. Le reste échu se calcule ici pour
+/// les inscriptions ordinaires ; pour celles qui ont une prise en charge par l'État
+/// (`prise_en_charge_etat`) ou un remboursement, il se relit par le calcul du reste (`partage`).
 pub async fn abonnes(
     cnx: &mut Connexion,
     annee_id: Id<AnneeScolaire>,
     jour: DateCivile,
     contexte: &Contexte,
 ) -> Resultat<Vec<Abonne>> {
-    let lignes: Vec<(String, String, String, String, i64, i64)> = sqlx::query_as(
+    let lignes: Vec<LigneAbonne> = sqlx::query_as(
         "SELECT i.id, p.prenoms, p.nom, c.libelle,
             (SELECT COALESCE(SUM(e.montant), 0) FROM echeance e
                 JOIN ligne_facture l ON l.id = e.ligne_facture_id
@@ -54,7 +66,12 @@ pub async fn abonnes(
                 JOIN echeance e ON e.id = r.echeance_id
                 JOIN ligne_facture l ON l.id = e.ligne_facture_id
              WHERE l.facture_id = f.id AND l.type_frais = 'cantine' AND r.statut = 'active'
-                AND e.statut = 'due' AND e.date_echeance <= ?3)
+                AND e.statut = 'due' AND e.date_echeance <= ?3),
+            f.id,
+            (EXISTS (SELECT 1 FROM prise_en_charge_etat pe WHERE pe.inscription_id = i.id
+                    AND pe.statut <> 'remplacee')
+                OR EXISTS (SELECT 1 FROM depense d WHERE d.inscription_id = i.id
+                    AND d.statut = 'payee'))
          FROM inscription i
             JOIN eleve el ON el.id = i.eleve_id
             JOIN personne p ON p.id = el.personne_id
@@ -72,12 +89,14 @@ pub async fn abonnes(
     .await?;
     lignes
         .into_iter()
-        .map(|(id, prenoms, nom, classe, du, paye)| {
+        .map(|(id, prenoms, nom, classe, du, paye, facture, partage)| {
             Ok(Abonne {
                 inscription_id: lire_id("inscription", "id", &id)?,
                 eleve: format!("{prenoms} {nom}"),
                 classe,
                 reste_echu: Montant::depuis_francs((du - paye).max(0)),
+                facture_id: lire_id("facture", "id", &facture)?,
+                partage,
             })
         })
         .collect()

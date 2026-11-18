@@ -86,14 +86,24 @@ pub(crate) async fn appliquer_dans(
     let multiple = parametre::entier(cnx, "montant.multiple_arrondi", 5, contexte).await?;
     let montant = montant_de_la_remise(&remise.valeur, ligne.montant, multiple)
         .map_err(|_| regle("remise.calcul_impossible"))?;
-    // Reste de chaque échéance du frais : dû, moins les autres remises, moins le payé.
-    let restes: Vec<(gesco_core::commun::Id<Echeance>, Montant)> =
-        crate::facturation::etat_echeances(cnx, facture.id, contexte)
-            .await?
-            .into_iter()
-            .filter(|e| e.echeance.ligne_facture_id == ligne.id)
-            .map(|e| (e.echeance.id, e.reste))
-            .collect();
+    // Borne de chaque échéance du frais : dû, moins les autres remises, moins le payé. Pour un
+    // élève pris en charge par l'État (SPEC_PRISE_EN_CHARGE_ETAT §5.1), s'y ajoutent le reste de
+    // l'État et le renoncé : une remise ne descend pas sous ce que l'État a déjà payé ; elle
+    // réduit d'abord le renoncé, puis la part de l'État (le partage se recalcule). Sans prise en
+    // charge, reste de l'État et renoncé sont nuls : la borne est le reste, comme avant.
+    let mut restes: Vec<(gesco_core::commun::Id<Echeance>, Montant)> = Vec::new();
+    for e in crate::facturation::etat_echeances(cnx, facture.id, contexte)
+        .await?
+        .into_iter()
+        .filter(|e| e.echeance.ligne_facture_id == ligne.id)
+    {
+        let borne = e
+            .reste
+            .ajouter(e.reste_etat)
+            .and_then(|m| m.ajouter(e.renonce))
+            .map_err(|_| regle("remise.calcul_impossible"))?;
+        restes.push((e.echeance.id, borne));
+    }
     for (echeance_id, part) in repartir_depuis_la_fin(&restes, montant).map_err(regle)? {
         remises::inserer_part(unite.connexion(), remise.id, echeance_id, part, contexte).await?;
     }

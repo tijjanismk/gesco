@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::effets::Effet;
 use crate::erreur::{ErreurService, Resultat};
-use crate::facturation::{chiffres_reprise, etat_echeances, recalculer_dans};
+use crate::facturation::{chiffres_reprise, etat_echeances, etat_facture, recalculer_dans};
 use crate::inscriptions::jour;
 use crate::noyau::Noyau;
 use crate::session::Session;
@@ -223,16 +223,23 @@ async fn cible(
 }
 
 /// Plus petit montant permis pour la reprise d'une facture (§3.3), et la règle qui le fixe.
+/// Avec une prise en charge par l'État (SPEC_PRISE_EN_CHARGE_ETAT §11), le remboursé que le
+/// trop-payé du parent couvre ne tient pas la reprise : le minimum est le remboursé moins ce
+/// trop-payé ; le dû est la part du parent. Sans trop-payé, inchangé.
 async fn minimum_de_la_facture(
     cnx: &mut gesco_db::Connexion,
     facture: &Facture,
     contexte: &Contexte,
 ) -> Resultat<(Montant, Option<&'static str>)> {
-    let etats = etat_echeances(cnx, facture.id, contexte).await?;
+    let crate::facturation::EtatFacture {
+        echeances: etats,
+        partage,
+        ..
+    } = etat_facture(cnx, facture.id, contexte).await?;
     let somme = |f: fn(&crate::facturation::EcheanceAffichee) -> Montant| {
         calcul(etats.iter().try_fold(Montant::ZERO, |s, e| s.ajouter(f(e))))
     };
-    let du_net = somme(|e| e.net)?;
+    let du_net = somme(|e| e.part_parent)?;
     let paye_hors_reprise = calcul(somme(|e| e.paye)?.soustraire(somme(|e| e.reprise)?))?;
     let avoirs_nes = calcul(
         ajustements::de_la_facture(cnx, facture.id, contexte)
@@ -241,7 +248,9 @@ async fn minimum_de_la_facture(
             .filter(|a| !a.remplace)
             .try_fold(Montant::ZERO, |s, a| s.ajouter(a.avoir)),
     )?;
-    let rembourse = reprises::rembourse(cnx, facture.inscription_id, contexte).await?;
+    // Le remboursé s'impute sur la reprise, puis sur le trop-payé : la reprise peut descendre
+    // tant que le trop-payé couvre ce qu'elle ne couvre plus.
+    let rembourse = calcul(partage.rembourse.soustraire(partage.trop_paye))?.max(Montant::ZERO);
     minimum(rembourse, du_net, avoirs_nes, paye_hors_reprise)
         .map_err(|_| regle("facture.calcul_impossible"))
 }

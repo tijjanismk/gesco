@@ -124,6 +124,22 @@ pub async fn ecrire_facture(
     Ok(())
 }
 
+/// Une facture par son identifiant, annulée ou non.
+pub async fn lire(cnx: &mut Connexion, id: Id<Facture>, contexte: &Contexte) -> Resultat<Facture> {
+    sqlx::query_as::<_, LigneFactureBrute>(selectionner_facture!(
+        "WHERE id = ?1 AND etablissement_id = ?2"
+    ))
+    .bind(id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_optional(cnx)
+    .await?
+    .ok_or_else(|| ErreurBase::Introuvable {
+        entite: "facture",
+        id: id.vers_chaine(),
+    })?
+    .vers_entite()
+}
+
 /// Facture non annulée d'une inscription, s'il y en a une.
 pub async fn facture_vivante(
     cnx: &mut Connexion,

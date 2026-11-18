@@ -1800,6 +1800,71 @@ impl Application {
         )
     }
 
+    /// Écrit une version de la prise en charge par l'État d'une inscription (`en_cours` avec
+    /// son attendu et son abandon, ou `terminee`) et recalcule sa facture : réservé aux essais,
+    /// aucune commande n'y mène.
+    #[doc(hidden)]
+    pub async fn prise_en_charge_pour_essai(
+        &self,
+        inscription_id: &str,
+        en_cours: bool,
+        attendu: i64,
+        abandonne: i64,
+        motif: &str,
+    ) -> Result<(), ErreurCommande> {
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Err(ErreurService::Regle {
+                cle: "facture.calcul_impossible",
+            }
+            .into());
+        };
+        let inscription_id = Id::analyser(inscription_id).map_err(|_| ErreurService::Regle {
+            cle: "facture.calcul_impossible",
+        })?;
+        let version = if en_cours {
+            gesco_core::finance::prise_en_charge::VersionCourante::EnCours {
+                attendu: Montant::depuis_francs(attendu),
+                abandonne: Montant::depuis_francs(abandonne),
+            }
+        } else {
+            gesco_core::finance::prise_en_charge::VersionCourante::Terminee
+        };
+        Ok(crate::prise_en_charge::regler_pour_essai(
+            &ouverte.noyau,
+            etablissement_id,
+            inscription_id,
+            version,
+            motif,
+        )
+        .await?)
+    }
+
+    /// Enregistre un versement de l'État reçu avant GESCO, entièrement attribué à une
+    /// inscription, et recalcule sa facture : réservé aux essais, aucune commande n'y mène.
+    #[doc(hidden)]
+    pub async fn versement_etat_pour_essai(
+        &self,
+        inscription_id: &str,
+        montant: i64,
+    ) -> Result<(), ErreurCommande> {
+        let Some((ouverte, etablissement_id)) = self.etablissement_ouvert().await? else {
+            return Err(ErreurService::Regle {
+                cle: "facture.calcul_impossible",
+            }
+            .into());
+        };
+        let inscription_id = Id::analyser(inscription_id).map_err(|_| ErreurService::Regle {
+            cle: "facture.calcul_impossible",
+        })?;
+        Ok(crate::prise_en_charge::verser_pour_essai(
+            &ouverte.noyau,
+            etablissement_id,
+            inscription_id,
+            Montant::depuis_francs(montant),
+        )
+        .await?)
+    }
+
     /// Un élève sort du portail.
     pub fn portail_sortir(&self, jeton: &str) {
         self.portail.sessions.fermer(jeton);

@@ -7,7 +7,11 @@ use gesco_core::core::{
     AnneeScolaire, MachineAEtats, Operation, TypeDocumentNumerote, TypeEvenement,
 };
 use gesco_core::finance::facture::{ArriveeEnCours, Bornes, LigneCalculee, calculer};
-use gesco_core::finance::reprise::{self, ChiffresReprise};
+use gesco_core::finance::prise_en_charge::{
+    EcheanceAPartager, EntreePartage, NatureEcheance, Partage, PriseEnChargeEtat, VersionCourante,
+    partager,
+};
+use gesco_core::finance::reprise::ChiffresReprise;
 use gesco_core::finance::tarif::JOURS_ECHEANCE;
 use gesco_core::finance::{
     Ajustement, Avoir, ContexteTarifaire, Echeance, Exigibilite, Facture, LigneFacture,
@@ -16,7 +20,7 @@ use gesco_core::finance::{
 use gesco_core::scolarite::personne::millesime;
 use gesco_core::scolarite::{Eleve, Inscription, StatutInscription};
 use gesco_db::depots::{
-    academique, ajustements, annee_scolaire, factures, parametre, reprises, tarifs,
+    academique, ajustements, annee_scolaire, factures, parametre, prise_en_charge, reprises, tarifs,
 };
 use gesco_db::unite::Durabilite;
 use gesco_db::{Contexte, UniteDeTravail, nouvel_id};
@@ -50,7 +54,8 @@ pub struct ChoixFrais {
     pub arrivee: Option<ArriveeEnCours>,
 }
 
-/// Échéance due, avec la part des remises accordées et ce qui reste à payer.
+/// Échéance due, avec la part des remises accordées, le partage entre l'État et le parent
+/// (SPEC_PRISE_EN_CHARGE_ETAT §3.4, §4.1) et ce qui reste à payer au parent.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 pub struct EcheanceAffichee {
     /// Échéance.
@@ -61,82 +66,119 @@ pub struct EcheanceAffichee {
     pub ajustement: Montant,
     /// Dû après remise et baisse.
     pub net: Montant,
+    /// Part de l'État (scolarité d'un élève pris en charge).
+    pub part_etat: Montant,
+    /// Ce que personne ne doit, à la charge de l'école (écart, abandon, inscription non due).
+    pub renonce: Montant,
+    /// Part du parent : dû après remise et baisse, moins la part de l'État et le renoncé.
+    pub part_parent: Montant,
+    /// Payé par l'État sur sa part.
+    pub paye_etat: Montant,
+    /// Reste dû par l'État sur sa part.
+    pub reste_etat: Montant,
+    /// Versements imputés et avoirs utilisés sur l'échéance, tels que les reçus les portent.
+    pub verse_parent: Montant,
     /// Part de la reprise avant GESCO portée par l'échéance.
     pub reprise: Montant,
-    /// Versements imputés, avoirs utilisés et reprise avant GESCO.
+    /// Argent du parent qui compte pour sa part : versements et avoirs, report de son trop-payé
+    /// et reprise avant GESCO.
     pub paye: Montant,
-    /// Reste à payer : dû après remise et baisse, moins le payé.
+    /// Reste à payer par le parent : sa part moins ce qui compte pour elle.
     pub reste: Montant,
+}
+
+impl EcheanceAffichee {
+    /// Échéance « payée » : le parent (versement, avoir, report, reprise) ou l'État en a payé
+    /// une part (SPEC_PRISE_EN_CHARGE_ETAT §5.4). Elle ne se contre-passe pas.
+    pub(crate) fn payee(&self) -> bool {
+        !self.paye.est_nul() || !self.verse_parent.est_nul() || !self.paye_etat.est_nul()
+    }
 }
 
 fn calcul(r: Result<Montant, gesco_core::commun::ErreurMontant>) -> Resultat<Montant> {
     r.map_err(|_| regle("facture.calcul_impossible"))
 }
 
-/// État des échéances dues d'une facture, par date : montant, remises, baisses, payé, reste.
-/// Tout se recalcule depuis les échéances, les parts de remise et de baisse, les imputations,
-/// les avoirs utilisés et les parts de la reprise avant GESCO (R-20). Seul calcul du reste.
+fn somme(mut montants: impl Iterator<Item = Montant>) -> Resultat<Montant> {
+    calcul(montants.try_fold(Montant::ZERO, |s, m| s.ajouter(m)))
+}
+
+/// Une facture lue et partagée : ses échéances dues affichées, le partage entier (§3.4) et la
+/// version courante de la prise en charge de l'inscription.
+pub(crate) struct EtatFacture {
+    /// Échéances dues, par date puis rang.
+    pub(crate) echeances: Vec<EcheanceAffichee>,
+    /// Partage entre l'État et le parent, report, reprise, à rembourser.
+    pub(crate) partage: Partage,
+    /// Version courante de la prise en charge, s'il y en a une.
+    pub(crate) prise_en_charge: Option<PriseEnChargeEtat>,
+}
+
+/// État des échéances dues d'une facture, par date : montant, remises, baisses, part de l'État,
+/// payé et reste du parent. Seul calcul du reste.
 pub(crate) async fn etat_echeances(
     cnx: &mut gesco_db::Connexion,
     facture_id: Id<Facture>,
     contexte: &Contexte,
 ) -> Resultat<Vec<EcheanceAffichee>> {
-    etats(cnx, facture_id, contexte, true).await
+    Ok(etat_facture(cnx, facture_id, contexte).await?.echeances)
 }
 
-/// État des échéances, avec ou sans la reprise : sans elle, les restes que la reprise remplit.
-async fn etats(
+/// Lit et partage une facture. Tout se recalcule (R-20) depuis les échéances, les parts de
+/// remise et de baisse, les imputations, les avoirs utilisés, la version courante de la prise en
+/// charge, les parts des versements de l'État, le remboursé et la reprise avant GESCO, par
+/// `prise_en_charge::partager` : rien du partage ne s'écrit.
+pub(crate) async fn etat_facture(
     cnx: &mut gesco_db::Connexion,
     facture_id: Id<Facture>,
     contexte: &Contexte,
-    avec_reprise: bool,
-) -> Resultat<Vec<EcheanceAffichee>> {
-    let reprise = if avec_reprise {
-        reprises::imputations_de_la_facture(cnx, facture_id, contexte).await?
-    } else {
-        Vec::new()
-    };
+) -> Resultat<EtatFacture> {
+    let inscription_id = factures::lire(cnx, facture_id, contexte)
+        .await?
+        .inscription_id;
     let parts = gesco_db::depots::remises::parts_de_la_facture(cnx, facture_id, contexte).await?;
     let baisses = ajustements::parts_de_la_facture(cnx, facture_id, contexte).await?;
     let avoirs = ajustements::avoirs_utilises_sur_la_facture(cnx, facture_id, contexte).await?;
     let imputations =
         gesco_db::depots::versements::imputations_de_la_facture(cnx, facture_id, contexte).await?;
-    let mut etats = Vec::new();
+    let lignes = factures::lignes(cnx, facture_id, contexte).await?;
+    let version = prise_en_charge::courante(cnx, inscription_id, contexte).await?;
+    // Une part de versement de l'État ne va qu'à un élève coché : sans version, rien de reçu.
+    let paye_etat = if version.is_some() {
+        prise_en_charge::paye_etat(cnx, inscription_id, contexte).await?
+    } else {
+        Montant::ZERO
+    };
+    let rembourse = reprises::rembourse(cnx, inscription_id, contexte).await?;
+    let reprise = reprises::active(cnx, inscription_id, contexte)
+        .await?
+        .map_or(Montant::ZERO, |r| r.montant);
+    let mut lues = Vec::new();
+    let mut a_partager = Vec::new();
     for echeance in factures::echeances(cnx, facture_id, contexte)
         .await?
         .into_iter()
         .filter(|e| e.statut == StatutEcheance::Due)
     {
-        let remise = calcul(
+        let id = echeance.id;
+        let remise = somme(
             parts
                 .iter()
-                .filter(|(_, e, _)| *e == echeance.id)
-                .try_fold(Montant::ZERO, |s, (_, _, m)| s.ajouter(*m)),
+                .filter(|(_, e, _)| *e == id)
+                .map(|(_, _, m)| *m),
         )?;
-        let ajustement = calcul(
+        let ajustement = somme(
             baisses
                 .iter()
-                .filter(|(_, e, _)| *e == echeance.id)
-                .try_fold(Montant::ZERO, |s, (_, _, m)| s.ajouter(*m)),
+                .filter(|(_, e, _)| *e == id)
+                .map(|(_, _, m)| *m),
         )?;
-        let part_reprise = calcul(
-            reprise
-                .iter()
-                .filter(|p| p.echeance_id == echeance.id)
-                .try_fold(Montant::ZERO, |s, p| s.ajouter(p.montant)),
-        )?;
-        let paye = calcul(
+        let verse = somme(
             imputations
                 .iter()
-                .filter(|(_, e, _)| *e == echeance.id)
+                .filter(|(_, e, _)| *e == id)
                 .map(|(_, _, m)| *m)
-                .chain(
-                    avoirs
-                        .iter()
-                        .filter(|(e, _)| *e == echeance.id)
-                        .map(|(_, m)| *m),
-                )
-                .try_fold(part_reprise, |s, m| s.ajouter(m)),
+                .chain(avoirs.iter().filter(|(e, _)| *e == id).map(|(_, m)| *m)),
         )?;
         let net = calcul(
             echeance
@@ -144,28 +186,66 @@ async fn etats(
                 .soustraire(remise)
                 .and_then(|m| m.soustraire(ajustement)),
         )?;
-        etats.push(EcheanceAffichee {
-            reste: calcul(net.soustraire(paye))?,
+        let nature = lignes
+            .iter()
+            .find(|l| l.id == echeance.ligne_facture_id)
+            .map_or(NatureEcheance::Autre, |l| {
+                NatureEcheance::depuis_type_frais(l.type_frais)
+            });
+        a_partager.push(EcheanceAPartager {
+            echeance_id: id,
+            nature,
             net,
-            paye,
-            reprise: part_reprise,
-            remise,
-            ajustement,
-            echeance,
+            paye_parent: verse,
         });
+        lues.push((echeance, remise, ajustement, net));
     }
-    Ok(etats)
+    let partage = partager(&EntreePartage {
+        echeances: a_partager,
+        version: VersionCourante::depuis(version.as_ref()),
+        paye_etat,
+        rembourse,
+        reprise,
+    })
+    .map_err(|_| regle("facture.calcul_impossible"))?;
+    let echeances = lues
+        .into_iter()
+        .zip(&partage.echeances)
+        .map(
+            |((echeance, remise, ajustement, net), p)| EcheanceAffichee {
+                echeance,
+                remise,
+                ajustement,
+                net,
+                part_etat: p.part_etat,
+                renonce: p.renonce,
+                part_parent: p.part_parent,
+                paye_etat: p.paye_etat,
+                reste_etat: p.reste_etat,
+                verse_parent: p.verse_parent,
+                reprise: p.reprise,
+                paye: p.paye,
+                reste: p.reste,
+            },
+        )
+        .collect();
+    Ok(EtatFacture {
+        echeances,
+        partage,
+        prise_en_charge: version,
+    })
 }
 
-/// Réimpute la reprise active de l'inscription (SPEC_REPRISE_AVANT_GESCO §3.5) : l'utilisable
-/// (montant moins remboursé) remplit les restes calculés sans elle, plus ancienne échéance
-/// d'abord. Les parts ne se réécrivent que si elles changent : les anciennes passent `annulee`,
-/// les nouvelles naissent. Un dû qui monte absorbe d'abord l'excédent ; un dû qui baisse le
-/// libère.
+/// Réimpute la reprise active de l'inscription (SPEC_REPRISE_AVANT_GESCO §3.5,
+/// SPEC_PRISE_EN_CHARGE_ETAT §4.2) : l'utilisable (montant moins la part du remboursé qui lui
+/// revient) remplit la part du parent qui reste après son argent et le report de son trop-payé,
+/// plus ancienne échéance d'abord — les parts `u(e)` du partage. Les parts ne se réécrivent que
+/// si elles changent : les anciennes passent `annulee`, les nouvelles naissent.
 async fn reimputer_reprise_dans(
     unite: &mut UniteDeTravail<Effet>,
     contexte: &Contexte,
     facture: &Facture,
+    partage: &Partage,
 ) -> Resultat<()> {
     let Some(active) =
         reprises::active(unite.connexion(), facture.inscription_id, contexte).await?
@@ -175,16 +255,7 @@ async fn reimputer_reprise_dans(
     let voulues = if facture.statut == StatutFacture::Annulee {
         Vec::new()
     } else {
-        let restes: Vec<(Id<Echeance>, Montant)> =
-            etats(unite.connexion(), facture.id, contexte, false)
-                .await?
-                .iter()
-                .map(|e| (e.echeance.id, e.reste))
-                .collect();
-        let rembourse =
-            reprises::rembourse(unite.connexion(), facture.inscription_id, contexte).await?;
-        let utilisable = calcul(active.montant.soustraire(rembourse))?.max(Montant::ZERO);
-        reprise::imputer(&restes, utilisable).map_err(|_| regle("facture.calcul_impossible"))?
+        partage.parts_reprise()
     };
     // Toutes les parts actives de la reprise, même sur des échéances contre-passées.
     let actuelles = reprises::parts_actives(unite.connexion(), active.id, contexte).await?;
@@ -205,36 +276,51 @@ async fn reimputer_reprise_dans(
     Ok(())
 }
 
+/// Chiffres de la reprise et du remboursement d'un partage (§3.6 bis de la reprise, §3.4) :
+/// montant actif, remboursé à la famille, utilisable, imputé, et **tout** ce qui est à
+/// rembourser (excédent de la reprise et trop-payé non reporté).
+pub(crate) fn chiffres_du_partage(partage: &Partage) -> ChiffresReprise {
+    ChiffresReprise {
+        montant: partage.reprise,
+        rembourse: partage.rembourse,
+        utilisable: partage.reprise_utilisable,
+        impute: partage.reprise_imputee,
+        a_rembourser: partage.a_rembourser,
+    }
+}
+
 /// Chiffres de la reprise d'une facture (§3.6 bis) : montant actif, remboursé, imputé, à
-/// rembourser. Tout zéro sans reprise.
+/// rembourser (excédent de la reprise et trop-payé du parent non reporté). Tout zéro sans reprise
+/// ni trop-payé.
 pub(crate) async fn chiffres_reprise(
     cnx: &mut gesco_db::Connexion,
     facture: &Facture,
     contexte: &Contexte,
 ) -> Resultat<ChiffresReprise> {
-    let montant = reprises::active(cnx, facture.inscription_id, contexte)
-        .await?
-        .map_or(Montant::ZERO, |r| r.montant);
-    let rembourse = reprises::rembourse(cnx, facture.inscription_id, contexte).await?;
-    let parts = reprises::imputations_de_la_facture(cnx, facture.id, contexte).await?;
-    reprise::chiffres(montant, rembourse, &parts).map_err(|_| regle("facture.calcul_impossible"))
+    Ok(chiffres_du_partage(
+        &etat_facture(cnx, facture.id, contexte).await?.partage,
+    ))
 }
 
-/// Recalcule le total et l'état d'une facture d'après ses échéances dues et ses imputations
-/// (R-20), et l'écrit s'il a changé. Rend la facture à jour.
+/// Recalcule le total et l'état d'une facture d'après ses échéances dues, ses imputations et
+/// son partage avec l'État (R-20), réimpute la reprise sur la part du parent, et écrit la
+/// facture si elle a changé. Soldée quand le reste du parent et le reste de l'État sont nuls
+/// tous deux (SPEC_PRISE_EN_CHARGE_ETAT §4.2). Rend la facture à jour.
 pub(crate) async fn recalculer_dans(
     unite: &mut UniteDeTravail<Effet>,
     contexte: &Contexte,
     facture: &Facture,
 ) -> Resultat<Facture> {
-    reimputer_reprise_dans(unite, contexte, facture).await?;
-    let etats = etat_echeances(unite.connexion(), facture.id, contexte).await?;
-    let somme = |f: fn(&EcheanceAffichee) -> Montant| {
-        calcul(etats.iter().try_fold(Montant::ZERO, |s, e| s.ajouter(f(e))))
-    };
-    let total = somme(|e| e.echeance.montant)?;
-    let paye = somme(|e| e.paye)?;
-    let reste = somme(|e| e.reste)?;
+    let etat = etat_facture(unite.connexion(), facture.id, contexte).await?;
+    reimputer_reprise_dans(unite, contexte, facture, &etat.partage).await?;
+    let total = calcul(
+        etat.echeances
+            .iter()
+            .try_fold(Montant::ZERO, |s, e| s.ajouter(e.echeance.montant)),
+    )?;
+    let p = &etat.partage;
+    let paye = calcul(p.paye_parent.ajouter(p.paye_etat))?;
+    let reste = calcul(p.reste_parent.ajouter(p.reste_etat))?;
     let statut = gesco_core::finance::versement::statut_d_apres(paye, reste);
     if statut == facture.statut && total == facture.total {
         return Ok(facture.clone());
@@ -269,16 +355,37 @@ pub struct FactureAffichee {
     pub ajustement: Montant,
     /// Ajustements au changement de classe, du plus ancien au plus récent.
     pub ajustements: Vec<Ajustement>,
-    /// Versements imputés, avoirs utilisés et reprise avant GESCO.
+    /// Argent du parent qui compte pour sa part : versements et avoirs, report de son
+    /// trop-payé, reprise avant GESCO.
     pub paye: Montant,
-    /// Reste à payer : total, moins les remises et les baisses, moins le payé.
+    /// Reste à payer par le parent.
     pub reste: Montant,
     /// Payé avant GESCO, porté par les échéances.
     pub reprise: Montant,
-    /// Excédent payé avant GESCO qui reste à rendre au parent.
+    /// À rembourser au parent : excédent payé avant GESCO et trop-payé non reporté.
     pub a_rembourser: Montant,
     /// Déjà rendu au parent.
     pub rembourse: Montant,
+    /// Part de l'État sur la facture.
+    pub part_etat: Montant,
+    /// Ce que personne ne doit, à la charge de l'école.
+    pub renonce: Montant,
+    /// Payé par l'État sur la facture.
+    pub paye_etat: Montant,
+    /// Reste dû par l'État sur la facture.
+    pub reste_etat: Montant,
+    /// Complément attendu de l'État, hors facture (attendu au-delà de la scolarité).
+    pub complement_etat: Montant,
+    /// Payé par l'État sur le complément.
+    pub paye_complement: Montant,
+    /// Reçu de l'État au-delà de ce qu'il doit pour l'élève.
+    pub recu_en_plus_etat: Montant,
+    /// Payé par le parent au-delà de sa part.
+    pub trop_paye: Montant,
+    /// Trop-payé du parent reporté sur ses autres frais.
+    pub trop_paye_reporte: Montant,
+    /// Version courante de la prise en charge par l'État, ou rien.
+    pub prise_en_charge: Option<PriseEnChargeEtat>,
 }
 
 /// Plan proposé au changement.
@@ -547,12 +654,13 @@ pub(crate) async fn annuler_pour_abandon_dans(
         return Ok(());
     };
     let etats = etat_echeances(unite.connexion(), avant.id, contexte).await?;
-    if etats.iter().any(|e| !e.paye.est_nul()) {
+    if etats.iter().any(EcheanceAffichee::payee) {
         // Des versements existent : le payé reste acquis, les échéances à venir et sans
-        // paiement s'annulent par contre-passation (SPEC_PHASE_3 §4.3, comme Q-34).
+        // paiement s'annulent par contre-passation (SPEC_PHASE_3 §4.3, comme Q-34). Une échéance
+        // dont le parent ou l'État a payé une part reste (SPEC_PRISE_EN_CHARGE_ETAT §5.4).
         let aujourd_hui = jour(contexte.maintenant)?;
         for e in &etats {
-            if e.paye.est_nul() && e.echeance.date > aujourd_hui {
+            if !e.payee() && e.echeance.date > aujourd_hui {
                 factures::annuler_echeance(unite.connexion(), e.echeance.id, contexte).await?;
             }
         }
@@ -613,7 +721,7 @@ pub(crate) async fn annuler_echeances_a_venir_dans(
     };
     let mut annulees = Vec::new();
     for e in etat_echeances(unite.connexion(), avant.id, contexte).await? {
-        if e.paye.est_nul() && e.echeance.date > depart {
+        if !e.payee() && e.echeance.date > depart {
             factures::annuler_echeance(unite.connexion(), e.echeance.id, contexte).await?;
             annulees.push(e.echeance.id);
         }
@@ -730,7 +838,11 @@ impl<'n> ServiceFacturation<'n> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
         let lignes = factures::lignes(&mut cnx, facture.id, &contexte).await?;
-        let echeances = etat_echeances(&mut cnx, facture.id, &contexte).await?;
+        let EtatFacture {
+            echeances,
+            partage,
+            prise_en_charge,
+        } = etat_facture(&mut cnx, facture.id, &contexte).await?;
         let somme = |f: fn(&EcheanceAffichee) -> Montant| {
             calcul(
                 echeances
@@ -743,7 +855,7 @@ impl<'n> ServiceFacturation<'n> {
         let ajustements = ajustements::de_la_facture(&mut cnx, facture.id, &contexte).await?;
         let paye = somme(|e| e.paye)?;
         let reste = somme(|e| e.reste)?;
-        let chiffres = chiffres_reprise(&mut cnx, &facture, &contexte).await?;
+        let chiffres = chiffres_du_partage(&partage);
         let plan = tarifs::contenu(&mut cnx, facture.grille_id, &contexte)
             .await?
             .plans
@@ -763,6 +875,16 @@ impl<'n> ServiceFacturation<'n> {
             reprise: chiffres.impute,
             a_rembourser: chiffres.a_rembourser,
             rembourse: chiffres.rembourse,
+            part_etat: partage.du_etat,
+            renonce: partage.renonce,
+            paye_etat: partage.paye_etat,
+            reste_etat: partage.reste_etat,
+            complement_etat: partage.complement,
+            paye_complement: partage.paye_complement,
+            recu_en_plus_etat: partage.recu_en_plus,
+            trop_paye: partage.trop_paye,
+            trop_paye_reporte: partage.trop_paye_reporte,
+            prise_en_charge,
             facture,
         })
     }
@@ -914,8 +1036,10 @@ impl<'n> ServiceFacturation<'n> {
                 .await?
                 .iter()
                 .any(|e| {
-                    // La reprise ne verrouille pas le plan : elle se réimpute sur le nouveau.
-                    lignes_selon_plan.contains(&e.echeance.ligne_facture_id) && e.paye != e.reprise
+                    // Seuls les versements et les avoirs du parent verrouillent le plan : la
+                    // reprise se réimpute, la part de l'État se replace sur le nouveau.
+                    lignes_selon_plan.contains(&e.echeance.ligne_facture_id)
+                        && !e.verse_parent.est_nul()
                 })
             {
                 return Err(regle("echeancier.plan_verrouille"));
@@ -1131,7 +1255,7 @@ impl<'n> ServiceFacturation<'n> {
             .into_iter()
             .filter(|e| {
                 e.echeance.statut == StatutEcheance::Due
-                    && e.paye.est_nul()
+                    && !e.payee()
                     && selon_plan.contains(&e.echeance.ligne_facture_id)
                     && e.echeance.date.jour() != demande.jour
             })

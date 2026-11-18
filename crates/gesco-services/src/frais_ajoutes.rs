@@ -316,7 +316,8 @@ impl<'n> ServiceFraisAjoutes<'n> {
             .await?
             .into_iter()
             .filter(|e| e.echeance.ligne_facture_id == ligne.id)
-            .filter(|e| e.paye == e.reprise)
+            // Ni versement ni avoir : la reprise et le report du trop-payé se replacent ailleurs.
+            .filter(|e| e.verse_parent.est_nul())
         {
             factures::annuler_echeance(unite.connexion(), e.echeance.id, &contexte).await?;
             annulees.push(e.echeance.id);

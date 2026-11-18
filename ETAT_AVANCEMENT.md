@@ -37,7 +37,7 @@ Repère : prochaine migration **0063**.
 
 ## Prise en charge par l'État
 
-**État (18 novembre 2026) : en cours de code, étape 1 faite.** Spécification
+**État (18 novembre 2026) : en cours de code, étapes 1 et 2 faites.** Spécification
 `SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2 (prête à coder le 18 novembre 2026, T-164 à T-171 tranchées),
 ADR `docs/adr/2026-11-18-prise-en-charge-par-l-etat.md` accepté le 18 novembre 2026.
 Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé : ils
@@ -46,7 +46,7 @@ passent tous ensemble dans la session des essais de la 2.0.0.
 | Étape | Contenu | État |
 |---|---|---|
 | 1 | Tables et noyau : migration 0066, catégorie livrée « Versements de l'État », dépôt `prise_en_charge.rs`, calcul pur du partage (`finance/prise_en_charge.rs`) | faite (18 novembre 2026) ; essais 5 (calcul pur), 2, 3, 3 bis, 4, 4 bis (calcul pur) et 10 (base) écrits, non lancés |
-| 2 | Calcul de la facture : `etat_echeances`, `EcheanceAffichee`, `FactureAffichee`, `recalculer_dans`, remises, plan, abandon et départ, frais ajouté, abonnés de la cantine, refus du remboursement | à faire |
+| 2 | Calcul de la facture : `etat_echeances`, `EcheanceAffichee`, `FactureAffichee`, `recalculer_dans`, remises, plan, abandon et départ, frais ajouté, abonnés de la cantine, refus du remboursement | faite (18 novembre 2026) ; essais 2, 3, 3 bis, 4, 4 bis et 8 (par le service) écrits, non lancés |
 | 3 | Service de la prise en charge : cocher, modifier, abandonner, décocher, sélection, aperçu, montant proposé, case, année close | à faire |
 | 4 | Versement de l'État : enregistrer, répartir, compléter, annuler, recette, année close | à faire |
 | 5 | Commandes et écrans, textes, matrice des permissions | à faire |
@@ -110,6 +110,66 @@ quatre tables ; descente). Vérifiés : fmt, clippy (`-j 4`, noyau, base, servic
   après s'écrit avec le service (étape 3).
 - `gesco-db/tests/socle.rs` comptait encore 63 migrations (les 0064 et 0065 ne l'avaient pas
   mis à jour) : porté directement à 66.
+
+**Étape 2 (18 novembre 2026)** : calcul de la facture. `facturation::etat_facture` (nouveau, rend
+`EtatFacture` : échéances affichées, `Partage` entier, version courante) lit la facture, ses
+lignes (nature de chaque échéance par `type_frais`), remises, baisses, imputations, avoirs
+utilisés, la version courante (`prise_en_charge::courante`), `S` (`paye_etat`, lu seulement s'il y
+a une version), le remboursé et la reprise active, puis appelle `partager` ; `etat_echeances` en
+rend les échéances. `EcheanceAffichee` gagne `part_etat`, `renonce`, `part_parent`, `paye_etat`,
+`reste_etat` et `verse_parent` (m(e)) ; `paye` = c + t + u, `reste` = reste du parent ;
+`EcheanceAffichee::payee()` (le parent — versement, avoir, report, reprise — ou l'État en a payé
+une part). `FactureAffichee` gagne `part_etat`, `renonce`, `paye_etat`, `reste_etat`,
+`complement_etat`, `paye_complement`, `recu_en_plus_etat`, `trop_paye`, `trop_paye_reporte`,
+`prise_en_charge` (version courante ou rien) ; `a_rembourser` = total du §3.4. La part de la
+reprise u(e) est celle du partage, à la lecture comme à l'écriture. `recalculer_dans` : un seul
+partage, `reimputer_reprise_dans` écrit `parts_reprise()` (reprise sur la part du parent après le
+report), statut d'après payé total (parent + État) et reste total (parent + État) : soldée quand
+les deux restes sont nuls. `chiffres_reprise` (et `chiffres_du_partage`) : montant, remboursé B,
+utilisable U, imputé, à rembourser total. Remises : borne d'une échéance = reste du parent + reste
+de l'État + renoncé. Plan : le verrou ne regarde que `verse_parent`. Abandon, départ, changement
+du jour : une échéance `payee()` ne se contre-passe pas. « Retirer un frais » : seulement les
+échéances sans versement ni avoir. Changement de classe et frais ajouté : seul le recalcul (le
+partage suit les nouvelles lignes). Abonnés de la cantine (`depots/cantine.rs`) : la requête rend
+la facture et `partage` (version courante ou dépense de remboursement payée) ; pour ces
+inscriptions, `ServiceCantine::lire` relit le reste échu de la cantine par `etat_echeances`.
+Remboursement : `verifier_remboursement` lit le nouveau « à rembourser » (refus
+`remboursement.superieur_a_l_excedent`). `reprise.deja_remboursee` : minimum = remboursé moins le
+trop-payé X (le dû du minimum des avoirs devient la part du parent). Annulation d'un versement du
+parent : refus `versement.deja_rembourse` si le remboursé non couvert (`rembourse_en_trop`) monte
+(texte dans `fr-ML.ts`). Lecteurs du §4.4 relus : recouvrement (et arriérés de fin d'année),
+messages automatiques, consultation, guichet, documents remis, départs, encaissement, reçu lisent
+tous `reste` ; aucun ne recalcule un payé ; `factures::lire` ajouté au dépôt. Aides d'essai
+(`#[doc(hidden)]`, aucune commande) : `Application::prise_en_charge_pour_essai` et
+`versement_etat_pour_essai`, sur `gesco-services/src/prise_en_charge.rs` (`ecrire_version_dans`,
+`verser_dans` : par les dépôts, puis recalcul). `gesco.ts` écrit à la main comme specta l'écrirait
+(`EcheanceAffichee`, `FactureAffichee`, `PriseEnChargeEtat`, `StatutPriseEnCharge`). Essais écrits,
+non lancés : `gesco-services/tests/prise_en_charge.rs` (essais 2, 3, 3 bis, 4, 4 bis par le
+service ; 8 : impayés, relances, guichet, encaissement et refus, reçu, départ, abonnés de la
+cantine) ; l'essai qui parcourt les requêtes de `gesco-db` (`reprises.rs`,
+`toute_requete_de_paye_lit_la_reprise`) exige aussi `prise_en_charge_etat`. Vérifiés : fmt,
+clippy (`-j 4`, noyau, base, services, toutes cibles), tsc, ESLint.
+
+Écarts à la spécification (étape 2) :
+- `EcheanceAffichee` gagne aussi `verse_parent` (versements et avoirs imputés, m(e)), que la
+  spécification ne nomme pas : le verrou du plan, « Retirer un frais » et la règle « payée » du
+  §5.4 en ont besoin (une échéance couverte peut porter un versement du parent sans qu'il compte).
+- `etat_echeances` place la reprise par le calcul (u(e) du partage), plus par les parts écrites ;
+  `recalculer_dans` écrit les mêmes. Sur une année close, `recalculer_dans` n'est pas restreint :
+  les gestes permis (abandon, attendu, versement de l'État) ne changent pas la part du parent
+  d'une version en cours ; après un décochage, un versement de l'État reçu sur l'année close
+  change la part du parent comme le veut le calcul (E = min(S, N)).
+- Statut de la facture : « payé total » = argent du parent qui compte (c + t + u) + payé par
+  l'État ; un parent dont tout l'argent est un trop-payé non reporté laisse la facture « émise ».
+- Les refus `remboursement.superieur_a_l_excedent` et `versement.deja_rembourse` ne portent pas
+  le montant (les erreurs de règle n'ont pas de paramètre, comme pour la reprise).
+- Une remise sur l'inscription d'un élève coché est acceptée jusqu'au renoncé : elle réduit le
+  dû de l'inscription (qui redevient dû par le parent au décochage), sans rien changer tant que la
+  case reste cochée.
+- Restent aux étapes suivantes : l'écran « Payé avant GESCO » et l'import des reprises comparent
+  encore au dû net, pas au dû du parent (étape 8) ; relevé de compte (étape 7) ; propositions de
+  l'aperçu du changement de classe (étape 3) ; la facture née d'une inscription déjà cochée n'est
+  pas recalculée à sa création (statut « émise », chiffres justes à la lecture ; étape 3).
 
 Repère : prochaine migration **0067**.
 

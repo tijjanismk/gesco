@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use crate::effets::Effet;
 use crate::eleves::ServiceEleves;
 use crate::erreur::{ErreurService, Resultat};
-use crate::facturation::{EcheanceAffichee, etat_echeances, recalculer_dans};
+use crate::facturation::{EcheanceAffichee, etat_echeances, etat_facture, recalculer_dans};
 use crate::inscriptions::ServiceInscriptions;
 use crate::noyau::Noyau;
 use crate::numerotation;
@@ -551,10 +551,24 @@ impl<'n> ServiceEncaissement<'n> {
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
+        let en_trop_avant = etat_facture(unite.connexion(), facture.id, &contexte)
+            .await?
+            .partage
+            .rembourse_en_trop;
         if !versements::annuler(unite.connexion(), avant.id, &motif, &contexte).await? {
             return Err(regle("versement.deja_annule"));
         }
         versements::annuler_imputations(unite.connexion(), avant.id, &contexte).await?;
+        // Le remboursé ne dépasse jamais tout l'argent du parent (versements, avoirs, reprise) :
+        // on annule d'abord la dépense de remboursement (SPEC_PRISE_EN_CHARGE_ETAT §3.5).
+        if etat_facture(unite.connexion(), facture.id, &contexte)
+            .await?
+            .partage
+            .rembourse_en_trop
+            > en_trop_avant
+        {
+            return Err(regle("versement.deja_rembourse"));
+        }
         let facture = recalculer_dans(&mut unite, &contexte, &facture).await?;
         let id = avant.id.vers_chaine();
         unite.auditer(

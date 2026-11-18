@@ -616,6 +616,9 @@ async fn les_lecteurs_du_reste_voient_la_reprise() {
     );
 }
 
+/// Essai 9 de la reprise, étendu par l'essai 8 de la prise en charge par l'État : une telle
+/// requête lit aussi `prise_en_charge_etat`, pour passer par le calcul du reste
+/// (`facturation::etat_echeances`) quand la facture est partagée avec l'État.
 #[test]
 fn toute_requete_de_paye_lit_la_reprise() {
     let racine = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../gesco-db/src/depots");
@@ -634,6 +637,10 @@ fn toute_requete_de_paye_lit_la_reprise() {
             assert!(
                 source.contains("reprise_imputation"),
                 "{nom} additionne imputation_versement sans reprise_imputation"
+            );
+            assert!(
+                source.contains("prise_en_charge_etat"),
+                "{nom} additionne imputation_versement sans regarder la prise en charge par l'État"
             );
         }
     }

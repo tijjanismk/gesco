@@ -58,6 +58,7 @@ mod personnel;
 mod plusieurs;
 mod portail_entree;
 mod postes;
+mod prise_en_charge;
 mod rapports;
 mod recettes;
 mod reprises;

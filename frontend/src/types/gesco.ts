@@ -6254,7 +6254,10 @@ export type Echeance = {
 	statut: StatutEcheance,
 };
 
-/**  Échéance due, avec la part des remises accordées et ce qui reste à payer. */
+/**
+ *  Échéance due, avec la part des remises accordées, le partage entre l'État et le parent
+ *  (SPEC_PRISE_EN_CHARGE_ETAT §3.4, §4.1) et ce qui reste à payer au parent.
+ */
 export type EcheanceAffichee = {
 	/**  Échéance. */
 	echeance: Echeance,
@@ -6264,11 +6267,26 @@ export type EcheanceAffichee = {
 	ajustement: Montant,
 	/**  Dû après remise et baisse. */
 	net: Montant,
+	/**  Part de l'État (scolarité d'un élève pris en charge). */
+	part_etat: Montant,
+	/**  Ce que personne ne doit, à la charge de l'école (écart, abandon, inscription non due). */
+	renonce: Montant,
+	/**  Part du parent : dû après remise et baisse, moins la part de l'État et le renoncé. */
+	part_parent: Montant,
+	/**  Payé par l'État sur sa part. */
+	paye_etat: Montant,
+	/**  Reste dû par l'État sur sa part. */
+	reste_etat: Montant,
+	/**  Versements imputés et avoirs utilisés sur l'échéance, tels que les reçus les portent. */
+	verse_parent: Montant,
 	/**  Part de la reprise avant GESCO portée par l'échéance. */
 	reprise: Montant,
-	/**  Versements imputés, avoirs utilisés et reprise avant GESCO. */
+	/**
+	 *  Argent du parent qui compte pour sa part : versements et avoirs, report de son trop-payé
+	 *  et reprise avant GESCO.
+	 */
 	paye: Montant,
-	/**  Reste à payer : dû après remise et baisse, moins le payé. */
+	/**  Reste à payer par le parent : sa part moins ce qui compte pour elle. */
 	reste: Montant,
 };
 
@@ -7196,16 +7214,39 @@ export type FactureAffichee = {
 	ajustement: Montant,
 	/**  Ajustements au changement de classe, du plus ancien au plus récent. */
 	ajustements: Ajustement[],
-	/**  Versements imputés, avoirs utilisés et reprise avant GESCO. */
+	/**
+	 *  Argent du parent qui compte pour sa part : versements et avoirs, report de son
+	 *  trop-payé, reprise avant GESCO.
+	 */
 	paye: Montant,
-	/**  Reste à payer : total, moins les remises et les baisses, moins le payé. */
+	/**  Reste à payer par le parent. */
 	reste: Montant,
 	/**  Payé avant GESCO, porté par les échéances. */
 	reprise: Montant,
-	/**  Excédent payé avant GESCO qui reste à rendre au parent. */
+	/**  À rembourser au parent : excédent payé avant GESCO et trop-payé non reporté. */
 	a_rembourser: Montant,
 	/**  Déjà rendu au parent. */
 	rembourse: Montant,
+	/**  Part de l'État sur la facture. */
+	part_etat: Montant,
+	/**  Ce que personne ne doit, à la charge de l'école. */
+	renonce: Montant,
+	/**  Payé par l'État sur la facture. */
+	paye_etat: Montant,
+	/**  Reste dû par l'État sur la facture. */
+	reste_etat: Montant,
+	/**  Complément attendu de l'État, hors facture (attendu au-delà de la scolarité). */
+	complement_etat: Montant,
+	/**  Payé par l'État sur le complément. */
+	paye_complement: Montant,
+	/**  Reçu de l'État au-delà de ce qu'il doit pour l'élève. */
+	recu_en_plus_etat: Montant,
+	/**  Payé par le parent au-delà de sa part. */
+	trop_paye: Montant,
+	/**  Trop-payé du parent reporté sur ses autres frais. */
+	trop_paye_reporte: Montant,
+	/**  Version courante de la prise en charge par l'État, ou rien. */
+	prise_en_charge: PriseEnChargeEtat | null,
 };
 
 /**  Facture d'un fournisseur. */
@@ -10335,6 +10376,45 @@ export type SortLigneReprise =
 "avertissement" |
 /**  Laissée de côté. */
 "erreur";
+
+/**  Une version de la prise en charge d'une inscription (§3.1). */
+export type PriseEnChargeEtat = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement propriétaire. */
+	etablissement_id: string,
+	/**  Inscription de l'année : la finance référence l'inscription, jamais l'élève. */
+	inscription_id: string,
+	/**  En cours, terminée ou remplacée. */
+	statut: StatutPriseEnCharge,
+	/**  Ce que l'État doit payer pour l'élève pour l'année, positif ou nul. */
+	montant_attendu: Montant,
+	/**  Ce que l'école renonce à attendre de l'État, entre zéro et le montant attendu. */
+	abandonne: Montant,
+	/**  Référence d'orientation, facultative. */
+	reference: string,
+	/**  Motif : obligatoire pour une version terminée et pour un abandon. */
+	motif: string,
+	/**  Version qu'elle remplace. */
+	remplace_id: string | null,
+	/**  Instant de la création. */
+	cree_le: number,
+	/**  Auteur. */
+	cree_par: string | null,
+	/**  Instant de la dernière écriture (passage à `remplacee`) : l'écran le renvoie. */
+	mis_a_jour_le: number,
+	/**  Auteur de la dernière écriture. */
+	mis_a_jour_par: string | null,
+};
+
+/**  État d'une version de la prise en charge d'une inscription. */
+export type StatutPriseEnCharge =
+/**  Case cochée : l'État doit la scolarité. */
+"en_cours" |
+/**  Case décochée : l'État ne doit plus que ce qu'il a déjà payé. */
+"terminee" |
+/**  Version ancienne, remplacée par une autre ; jamais supprimée (R-14). */
+"remplacee";
 
 /**  État d'une reprise ou d'une de ses parts. */
 export type StatutReprise =
