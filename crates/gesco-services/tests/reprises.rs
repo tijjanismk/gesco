@@ -119,6 +119,18 @@ pub async fn ecole(dossier: &std::path::Path) -> Ecole {
 
 /// Élève avec un responsable payeur, inscrit et validé dans la classe (plan par défaut).
 pub async fn inscrit(e: &Ecole, prenoms: &str, classe: &Value) -> (Value, Value) {
+    let (fiche, inscription) = brouillon(e, prenoms, classe).await;
+    e.p.ok(
+        "inscription_valider",
+        Some(&e.admin),
+        json!({ "id": inscription["id"] }),
+    )
+    .await;
+    (fiche, inscription)
+}
+
+/// Élève avec un responsable payeur, en brouillon dans la classe.
+pub async fn brouillon(e: &Ecole, prenoms: &str, classe: &Value) -> (Value, Value) {
     let fiche = e
         .p
         .ok(
@@ -152,12 +164,6 @@ pub async fn inscrit(e: &Ecole, prenoms: &str, classe: &Value) -> (Value, Value)
         )
         .await["inscription"]
         .clone();
-    e.p.ok(
-        "inscription_valider",
-        Some(&e.admin),
-        json!({ "id": inscription["id"] }),
-    )
-    .await;
     (fiche, inscription)
 }
 
@@ -631,4 +637,244 @@ fn toute_requete_de_paye_lit_la_reprise() {
             );
         }
     }
+}
+
+/// Ce que la caisse et les comptes montrent : totaux de la session ouverte, journal de
+/// trésorerie du mois, soldes.
+async fn argent(e: &Ecole, jeton: &Jeton) -> (Value, Value, Value) {
+    let session =
+        e.p.ok("caisse_session_courante", Some(jeton), Value::Null)
+            .await;
+    let journal =
+        e.p.ok(
+            "journal_tresorerie_lire",
+            Some(&e.admin),
+            json!({ "mois": "2026-10" }),
+        )
+        .await;
+    let tresorerie = e.p.ok("tresorerie_lire", Some(&e.admin), Value::Null).await;
+    (
+        session["totaux"].clone(),
+        json!({ "recettes": journal["total_recettes"], "depenses": journal["total_depenses"],
+            "lignes": journal["depenses"] }),
+        tresorerie["comptes"].clone(),
+    )
+}
+
+fn categorie_remboursement(depenses: &Value) -> Value {
+    depenses["categories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["code"] == "remboursement_parent")
+        .unwrap()["id"]
+        .clone()
+}
+
+/// Essai 3 : l'excédent d'une reprise est à rembourser ; seule la dépense payée sort de
+/// l'argent ; rien n'est remboursé deux fois ; un frais ajouté absorbe d'abord l'excédent.
+#[tokio::test]
+async fn l_excedent_se_rembourse_par_une_depense_et_jamais_deux_fois() {
+    let dossier = tempfile::tempdir().unwrap();
+    let e = ecole(dossier.path()).await;
+    let (awa, ins) = inscrit(&e, "Awa", &e.septieme).await;
+    e.p.ok(
+        "caisse_ouvrir",
+        Some(&e.admin),
+        json!({ "fonds_initial": 50_000 }),
+    )
+    .await;
+    let avant = argent(&e, &e.admin).await;
+
+    // Facture de 160 000 F, cahier à 175 000 F : soldée, 15 000 F à rembourser, argent intact.
+    let ligne = reprendre(&e, &e.admin, &ins, 175_000).await;
+    assert_eq!(ligne["reste"], 0);
+    assert_eq!(ligne["a_rembourser"], 15_000);
+    let s = situation(&e, &awa).await;
+    assert_eq!(s["facture"]["facture"]["statut"], "soldee");
+    assert_eq!(s["facture"]["a_rembourser"], 15_000);
+    assert_eq!(argent(&e, &e.admin).await, avant);
+
+    // Remboursement de 10 000 F en espèces : la session perd exactement 10 000 F.
+    let depenses =
+        e.p.ok(
+            "depenses_lire",
+            Some(&e.admin),
+            json!({ "mois": "2026-10" }),
+        )
+        .await;
+    let categorie = categorie_remboursement(&depenses);
+    let caisse = argent(&e, &e.admin)
+        .await
+        .2
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["nature"] == "caisse")
+        .unwrap()["id"]
+        .clone();
+    let rembourser = |montant: i64| {
+        json!({ "date": "", "categorie_id": categorie, "libelle": "Trop-payé avant GESCO — Awa Diarra",
+            "beneficiaire": "Fanta Sangaré", "montant": montant, "inscription_id": ins["id"],
+            "paiement": { "compte_id": caisse, "mode": "especes", "reference": "" } })
+    };
+    let apres =
+        e.p.ok("depense_saisir", Some(&e.admin), rembourser(10_000))
+            .await;
+    let depense = apres["depenses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["depense"]["inscription_id"] == ins["id"])
+        .unwrap()["depense"]["id"]
+        .clone();
+    let (totaux, journal, _) = argent(&e, &e.admin).await;
+    assert_eq!(
+        totaux["theorique"].as_i64().unwrap(),
+        avant.0["theorique"].as_i64().unwrap() - 10_000
+    );
+    assert_eq!(
+        journal["depenses"].as_i64().unwrap(),
+        avant.1["depenses"].as_i64().unwrap() + 10_000
+    );
+    assert!(
+        journal["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l["libelle"] == "Remboursements aux parents" && l["montant"] == 10_000)
+    );
+    let s = situation(&e, &awa).await;
+    assert_eq!(s["facture"]["a_rembourser"], 5_000);
+    assert_eq!(s["facture"]["rembourse"], 10_000);
+    assert_eq!(s["reprise"]["remboursements"].as_array().unwrap().len(), 1);
+
+    // 6 000 F de plus : refusé, rien n'est remboursé deux fois.
+    assert_eq!(
+        e.p.refus("depense_saisir", Some(&e.admin), rembourser(6_000))
+            .await
+            .cle,
+        "remboursement.superieur_a_l_excedent"
+    );
+
+    // La cantine oubliée (30 000 F) : la reprise en couvre 5 000 F, reste 25 000 F.
+    let apercu =
+        e.p.ok(
+            "frais_ajouter_apercu",
+            Some(&e.admin),
+            json!({ "inscription_id": ins["id"] }),
+        )
+        .await;
+    assert_eq!(apercu[0]["montant"], 30_000);
+    e.p.ok(
+        "frais_ajouter",
+        Some(&e.admin),
+        json!({ "inscription_id": ins["id"], "ligne_tarifaire_id": e.cantine }),
+    )
+    .await;
+    let s = situation(&e, &awa).await;
+    assert_eq!(s["facture"]["a_rembourser"], 0);
+    assert_eq!(reste(&s), 25_000);
+
+    // Baisser la reprise sous ce qui a été rendu : refusé.
+    assert_eq!(
+        e.p.refus(
+            "reprise_enregistrer",
+            Some(&e.admin),
+            json!({ "inscription_id": ins["id"], "montant": 5_000, "note": "" }),
+        )
+        .await
+        .cle,
+        "reprise.deja_remboursee"
+    );
+
+    // Dépense annulée : la reprise se réimpute, reste 15 000 F ; la session reçoit l'entrée
+    // d'annulation comme pour toute dépense.
+    e.p.ok(
+        "depense_annuler",
+        Some(&e.admin),
+        json!({ "id": depense, "motif": "Parent revenu payer la cantine" }),
+    )
+    .await;
+    let s = situation(&e, &awa).await;
+    assert_eq!(reste(&s), 15_000);
+    assert_eq!(s["facture"]["rembourse"], 0);
+    let (totaux, _, _) = argent(&e, &e.admin).await;
+    assert_eq!(totaux["theorique"], avant.0["theorique"]);
+}
+
+/// Essai 3 bis : un frais ajouté sans reprise reçoit ses échéances comme à la validation ;
+/// refusé sur une facture annulée ou une année close.
+#[tokio::test]
+async fn un_frais_oublie_s_ajoute_comme_a_la_validation() {
+    let dossier = tempfile::tempdir().unwrap();
+    let e = ecole(dossier.path()).await;
+    let (awa, ins) = inscrit(&e, "Awa", &e.septieme).await;
+    let (coumba, ins_c) = inscrit(&e, "Coumba", &e.septieme).await;
+    // Binta, validée avec la cantine cochée : le modèle de ce que l'ajout doit donner.
+    let (binta, brouillon_b) = brouillon(&e, "Binta", &e.septieme).await;
+    e.p.ok(
+        "inscription_valider",
+        Some(&e.admin),
+        json!({ "id": brouillon_b["id"], "choix": { "frais_optionnels": [e.cantine] } }),
+    )
+    .await;
+    let facture =
+        e.p.ok(
+            "frais_ajouter",
+            Some(&e.admin),
+            json!({ "inscription_id": ins["id"], "ligne_tarifaire_id": e.cantine }),
+        )
+        .await;
+    assert_eq!(facture["facture"]["total"], 190_000);
+    let echeances = |s: &Value| -> Vec<(Value, Value)> {
+        s["facture"]["echeances"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| {
+                (
+                    e["echeance"]["date"].clone(),
+                    e["echeance"]["montant"].clone(),
+                )
+            })
+            .collect()
+    };
+    let mut a = echeances(&situation(&e, &awa).await);
+    let mut b = echeances(&situation(&e, &binta).await);
+    a.sort_by_key(|(d, m)| (d.to_string(), m.to_string()));
+    b.sort_by_key(|(d, m)| (d.to_string(), m.to_string()));
+    assert_eq!(a, b);
+    // Déjà là : plus rien à ajouter.
+    assert_eq!(
+        e.p.refus(
+            "frais_ajouter",
+            Some(&e.admin),
+            json!({ "inscription_id": ins["id"], "ligne_tarifaire_id": e.cantine }),
+        )
+        .await
+        .cle,
+        "frais.non_ajoutable"
+    );
+    {
+        let mut cnx = base_brute(&e.p.racine, e.p.trousseau.clone()).await;
+        sqlx::query("UPDATE annee_scolaire SET statut = 'cloturee'")
+            .execute(&mut cnx)
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        e.p.refus(
+            "frais_ajouter",
+            Some(&e.admin),
+            json!({ "inscription_id": ins_c["id"], "ligne_tarifaire_id": e.cantine }),
+        )
+        .await
+        .cle,
+        "frais.annee_close"
+    );
+    assert_eq!(
+        situation(&e, &coumba).await["facture"]["facture"]["total"],
+        160_000
+    );
 }

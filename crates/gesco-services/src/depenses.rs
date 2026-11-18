@@ -117,6 +117,10 @@ pub struct DemandeDepense {
     /// Facture de fournisseur qu'elle paie : son montant ne dépasse pas ce qui en reste.
     #[serde(default)]
     pub facture_id: Option<Id<FactureFournisseur>>,
+    /// Inscription dont elle rembourse l'excédent payé avant GESCO : son montant ne dépasse pas
+    /// ce qui reste à rembourser.
+    #[serde(default)]
+    pub inscription_id: Option<Id<gesco_core::scolarite::Inscription>>,
 }
 
 /// Accord ou refus de la direction.
@@ -308,6 +312,16 @@ impl<'n> ServiceDepenses<'n> {
                 return Err(regle("fournisseur.au_dela_du_reste"));
             }
         }
+        if let Some(inscription_id) = demande.inscription_id {
+            crate::reprises::verifier_remboursement(
+                unite.connexion(),
+                inscription_id,
+                demande.montant,
+                Montant::ZERO,
+                &contexte,
+            )
+            .await?;
+        }
         let seuil = crate::tresorerie::reglages(unite.connexion(), &contexte)
             .await?
             .seuil_accord;
@@ -330,7 +344,7 @@ impl<'n> ServiceDepenses<'n> {
             motif: String::new(),
             facture_id: demande.facture_id,
             paiement_id: None,
-            inscription_id: None,
+            inscription_id: demande.inscription_id,
         };
         depenses::inserer(unite.connexion(), &depense, &contexte).await?;
         let id = depense.id.vers_chaine();
@@ -478,6 +492,11 @@ impl<'n> ServiceDepenses<'n> {
             caisse::inserer_mouvement(unite.connexion(), &entree, &contexte).await?;
         }
         depenses::ecrire(unite.connexion(), &apres, &contexte).await?;
+        if let Some(inscription_id) = apres.inscription_id {
+            // Le remboursé baisse : la reprise se réimpute.
+            crate::reprises::recalculer_inscription_dans(&mut unite, &contexte, inscription_id)
+                .await?;
+        }
         let id = apres.id.vers_chaine();
         unite.auditer(
             "depense",
@@ -585,6 +604,17 @@ async fn payer_dans(
         .find(|c| c.id == paiement.compte_id)
         .ok_or(regle("depense.compte_inconnu"))?;
     verifier_paiement_depense(&compte, paiement.mode, &paiement.reference).map_err(regle)?;
+    if let Some(inscription_id) = avant.inscription_id {
+        // Au paiement aussi, jamais plus que ce qui reste à rembourser.
+        crate::reprises::verifier_remboursement(
+            unite.connexion(),
+            inscription_id,
+            avant.montant,
+            avant.montant,
+            contexte,
+        )
+        .await?;
+    }
     let session_id = if compte.nature == NatureCompte::Caisse {
         let ouverte = caisse::ouverte_de(unite.connexion(), session.utilisateur_id, contexte)
             .await?
@@ -640,6 +670,10 @@ async fn payer_dans(
         &id,
         serde_json::json!({ "montant": apres.montant, "compte_id": compte.id, "mode": apres.mode }),
     );
+    if let Some(inscription_id) = apres.inscription_id {
+        // Le remboursé monte : l'utilisable de la reprise baisse, elle se réimpute.
+        crate::reprises::recalculer_inscription_dans(unite, contexte, inscription_id).await?;
+    }
     Ok(())
 }
 

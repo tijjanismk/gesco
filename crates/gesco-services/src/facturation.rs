@@ -717,6 +717,15 @@ impl<'n> ServiceFacturation<'n> {
             .map_err(gesco_db::ErreurBase::from)?)
     }
 
+    /// Facture affichée : lignes, échéances, remises, payé, reste, reprise.
+    pub async fn facture_affichee(
+        &self,
+        session: &Session,
+        facture: Facture,
+    ) -> Resultat<FactureAffichee> {
+        self.affichee(session, facture).await
+    }
+
     async fn affichee(&self, session: &Session, facture: Facture) -> Resultat<FactureAffichee> {
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;

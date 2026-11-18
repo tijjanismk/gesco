@@ -707,3 +707,45 @@ pub(crate) async fn de_l_inscription_dans(
         a_ce_jour: !d_une_caisse,
     }))
 }
+
+/// Refuse un remboursement au-delà de l'excédent (§3.6 bis) : le montant ne dépasse pas ce qui
+/// reste à rembourser, moins les remboursements engagés et pas encore payés (hors `deja_engage`,
+/// la part de la dépense elle-même quand on la paie). Rien n'est remboursé deux fois.
+pub(crate) async fn verifier_remboursement(
+    cnx: &mut gesco_db::Connexion,
+    inscription_id: Id<Inscription>,
+    montant: Montant,
+    deja_engage: Montant,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    let Some(facture) = factures::facture_vivante(cnx, inscription_id, contexte).await? else {
+        return Err(regle("remboursement.superieur_a_l_excedent"));
+    };
+    let chiffres = chiffres_reprise(cnx, &facture, contexte).await?;
+    let engages = reprises::remboursements_engages(cnx, inscription_id, contexte).await?;
+    let en_attente = calcul(
+        engages
+            .soustraire(chiffres.rembourse)
+            .and_then(|m| m.soustraire(deja_engage)),
+    )?
+    .max(Montant::ZERO);
+    let possible = calcul(chiffres.a_rembourser.soustraire(en_attente))?.max(Montant::ZERO);
+    if montant > possible {
+        return Err(regle("remboursement.superieur_a_l_excedent"));
+    }
+    Ok(())
+}
+
+/// Recalcule la facture vivante d'une inscription (la reprise se réimpute), dans l'unité.
+pub(crate) async fn recalculer_inscription_dans(
+    unite: &mut UniteDeTravail<Effet>,
+    contexte: &Contexte,
+    inscription_id: Id<Inscription>,
+) -> Resultat<()> {
+    if let Some(facture) =
+        factures::facture_vivante(unite.connexion(), inscription_id, contexte).await?
+    {
+        recalculer_dans(unite, contexte, &facture).await?;
+    }
+    Ok(())
+}

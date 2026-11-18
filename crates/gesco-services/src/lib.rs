@@ -54,6 +54,7 @@ pub mod fin_annee;
 pub mod fournisseurs;
 pub mod fraicheur;
 pub mod frais;
+pub mod frais_ajoutes;
 pub mod frontiere;
 pub mod fusion;
 pub mod garde;
