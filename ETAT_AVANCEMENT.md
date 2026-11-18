@@ -37,12 +37,12 @@ Repère : prochaine migration **0063**.
 
 ## Reprise avant GESCO — installer GESCO en cours d'année
 
-**État (18 novembre 2026) : étapes 1 à 7 codées, essais écrits non lancés ; étape 8 à faire.**
+**État (18 novembre 2026) : reprise avant GESCO codée, essais écrits non lancés.** Les huit étapes sont faites ; les essais Rust (1 à 12), vitest et Playwright du §11 passent avec ceux de la 2.0.0, dans la session des essais.
 Spécification `SPEC_REPRISE_AVANT_GESCO.md` v1.2 (acceptée le 17 novembre 2026), ADR
 `docs/adr/2026-11-17-reprise-avant-gesco.md` accepté (complément à l'acceptation : colonne
 `depense.inscription_id` et catégorie « Remboursements aux parents » dans la même migration).
-Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé, tous
-après le lot 5.
+Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé : ils
+passent tous ensemble dans la session des essais de la 2.0.0.
 
 | Étape | Contenu | État |
 |---|---|---|
@@ -53,9 +53,9 @@ après le lot 5.
 | 5 | Commandes (`reprises_lister`, `reprise_enregistrer`, `reprise_annuler`, `reprise_historique`, `frais_ajouter_apercu`, `frais_ajouter`, `frais_retirer`), écran « Payé avant GESCO », section « Frais » de la fiche (ligne, historique, excédent, « Rembourser », « Ajouter un frais »), relevé de compte, textes | faite (18 novembre 2026) ; fmt, clippy, tsc, ESLint verts |
 | 6 | Import Excel des reprises (`import_reprises.rs` : modèle prérempli avec « Mode d'emploi », aperçu ligne par ligne, écriture en une transaction après sauvegarde, rapport et export des refus ; `reprises_modele`, `reprises_analyser_import`, `reprises_importer`) | faite (18 novembre 2026) ; essai 11 écrit, non lancé |
 | 7 | Rapports : journal des encaissements (`avant_gesco`, ligne hors totaux à l'écran et dans les exports), budget (`avant_gesco`, `recettes_realisees`) | faite (18 novembre 2026) ; essais 1 et 10 écrits, non lancés |
-| 8 | Manuel, essais à la main, notes de version, vitest et propriété de la caisse | à faire |
+| 8 | Manuel (`docs/manuel-2.0-reprise.md`), essais à la main (partie H), notes de version 2.0.0, vitest (`reprise.test.ts` : saisie de la case, reste et excédent, préremplissage du remboursement) ; essai de propriété de la caisse écrit à l'étape 7 | faite (18 novembre 2026) ; vitest écrit, non lancé |
 
-**Ce qui est en place (étapes 1 à 4)**
+**Ce qui est en place**
 - Import des élèves : `Reglages.depuis_le` (vide : la rentrée), `Analyse.rentree` et `fin_annee`,
   vérifiée dès l'aperçu (`inscription.date_hors_annee`), écrite dans chaque brouillon.
 - Noyau `gesco-core/src/finance/reprise.rs` : `RepriseAvantGesco`, `PartReprise`,
@@ -114,8 +114,25 @@ après le lot 5.
   peut en montrer deux) ; elle n'est pas filtrée par caissier ni par mode. Budget : le total des
   recettes réalisées (`recettes_realisees`) est un champ nouveau, payé avant GESCO compris ;
   l'écran le montre en dernière ligne des recettes.
+- Essai 1 (caisse intacte) : un scénario fixe (deux sessions, versements, une annulation, une
+  sortie, un compte de banque avec solde d'ouverture) photographié avant et après reprise,
+  modification, annulation, excédent et import ; pas de tirage aléatoire. L'état de caisse est
+  comparé par la liste des sessions et leurs totaux, pas par le PDF.
 
-**Reste (étapes 5 à 8)** : voir le relais du 18 novembre 2026 dans `docs/orchestration.md`.
+**Ce qui est en place (étapes 5 à 8)**
+- Commandes `reprises_lister`, `reprise_enregistrer`, `reprise_annuler`, `reprise_historique`,
+  `reprises_modele`, `reprises_analyser_import`, `reprises_importer` (`invoices:discount`, lecture
+  `students:read`) ; `frais_ajouter_apercu`, `frais_ajouter`, `frais_retirer`
+  (`enrollments:create`).
+- Écran Finance → « Payé avant GESCO » (`PayeAvantGesco.tsx`, `ImportReprises.tsx`, calculs dans
+  `reprise.ts`) ; fiche, section « Frais » (`RepriseEleve.tsx`) ; relevé de compte ; journal des
+  encaissements et budget.
+- Documents : `docs/manuel-2.0-reprise.md`, `docs/essais-a-la-main-2.0.md` partie H, notes de
+  version 2.0.0.
+
+**Reste** : passer les essais (Rust 1 à 12, `reprise.test.ts`, Playwright du parcours du §9
+étapes 3 à 7 avec ses captures) avec ceux de la 2.0.0, et régénérer le contrat TypeScript
+(`types_typescript`) pour vérifier ce qui a été écrit à la main.
 
 ## Phase 12, lot 4 — le portail de l'élève sur le Wi-Fi de l'école
 

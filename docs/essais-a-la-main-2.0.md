@@ -215,6 +215,42 @@ Google Drive. Le compte et le logiciel du fournisseur se préparent avec le guid
 | G-11 | Plus tard : G-10 sur un autre ordinateur | Même résultat |
 | G-12 | Sur un poste relié | L'écran des sauvegardes n'existe pas |
 
+## H. Commencer GESCO en cours d'année, à jouer par le porteur du projet sur l'école d'essai
+
+Sur l'école d'essai, au deuxième mois de l'année, connecté en administrateur, puis en caissier.
+Le parcours est celui du chapitre `manuel-2.0-reprise.md`. Les montants sont ceux du cahier de
+l'école ; notez ceux que vous tapez.
+
+| N° | Faire | Attendu |
+|---|---|---|
+| H-1 | Paramètres → Années : l'année active, avec sa vraie date de rentrée | L'année est active ; ses périodes couvrent la rentrée |
+| H-2 | Scolarité → Élèves → Importer la liste des élèves | Le champ « Dans l'école depuis le » montre la rentrée ; une date hors de l'année est refusée dès l'aperçu |
+| H-3 | Valider une classe entière (plan par défaut), puis ouvrir la fiche d'un élève | Facture avec toutes ses tranches, la première comprise ; inscription datée de la rentrée |
+| H-4 | Finance → Payé avant GESCO, avant toute caisse | « Arrêté avant GESCO : à ce jour » ; une ligne par élève validé ; la phrase des brouillons s'il en reste |
+| H-5 | Taper un montant dans la case d'un élève, puis Entrée, et ainsi de suite sur cinq élèves | Chaque ligne s'enregistre, le reste baisse d'autant, le curseur passe à l'élève suivant ; les totaux en tête suivent |
+| H-6 | Taper « 75 000 F », puis « 75.000 » sur un autre élève | Les deux sont lus 75 000 F |
+| H-7 | Taper un montant plus grand que le dû | Accepté ; la colonne « À rembourser » montre l'excédent ; le total à rembourser en tête aussi |
+| H-8 | Vider la case d'un élève qui a un montant, Entrée | GESCO demande le motif, « Saisie erronée » proposé ; après confirmation, le reste remonte |
+| H-9 | « Télécharger le modèle Excel », l'ouvrir dans Excel | Les élèves validés de la sélection, le dû de l'année, la colonne « Payé avant GESCO » remplie pour ceux déjà saisis ; une feuille « Mode d'emploi » |
+| H-10 | Remplir la colonne pour une classe, avec une faute exprès (un montant « beaucoup », un élève deux fois), puis « Choisir le fichier rempli » | L'aperçu montre chaque ligne : valides, à vérifier, en erreur, ignorées, avec le total qui sera enregistré ; rien n'est encore écrit |
+| H-11 | « Importer » | Une sauvegarde est faite ; le bilan compte les montants enregistrés et les lignes refusées ; les refusées s'exportent en Excel |
+| H-12 | Réimporter le même fichier | Toutes les lignes déjà écrites reviennent « Inchangé » |
+| H-13 | Fiche d'un élève, section « Frais » | « Payé avant GESCO : … (arrêté à ce jour) » avec la note ; colonne « Dont avant GESCO » dans les échéances ; Modifier, Annuler, Historique |
+| H-14 | Changer le plan de cet élève | Accepté ; le reste total ne bouge pas |
+| H-15 | Élève qui a payé plus que sa facture, et dont un frais facultatif manque : « Ajouter un frais » | Les frais facultatifs absents sont proposés avec leurs échéances ; après l'ajout, « À rembourser au parent » baisse d'autant |
+| H-16 | Trésorerie : soldes d'ouverture de la banque et du mobile money ; ouvrir la première caisse avec l'argent du tiroir | Dans « Payé avant GESCO », l'en-tête devient « avant le » jour de la caisse |
+| H-17 | Élève avec un excédent : « Rembourser » | Dépense préremplie (catégorie « Remboursements aux parents », parent payeur, excédent, libellé avec le nom de l'élève) ; payée en espèces, la caisse perd exactement ce montant ; « À rembourser » baisse d'autant |
+| H-18 | Rembourser plus que ce qui reste à rendre | Refusé : rien n'est remboursé deux fois |
+| H-19 | Baisser le payé avant GESCO de cet élève sous ce qui lui a été rendu | Refusé, avec le minimum |
+| H-20 | Encaisser un versement pour un élève qui a un payé avant GESCO | Le reçu porte le reste juste et ne parle pas du payé avant GESCO |
+| H-21 | Imprimer le relevé de compte de cet élève | Ligne « Payé avant GESCO » en tête des paiements, avec sa date d'arrêt ; remboursements et reste à rendre s'il y a lieu |
+| H-22 | Journal des encaissements du mois | Ligne « Payé avant GESCO — hors caisse » sous les totaux ; les totaux ne comptent que la caisse ; l'export Excel porte la ligne « Hors des totaux » |
+| H-23 | Budget de l'année | Ligne « Payé avant GESCO (hors caisse) » sans prévu ; le total des recettes réalisées la compte ; les catégories non |
+| H-24 | Journal de trésorerie du mois, livres des comptes, état de caisse | Rien pour le payé avant GESCO ; seul le remboursement payé y entre |
+| H-25 | Connecté en caissier | L'entrée « Payé avant GESCO » n'existe pas ; sur la fiche, la ligne se lit sans Modifier ni Annuler |
+| H-26 | Relevé du jour d'un jour d'octobre ; une évaluation datée d'octobre | Les élèves importés y sont ; les absences et les notes s'enregistrent |
+| H-27 | Une fois l'année close | La liste se lit, les cases sont grisées, « Année close : lecture seule » |
+
 ## Ce qu'il faut rapporter
 
 1. Les lignes « pas vu », avec ce qui s'est affiché à la place.
@@ -227,3 +263,5 @@ Google Drive. Le compte et le logiciel du fournisseur se préparent avec le guid
    dossier »).
 7. Pour F-16 à F-26 : le modèle et la version de chaque téléphone, et ce que chacun a affiché en
    se connectant à un Wi-Fi sans Internet.
+8. Pour H-5 à H-12 : le temps de saisie d'une classe à l'écran et par le modèle Excel, et les
+   lignes que l'aperçu a mises en erreur sans raison.

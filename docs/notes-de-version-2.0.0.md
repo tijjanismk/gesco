@@ -84,6 +84,21 @@ Les destinations ont désormais une sorte (dossier, support amovible, dossier sy
 l'historique la montre ; un réglage de la 1.2 garde son comportement. Le chapitre du manuel est
 `manuel-2.0-sauvegarde-hors-ecole.md`, la mise en place est dans le guide d'installation.
 
+**Commencer GESCO en cours d'année.** Une école qui arrive au deuxième mois de l'année saisit ce
+que chaque parent avait déjà payé (Finance → « Payé avant GESCO ») : au clavier, élève après
+élève, ou par un modèle Excel prérempli, vérifié ligne par ligne avant d'être importé. Ce n'est
+pas un encaissement : ni reçu, ni caisse, ni compte ; le reste à payer devient juste dès le
+premier jour, partout où il se lit (fiche, relevé de compte, impayés, relances, cantine, fin
+d'année). L'argent d'avant entre dans GESCO par les soldes d'ouverture des comptes, jamais une
+seconde fois. Un parent qui avait payé plus que sa facture est remboursé par une dépense
+« Remboursements aux parents », préremplie depuis sa fiche, qui sort de la caisse ou d'un compte le
+jour où elle est payée. Un frais facultatif oublié à la validation (cantine, transport…) s'ajoute
+désormais à une facture validée, et se retire s'il a été ajouté par erreur. L'import des élèves
+demande « Dans l'école depuis le », la rentrée par défaut : les élèves importés en cours d'année
+ont toutes leurs tranches et figurent dans les relevés d'absences et les grilles de notes des jours
+passés. Le journal des encaissements et le budget montrent le payé avant GESCO à part, hors des
+totaux de caisse. Le chapitre du manuel est `manuel-2.0-reprise.md`.
+
 ## Mettre à jour
 
 Installez la 2.0.0 par-dessus la version en place : les données sont gardées. Dans une école à
