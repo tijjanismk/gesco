@@ -9973,6 +9973,9 @@ export type EtatPortail = {
 	port: number | null,
 	/**  Adresses à donner aux élèves (`http://…`), la première d'abord. */
 	adresses: string[],
+	/**  Adresse imprimée sur la dernière affiche ou les derniers billets ; aucune avant la
+	 *  première impression. */
+	adresse_imprimee: string | null,
 };
 
 /**  Réglages du portail des élèves, tels que la direction les voit. */

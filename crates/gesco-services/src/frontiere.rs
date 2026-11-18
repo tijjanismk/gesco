@@ -901,6 +901,9 @@ pub struct Application {
     /// Faux jusqu'au premier passage des tâches périodiques : la vérification de la copie hors de
     /// l'école se fait au démarrage.
     copie_verifiee_au_demarrage: std::sync::atomic::AtomicBool,
+    /// Dossier d'essai où les billets du portail déposent aussi leurs codes, pour les essais de
+    /// bout en bout ; jamais posé hors d'une compilation de développement en mode d'essai.
+    codes_d_essai: std::sync::OnceLock<std::path::PathBuf>,
 }
 
 impl SourceCanaux for Application {
@@ -1498,6 +1501,7 @@ impl Application {
             ),
             systeme_simule,
             copie_verifiee_au_demarrage: std::sync::atomic::AtomicBool::new(false),
+            codes_d_essai: std::sync::OnceLock::new(),
         };
         let cles = match application.cles.preparer()? {
             EtatCles::Ouvertes(cle) => {
@@ -2109,6 +2113,13 @@ impl Application {
             });
         }
         // Les billets se composent en mémoire : ils portent les codes, que rien ne garde.
+        self.noter_codes_d_essai(&a_composer.donnees);
+        let adresse = a_composer
+            .donnees
+            .get("adresse")
+            .and_then(serde_json::Value::as_str)
+            .filter(|a| !a.is_empty())
+            .map(str::to_owned);
         let compose = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
             .composer_portail(
                 session.etablissement_id,
@@ -2117,6 +2128,11 @@ impl Application {
                 a_composer.pieces,
             )
             .await?;
+        if let Some(adresse) = adresse {
+            crate::portail::ServicePortail::nouveau(&ouverte.noyau)
+                .noter_adresse_imprimee(session, &adresse)
+                .await?;
+        }
         Ok(crate::portail::codes::BilletsPortail {
             pdf: base64(&compose.pdf),
             billets: a_composer.billets,
@@ -2369,6 +2385,41 @@ impl Application {
     pub fn brancher_lecteur_etat(&self, lecteur: Arc<dyn LecteurEtatEnvoi>) {
         if let Ok(mut courant) = self.lecteur_etat.write() {
             *courant = lecteur;
+        }
+    }
+
+    /// Mode d'essai d'une compilation de développement : les billets du portail déposent aussi
+    /// leurs codes dans `codes-portail-essai.json` de ce dossier, pour que les essais de bout en
+    /// bout entrent comme un élève. Sans effet dans une compilation de publication, où le code
+    /// n'est écrit que sur le billet.
+    #[doc(hidden)]
+    pub fn deposer_codes_d_essai(&self, dossier: std::path::PathBuf) {
+        if cfg!(debug_assertions) {
+            let _ = self.codes_d_essai.set(dossier);
+        }
+    }
+
+    /// Ajoute les codes de ces billets (matricule et code) au fichier des codes d'essai.
+    fn noter_codes_d_essai(&self, donnees: &serde_json::Value) {
+        let Some(dossier) = self.codes_d_essai.get().filter(|_| cfg!(debug_assertions)) else {
+            return;
+        };
+        let chemin = dossier.join("codes-portail-essai.json");
+        let mut codes: serde_json::Map<String, serde_json::Value> = std::fs::read(&chemin)
+            .ok()
+            .and_then(|octets| serde_json::from_slice(&octets).ok())
+            .unwrap_or_default();
+        let billets = donnees.get("billets").and_then(serde_json::Value::as_array);
+        for billet in billets.into_iter().flatten() {
+            if let (Some(matricule), Some(code)) = (
+                billet.get("matricule").and_then(serde_json::Value::as_str),
+                billet.get("code").and_then(serde_json::Value::as_str),
+            ) {
+                codes.insert(matricule.to_owned(), code.into());
+            }
+        }
+        if let Ok(texte) = serde_json::to_vec_pretty(&codes) {
+            let _ = std::fs::write(chemin, texte);
         }
     }
 
@@ -6066,6 +6117,9 @@ impl Application {
                 a_composer.donnees,
                 a_composer.pieces,
             )
+            .await?;
+        crate::portail::ServicePortail::nouveau(&ouverte.noyau)
+            .noter_adresse_imprimee(session, &adresse)
             .await?;
         Ok(crate::portail::codes::AffichePortail {
             pdf: base64(&compose.pdf),

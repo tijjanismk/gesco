@@ -58,6 +58,9 @@ pub struct EtatPortail {
     pub port: Option<u16>,
     /// Adresses à donner aux élèves (`http://…`), la première d'abord.
     pub adresses: Vec<String>,
+    /// Adresse imprimée sur la dernière affiche ou les derniers billets ; aucune avant la
+    /// première impression.
+    pub adresse_imprimee: Option<String>,
 }
 
 /// Ce que le portail vit pendant que l'application tourne : le port écouté, et le signal qui dit
@@ -201,13 +204,39 @@ impl<'a> ServicePortail<'a> {
                 .collect(),
             None => Vec::new(),
         };
+        let adresse_imprimee =
+            parametre::texte(&mut cnx, regles::ADRESSE_IMPRIMEE, "", &contexte).await?;
         Ok(EtatPortail {
             reglages,
             reseau_allume,
             module_allume,
             port,
             adresses,
+            adresse_imprimee: (!adresse_imprimee.is_empty()).then_some(adresse_imprimee),
         })
+    }
+
+    /// Retient l'adresse que porte une affiche ou des billets qu'on vient de produire ; rien
+    /// au journal (l'impression y est déjà).
+    pub async fn noter_adresse_imprimee(&self, session: &Session, adresse: &str) -> Resultat<()> {
+        let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+        let mut unite = self
+            .noyau
+            .commencer(contexte.clone(), Durabilite::Ordinaire)
+            .await?;
+        parametre::definir(
+            unite.connexion(),
+            &Parametre {
+                etablissement_id: session.etablissement_id,
+                cle: regles::ADRESSE_IMPRIMEE.to_owned(),
+                valeur: ValeurParametre::Texte(adresse.to_owned()),
+                modifiable_par_utilisateur: false,
+            },
+            &contexte,
+        )
+        .await?;
+        self.noyau.terminer(unite).await?;
+        Ok(())
     }
 
     /// Règle le portail. Chaque réglage changé est écrit et tracé ; allumer ou éteindre le

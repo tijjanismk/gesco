@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { appeler } from "../../api";
+import { lirePareFeu, ouvrirPareFeu } from "../../api/poste";
+import { usePoste } from "../../app/poste";
 import { Bouton } from "../../composants/Bouton";
 import { CaseACocher, Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
@@ -82,9 +84,14 @@ export function PortailEleves({ peutAllumerReseau }: { peutAllumerReseau: boolea
               {t("portail.reglages.autres_adresses", { adresses: donnees.adresses.slice(1).join(", ") })}
             </p>
           ) : null}
+          {donnees.adresse_imprimee !== null && !donnees.adresses.includes(donnees.adresse_imprimee) ? (
+            <p className="text-sm font-medium text-encre" data-testid="adresse-changee">
+              {t("portail.reglages.adresse_changee", { ancienne: donnees.adresse_imprimee })}
+            </p>
+          ) : null}
           <AffichePortail />
+          <PareFeuPortail />
         </div>
-
       ) : null}
       {r.eleves && donnees.reseau_allume && donnees.port === null ? (
         <p className="text-sm text-encre">{t("portail.reglages.demarrage")}</p>
@@ -131,5 +138,42 @@ export function PortailEleves({ peutAllumerReseau }: { peutAllumerReseau: boolea
       />
       <MessageErreur erreur={regler.error} />
     </Section>
+  );
+}
+
+/** Sur le poste principal, quand le pare-feu de Windows ne laisse pas entrer les appareils des
+ *  élèves (règle absente, ou posée avant le portail) : une ligne et le bouton qui l'ouvre. La
+ *  règle est celle des postes reliés ; Windows demande son accord une seule fois. */
+function PareFeuPortail() {
+  const client = useQueryClient();
+  const { info } = usePoste();
+  const principal = info !== null && !info.relie;
+  const reseau = useQuery({
+    queryKey: ["reseau"],
+    queryFn: () => appeler("reseau_etat_lire", null),
+    enabled: principal,
+  });
+  const port = reseau.data?.port;
+  const pareFeu = useQuery({
+    queryKey: ["pare-feu", port],
+    queryFn: () => lirePareFeu(port ?? 0),
+    enabled: principal && port !== undefined,
+    staleTime: Infinity,
+  });
+  const ouverture = useMutation({
+    mutationFn: (p: number) => ouvrirPareFeu(p),
+    onSuccess: (nouvel, p) => client.setQueryData(["pare-feu", p], nouvel),
+  });
+  if (!principal || port === undefined || pareFeu.data === undefined || pareFeu.data.ouvert) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm text-encre">{t("portail.reglages.pare_feu")}</p>
+      <div>
+        <Bouton variante="secondaire" onClick={() => ouverture.mutate(port)} disabled={ouverture.isPending}>
+          {t("postes.pare_feu.ouvrir")}
+        </Bouton>
+      </div>
+      <MessageErreur erreur={ouverture.error} />
+    </div>
   );
 }

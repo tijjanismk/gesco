@@ -2,6 +2,11 @@
 //! reliés entrent par le port du réseau de l'école, vers GESCO seulement, et seulement sur les
 //! réseaux que Windows range parmi les réseaux privés.
 //!
+//! La même règle ouvre les ports du portail des élèves (SPEC_PHASE_12_LOT_4 §12) : 80 et 47 801,
+//! toujours ensemble, puisque le portail prend le 80 s'il est libre et le 47 801 sinon. Elle se
+//! pose donc une seule fois, à l'activation du réseau, avant que la direction n'allume le
+//! portail ; portail éteint, rien n'écoute sur ces ports et la règle n'ouvre rien.
+//!
 //! Ce module ne lance rien : il compose les commandes à passer à Windows et lit leurs réponses.
 //! `gesco-app` les exécute. GESCO s'installe sans droits d'administrateur ; poser la règle en
 //! demande, d'où la question que Windows pose à la personne au moment d'ouvrir le pare-feu.
@@ -15,6 +20,17 @@ pub const NOM_REGLE: &str = "GESCO postes relies";
 
 /// Programme qui lit et modifie le pare-feu de Windows.
 pub const NETSH: &str = "netsh";
+
+/// Ports que la règle ouvre : celui du réseau de l'école, puis ceux du portail des élèves.
+pub fn ports_ouverts(port: u16) -> Vec<u16> {
+    let mut ports = vec![port];
+    for portail in [crate::portail::PORT_PREFERE, crate::portail::PORT_SECOURS] {
+        if !ports.contains(&portail) {
+            ports.push(portail);
+        }
+    }
+    ports
+}
 
 /// Interpréteur de Windows, pour demander les droits d'administrateur et lire le réseau.
 pub const POWERSHELL: &str = "powershell";
@@ -40,10 +56,16 @@ fn litteral(texte: &str) -> String {
 }
 
 /// Script joué avec les droits d'administrateur : il retire l'ancienne règle de ce nom (un
-/// GESCO installé ailleurs, un autre port), puis pose la règle pour ce programme et ce port.
+/// GESCO installé ailleurs, un autre port, une règle d'avant le portail), puis pose la règle
+/// pour ce programme, ce port et ceux du portail.
 pub fn script_ouverture(programme: &str, port: u16) -> String {
     let nom = litteral(&format!("name={NOM_REGLE}"));
     let programme = litteral(&format!("program={programme}"));
+    let port = ports_ouverts(port)
+        .iter()
+        .map(u16::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
     format!(
         "& {NETSH} advfirewall firewall delete rule {nom} | Out-Null\n\
          & {NETSH} advfirewall firewall add rule {nom} dir=in action=allow protocol=TCP \
@@ -93,14 +115,20 @@ fn reduit(texte: &str) -> String {
         .collect()
 }
 
-/// Vrai si la réponse de `netsh` ([`lecture`]) décrit une règle pour ce programme et ce port.
-/// Les libellés `Program` et `LocalPort` ne sont pas traduits par Windows.
+/// Vrai si la réponse de `netsh` ([`lecture`]) décrit une règle pour ce programme, ce port et
+/// ceux du portail (une règle d'avant le portail ne suffit plus). Les libellés `Program` et
+/// `LocalPort` ne sont pas traduits par Windows ; `LocalPort` liste les ports séparés par des
+/// virgules.
 pub fn regle_posee(reponse: &str, programme: &str, port: u16) -> bool {
     let attendu = reduit(programme);
-    let port = port.to_string();
     !attendu.is_empty()
         && valeurs(reponse, "Program").any(|v| reduit(v) == attendu)
-        && valeurs(reponse, "LocalPort").any(|v| v == port)
+        && valeurs(reponse, "LocalPort").any(|v| {
+            let lus: Vec<&str> = v.split(',').map(str::trim).collect();
+            ports_ouverts(port)
+                .iter()
+                .all(|p| lus.contains(&p.to_string().as_str()))
+        })
 }
 
 /// Valeurs des lignes « libellé : valeur » de la réponse de `netsh` qui portent ce libellé.
@@ -135,7 +163,7 @@ mod tests {
         Profiles :                            Priv\u{fffd}\r\n\
         LocalIP :                             Tout\r\n\
         Protocole :                           TCP\r\n\
-        LocalPort :                           47800\r\n\
+        LocalPort :                           47800,80,47801\r\n\
         RemotePort :                          Tout\r\n\
         Program :                             C:\\Users\\Awa Traor\u{fffd}\\AppData\\Local\\GESCO\\gesco-app.exe\r\n\
         Action :                              Autoriser\r\n\
@@ -149,8 +177,23 @@ mod tests {
     }
 
     #[test]
+    fn une_regle_d_avant_le_portail_ne_suffit_plus() {
+        let ancienne = REPONSE.replace("47800,80,47801", "47800");
+        assert!(!regle_posee(&ancienne, PROGRAMME, 47_800));
+        // L'ordre des ports et les espaces que Windows y met ne comptent pas.
+        let dans_l_ordre = REPONSE.replace("47800,80,47801", "80, 47800, 47801");
+        assert!(regle_posee(&dans_l_ordre, PROGRAMME, 47_800));
+    }
+
+    #[test]
+    fn les_ports_du_portail_ne_se_repetent_pas() {
+        assert_eq!(ports_ouverts(47_800), [47_800, 80, 47_801]);
+        assert_eq!(ports_ouverts(80), [80, 47_801]);
+    }
+
+    #[test]
     fn un_autre_port_ou_un_autre_programme_ne_vaut_pas() {
-        assert!(!regle_posee(REPONSE, PROGRAMME, 47_801));
+        assert!(!regle_posee(REPONSE, PROGRAMME, 47_802));
         assert!(!regle_posee(REPONSE, r"D:\GESCO\gesco-app.exe", 47_800));
         assert!(!regle_posee(REPONSE, "", 47_800));
     }
@@ -171,7 +214,7 @@ mod tests {
             [
                 "& netsh advfirewall firewall delete rule 'name=GESCO postes relies' | Out-Null",
                 "& netsh advfirewall firewall add rule 'name=GESCO postes relies' dir=in \
-                 action=allow protocol=TCP localport=47800 profile=private \
+                 action=allow protocol=TCP localport=47800,80,47801 profile=private \
                  'program=C:\\Users\\N''Golo\\GESCO\\gesco-app.exe' | Out-Null",
                 "exit $LASTEXITCODE",
             ]

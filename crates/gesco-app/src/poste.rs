@@ -256,6 +256,9 @@ impl Demarrage {
         // lecture simulée reste branchée.
         if !self.en_essai {
             application.brancher_lecteur_etat(Arc::new(crate::etat_envoi::LecteurPowerShell));
+        } else {
+            // Les essais de bout en bout entrent au portail comme un élève, avec son code.
+            application.deposer_codes_d_essai(self.racine.clone());
         }
         // Les dossiers synchronisés se cherchent dans Windows ; en mode d'essai, par les seules
         // variables d'environnement, que les essais posent.

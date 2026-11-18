@@ -1464,6 +1464,63 @@ async fn le_portail_eteint_n_ecoute_pas_et_s_allume_avec_la_direction() {
     assert!(journal.to_string().contains("portail.allumer"), "{journal}");
 }
 
+/// Port 80 pris (§12) : le portail prend le port suivant de la liste et rien ne bloque ; l'écran
+/// de la direction voit que l'adresse n'est plus celle de l'affiche imprimée (§3).
+#[tokio::test]
+async fn un_port_pris_ne_bloque_rien_et_l_affiche_se_dit_perimee() {
+    let e = ecole_reliee().await;
+    e.ecole
+        .application
+        .declarer_adresses_du_poste(Arc::new(|| vec!["192.168.1.20".to_owned()]));
+    // Deux ports libres : le premier tient la place du 80, le second celle du 47 801.
+    let (prefere, secours) = {
+        let a = ecouter_boucle_locale(0).await.unwrap();
+        let b = ecouter_boucle_locale(0).await.unwrap();
+        (
+            a.local_addr().unwrap().port(),
+            b.local_addr().unwrap().port(),
+        )
+    };
+    let mut portail = portail::superviser_portail(
+        Arc::clone(&e.ecole.application),
+        Ipv4Addr::LOCALHOST.into(),
+        vec![prefere, secours],
+        None,
+    );
+    let mut reglages = e.sur_place("portail_etat", Value::Null).await["reglages"].clone();
+    reglages["eleves"] = Value::Bool(true);
+    e.sur_place("portail_regler", reglages.clone()).await;
+    let ecoutee = (*portail.wait_for(Option::is_some).await.unwrap()).unwrap();
+    assert_eq!(ecoutee.port(), prefere, "le port préféré libre est pris");
+    // Avant toute impression, aucune adresse imprimée.
+    let etat = e.sur_place("portail_etat", Value::Null).await;
+    assert_eq!(etat["adresse_imprimee"], Value::Null);
+    // L'affiche porte l'adresse donnée ; GESCO la retient.
+    let affiche = e.sur_place("portail_affiche", Value::Null).await;
+    assert!(!affiche["pdf"].as_str().unwrap_or_default().is_empty());
+    let etat = e.sur_place("portail_etat", Value::Null).await;
+    assert_eq!(etat["adresse_imprimee"], etat["adresses"][0]);
+
+    // Le portail s'éteint ; un autre programme prend le port préféré.
+    reglages["eleves"] = Value::Bool(false);
+    e.sur_place("portail_regler", reglages.clone()).await;
+    portail.wait_for(Option::is_none).await.unwrap();
+    let _autre_programme = ecouter_boucle_locale(prefere).await.unwrap();
+    // Rallumé, il écoute sur le second port ; les élèves y lisent.
+    reglages["eleves"] = Value::Bool(true);
+    e.sur_place("portail_regler", reglages).await;
+    let ecoutee = (*portail.wait_for(Option::is_some).await.unwrap()).unwrap();
+    assert_eq!(ecoutee.port(), secours);
+    let (statut, _, corps) = portail_brut(ecoutee, "GET", "/").await;
+    assert_eq!(statut, 200);
+    assert!(corps.contains("GESCO répond"));
+    // L'adresse donnée n'est plus celle de l'affiche : l'écran le dit.
+    let etat = e.sur_place("portail_etat", Value::Null).await;
+    let adresses = etat["adresses"].as_array().unwrap();
+    assert_eq!(adresses[0], format!("http://192.168.1.20:{secours}"));
+    assert!(!adresses.contains(&etat["adresse_imprimee"]));
+}
+
 // --- Charge du portail (SPEC_PHASE_12_LOT_4 §0.3, critère 7 ; ADR « charge du portail ») -------
 
 #[tokio::test]

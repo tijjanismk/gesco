@@ -63,8 +63,10 @@ Sur le poste principal, avec un compte de la direction (Directeur ou Administrat
    derrière GESCO : regardez la barre des tâches si rien ne se passe.
 4. GESCO pose alors une règle dans le pare-feu de Windows, nommée **« GESCO postes relies »** :
    elle laisse entrer les autres ordinateurs vers GESCO seulement, sur le port 47800, et
-   seulement sur les réseaux privés. L'écran dit : « Le pare-feu de Windows laisse entrer les
-   postes reliés, sur les réseaux privés seulement. »
+   seulement sur les réseaux privés. La même règle ouvre aussi les ports 80 et 47801, ceux du
+   portail des élèves : rien n'y écoute tant que la direction ne l'a pas allumé (guide
+   d'installation, « Le portail des élèves »). L'écran dit : « Le pare-feu de Windows laisse
+   entrer les autres ordinateurs de l'école, sur les réseaux privés seulement. »
 5. L'écran montre maintenant ce qu'il faut pour relier un poste : le **nom de ce poste**,
    l'**adresse à donner aux postes** (par exemple 192.168.1.20) et l'**empreinte de ce poste**
    (quatre groupes de quatre caractères).

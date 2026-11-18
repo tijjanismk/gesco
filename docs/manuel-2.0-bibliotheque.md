@@ -147,7 +147,10 @@ brouillon s'imprime avec la mention « Brouillon ». Un son devient, sur le papi
 
 - **Modules de l'école** : la bibliothèque s'éteint et se rallume ; éteinte, elle disparaît du
   menu, du tableau de bord et de la recherche, et rien n'est perdu.
-- **Bibliothèque de cours** : le suivi des élèves et la taille conseillée d'une vidéo.
+- **Bibliothèque de cours** : la taille conseillée d'une vidéo.
+- **Portail des élèves** : les cours sur les appareils des élèves (§9).
+- **Les maîtres ont leur compte** : chaque maître ouvre sa session pour lire les cours et suivre
+  ses élèves, sans la saisie des notes, qui reste un réglage à part (§9).
 - **Bibliothèque installée** : sa version, son nombre de leçons et de sujets, et **Installer une
   mise à jour de la bibliothèque** depuis un fichier reçu. Un fichier abîmé est refusé entier ;
   la bibliothèque en place reste.
@@ -187,3 +190,76 @@ de leçons (`.gles`) passé sur une clé ou par WhatsApp. Il ne faut pas Interne
 Le même fichier importé une seconde fois n'ajoute rien, et GESCO le dit. Un fichier abîmé en
 route est refusé entier : demandez à l'autre école de l'envoyer de nouveau. Ce qu'un fichier
 contiendrait de dangereux (une page web, un programme caché dans une image) est retiré à l'arrivée.
+
+---
+
+## 9. Les cours sur les appareils des élèves
+
+Les élèves lisent les leçons de leur classe sur leur téléphone, ou sur un ordinateur de la salle
+informatique, par le Wi-Fi de l'école, sans Internet. La mise en place du Wi-Fi et du routeur est
+dans le guide d'installation (« Le portail des élèves »).
+
+### Ouvrir les cours aux élèves (direction)
+
+1. Paramètres → section **Portail des élèves** → cochez **« Les élèves lisent les cours sur
+   leurs appareils »**. Si le réseau de l'école est éteint, une ligne le dit, avec le bouton
+   **« Allumer le réseau de l'école »**.
+2. L'**adresse à donner aux élèves** s'affiche en grand. Si une ligne dit que le pare-feu de
+   Windows ne laisse pas encore entrer les appareils des élèves, cliquez sur **« Ouvrir le
+   pare-feu de Windows »** et répondez « Oui » à Windows.
+3. **« Imprimer l'affiche de classe »** : l'adresse, son code QR et trois étapes, à coller dans
+   chaque salle.
+4. Les autres réglages de la section : les minutes sans activité avant qu'un élève entre de
+   nouveau son code (deux heures au départ) ; les vidéos sur les appareils des élèves ; le PDF
+   des leçons ; ce que les maîtres voient du suivi (par élève, par classe seulement, aucun).
+
+Si l'adresse change (le routeur a donné une autre adresse à l'ordinateur, ou un autre programme a
+pris le port), une ligne sous l'adresse le dit : réimprimez l'affiche ; les élèves gardent leur
+code. Le module E-learning éteint (Paramètres → Modules), le portail se ferme aussitôt ; rallumé,
+il revient tel quel.
+
+Ce que voient les élèves : les leçons visibles de leur niveau, avec les ajouts réservés à leur
+classe, rangées par matière et chapitre ; jamais un brouillon, ni une note pour le maître, ni un
+nom de famille, une note ou une absence.
+
+### Remettre les codes (secrétariat, direction)
+
+- **Une classe** : Scolarité → Classes → la classe → **« Billets des élèves sans code »**, ou
+  **« Billets de tous les élèves »**. Le PDF met dix billets par page : prénom, nom, classe,
+  matricule, code, adresse et son code QR. Découpez et remettez chaque billet à son élève. Le code
+  n'est écrit nulle part ailleurs que sur le billet.
+- **Un élève** qui a perdu son billet : sa fiche → **« Code pour les cours sur ses appareils »**
+  → **« Remettre un code »**. L'ancien code ne marche plus.
+- Réimprimer les billets de tous les élèves leur remet à chacun un nouveau code.
+- Un élève qui se trompe cinq fois de code dans la journée attend le lendemain ; il peut lire
+  sans code en attendant.
+
+L'élève peut aussi **« Lire sans code »** : il choisit sa classe et lit, mais rien de son
+avancement n'est gardé.
+
+### Ce que fait l'élève
+
+1. Il se connecte au Wi-Fi de l'école et ouvre l'adresse de l'affiche (ou lit son code QR).
+2. Il entre son matricule et son code, puis **« Entrer »** ; sur le téléphone d'un camarade, il
+   coche **« Ce n'est pas mon téléphone »** : sa session finit quand le navigateur se ferme.
+3. **Mes matières**, puis un chapitre, puis une leçon : texte, formules, figures, sons et vidéos.
+   **A−** et **A+** changent la taille du texte. Les corrigés sont repliés sous « Voir les
+   corrigés ».
+4. **« J'ai fini cette leçon »** quand il l'a finie ; **« Enregistrer en PDF »** pour la relire à
+   la maison ; **« Mon avancement »** pour voir où il en est ; **« Sortir »** à la fin.
+
+### Suivre ses élèves (maîtres, direction)
+
+Scolarité → Bibliothèque → **« Suivi des élèves »** : la classe et la matière, puis **« Par
+leçon »** (combien d'élèves ont ouvert et fini chaque leçon) ou **« Par élève »** (les leçons
+ouvertes et finies, et la dernière visite) ; **« Imprimer »** pour la réunion. Un maître ne voit
+que ses classes et ses matières ; la direction voit toutes les classes. Seuls les élèves entrés
+avec leur code sont comptés. Ce n'est pas un classement, et rien n'entre au bulletin.
+
+La direction règle le suivi dans les paramètres du portail : par élève, par classe seulement (des
+nombres, sans noms), ou aucun. Éteint, rien n'est écrit ; rallumé, ce qui était écrit revient.
+
+**Les maîtres ont leur compte** : pour que chaque maître voie lui-même le suivi de ses élèves,
+la direction allume ce réglage dans Paramètres. Le maître ouvre alors sa session pour la
+bibliothèque et le suivi ; la saisie des notes reste fermée tant que « Les maîtres saisissent
+leurs notes » est éteint. Sans ce réglage, la direction imprime le suivi pour eux.

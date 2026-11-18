@@ -131,6 +131,59 @@ Dans cet ordre (le manuel d'utilisation détaille chaque écran) :
 5. **Finance → Trésorerie** : les comptes de l'école (banque, Orange Money…) avec leur solde de
    départ.
 
+### Le portail des élèves (version 2.0, facultatif)
+
+Les élèves lisent les cours de la bibliothèque sur leur téléphone ou sur un ordinateur de la salle
+informatique, par le Wi-Fi de l'école, sans Internet. Le poste principal les sert. À préparer une
+fois, avec la personne qui s'occupe du routeur :
+
+1. **Le réseau de l'école d'abord** : Paramètres → « Postes de l'école » → allumer le réseau
+   (`installation-plusieurs-postes.md`, §4). Windows demande alors d'ouvrir son pare-feu :
+   répondez « Oui ». La règle « GESCO postes relies » ouvre le port 47800 des postes reliés et
+   les ports 80 et 47801 du portail, sur les réseaux privés seulement. Le portail ne s'ouvre
+   jamais sur un poste relié : seulement sur le poste principal.
+2. **Une adresse qui ne change pas** : dans le routeur, réservez l'adresse du poste principal
+   (« réservation DHCP » ou « adresse IP fixe », par l'adresse physique de sa carte Wi-Fi ou
+   réseau). Sans cela, le routeur peut lui donner une autre adresse un matin, et l'affiche de la
+   classe ne mène plus nulle part ; GESCO le dit alors sous l'adresse, et l'affiche se réimprime.
+3. **Le Wi-Fi des élèves** : si le routeur le permet, donnez aux élèves un réseau Wi-Fi à part,
+   avec son propre mot de passe, **sur le même réseau** que le poste principal. Attention au
+   « réseau invité » de beaucoup de routeurs : il isole souvent les appareils du reste du
+   réseau, et le portail ne répond pas. Dans ce cas, un second nom de Wi-Fi sur le réseau
+   principal, ou un point d'accès branché au routeur, fait l'affaire.
+4. **Allumer le portail** : Paramètres → section « Portail des élèves » → « Les élèves lisent les
+   cours sur leurs appareils ». L'adresse à donner s'affiche en grand, par exemple
+   `http://192.168.1.20`. GESCO prend le port 80 s'il est libre ; si un autre programme le tient
+   (un serveur web, certains logiciels de visioconférence), il prend le 47801 et l'adresse le
+   dit (`http://192.168.1.20:47801`) : rien ne bloque. Si la ligne « Le pare-feu de Windows ne
+   laisse pas encore entrer les appareils des élèves » paraît, cliquez sur « Ouvrir le pare-feu
+   de Windows » et répondez « Oui ».
+5. **L'affiche et les billets** : « Imprimer l'affiche de classe » sous l'adresse (l'adresse en
+   grand et son code QR) ; puis, classe par classe, Scolarité → Classes → la classe →
+   « Billets des élèves sans code » : dix billets par page, avec le matricule et le code de
+   chaque élève. Le code n'est écrit nulle part ailleurs : gardez les billets comme des
+   bulletins jusqu'à leur remise.
+
+**Combien d'élèves à la fois.** Un routeur ordinaire d'école tient une trentaine d'appareils qui
+lisent en même temps ; au-delà, prévoyez un second point d'accès. GESCO sert lui-même une
+classe entière sans ralentir le secrétariat : quand trop d'élèves demandent au même instant,
+le téléphone affiche « Beaucoup d'élèves sont connectés. Réessaie dans un instant. » et réessaie
+seul toutes les cinq secondes. Les vidéos sont les plus lourdes : la direction peut les garder
+pour la classe (réglage « Les vidéos se regardent aussi sur les appareils des élèves »).
+
+**Ce que voit un téléphone sans Internet.** Le Wi-Fi de l'école n'a pas forcément Internet :
+Android affiche alors « Connecté, sans Internet » et peut proposer de changer de réseau ; il faut
+choisir de **rester connecté** à ce Wi-Fi. Si les données mobiles sont allumées, certains
+téléphones envoient tout par elles : l'adresse de l'école ne répond pas ; coupez les données
+mobiles le temps de lire. Rien de la page ne vient d'Internet : la police, les formules, les
+images, les sons et les vidéos viennent du poste principal. L'adresse commence par `http://` et
+non `https://` : c'est voulu sur le Wi-Fi de l'école ; le navigateur peut écrire « Non
+sécurisé », la lecture se fait quand même. L'élève peut ajouter la page à l'écran d'accueil de
+son téléphone (menu du navigateur → « Ajouter à l'écran d'accueil »).
+
+**Désinstaller.** La règle « GESCO postes relies » reste dans le pare-feu, sans effet une fois
+GESCO retiré (`installation-plusieurs-postes.md`, §8, pour l'enlever).
+
 ## 8. Mettre à jour une école déjà équipée
 
 Téléchargez la nouvelle version et installez-la **par-dessus** l'ancienne, de la même façon. Les

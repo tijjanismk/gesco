@@ -174,6 +174,26 @@ pour F-8.
 | F-14 | Une leçon de l'école → Pour qui → cocher la 9e A seulement | Le catalogue porte « 9e A seulement » |
 | F-15 | Exporter la matière de F-11 et F-13 sur une clé ; sur un autre GESCO (une autre école), Paramètres → Importer des leçons d'une autre école ; puis Publier les leçons reçues | Les leçons arrivent en brouillons sous les bonnes matières ; le son et les images sont là ; un second import n'ajoute rien |
 
+### F bis. Les cours sur de vrais téléphones
+
+Sur l'école d'essai, poste principal branché au routeur de l'école (ou à un routeur de maison).
+Trois appareils si possible : un Android récent, un Android ancien (Android 8 ou 9), un iPhone.
+Wi-Fi sans Internet de préférence, pour voir ce que voient les élèves.
+
+| N° | Faire | Attendu |
+|---|---|---|
+| F-16 | Paramètres → Portail des élèves → cocher « Les élèves lisent les cours sur leurs appareils » ; répondre « Oui » à Windows si la ligne du pare-feu paraît | L'adresse s'affiche en grand (`http://…`) |
+| F-17 | « Imprimer l'affiche de classe » ; viser son code QR avec chaque téléphone | La page « Les cours de ton école » s'ouvre |
+| F-18 | Classes → 9e A → « Billets des élèves sans code » | Dix billets par page, lisibles, le code QR lisible |
+| F-19 | Sur chaque téléphone : entrer avec un billet ; puis un code faux | Le prénom et la classe ; puis « Matricule ou code incorrect… » |
+| F-20 | Ouvrir une leçon avec formules et figures ; A+ puis A− ; tourner le téléphone | Tout se lit sans défiler de côté |
+| F-21 | Une leçon avec un son, puis une avec une vidéo : lire, avancer, mettre en pause | Le son et la vidéo se lisent et s'avancent |
+| F-22 | « Enregistrer en PDF », puis ouvrir le fichier sur le téléphone | La leçon complète, lisible hors du Wi-Fi |
+| F-23 | « J'ai fini cette leçon » ; au bureau, Bibliothèque → Suivi des élèves → 9e A → Par élève | L'élève y est, la leçon finie, dans les dix secondes |
+| F-24 | Ajouter la page à l'écran d'accueil ; la rouvrir le lendemain | L'icône GESCO ; la page s'ouvre (le code est demandé de nouveau après deux heures sans activité) |
+| F-25 | Éteindre le poste principal pendant qu'un téléphone lit, puis le rallumer | « Beaucoup d'élèves sont connectés… », puis la lecture reprend seule |
+| F-26 | Trente téléphones (une classe) ouvrent la même leçon ; pendant ce temps, encaisser un paiement au bureau | L'encaissement reste rapide ; les téléphones lisent, au pire après « Réessaie dans un instant » |
+
 ## G. La sauvegarde hors de l'école, à jouer par le porteur du projet
 
 Sur le poste principal, connecté en administrateur, avec un vrai compte : au moins OneDrive et
@@ -205,3 +225,5 @@ Google Drive. Le compte et le logiciel du fournisseur se préparent avec le guid
 5. Le journal technique de P et de R.
 6. Pour G-4 et G-6 : l'état atteint par chaque fournisseur (« Envoyée » ou « Déposée dans le
    dossier »).
+7. Pour F-16 à F-26 : le modèle et la version de chaque téléphone, et ce que chacun a affiché en
+   se connectant à un Wi-Fi sans Internet.

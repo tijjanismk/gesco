@@ -17,6 +17,11 @@ pub const VIDEOS: &str = "portail.videos";
 /// Le PDF d'une leçon s'enregistre depuis le portail.
 pub const PDF: &str = "portail.pdf";
 
+/// Adresse imprimée sur la dernière affiche ou les derniers billets : si l'adresse du portail
+/// change (port 80 pris, adresse donnée par le routeur), l'écran de la direction le dit. Écrite
+/// par GESCO, jamais réglée à la main.
+pub const ADRESSE_IMPRIMEE: &str = "portail.adresse_imprimee";
+
 /// Durée d'une session à la livraison : un cours dure une à deux heures.
 pub const DUREE_SESSION_DEFAUT: i64 = 120;
 

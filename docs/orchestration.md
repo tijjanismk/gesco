@@ -816,3 +816,18 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (spécification seule). **Ordre** : lot 4 (étape 7 en cours, `local_7360fc6c-82a4-4cdd-8221-5572544abceb`)
   → reprise avant GESCO → prise en charge par l'État → lot 3 → lot 5 → tous les essais →
   installeur 2.0.0. L'orchestrateur principal enchaîne.
+
+## Passage de relais du 18 novembre 2026 — lot 4 fini (étape 7)
+
+- Fait : **étape 7** de `SPEC_PHASE_12_LOT_4.md` commitée et poussée ; `ETAT_AVANCEMENT.md` dit
+  « lot 4 codé, essais écrits non lancés ». Pare-feu : la règle « GESCO postes relies » ouvre
+  47 800, 80 et 47 801 ensemble (une règle d'avant le portail redemande l'accord de Windows) ;
+  ligne « adresse changée » sous l'adresse du portail ; crochet de débogage des codes
+  (`codes-portail-essai.json` du dossier d'essai, rien en publication) ; Playwright d'ensemble
+  `frontend/e2e/portail-eleves.spec.ts` ; guide, manuel §9, notes de version, essais à la main
+  F-16 à F-26. Écarts : voir « Écarts de l'étape 7 » dans `ETAT_AVANCEMENT.md`.
+- Reste (ordre du porteur du projet) : code de la reprise avant GESCO
+  (`SPEC_REPRISE_AVANT_GESCO.md` v1.2), lot 3 (quiz), lot 5 (devoirs) ; puis la session des
+  essais, qui passe aussi la liste « À lancer par la session des essais (lot 4) » de
+  `ETAT_AVANCEMENT.md`, montre les captures 400 à 407 et refait l'école d'essai (portail allumé,
+  une classe avec billets).

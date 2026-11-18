@@ -13,8 +13,23 @@ révoque, renouvelle la clé du réseau. Tout se règle dans Paramètres → « 
 `installation-plusieurs-postes.md`.
 
 **Pare-feu de Windows.** Quand la direction allume le réseau, GESCO ouvre le pare-feu de Windows
-aux postes reliés, sur les réseaux privés seulement ; Windows demande son accord. L'écran dit si
+aux postes reliés et au portail des élèves, sur les réseaux privés seulement ; Windows demande son
+accord. L'écran dit si
 le pare-feu est resté fermé, ou si Windows range le réseau parmi les réseaux publics.
+
+**Les cours sur les téléphones des élèves.** La direction allume « Les élèves lisent les cours
+sur leurs appareils » : le poste principal sert les leçons de la bibliothèque sur le Wi-Fi de
+l'école, sans Internet. GESCO affiche l'adresse à donner et imprime une affiche de classe avec son
+code QR ; le secrétariat imprime, classe par classe, les billets des élèves (matricule et code).
+L'élève entre avec son code, ou lit sans code, et trouve les leçons de sa classe avec formules,
+figures, sons et vidéos ; il marque une leçon finie et l'enregistre en PDF pour la maison. Le
+maître voit qui a ouvert et fini quelles leçons dans ses classes (Bibliothèque → « Suivi des
+élèves ») ; la direction règle ou éteint ce suivi. Un nouveau réglage, « Les maîtres ont leur
+compte », ouvre aux maîtres la bibliothèque et le suivi sans la saisie des notes. Quand toute une
+classe lit, la gestion ne ralentit pas : au-delà de ce que le poste sert à la fois, le téléphone
+demande d'attendre un instant et réessaie seul. Le module E-learning éteint ferme le portail.
+Mise en place : guide d'installation, « Le portail des élèves » ; usage : manuel de la
+bibliothèque, §9.
 
 **Deux personnes sur la même fiche.** La seconde à enregistrer est prévenue, avec le nom de la
 personne et l'heure ; rien n'est écrasé.
