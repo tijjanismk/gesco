@@ -831,3 +831,49 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   essais, qui passe aussi la liste « À lancer par la session des essais (lot 4) » de
   `ETAT_AVANCEMENT.md`, montre les captures 400 à 407 et refait l'école d'essai (portail allumé,
   une classe avec billets).
+
+## Passage de relais du 18 novembre 2026 — reprise avant GESCO, après l'étape 4
+
+- Fait : étapes 1 à 4 de `SPEC_REPRISE_AVANT_GESCO.md` §12, commitées et poussées une à une
+  (`a45622e`, `db35f32`, `2aabbef`, `a7978d1`) ; fmt et clippy `-j 4` verts à
+  chaque étape (tsc et ESLint à l'étape 1, seule à toucher le frontend) ; essais écrits, **aucun
+  lancé**. Détail, écarts et ce qui existe : `ETAT_AVANCEMENT.md`, « Reprise avant GESCO ».
+- Disque : le poste est tombé à 0,7 Go libre pendant un clippy ; lancer clippy avec
+  `CARGO_INCREMENTAL=0` (sans cache incrémental, environ 1,5 Go de moins) et, sous 5 Go, effacer
+  `target/debug/incremental` et les vieux `target/debug/deps/*gesco*` (`find … -mmin +90 -delete`).
+- Reste, dans l'ordre, sans lancer d'essai, un commit et un push par étape :
+  - **Étape 5 — commandes et écrans.** Frontière (`frontiere.rs` : contrat et implémentation),
+    `commandes.rs` (permissions), `frontend/src/types/acces.ts`, `frontend/src/types/gesco.ts`
+    (signatures et types écrits à la main comme specta les écrirait : `ListeReprises`,
+    `LigneReprise`, `DemandeReprises`, `DemandeReprise`, `DemandeAnnulationReprise`,
+    `DemandeInscriptionReprise`, `RepriseAvantGesco`, `OrigineReprise`, `StatutReprise`,
+    `ChiffresReprise`, `RepriseDeLInscription`, `Remboursement`, `FraisAjoutable`,
+    `EcheanceProposee`, `DemandeFraisAjoutables`, `DemandeFraisAjoute`, `DemandeFraisRetire` ;
+    champs nouveaux de `EcheanceAffichee`, `FactureAffichee`, `SituationInscription`,
+    `DemandeDepense.inscription_id?`). Commandes : `reprises_lister`, `reprise_enregistrer`,
+    `reprise_annuler` (`invoices:discount`), `reprise_historique` (`students:read`),
+    `frais_ajouter_apercu`, `frais_ajouter`, `frais_retirer` (`enrollments:create`). Les commandes
+    de l'import (`reprises_modele`, `reprises_analyser_import`, `reprises_importer`) viennent à
+    l'étape 6 ; l'essai 6 les appelle déjà. Écrans : entrée « Payé avant GESCO » dans Finance
+    (§4 : case au clavier, Entrée enregistre et passe à la suivante, zéro ou vide demande le motif,
+    en-tête date d'arrêt et totaux, phrase des brouillons, année close en lecture seule, montrer
+    `minimum` avec les refus `reprise.deja_remboursee` et `reprise.avoir_a_couvrir`) ;
+    `FraisEleve.tsx` : ligne « Payé avant GESCO » avec note, Modifier et Annuler, historique
+    dépliable, « À rembourser au parent », remboursements faits, bouton « Rembourser » (formulaire
+    de dépense prérempli : catégorie de code `remboursement_parent`, bénéficiaire le payeur,
+    montant l'excédent, libellé « Trop-payé avant GESCO — <élève> », `inscription_id`), « Ajouter
+    un frais » à côté de « Changer de plan » ; relevé de compte (`releve_compte`, ligne « Payé
+    avant GESCO » arrêté avant le …, remboursé, reste à rembourser) ; textes `fr-ML.ts` (dont les
+    clés `reprise.*`, `remboursement.superieur_a_l_excedent`, `frais.*`) ;
+    `docs/matrice-permissions.md`. Aucun texte affiché ne cite T-xx, SPEC ni une date de décision.
+  - **Étape 6 — import Excel** (§5) : modèle prérempli (`gesco-docs` `tableur.rs`), analyse
+    (`import_eleves::lire_fichier`, matricule puis nom, prénoms et classe, `lire_montant`),
+    écriture après sauvegarde automatique par `reprises::enregistrer_dans` (origine `import`),
+    événement `ImportReprisesApplique`, rapport et export des refus ; essai 11.
+  - **Étape 7 — rapports** (§7) : journal des encaissements (ligne « Payé avant GESCO — hors
+    caisse » sous les totaux si la période contient la date d'arrêt, exports), budget (champ à
+    part, compté dans les recettes réalisées) ; essais 1 et 10 (caisse intacte, date d'arrêt).
+  - **Étape 8 — manuel** : `docs/manuel-2.0-reprise.md` (parcours du §9), essais à la main, notes
+    de version 2.0.0, vitest (saisie de la case, reste, préremplissage du remboursement) ;
+    `ETAT_AVANCEMENT.md` dit alors « reprise avant GESCO codée, essais écrits non lancés ».
+- Ensuite (ordre du porteur) : prise en charge par l'État, lot 3, lot 5, puis tous les essais.

@@ -35,6 +35,63 @@ Validés par le porteur du projet le 16 novembre 2026 (étape 3, choix pris au p
 
 Repère : prochaine migration **0063**.
 
+## Reprise avant GESCO — installer GESCO en cours d'année
+
+**État (18 novembre 2026) : étapes 1 à 4 codées, essais écrits non lancés ; étapes 5 à 8 à faire.**
+Spécification `SPEC_REPRISE_AVANT_GESCO.md` v1.2 (acceptée le 17 novembre 2026), ADR
+`docs/adr/2026-11-17-reprise-avant-gesco.md` accepté (complément à l'acceptation : colonne
+`depense.inscription_id` et catégorie « Remboursements aux parents » dans la même migration).
+Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé, tous
+après le lot 5.
+
+| Étape | Contenu | État |
+|---|---|---|
+| 1 | Date d'arrivée à l'import des élèves (« Dans l'école depuis le ») | faite (18 novembre 2026) ; essai 12 écrit, non lancé |
+| 2 | Migration 0065, dépôt `reprises.rs`, `depense.inscription_id`, catégorie livrée, noyau `finance/reprise.rs` | faite (18 novembre 2026) ; essai 8 (base) écrit, non lancé |
+| 3 | `etat_echeances` et réimputation dans `recalculer_dans`, cantine, `ServiceReprises`, plan, remise annulée, événements | faite (18 novembre 2026) ; essais 2, 4 à 9 écrits, non lancés |
+| 4 | Remboursement par une dépense liée (refus au-delà de l'excédent, recalcul au paiement et à l'annulation), « Ajouter un frais » et « Retirer un frais » (`frais_ajoutes.rs`) | faite (18 novembre 2026) ; essais 3 et 3 bis écrits, non lancés |
+| 5 | Commandes et écrans | à faire |
+| 6 | Import Excel des reprises | à faire |
+| 7 | Rapports (journal des encaissements, budget) | à faire |
+| 8 | Manuel, essais à la main, notes de version, vitest et propriété de la caisse | à faire |
+
+**Ce qui est en place (étapes 1 à 4)**
+- Import des élèves : `Reglages.depuis_le` (vide : la rentrée), `Analyse.rentree` et `fin_annee`,
+  vérifiée dès l'aperçu (`inscription.date_hors_annee`), écrite dans chaque brouillon.
+- Noyau `gesco-core/src/finance/reprise.rs` : `RepriseAvantGesco`, `PartReprise`,
+  `ChiffresReprise` (montant, remboursé, utilisable, imputé, à rembourser), `imputer` (plus
+  ancienne d'abord, borné), `minimum` (`reprise.deja_remboursee`, `reprise.avoir_a_couvrir`),
+  `lire_montant` (« 75 000 F », « 75.000 »), `date_d_arret`, `CATEGORIE_REMBOURSEMENT`.
+- `facturation::etat_echeances` : `EcheanceAffichee.reprise`, payé = versements + avoirs +
+  reprise ; `FactureAffichee.reprise`, `a_rembourser`, `rembourse` ; `SituationInscription.reprise`
+  (`RepriseDeLInscription` : active, chiffres, remboursements, date d'arrêt, « à ce jour »).
+  `recalculer_dans` réimpute d'abord la reprise (parts réécrites seulement si elles changent).
+  Le changement de plan ignore la reprise pour le verrou et appelle `recalculer_dans` à la fin.
+- `ServiceReprises` (`gesco-services/src/reprises.rs`) : `lister` (`ListeReprises`, lignes avec
+  `minimum` et `lue_le`), `enregistrer` (zéro annule, motif « Saisie erronée » par défaut),
+  `annuler`, `historique`, `de_l_inscription` ; `enregistrer_dans` sert aussi à l'import
+  (origine `import`) ; `verifier_remboursement`, `recalculer_inscription_dans`.
+- Dépenses : `DemandeDepense.inscription_id` ; refus `remboursement.superieur_a_l_excedent` à la
+  saisie (excédent moins remboursements engagés non payés) et au paiement ; recalcul de la facture
+  au paiement et à l'annulation.
+- `ServiceFraisAjoutes` (`frais_ajoutes.rs`) : `apercu`, `ajouter` (`FraisAjoute`), `retirer`
+  (contre-passe les échéances que ni versement ni avoir n'a payées), `affichee`.
+
+**Écarts à la spécification (à ce jour)**
+- Les refus `reprise.deja_remboursee` et `reprise.avoir_a_couvrir` ne portent pas le montant
+  minimum (les erreurs de règle n'ont pas de paramètre) : chaque ligne de la liste porte
+  `minimum`, que l'écran affichera avec le message.
+- « Retirer un frais » : commande `frais_retirer` ajoutée (la spécification décrit le geste sans
+  le nommer au §6) ; la reprise n'empêche pas de retirer une échéance (elle se réimpute ailleurs).
+- La catégorie « Remboursements aux parents » se renomme mais ne se retire pas (la case « active »
+  reste cochée), pour que « Rembourser » trouve toujours sa catégorie.
+- Le frais ajouté suit la règle d'arrivée en cours d'année de l'école (le choix fait pour l'élève à
+  la validation n'est pas gardé en base).
+- Essai 3 (exemple de la spécification : 185 000 F et 200 000 F) adapté à la grille des essais
+  (160 000 F et 175 000 F) ; essai 3 bis : le refus sur une facture annulée n'est pas écrit.
+
+**Reste (étapes 5 à 8)** : voir le relais du 18 novembre 2026 dans `docs/orchestration.md`.
+
 ## Phase 12, lot 4 — le portail de l'élève sur le Wi-Fi de l'école
 
 **État (18 novembre 2026) : lot 4 codé, essais écrits non lancés.** Les sept étapes sont faites ; les essais Rust, vitest, knip et le Playwright d'ensemble passent avec ceux des lots 3 et 5, dans la session des essais (voir « Étape 7 » plus bas). Ensuite : le code de la reprise avant GESCO, puis les lots 3 et 5.
