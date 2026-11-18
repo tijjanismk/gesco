@@ -35,6 +35,84 @@ Validés par le porteur du projet le 16 novembre 2026 (étape 3, choix pris au p
 
 Repère : prochaine migration **0063**.
 
+## Prise en charge par l'État
+
+**État (18 novembre 2026) : en cours de code, étape 1 faite.** Spécification
+`SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2 (prête à coder le 18 novembre 2026, T-164 à T-171 tranchées),
+ADR `docs/adr/2026-11-18-prise-en-charge-par-l-etat.md` accepté le 18 novembre 2026.
+Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé : ils
+passent tous ensemble dans la session des essais de la 2.0.0.
+
+| Étape | Contenu | État |
+|---|---|---|
+| 1 | Tables et noyau : migration 0066, catégorie livrée « Versements de l'État », dépôt `prise_en_charge.rs`, calcul pur du partage (`finance/prise_en_charge.rs`) | faite (18 novembre 2026) ; essais 5 (calcul pur), 2, 3, 3 bis, 4, 4 bis (calcul pur) et 10 (base) écrits, non lancés |
+| 2 | Calcul de la facture : `etat_echeances`, `EcheanceAffichee`, `FactureAffichee`, `recalculer_dans`, remises, plan, abandon et départ, frais ajouté, abonnés de la cantine, refus du remboursement | à faire |
+| 3 | Service de la prise en charge : cocher, modifier, abandonner, décocher, sélection, aperçu, montant proposé, case, année close | à faire |
+| 4 | Versement de l'État : enregistrer, répartir, compléter, annuler, recette, année close | à faire |
+| 5 | Commandes et écrans, textes, matrice des permissions | à faire |
+| 6 | Répartition par fichier | à faire |
+| 7 | Ce que doit l'État et rapports | à faire |
+| 8 | Fin d'année et manuel | à faire |
+
+**Étape 1 (18 novembre 2026)** : migration **0066** (`0066_prise_en_charge_etat.up.sql` et
+`.down.sql`) : `prise_en_charge_etat` (versions `en_cours`, `terminee`, `remplacee` ; montant
+attendu ≥ 0, abandon entre 0 et l'attendu, référence de 60 caractères au plus, `remplace_id` ;
+index unique partiel `(inscription_id) WHERE statut <> 'remplacee'`), `montant_etat` (année, niveau,
+série facultative, montant facultatif ; une ligne par année, niveau et série), `versement_etat`
+(année concernée, date, montant > 0, référence, libellé, payeur « État » par défaut, `recette_id`,
+`avant_gesco`, `valide` ou `annule` avec motif) et `versement_etat_part` (versement, inscription,
+montant > 0, `ecran` ou `import`, `active` ou `annulee`) ; colonnes habituelles
+(`etablissement_id`, `cree_le`, `cree_par`, `mis_a_jour_le`, `mis_a_jour_par`,
+`identifiant_poste`) ; déclencheurs qui refusent toute suppression sur les quatre tables.
+Catégorie de recette livrée « Versements de l'État » (code `versement_etat`, en fin de
+`CATEGORIES_LIVREES`), posée à l'ouverture d'une base qui ne l'a pas par `poser_tresorerie` ; elle
+se renomme et ne se retire pas, comme « Remboursements aux parents » (`ServiceTresorerie`).
+Compte des migrations de `gesco-db/tests/socle.rs` porté à 66. Noyau
+`gesco-core/src/finance/prise_en_charge.rs` : entités `PriseEnChargeEtat`, `MontantEtat`,
+`VersementEtat`, `PartVersementEtat` et leurs statuts, `verifier_reference`,
+`CATEGORIE_VERSEMENT_ETAT` ; calcul pur du §3.4, `partager(&EntreePartage) -> Partage` :
+`EcheanceAPartager` (échéance, `NatureEcheance` tirée de `LigneFacture.type_frais` par
+`depuis_type_frais`, `net`, `paye_parent` = versements imputés + avoirs utilisés, sans la reprise),
+`VersionCourante` (`Aucune`, `EnCours { attendu, abandonne }`, `Terminee` ; `depuis(Option<&PriseEnChargeEtat>)`),
+`S`, `B`, reprise ; rend par échéance `debiteur`, `part_etat`, `renonce`, `part_parent`,
+`paye_etat`, `reste_etat`, `trop_paye` (x), `trop_paye_rembourse` (b1), `rendu` (b2), `compte` (c),
+`report` (t), `reprise` (u), `paye` (c + t + u), `reste`, et par facture `du_etat` (E),
+`complement` (K), `paye_complement`, `recu_en_plus`, `trop_paye` (X), `trop_paye_reporte`,
+`a_rembourser`, `rembourse_reprise`, `rembourse_trop_paye`, `reprise_imputee`, totaux ;
+`doit_encore_etat()`, `parts_reprise()` (remplace `reprise::imputer` dans `recalculer_dans` à
+l'étape 2). Dépôt `gesco-db/src/depots/prise_en_charge.rs` : `courante`, `courantes_de_l_annee`,
+`historique`, `inserer_version` (passe la courante `remplacee` et remplit `remplace_id`),
+`ecrire_case` (par `complements::ecrire_prise_en_charge`), `montants_etat`, `montant_etat`,
+`regler_montant_etat`, `inserer_versement`, `versement`, `versement_de_la_recette`,
+`versements_de_l_annee`, `annuler_versement` (parts comprises), `inserer_part`,
+`parts_du_versement`, `annuler_parts`, `parts_recues`, `paye_etat` (S), `paye_etat_de_l_annee`.
+Essais écrits, non lancés : unitaires et propriétés dans `finance/prise_en_charge.rs` (essais 2,
+3, 3 bis, 4, 4 bis sur le calcul ; essai 5 par proptest : `net = part_etat + renonce +
+part_parent`, contrôle du §3.4, aucun négatif, `paye_etat + paye_complement + reçu en plus = S`,
+et, sans prise en charge, identité avec l'ancien calcul et `reprise::imputer`) ;
+`gesco-db/tests/prise_en_charge_0066.rs` (essai 10, partie base : version ancienne `remplacee`,
+une seule courante, motifs, versement avec recette ou avant GESCO, suppression refusée sur les
+quatre tables ; descente). Vérifiés : fmt, clippy (`-j 4`, noyau, base, services, toutes cibles).
+
+Écarts à la spécification (étape 1) :
+- La base exige un motif pour toute version qui porte un abandon (`CHECK (abandonne = 0 OR
+  motif)`), pas seulement pour la version qui l'introduit : le service (étape 3) recopie le motif
+  de l'abandon quand il modifie l'attendu ou la référence d'un élève dont l'abandon reste.
+- `montant_etat` : la recherche du montant d'une classe prend la ligne de sa série, à défaut celle
+  du niveau sans série ; référence d'un versement bornée à 120 caractères (la spécification ne
+  dit rien) ; un versement de l'État par recette au plus (index unique).
+- Calcul pur : les montants d'entrée négatifs comptent pour zéro ; un champ
+  `rembourse_en_trop` garde le remboursé qui ne trouverait aucun argent du parent (toujours zéro
+  tant que le refus `versement.deja_rembourse` tient), pour que le contrôle reste exact.
+- Essai 5 : écrit sur le calcul pur (tirages d'échéances, de natures, de versions, de `S`, de
+  reprises et de remboursés) ; la suite de gestes réels (versements, remises, ajustements, frais
+  ajoutés) passera par `etat_echeances` aux étapes 2 à 4. Essai 10 : la partie audit avant et
+  après s'écrit avec le service (étape 3).
+- `gesco-db/tests/socle.rs` comptait encore 63 migrations (les 0064 et 0065 ne l'avaient pas
+  mis à jour) : porté directement à 66.
+
+Repère : prochaine migration **0067**.
+
 ## Reprise avant GESCO — installer GESCO en cours d'année
 
 **État (18 novembre 2026) : reprise avant GESCO codée, essais écrits non lancés.** Les huit étapes sont faites ; les essais Rust (1 à 12), vitest et Playwright du §11 passent avec ceux de la 2.0.0, dans la session des essais.

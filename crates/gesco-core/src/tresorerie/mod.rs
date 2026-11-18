@@ -66,7 +66,7 @@ pub struct CategorieTresorerie {
 
 /// Catégories livrées : code, sens et libellé. Les recettes suivent les types de frais de la
 /// phase 3 ; « Salaires » reçoit les salaires et les avances payés (SPEC_PHASE_8 §6).
-pub const CATEGORIES_LIVREES: [(&str, Sens, &str); 19] = [
+pub const CATEGORIES_LIVREES: [(&str, Sens, &str); 20] = [
     ("frais_inscription", Sens::Recette, "Frais d'inscription"),
     ("frais_scolarite", Sens::Recette, "Scolarité"),
     ("frais_cantine", Sens::Recette, "Cantine"),
@@ -89,6 +89,11 @@ pub const CATEGORIES_LIVREES: [(&str, Sens, &str); 19] = [
         crate::finance::reprise::CATEGORIE_REMBOURSEMENT,
         Sens::Depense,
         "Remboursements aux parents",
+    ),
+    (
+        crate::finance::prise_en_charge::CATEGORIE_VERSEMENT_ETAT,
+        Sens::Recette,
+        "Versements de l'État",
     ),
 ];
 
@@ -180,6 +185,9 @@ mod tests {
         let codes: HashSet<&str> = CATEGORIES_LIVREES.iter().map(|(c, ..)| *c).collect();
         assert_eq!(codes.len(), CATEGORIES_LIVREES.len());
         assert!(codes.contains(CATEGORIE_SALAIRES));
+        assert!(CATEGORIES_LIVREES.iter().any(|(c, s, _)| {
+            *c == crate::finance::prise_en_charge::CATEGORIE_VERSEMENT_ETAT && *s == Sens::Recette
+        }));
         for frais in [
             "inscription",
             "scolarite",

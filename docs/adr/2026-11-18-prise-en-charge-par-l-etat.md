@@ -1,7 +1,7 @@
 # Prise en charge par l'État : un partage calculé de chaque échéance et des versements de l'État portés par une recette
 
 **Date** : 18 novembre 2026
-**Statut** : proposé le 18 novembre 2026
+**Statut** : proposé le 18 novembre 2026, accepté le 18 novembre 2026 (avec la spécification v1.2)
 **Précise** : décision du porteur du 18 novembre 2026 (« L'État, pas le parent »,
 `docs/orchestration.md`) ; `SPEC_PHASE_9.md` §8.2 (migration 0056) ; `SPEC_PHASE_3.md` §4, §7 ;
 `SPEC_PHASE_8.md` §5, §7 ; migration `0038_recettes` ; ADR « reprise avant GESCO » du

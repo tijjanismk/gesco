@@ -4,6 +4,7 @@
 pub mod ajustement;
 pub mod caisse;
 pub mod facture;
+pub mod prise_en_charge;
 pub mod recouvrement;
 pub mod remise;
 pub mod reprise;

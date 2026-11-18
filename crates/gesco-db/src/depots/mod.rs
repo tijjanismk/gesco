@@ -44,6 +44,7 @@ pub mod pedagogie;
 pub mod personnel;
 pub mod personnes;
 pub mod portail;
+pub mod prise_en_charge;
 pub mod rapports;
 pub mod recettes;
 pub mod remises;
