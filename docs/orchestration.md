@@ -722,3 +722,50 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (`gesco-services/tests/bibliotheque.rs`), unitaires de `portail/lecture.rs` et
   `gesco-reseau/src/portail/api.rs`, `frontend/eleve/src/replier.test.ts`.
 - Disque : 8,5 Go libres après l'étape 4 (`CARGO_INCREMENTAL=0`).
+
+## Passage de relais du 18 novembre 2026 — lot 4, après l'étape 5
+
+- Fait : **étape 5** (suivi), commitée et poussée ; fmt, clippy `-j 4` (base, documents,
+  services, réseau, toutes cibles ; `gesco-app`), tsc et ESLint verts ; essais écrits, **aucun
+  lancé**. Détail dans `ETAT_AVANCEMENT.md`, section « Phase 12, lot 4 », paragraphe « Étape 5 ».
+- Reste, dans l'ordre : étapes 6 et 7 de `SPEC_PHASE_12_LOT_4.md` §13, commit et push après
+  chacune, aucun essai lancé. Fin : `ETAT_AVANCEMENT.md` dit « lot 4 codé, essais écrits non
+  lancés ».
+- À savoir pour l'étape 6 (charge) :
+  - Déjà là : écritures groupées (file `FileAvancement`, dix mille gestes au plus, écrite toutes
+    les cinq secondes par `avancement_portail` dans `gesco-app/src/poste.rs`), lecture en mémoire,
+    fichiers par empreinte en cache permanent, sons et vidéos par morceaux d'un mégaoctet
+    (`MORCEAU_MEDIA`, `Range`, 206, 416), PDF gardé par version. Les écrans de l'élève traitent
+    déjà 503 et 429 comme « Beaucoup d'élèves sont connectés. Réessaie dans un instant. » et
+    réessaient seuls (`frontend/eleve/src/api.ts`, `lecture.ts`).
+  - Restent les **bornes** (ADR `docs/adr/2026-11-16-charge-du-portail-des-eleves.md`) : 48
+    requêtes simultanées pour les pages et l'API, 4 vidéos, 2 PDF. Proposition : constantes dans
+    `gesco-core/src/bibliotheque/portail.rs` (à côté de `VERIFICATIONS_SIMULTANEES`) ; 48 par un
+    intergiciel `from_fn_with_state` dans `gesco-reseau/src/portail.rs` (sémaphore dans
+    `EtatPortail`, `try_acquire_owned`, sinon 429 avec `Retry-After: 5` ; pour `/`, une petite
+    page avec la phrase et `<meta http-equiv="refresh" content="5">`) ; vidéos et PDF par deux
+    sémaphores dans `PortailVivant` (`gesco-services/src/portail/mod.rs`), pris dans
+    `Application::portail_fichier` quand la source est `SourceFichier::Video` et autour de la
+    fabrication dans `portail_pdf` ; une variante `ReponseLecture::Occupe` (trois `match` à
+    compléter : `et_puis` dans `lecture.rs`, `sans_lecture` dans `gesco-reseau/src/portail/api.rs`).
+  - **Outil de mesure** : essai `#[ignore]` dans `gesco-reseau/tests/reseau.rs` (il a déjà
+    `portail_brut`, `http` et l'école d'essai `ecole()`) : soixante élèves simulés (entrer,
+    catalogue, contenu, fichier, avancement) pendant qu'un poste relié encaisse et qu'un autre
+    saisit des notes ; temps d'un encaissement (sous une seconde) et d'une leçon (sous deux
+    secondes) ; les chiffres s'écrivent dans l'ADR « charge » quand la session des essais le
+    lancera (section « Mesure », à remplir).
+- Étape 7 (sans lancer d'essai) : Playwright d'ensemble `frontend/e2e/portail-eleves.spec.ts`
+  (écran de 360 pixels : entrer, lire, son, PDF, suivi du maître), skill `livraison` (règle de
+  pare-feu des ports 80 et 47 801 dans l'installeur, réseau privé ; portail jamais sur un poste
+  relié), guide d'installation « Le portail des élèves », manuel (« Ouvrir les cours aux
+  élèves », « Remettre les codes », « Suivre ses élèves », réglage « Les maîtres ont leur
+  compte »), notes de version 2.0.0, essais à la main (vrais téléphones). L'école d'essai refaite
+  et les captures reviennent à la session des essais.
+- À régénérer par la session des essais : `frontend/src/types/gesco.ts` et `acces.ts`
+  (`GESCO_REGENERER_TYPES=1`), écrits à la main pour `bibliotheque_suivi_lire`,
+  `bibliotheque_suivi_imprimer`, `SessionCourante::maitre_saisit` et `COMMANDES_DE_LA_SAISIE`.
+- Essais écrits non lancés de l'étape 5 : `le_maitre_voit_au_suivi_ce_que_ses_eleves_ont_ouvert_et_fini`
+  (`gesco-services/tests/bibliotheque.rs`), unitaires de `portail/suivi.rs`, liste du maître
+  (`commandes.rs`).
+- Police Andika : toujours pas téléchargée (accord du porteur du projet attendu).
+- Disque : 12 Go libres après l'étape 5 (`CARGO_INCREMENTAL=0`).
