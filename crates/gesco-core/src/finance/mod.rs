@@ -6,6 +6,7 @@ pub mod caisse;
 pub mod facture;
 pub mod recouvrement;
 pub mod remise;
+pub mod reprise;
 pub mod tarif;
 pub mod versement;
 

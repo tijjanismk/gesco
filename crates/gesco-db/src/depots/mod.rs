@@ -48,6 +48,7 @@ pub mod rapports;
 pub mod recettes;
 pub mod remises;
 pub mod remises_documents;
+pub mod reprises;
 pub mod reseau;
 pub mod role;
 pub mod sauvegarde;

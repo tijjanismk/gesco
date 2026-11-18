@@ -66,7 +66,7 @@ pub struct CategorieTresorerie {
 
 /// Catégories livrées : code, sens et libellé. Les recettes suivent les types de frais de la
 /// phase 3 ; « Salaires » reçoit les salaires et les avances payés (SPEC_PHASE_8 §6).
-pub const CATEGORIES_LIVREES: [(&str, Sens, &str); 18] = [
+pub const CATEGORIES_LIVREES: [(&str, Sens, &str); 19] = [
     ("frais_inscription", Sens::Recette, "Frais d'inscription"),
     ("frais_scolarite", Sens::Recette, "Scolarité"),
     ("frais_cantine", Sens::Recette, "Cantine"),
@@ -85,6 +85,11 @@ pub const CATEGORIES_LIVREES: [(&str, Sens, &str); 18] = [
     ("impots", Sens::Depense, "Impôts et taxes"),
     ("frais_bancaires", Sens::Depense, "Frais bancaires"),
     ("divers", Sens::Depense, "Divers"),
+    (
+        crate::finance::reprise::CATEGORIE_REMBOURSEMENT,
+        Sens::Depense,
+        "Remboursements aux parents",
+    ),
 ];
 
 /// Code de la catégorie des salaires.

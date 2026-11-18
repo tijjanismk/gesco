@@ -9,6 +9,7 @@ use crate::commun::{DateCivile, Horodatage, Id, Montant};
 use crate::core::{Etablissement, MachineAEtats, Utilisateur};
 use crate::finance::{ModePaiement, SessionCaisse};
 use crate::paie::PaiementPersonnel;
+use crate::scolarite::Inscription;
 use crate::tresorerie::fournisseur::FactureFournisseur;
 use crate::tresorerie::{CategorieTresorerie, CompteTresorerie, NatureCompte};
 
@@ -114,6 +115,10 @@ pub struct Depense {
     pub facture_id: Option<Id<FactureFournisseur>>,
     /// Salaire ou avance payé dont elle est née (SPEC_PHASE_8 §6).
     pub paiement_id: Option<Id<PaiementPersonnel>>,
+    /// Inscription dont elle rembourse l'excédent payé avant GESCO
+    /// (SPEC_REPRISE_AVANT_GESCO §3.6 bis).
+    #[serde(default)]
+    pub inscription_id: Option<Id<Inscription>>,
 }
 
 /// Vérifie une dépense saisie : un libellé, un bénéficiaire, un montant positif.

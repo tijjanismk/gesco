@@ -330,6 +330,7 @@ impl<'n> ServiceDepenses<'n> {
             motif: String::new(),
             facture_id: demande.facture_id,
             paiement_id: None,
+            inscription_id: None,
         };
         depenses::inserer(unite.connexion(), &depense, &contexte).await?;
         let id = depense.id.vers_chaine();

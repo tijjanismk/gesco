@@ -32,6 +32,7 @@ struct LigneDepense {
     motif: String,
     facture_id: Option<String>,
     paiement_id: Option<String>,
+    inscription_id: Option<String>,
 }
 
 impl LigneDepense {
@@ -84,6 +85,11 @@ impl LigneDepense {
                 .as_deref()
                 .map(|p| lire_id(t, "paiement_id", p))
                 .transpose()?,
+            inscription_id: self
+                .inscription_id
+                .as_deref()
+                .map(|i| lire_id(t, "inscription_id", i))
+                .transpose()?,
         })
     }
 }
@@ -93,7 +99,7 @@ macro_rules! selectionner_depense {
         concat!(
             "SELECT id, etablissement_id, date, categorie_id, libelle, beneficiaire, montant, statut,
                 saisie_par, decidee_par, compte_id, mode, reference, session_id, payee_le, motif,
-                facture_id, paiement_id
+                facture_id, paiement_id, inscription_id
              FROM depense ",
             $suite
         )
@@ -166,9 +172,9 @@ pub async fn inserer(cnx: &mut Connexion, d: &Depense, contexte: &Contexte) -> R
         "INSERT INTO depense (id, etablissement_id, date, categorie_id, libelle, beneficiaire,
             montant, statut, saisie_par, decidee_par, compte_id, mode, reference, session_id,
             payee_le, motif, facture_id, paiement_id, cree_le, cree_par, mis_a_jour_le,
-            mis_a_jour_par, identifiant_poste)
+            mis_a_jour_par, identifiant_poste, inscription_id)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18,
-            ?19, ?20, ?19, ?20, ?21)",
+            ?19, ?20, ?19, ?20, ?21, ?22)",
     )
     .bind(d.id.vers_chaine())
     .bind(d.etablissement_id.vers_chaine())
@@ -191,6 +197,7 @@ pub async fn inserer(cnx: &mut Connexion, d: &Depense, contexte: &Contexte) -> R
     .bind(contexte.maintenant.millis_epoque())
     .bind(contexte.auteur())
     .bind(&contexte.poste.0)
+    .bind(d.inscription_id.map(|i| i.vers_chaine()))
     .execute(cnx)
     .await?;
     Ok(())

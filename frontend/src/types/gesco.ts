@@ -5738,6 +5738,11 @@ export type Depense = {
 	facture_id: string | null,
 	/**  Salaire ou avance payé dont elle est née (SPEC_PHASE_8 §6). */
 	paiement_id: string | null,
+	/**
+	 *  Inscription dont elle rembourse l'excédent payé avant GESCO
+	 *  (SPEC_REPRISE_AVANT_GESCO §3.6 bis).
+	 */
+	inscription_id?: string | null,
 };
 
 /**  Dépense affichée. */

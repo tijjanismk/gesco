@@ -202,9 +202,13 @@ impl<'n> ServiceTresorerie<'n> {
                     .find(|c| c.id == id)
                     .cloned()
                     .ok_or(regle("tresorerie.categorie_inconnue"))?;
+                // Les remboursements aux parents se renomment, ne se retirent pas : « Rembourser »
+                // y range toujours la dépense.
+                let gardee = avant.code.as_deref()
+                    == Some(gesco_core::finance::reprise::CATEGORIE_REMBOURSEMENT);
                 let apres = CategorieTresorerie {
                     libelle,
-                    active: demande.active,
+                    active: demande.active || gardee,
                     ..avant.clone()
                 };
                 (Some(avant), apres)

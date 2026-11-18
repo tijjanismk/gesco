@@ -1,7 +1,7 @@
 # Reprise avant GESCO : deux tables à part qui règlent des échéances sans encaissement
 
 **Date** : 17 novembre 2026
-**Statut** : proposé le 17 novembre 2026
+**Statut** : proposé le 17 novembre 2026, accepté le 17 novembre 2026 par le porteur du projet (avec la spécification v1.2)
 **Précise** : décision du porteur du 17 novembre 2026 (`docs/orchestration.md`, commit `0dd1623`) ;
 `SPEC_PHASE_3.md` §4, §6, §7 ; `SPEC_PHASE_8.md` §5 (soldes d'ouverture) ; migration
 `0053_changement_de_classe` (avoirs) ; R-14, R-20
@@ -81,3 +81,12 @@ signifie un trop-perçu. L'essai qui parcourt les requêtes répond au risque d'
   alors des lignes datées, peut-être des versements « hors caisse » tracés comme tels.
 - Une troisième sorte de règlement sans encaissement apparaît : regrouper avoirs et reprises dans
   une seule table de règlements, avec leur nature.
+
+## Complément à l'acceptation (17 novembre 2026)
+
+La réponse du porteur sur l'excédent (rembourser le parent) ajoute à la même migration 0065 une
+colonne facultative `depense.inscription_id` (la dépense qui rembourse l'excédent d'une
+inscription, `ALTER TABLE … ADD COLUMN`, sans reconstruction, index partiel) et la catégorie de
+dépense livrée « Remboursements aux parents » (code `remboursement_parent`). La reprise n'entre
+toujours dans aucun solde ni journal ; seule la dépense payée sort de l'argent. Décision et
+options inchangées.

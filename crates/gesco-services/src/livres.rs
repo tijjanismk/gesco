@@ -301,6 +301,7 @@ pub(crate) async fn rattacher_salaires(unite: &mut UniteDeTravail<Effet>) -> Res
                     motif: String::new(),
                     facture_id: None,
                     paiement_id: Some(p.id),
+                    inscription_id: None,
                 };
                 depenses::inserer(unite.connexion(), &d, &contexte).await?;
                 let id = d.id.vers_chaine();
