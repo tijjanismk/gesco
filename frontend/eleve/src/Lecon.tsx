@@ -1,4 +1,6 @@
 import "katex/dist/katex.min.css";
+// Andika arrive avec la leçon, hors du premier chargement (voir `police.css`).
+import "./police.css";
 
 import katex from "katex";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";

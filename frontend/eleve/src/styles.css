@@ -1,22 +1,5 @@
 @import "tailwindcss";
 
-/* Andika (SIL, licence OFL), conçue pour apprendre à lire ; régulière et grasse. Si le fichier
-   manque, le téléphone garde sa propre police : rien ne bloque la lecture. */
-@font-face {
-  font-family: "Andika";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/assets/andika-regular.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Andika";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/assets/andika-bold.woff2") format("woff2");
-}
-
 /* Mêmes jetons que le bureau ; tous les couples texte / fond dépassent 6:1 dans les deux thèmes. */
 :root {
   --fond: #f1f3f7;

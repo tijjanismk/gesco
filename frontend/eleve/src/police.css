@@ -1,0 +1,20 @@
+/* Andika (SIL, licence OFL), conçue pour apprendre à lire ; régulière et grasse, fichiers livrés
+   tels quels. Ces règles arrivent avec la leçon, comme KaTeX : l'écran d'entrée et la liste des
+   matières s'affichent dans la police du téléphone, sans attendre les 600 Ko de la police ; à
+   l'ouverture de la première leçon, Andika se charge, remplace la police du téléphone une fois
+   arrivée (`swap`), puis reste en cache. Si le fichier manque, le téléphone garde sa police :
+   rien ne bloque la lecture. */
+@font-face {
+  font-family: "Andika";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/andika-regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Andika";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/assets/andika-bold.woff2") format("woff2");
+}
