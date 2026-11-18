@@ -8,6 +8,7 @@ import { MessageErreur } from "../../composants/Messages";
 import { Tableau } from "../../composants/Tableau";
 import { dateCivile, francs, t } from "../../i18n";
 import type { LigneRepriseAvantGesco, ListeReprises } from "../../types/gesco";
+import { ImportReprises } from "./ImportReprises";
 import { filtrerLignes, gesteDeLaSaisie, lendemain } from "./reprise";
 
 const TOUTES = "";
@@ -49,6 +50,7 @@ export function PayeAvantGesco() {
   const [motif, setMotif] = useState(t("paye_avant.motif_propose"));
   const [enErreur, setEnErreur] = useState<{ ligne: LigneRepriseAvantGesco; erreur: unknown } | null>(null);
   const [illisible, setIllisible] = useState<string | null>(null);
+  const [importer, setImporter] = useState(false);
   const apres = (ligne: LigneRepriseAvantGesco) => {
     client.setQueryData<ListeReprises>(cle, (l) => remplacer(l, ligne));
     void client.invalidateQueries({ queryKey: ["reprises"] });
@@ -130,6 +132,13 @@ export function PayeAvantGesco() {
             {donnees.brouillons === 0 ? null : <p className="text-muet">{t("paye_avant.brouillons", { nombre: String(donnees.brouillons) })}</p>}
             {donnees.lecture_seule ? <p className="text-muet">{t("paye_avant.lecture_seule")}</p> : null}
           </div>
+          {donnees.lecture_seule ? null : importer ? (
+            <ImportReprises anneeId={anneeId} classeId={classe === TOUTES ? null : classe} surFini={() => setImporter(false)} />
+          ) : (
+            <div>
+              <Bouton variante="secondaire" onClick={() => setImporter(true)}>{t("import_reprises.ouvrir")}</Bouton>
+            </div>
+          )}
           {aAnnuler === null ? null : (
             <div className="flex flex-col gap-2 rounded border border-ocre p-2 text-sm">
               <p className="text-encre">{t("paye_avant.annuler_explication", { eleve: aAnnuler.ligne.eleve, montant: francs(aAnnuler.ligne.reprise) })}</p>

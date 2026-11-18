@@ -37,7 +37,7 @@ Repère : prochaine migration **0063**.
 
 ## Reprise avant GESCO — installer GESCO en cours d'année
 
-**État (18 novembre 2026) : étapes 1 à 5 codées, essais écrits non lancés ; étapes 6 à 8 à faire.**
+**État (18 novembre 2026) : étapes 1 à 6 codées, essais écrits non lancés ; étapes 7 et 8 à faire.**
 Spécification `SPEC_REPRISE_AVANT_GESCO.md` v1.2 (acceptée le 17 novembre 2026), ADR
 `docs/adr/2026-11-17-reprise-avant-gesco.md` accepté (complément à l'acceptation : colonne
 `depense.inscription_id` et catégorie « Remboursements aux parents » dans la même migration).
@@ -51,7 +51,7 @@ après le lot 5.
 | 3 | `etat_echeances` et réimputation dans `recalculer_dans`, cantine, `ServiceReprises`, plan, remise annulée, événements | faite (18 novembre 2026) ; essais 2, 4 à 9 écrits, non lancés |
 | 4 | Remboursement par une dépense liée (refus au-delà de l'excédent, recalcul au paiement et à l'annulation), « Ajouter un frais » et « Retirer un frais » (`frais_ajoutes.rs`) | faite (18 novembre 2026) ; essais 3 et 3 bis écrits, non lancés |
 | 5 | Commandes (`reprises_lister`, `reprise_enregistrer`, `reprise_annuler`, `reprise_historique`, `frais_ajouter_apercu`, `frais_ajouter`, `frais_retirer`), écran « Payé avant GESCO », section « Frais » de la fiche (ligne, historique, excédent, « Rembourser », « Ajouter un frais »), relevé de compte, textes | faite (18 novembre 2026) ; fmt, clippy, tsc, ESLint verts |
-| 6 | Import Excel des reprises | à faire |
+| 6 | Import Excel des reprises (`import_reprises.rs` : modèle prérempli avec « Mode d'emploi », aperçu ligne par ligne, écriture en une transaction après sauvegarde, rapport et export des refus ; `reprises_modele`, `reprises_analyser_import`, `reprises_importer`) | faite (18 novembre 2026) ; essai 11 écrit, non lancé |
 | 7 | Rapports (journal des encaissements, budget) | à faire |
 | 8 | Manuel, essais à la main, notes de version, vitest et propriété de la caisse | à faire |
 
@@ -103,6 +103,12 @@ après le lot 5.
 - `Tableau` gagne un rendu facultatif par colonne (la case de saisie) ; l'export garde le texte.
 - Contrat TypeScript (`gesco.ts`, `acces.ts`) écrit à la main comme specta l'écrirait : la
   régénération (`types_typescript`) le vérifiera avec les essais.
+- Import : `reprises_importer` est une opération « seule » (`poste.occupe.import`), comme les
+  autres imports ; le fichier analysé est gardé en mémoire comme pour l'import des élèves
+  (`fichier_id`). Sans matricule, l'élève se retrouve par nom et prénoms dans la classe, puis par
+  la clé phonétique de la recherche tolérante. Une note vide dans le classeur garde la note
+  existante. Le refus sous le minimum dit « déjà remboursés » ou, s'il vient d'un avoir de
+  changement de classe, « avoir à couvrir ».
 
 **Reste (étapes 5 à 8)** : voir le relais du 18 novembre 2026 dans `docs/orchestration.md`.
 

@@ -66,6 +66,7 @@ pub mod import_eleves;
 pub mod import_personnel;
 pub mod import_programme;
 pub mod import_referentiel;
+pub mod import_reprises;
 pub mod initialisation;
 pub mod inscriptions;
 pub mod inventaire;

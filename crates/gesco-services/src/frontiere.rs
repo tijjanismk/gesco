@@ -181,6 +181,10 @@ use crate::import_referentiel::{
     AnalyseImportReferentiel, BilanImportReferentiel, DemandeImportReferentiel,
     DemandeModeleReferentiel, ServiceImportReferentiel,
 };
+use crate::import_reprises::{
+    ApercuReprises, DemandeAnalyseReprises, DemandeImportReprises, DemandeModeleReprises,
+    RapportReprises, ServiceImportReprises,
+};
 use crate::initialisation::{PremierDemarrage, ServiceInitialisation};
 use crate::inscriptions::{
     DemandeAbandon, DemandeChangementClasse, DemandeIdInscription, DemandeInscription,
@@ -1176,6 +1180,9 @@ contrat! {
     frais_ajouter_apercu(DemandeFraisAjoutables) -> Vec<FraisAjoutable>;
     frais_ajouter(DemandeFraisAjoute) -> FactureAffichee;
     frais_retirer(DemandeFraisRetire) -> FactureAffichee;
+    reprises_modele(DemandeModeleReprises) -> FichierEcrit;
+    reprises_analyser_import(DemandeAnalyseReprises) -> ApercuReprises;
+    reprises_importer(DemandeImportReprises) -> RapportReprises;
     caisse_session_courante(()) -> Option<SessionAffichee>;
     caisse_ouvrir(DemandeOuverture) -> SessionAffichee;
     caisse_cloturer(DemandeCloture) -> SessionAffichee;
@@ -4657,6 +4664,71 @@ impl Application {
         let session = appel.session()?;
         let facture = service.retirer(session, &entree).await?;
         service.affichee(session, facture).await
+    }
+
+    async fn reprises_modele(
+        &self,
+        appel: Appel,
+        entree: DemandeModeleReprises,
+    ) -> Resultat<FichierEcrit> {
+        ServiceImportReprises::nouveau(&appel.ouverte()?.noyau)
+            .ecrire_modele(appel.session()?, &entree)
+            .await
+    }
+
+    async fn reprises_analyser_import(
+        &self,
+        appel: Appel,
+        entree: DemandeAnalyseReprises,
+    ) -> Resultat<ApercuReprises> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let chemin = entree.chemin.clone();
+        let feuilles =
+            tokio::task::spawn_blocking(move || crate::import_eleves::lire_fichier(&chemin))
+                .await
+                .map_err(|e| ErreurService::Fichier(std::io::Error::other(e)))??;
+        let fichier = FichierImporte {
+            utilisateur_id: session.utilisateur_id,
+            nom: Path::new(&entree.chemin)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default()
+                .to_owned(),
+            feuilles,
+        };
+        let id = nouvel_id::<FichierImporte>().vers_chaine();
+        let apercu = ServiceImportReprises::nouveau(&ouverte.noyau)
+            .analyser(session, &id, &fichier, entree.annee_id)
+            .await?;
+        // Un seul fichier en cours par utilisateur : le précédent est oublié.
+        let mut imports = self.imports.lock().await;
+        imports.retain(|_, f| f.utilisateur_id != session.utilisateur_id);
+        imports.insert(id, fichier);
+        Ok(apercu)
+    }
+
+    async fn reprises_importer(
+        &self,
+        appel: Appel,
+        entree: DemandeImportReprises,
+    ) -> Resultat<RapportReprises> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let fichier = self.fichier_importe(session, &entree.fichier_id).await?;
+        // R-48 : la sauvegarde précède toute écriture en masse.
+        self.sauvegardes(ouverte)
+            .creer(
+                session.etablissement_id,
+                Some(session),
+                MotifSauvegarde::AvantImport,
+            )
+            .await?;
+        let rapport = ServiceImportReprises::nouveau(&ouverte.noyau)
+            .importer(session, &fichier, entree.annee_id)
+            .await?;
+        self.imports.lock().await.remove(&entree.fichier_id);
+        Ok(rapport)
     }
 
     async fn caisse_session_courante(

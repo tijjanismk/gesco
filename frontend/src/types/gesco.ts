@@ -439,6 +439,26 @@ export type ApercuReleve = {
 	format: FormatReleve | null,
 };
 
+/**  Aperçu du classeur, avant toute écriture. */
+export type ApercuReprises = {
+	/**  Fichier déposé, à rendre à l'import. */
+	fichier_id: string,
+	/**  Nom du fichier. */
+	nom: string,
+	/**  Lignes, dans l'ordre du fichier. */
+	lignes: LigneImportReprise[],
+	/**  Lignes valides. */
+	valides: number,
+	/**  Lignes en avertissement (enregistrées). */
+	avertissements: number,
+	/**  Lignes en erreur (laissées de côté). */
+	erreurs: number,
+	/**  Lignes ignorées. */
+	ignorees: number,
+	/**  Total payé avant GESCO des lignes qui seront enregistrées. */
+	total: Montant,
+};
+
 /**  Ce qu'un retrait cacherait, pour la confirmation. */
 export type ApercuRetrait = {
 	/**  Leçons. */
@@ -2119,6 +2139,12 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	frais_retirer: Signature<DemandeFraisRetire, FactureAffichee>,
 	/**  Signature de la commande du même nom. */
+	reprises_modele: Signature<DemandeModeleReprises, FichierEcrit>,
+	/**  Signature de la commande du même nom. */
+	reprises_analyser_import: Signature<DemandeAnalyseReprises, ApercuReprises>,
+	/**  Signature de la commande du même nom. */
+	reprises_importer: Signature<DemandeImportReprises, RapportReprises>,
+	/**  Signature de la commande du même nom. */
 	caisse_session_courante: Signature<null, SessionAffichee | null>,
 	/**  Signature de la commande du même nom. */
 	caisse_ouvrir: Signature<DemandeOuverture, SessionAffichee>,
@@ -2994,6 +3020,14 @@ export type DemandeAjoutContenu = {
 export type DemandeAnalyse = {
 	/**  Chemin du fichier `.xlsx`, `.xls`, `.ods` ou `.csv`. */
 	chemin: string,
+};
+
+/**  Classeur rempli à analyser. */
+export type DemandeAnalyseReprises = {
+	/**  Chemin du fichier `.xlsx`, `.xls`, `.ods` ou `.csv`. */
+	chemin: string,
+	/**  Année dont les inscriptions sont visées ; absente, l'année courante. */
+	annee_id?: string | null,
 };
 
 /**  Libellé et bornes d'une année scolaire, en millisecondes UTC. */
@@ -4405,6 +4439,14 @@ export type DemandeImportReleve = {
 	format: FormatReleve,
 };
 
+/**  Import d'un classeur déjà analysé. */
+export type DemandeImportReprises = {
+	/**  Fichier rendu par l'analyse. */
+	fichier_id: string,
+	/**  Année, la même qu'à l'analyse ; absente, l'année courante. */
+	annee_id?: string | null,
+};
+
 /**  Importer un fichier Word dans le brouillon d'un cours. */
 export type DemandeImportWord = {
 	/**  Identifiant du cours. */
@@ -4683,6 +4725,16 @@ export type DemandeModeleProgramme = {
 export type DemandeModeleReferentiel = {
 	/**  Chemin du classeur à écrire. */
 	chemin: string,
+};
+
+/**  Classeur du modèle à écrire, prérempli avec les inscriptions validées de la sélection. */
+export type DemandeModeleReprises = {
+	/**  Chemin du classeur, extension `.xlsx` ; rendu par le dialogue du système. */
+	chemin: string,
+	/**  Année ; absente, l'année courante. */
+	annee_id?: string | null,
+	/**  Classe ; absente, toutes. */
+	classe_id?: string | null,
 };
 
 /**  Nouvelle version d'une année en préparation. */
@@ -8438,6 +8490,34 @@ export type LigneImportReferentiel = {
 	erreurs: string[],
 };
 
+/**  Une ligne du classeur, telle que GESCO la comprend. */
+export type LigneImportReprise = {
+	/**  Numéro de la ligne dans le fichier, en-tête compris. */
+	numero: number,
+	/**  Matricule, tel qu'écrit. */
+	matricule: string,
+	/**  Nom, tel qu'écrit. */
+	nom: string,
+	/**  Prénoms, tels qu'écrits. */
+	prenoms: string,
+	/**  Classe, telle qu'écrite. */
+	classe: string,
+	/**  Payé avant GESCO, tel qu'écrit. */
+	saisi: string,
+	/**  Note, telle qu'écrite. */
+	note: string,
+	/**  Montant lu. */
+	montant: Montant | null,
+	/**  Élève retrouvé : prénoms et nom. */
+	eleve: string,
+	/**  Inscription retrouvée. */
+	inscription_id: string | null,
+	/**  Sort de la ligne. */
+	sort: SortLigneReprise,
+	/**  Messages, dans l'ordre. */
+	messages: MessageLigneReprise[],
+};
+
 /**  Ligne de la liste des inscriptions : le nécessaire pour reconnaître l'élève (R-24). */
 export type LigneInscription = {
 	/**  Inscription. */
@@ -8952,6 +9032,16 @@ export type MessageAffiche = {
 	destinataire: string,
 	/**  Prénoms et nom de l'élève dont il parle. */
 	eleve: string,
+};
+
+/**  Message d'une ligne : une clé du catalogue et ses montants. */
+export type MessageLigneReprise = {
+	/**  Clé du texte. */
+	cle: string,
+	/**  Premier montant cité. */
+	montant: Montant | null,
+	/**  Second montant cité (« remplace A par B »). */
+	autre: Montant | null,
 };
 
 /**  Ce qu'un responsable reçoit, tel que sa fiche le montre. */
@@ -10136,6 +10226,20 @@ export type EleveSuivi = {
 	derniere_visite: number | null,
 };
 
+/**  Ce que l'import a fait. */
+export type RapportReprises = {
+	/**  Reprises enregistrées ou remplacées. */
+	enregistrees: number,
+	/**  Reprises annulées (montant 0). */
+	annulees: number,
+	/**  Lignes ignorées (vides ou inchangées). */
+	ignorees: number,
+	/**  Total enregistré. */
+	total: Montant,
+	/**  Lignes refusées, à corriger et réimporter. */
+	refusees: LigneImportReprise[],
+};
+
 /**  Remboursement fait (ou en attente) au parent, pour la situation de l'élève. */
 export type Remboursement = {
 	/**  Jour de la dépense. */
@@ -10191,6 +10295,17 @@ export type RepriseDeLInscription = {
 	/**  Vrai tant qu'aucune caisse n'a été ouverte dans l'année. */
 	a_ce_jour: boolean,
 };
+
+/**  Sort d'une ligne du classeur. */
+export type SortLigneReprise =
+/**  Rien à faire : case vide ou montant inchangé. */
+"ignoree" |
+/**  Sera enregistrée. */
+"valide" |
+/**  Sera enregistrée ; à vérifier. */
+"avertissement" |
+/**  Laissée de côté. */
+"erreur";
 
 /**  État d'une reprise ou d'une de ses parts. */
 export type StatutReprise =

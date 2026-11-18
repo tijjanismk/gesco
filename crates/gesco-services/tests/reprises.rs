@@ -878,3 +878,251 @@ async fn un_frais_oublie_s_ajoute_comme_a_la_validation() {
         160_000
     );
 }
+
+/// Essai 11 : un classeur avec chaque cas de la vérification ligne par ligne ; l'aperçu
+/// n'écrit rien ; l'import écrit les lignes valides et en avertissement après une sauvegarde ;
+/// le même classeur rejoué ne change plus rien.
+#[tokio::test]
+async fn l_import_verifie_chaque_ligne_puis_ecrit_en_une_fois() {
+    let dossier = tempfile::tempdir().unwrap();
+    let e = ecole(dossier.path()).await;
+    let classe = e.septieme["libelle"].as_str().unwrap().to_owned();
+    let mut matricules = std::collections::HashMap::new();
+    let mut inscriptions = std::collections::HashMap::new();
+    for prenoms in [
+        "Awa", "Binta", "Coumba", "Fanta", "Hawa", "Kadi", "Mariam", "Nana", "Oumou", "Salimata",
+        "Tata",
+    ] {
+        let (fiche, ins) = inscrit(&e, prenoms, &e.septieme).await;
+        matricules.insert(
+            prenoms,
+            fiche["eleve"]["matricule_interne"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+        );
+        inscriptions.insert(prenoms, ins);
+    }
+    // Une homonyme de Tata dans la même classe : sans matricule, on ne sait pas laquelle.
+    inscrit(&e, "Tata", &e.septieme).await;
+    let (fiche_d, _) = brouillon(&e, "Djeneba", &e.septieme).await;
+    let matricule_d = fiche_d["eleve"]["matricule_interne"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    reprendre(&e, &e.admin, &inscriptions["Binta"], 50_000).await;
+    reprendre(&e, &e.admin, &inscriptions["Nana"], 40_000).await;
+    reprendre(&e, &e.admin, &inscriptions["Oumou"], 30_000).await;
+    // Salimata : 175 000 F payés pour 160 000 F dus, 10 000 F déjà rendus au parent.
+    reprendre(&e, &e.admin, &inscriptions["Salimata"], 175_000).await;
+    e.p.ok(
+        "caisse_ouvrir",
+        Some(&e.admin),
+        json!({ "fonds_initial": 50_000 }),
+    )
+    .await;
+    let depenses =
+        e.p.ok(
+            "depenses_lire",
+            Some(&e.admin),
+            json!({ "mois": "2026-10" }),
+        )
+        .await;
+    let caisse = depenses["comptes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["nature"] == "caisse")
+        .unwrap()["id"]
+        .clone();
+    e.p.ok(
+        "depense_saisir",
+        Some(&e.admin),
+        json!({ "date": "", "categorie_id": categorie_remboursement(&depenses),
+            "libelle": "Trop-payé avant GESCO — Salimata Diarra", "beneficiaire": "Fanta Sangaré",
+            "montant": 10_000, "inscription_id": inscriptions["Salimata"]["id"],
+            "paiement": { "compte_id": caisse, "mode": "especes", "reference": "" } }),
+    )
+    .await;
+
+    let m = |p: &str| matricules[p].clone();
+    let lignes = [
+        // Ligne 2 : valide.
+        format!("{};Diarra;Awa;{classe};160000;60 000;cahier p. 3", m("Awa")),
+        // 3 : remplace 50 000 F par 75 000 F.
+        format!("{};Diarra;Binta;{classe};160000;75.000 F;", m("Binta")),
+        // 4 : dont 15 000 F à rembourser.
+        format!("{};Diarra;Coumba;{classe};160000;175000;", m("Coumba")),
+        // 5 : inscription en brouillon.
+        format!("{matricule_d};Diarra;Djeneba;{classe};;10000;"),
+        // 6 : matricule inconnu.
+        format!("XX-9999;Diarra;Inconnue;{classe};;10000;"),
+        // 7 : sans matricule, retrouvée par le nom.
+        format!(";DIARRA;fanta;{classe};;20000;"),
+        // 8 et 9 : la même élève deux fois.
+        format!("{};Diarra;Hawa;{classe};160000;10000;", m("Hawa")),
+        format!("{};Diarra;Hawa;{classe};160000;12000;", m("Hawa")),
+        // 10 : montant illisible.
+        format!("{};Diarra;Kadi;{classe};160000;beaucoup;", m("Kadi")),
+        // 11 : case vide.
+        format!("{};Diarra;Mariam;{classe};160000;;", m("Mariam")),
+        // 12 : inchangé.
+        format!("{};Diarra;Nana;{classe};160000;40000;", m("Nana")),
+        // 13 : zéro annule la reprise de 30 000 F.
+        format!("{};Diarra;Oumou;{classe};160000;0;", m("Oumou")),
+        // 14 : sous ce qui a déjà été rendu au parent.
+        format!("{};Diarra;Salimata;{classe};160000;5000;", m("Salimata")),
+        // 15 : deux homonymes dans la classe, sans matricule.
+        format!(";Diarra;Tata;{classe};;10000;"),
+    ];
+    let contenu = format!(
+        "Matricule;Nom;Prénoms;Classe;Dû de l'année;Payé avant GESCO;Note\n{}\n",
+        lignes.join("\n")
+    );
+    let chemin = dossier.path().join("paye-avant-gesco.csv");
+    std::fs::write(&chemin, contenu).unwrap();
+    let chemin = chemin.to_str().unwrap().to_owned();
+
+    let apercu =
+        e.p.ok(
+            "reprises_analyser_import",
+            Some(&e.admin),
+            json!({ "chemin": chemin }),
+        )
+        .await;
+    let ligne = |n: u64| -> Value {
+        apercu["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["numero"] == n)
+            .unwrap()
+            .clone()
+    };
+    let cles = |l: &Value| -> Vec<String> {
+        l["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["cle"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let attendu: [(u64, &str, &[&str]); 14] = [
+        (2, "valide", &[]),
+        (3, "avertissement", &["import_reprises.remplace"]),
+        (4, "avertissement", &["import_reprises.a_rembourser"]),
+        (5, "erreur", &["import_reprises.pas_validee"]),
+        (6, "erreur", &["import_reprises.introuvable"]),
+        (7, "avertissement", &["import_reprises.retrouve_par_le_nom"]),
+        (8, "erreur", &["import_reprises.deux_fois"]),
+        (9, "erreur", &["import_reprises.deux_fois"]),
+        (10, "erreur", &["import_reprises.montant_illisible"]),
+        (11, "ignoree", &[]),
+        (12, "ignoree", &["import_reprises.inchange"]),
+        (13, "avertissement", &["import_reprises.annule"]),
+        (14, "erreur", &["import_reprises.deja_rembourse"]),
+        (15, "erreur", &["import_reprises.plusieurs"]),
+    ];
+    for (numero, sort, messages) in attendu {
+        let l = ligne(numero);
+        assert_eq!(l["sort"], sort, "ligne {numero}");
+        assert_eq!(cles(&l), messages, "ligne {numero}");
+    }
+    assert_eq!(ligne(3)["messages"][0]["montant"], 50_000);
+    assert_eq!(ligne(3)["messages"][0]["autre"], 75_000);
+    assert_eq!(ligne(4)["messages"][0]["montant"], 15_000);
+    assert_eq!(ligne(13)["messages"][0]["montant"], 30_000);
+    assert_eq!(ligne(14)["messages"][0]["montant"], 10_000);
+    assert_eq!(ligne(14)["messages"][0]["autre"], 10_000);
+    assert_eq!(apercu["valides"], 1);
+    assert_eq!(apercu["avertissements"], 4);
+    assert_eq!(apercu["erreurs"], 7);
+    assert_eq!(apercu["ignorees"], 2);
+    // 60 000 + 75 000 + 175 000 + 20 000 + 0.
+    assert_eq!(apercu["total"], 330_000);
+    // L'aperçu n'a rien écrit.
+    assert_eq!(
+        reste(&situation_de(&e, &inscriptions["Awa"]).await),
+        160_000
+    );
+
+    let sauvegardes =
+        e.p.ok("sauvegardes_lister", Some(&e.admin), Value::Null)
+            .await;
+    let rapport =
+        e.p.ok(
+            "reprises_importer",
+            Some(&e.admin),
+            json!({ "fichier_id": apercu["fichier_id"] }),
+        )
+        .await;
+    assert_eq!(
+        e.p.ok("sauvegardes_lister", Some(&e.admin), Value::Null)
+            .await
+            .as_array()
+            .unwrap()
+            .len(),
+        sauvegardes.as_array().unwrap().len() + 1
+    );
+    assert_eq!(rapport["enregistrees"], 4);
+    assert_eq!(rapport["annulees"], 1);
+    assert_eq!(rapport["refusees"].as_array().unwrap().len(), 7);
+    assert_eq!(rapport["total"], 330_000);
+    assert_eq!(
+        reste(&situation_de(&e, &inscriptions["Awa"]).await),
+        100_000
+    );
+    assert_eq!(
+        situation_de(&e, &inscriptions["Coumba"]).await["facture"]["a_rembourser"],
+        15_000
+    );
+    assert_eq!(
+        situation_de(&e, &inscriptions["Oumou"]).await["facture"]["reprise"],
+        0
+    );
+    let historique =
+        e.p.ok(
+            "reprise_historique",
+            Some(&e.admin),
+            json!({ "inscription_id": inscriptions["Awa"]["id"] }),
+        )
+        .await;
+    assert_eq!(historique[0]["origine"], "import");
+    assert_eq!(historique[0]["note"], "cahier p. 3");
+
+    // Le même classeur rejoué : ce qui a été écrit revient « Inchangé ».
+    let encore =
+        e.p.ok(
+            "reprises_analyser_import",
+            Some(&e.admin),
+            json!({ "chemin": chemin }),
+        )
+        .await;
+    assert_eq!(encore["valides"], 0);
+    assert_eq!(encore["avertissements"], 0);
+    for numero in [2_u64, 3, 4, 7, 12, 13] {
+        let l = encore["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["numero"] == numero)
+            .unwrap()
+            .clone();
+        assert_eq!(l["sort"], "ignoree", "ligne {numero}");
+        assert!(
+            cles(&l).contains(&"import_reprises.inchange".to_owned()),
+            "ligne {numero}"
+        );
+    }
+}
+
+/// Situation d'une inscription, retrouvée par son élève.
+async fn situation_de(e: &Ecole, inscription: &Value) -> Value {
+    e.p.ok(
+        "situation_financiere",
+        Some(&e.admin),
+        json!({ "id": inscription["eleve_id"] }),
+    )
+    .await[0]
+        .clone()
+}
