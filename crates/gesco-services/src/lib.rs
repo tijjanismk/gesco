@@ -97,6 +97,7 @@ pub mod recouvrement;
 pub mod referentiel;
 pub mod remises;
 pub mod remises_documents;
+pub mod reprises;
 pub mod restauration;
 pub mod roles;
 pub mod sauvegarde;

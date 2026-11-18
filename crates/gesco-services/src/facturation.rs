@@ -7,6 +7,7 @@ use gesco_core::core::{
     AnneeScolaire, MachineAEtats, Operation, TypeDocumentNumerote, TypeEvenement,
 };
 use gesco_core::finance::facture::{ArriveeEnCours, Bornes, LigneCalculee, calculer};
+use gesco_core::finance::reprise::{self, ChiffresReprise};
 use gesco_core::finance::tarif::JOURS_ECHEANCE;
 use gesco_core::finance::{
     Ajustement, Avoir, ContexteTarifaire, Echeance, Exigibilite, Facture, LigneFacture,
@@ -14,7 +15,9 @@ use gesco_core::finance::{
 };
 use gesco_core::scolarite::personne::millesime;
 use gesco_core::scolarite::{Eleve, Inscription, StatutInscription};
-use gesco_db::depots::{academique, ajustements, annee_scolaire, factures, parametre, tarifs};
+use gesco_db::depots::{
+    academique, ajustements, annee_scolaire, factures, parametre, reprises, tarifs,
+};
 use gesco_db::unite::Durabilite;
 use gesco_db::{Contexte, UniteDeTravail, nouvel_id};
 use serde::{Deserialize, Serialize};
@@ -58,7 +61,9 @@ pub struct EcheanceAffichee {
     pub ajustement: Montant,
     /// Dû après remise et baisse.
     pub net: Montant,
-    /// Versements imputés, et avoirs utilisés.
+    /// Part de la reprise avant GESCO portée par l'échéance.
+    pub reprise: Montant,
+    /// Versements imputés, avoirs utilisés et reprise avant GESCO.
     pub paye: Montant,
     /// Reste à payer : dû après remise et baisse, moins le payé.
     pub reste: Montant,
@@ -69,13 +74,28 @@ fn calcul(r: Result<Montant, gesco_core::commun::ErreurMontant>) -> Resultat<Mon
 }
 
 /// État des échéances dues d'une facture, par date : montant, remises, baisses, payé, reste.
-/// Tout se recalcule depuis les échéances, les parts de remise et de baisse, les imputations et
-/// les avoirs utilisés (R-20).
+/// Tout se recalcule depuis les échéances, les parts de remise et de baisse, les imputations,
+/// les avoirs utilisés et les parts de la reprise avant GESCO (R-20). Seul calcul du reste.
 pub(crate) async fn etat_echeances(
     cnx: &mut gesco_db::Connexion,
     facture_id: Id<Facture>,
     contexte: &Contexte,
 ) -> Resultat<Vec<EcheanceAffichee>> {
+    etats(cnx, facture_id, contexte, true).await
+}
+
+/// État des échéances, avec ou sans la reprise : sans elle, les restes que la reprise remplit.
+async fn etats(
+    cnx: &mut gesco_db::Connexion,
+    facture_id: Id<Facture>,
+    contexte: &Contexte,
+    avec_reprise: bool,
+) -> Resultat<Vec<EcheanceAffichee>> {
+    let reprise = if avec_reprise {
+        reprises::imputations_de_la_facture(cnx, facture_id, contexte).await?
+    } else {
+        Vec::new()
+    };
     let parts = gesco_db::depots::remises::parts_de_la_facture(cnx, facture_id, contexte).await?;
     let baisses = ajustements::parts_de_la_facture(cnx, facture_id, contexte).await?;
     let avoirs = ajustements::avoirs_utilises_sur_la_facture(cnx, facture_id, contexte).await?;
@@ -99,6 +119,12 @@ pub(crate) async fn etat_echeances(
                 .filter(|(_, e, _)| *e == echeance.id)
                 .try_fold(Montant::ZERO, |s, (_, _, m)| s.ajouter(*m)),
         )?;
+        let part_reprise = calcul(
+            reprise
+                .iter()
+                .filter(|p| p.echeance_id == echeance.id)
+                .try_fold(Montant::ZERO, |s, p| s.ajouter(p.montant)),
+        )?;
         let paye = calcul(
             imputations
                 .iter()
@@ -110,7 +136,7 @@ pub(crate) async fn etat_echeances(
                         .filter(|(e, _)| *e == echeance.id)
                         .map(|(_, m)| *m),
                 )
-                .try_fold(Montant::ZERO, |s, m| s.ajouter(m)),
+                .try_fold(part_reprise, |s, m| s.ajouter(m)),
         )?;
         let net = calcul(
             echeance
@@ -122,12 +148,76 @@ pub(crate) async fn etat_echeances(
             reste: calcul(net.soustraire(paye))?,
             net,
             paye,
+            reprise: part_reprise,
             remise,
             ajustement,
             echeance,
         });
     }
     Ok(etats)
+}
+
+/// Réimpute la reprise active de l'inscription (SPEC_REPRISE_AVANT_GESCO §3.5) : l'utilisable
+/// (montant moins remboursé) remplit les restes calculés sans elle, plus ancienne échéance
+/// d'abord. Les parts ne se réécrivent que si elles changent : les anciennes passent `annulee`,
+/// les nouvelles naissent. Un dû qui monte absorbe d'abord l'excédent ; un dû qui baisse le
+/// libère.
+async fn reimputer_reprise_dans(
+    unite: &mut UniteDeTravail<Effet>,
+    contexte: &Contexte,
+    facture: &Facture,
+) -> Resultat<()> {
+    let Some(active) =
+        reprises::active(unite.connexion(), facture.inscription_id, contexte).await?
+    else {
+        return Ok(());
+    };
+    let voulues = if facture.statut == StatutFacture::Annulee {
+        Vec::new()
+    } else {
+        let restes: Vec<(Id<Echeance>, Montant)> =
+            etats(unite.connexion(), facture.id, contexte, false)
+                .await?
+                .iter()
+                .map(|e| (e.echeance.id, e.reste))
+                .collect();
+        let rembourse =
+            reprises::rembourse(unite.connexion(), facture.inscription_id, contexte).await?;
+        let utilisable = calcul(active.montant.soustraire(rembourse))?.max(Montant::ZERO);
+        reprise::imputer(&restes, utilisable).map_err(|_| regle("facture.calcul_impossible"))?
+    };
+    // Toutes les parts actives de la reprise, même sur des échéances contre-passées.
+    let actuelles = reprises::parts_actives(unite.connexion(), active.id, contexte).await?;
+    if actuelles == voulues {
+        return Ok(());
+    }
+    reprises::annuler_imputations(unite.connexion(), active.id, contexte).await?;
+    for part in &voulues {
+        reprises::inserer_imputation(
+            unite.connexion(),
+            active.id,
+            part.echeance_id,
+            part.montant,
+            contexte,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+/// Chiffres de la reprise d'une facture (§3.6 bis) : montant actif, remboursé, imputé, à
+/// rembourser. Tout zéro sans reprise.
+pub(crate) async fn chiffres_reprise(
+    cnx: &mut gesco_db::Connexion,
+    facture: &Facture,
+    contexte: &Contexte,
+) -> Resultat<ChiffresReprise> {
+    let montant = reprises::active(cnx, facture.inscription_id, contexte)
+        .await?
+        .map_or(Montant::ZERO, |r| r.montant);
+    let rembourse = reprises::rembourse(cnx, facture.inscription_id, contexte).await?;
+    let parts = reprises::imputations_de_la_facture(cnx, facture.id, contexte).await?;
+    reprise::chiffres(montant, rembourse, &parts).map_err(|_| regle("facture.calcul_impossible"))
 }
 
 /// Recalcule le total et l'état d'une facture d'après ses échéances dues et ses imputations
@@ -137,6 +227,7 @@ pub(crate) async fn recalculer_dans(
     contexte: &Contexte,
     facture: &Facture,
 ) -> Resultat<Facture> {
+    reimputer_reprise_dans(unite, contexte, facture).await?;
     let etats = etat_echeances(unite.connexion(), facture.id, contexte).await?;
     let somme = |f: fn(&EcheanceAffichee) -> Montant| {
         calcul(etats.iter().try_fold(Montant::ZERO, |s, e| s.ajouter(f(e))))
@@ -178,10 +269,16 @@ pub struct FactureAffichee {
     pub ajustement: Montant,
     /// Ajustements au changement de classe, du plus ancien au plus récent.
     pub ajustements: Vec<Ajustement>,
-    /// Versements imputés, et avoirs utilisés.
+    /// Versements imputés, avoirs utilisés et reprise avant GESCO.
     pub paye: Montant,
     /// Reste à payer : total, moins les remises et les baisses, moins le payé.
     pub reste: Montant,
+    /// Payé avant GESCO, porté par les échéances.
+    pub reprise: Montant,
+    /// Excédent payé avant GESCO qui reste à rendre au parent.
+    pub a_rembourser: Montant,
+    /// Déjà rendu au parent.
+    pub rembourse: Montant,
 }
 
 /// Plan proposé au changement.
@@ -212,6 +309,8 @@ pub struct SituationInscription {
     pub versements: Vec<gesco_core::finance::Versement>,
     /// Avoirs nés des ajustements de cette facture, avec ce qui en est utilisé.
     pub avoirs: Vec<Avoir>,
+    /// Payé avant GESCO : reprise, excédent, remboursements ; absent sans facture.
+    pub reprise: Option<crate::reprises::RepriseDeLInscription>,
 }
 
 /// Changement de plan d'une inscription.
@@ -635,6 +734,7 @@ impl<'n> ServiceFacturation<'n> {
         let ajustements = ajustements::de_la_facture(&mut cnx, facture.id, &contexte).await?;
         let paye = somme(|e| e.paye)?;
         let reste = somme(|e| e.reste)?;
+        let chiffres = chiffres_reprise(&mut cnx, &facture, &contexte).await?;
         let plan = tarifs::contenu(&mut cnx, facture.grille_id, &contexte)
             .await?
             .plans
@@ -651,6 +751,9 @@ impl<'n> ServiceFacturation<'n> {
             remise: remise_totale,
             ajustement,
             ajustements,
+            reprise: chiffres.impute,
+            a_rembourser: chiffres.a_rembourser,
+            rembourse: chiffres.rembourse,
             facture,
         })
     }
@@ -715,7 +818,13 @@ impl<'n> ServiceFacturation<'n> {
                         .collect()
                 })
                 .unwrap_or_default();
+            let reprise = {
+                let mut cnx = self.connexion().await?;
+                crate::reprises::de_l_inscription_dans(&mut cnx, affichee.inscription.id, &contexte)
+                    .await?
+            };
             situations.push(SituationInscription {
+                reprise,
                 versements,
                 avoirs,
                 remises,
@@ -796,7 +905,8 @@ impl<'n> ServiceFacturation<'n> {
                 .await?
                 .iter()
                 .any(|e| {
-                    lignes_selon_plan.contains(&e.echeance.ligne_facture_id) && !e.paye.est_nul()
+                    // La reprise ne verrouille pas le plan : elle se réimpute sur le nouveau.
+                    lignes_selon_plan.contains(&e.echeance.ligne_facture_id) && e.paye != e.reprise
                 })
             {
                 return Err(regle("echeancier.plan_verrouille"));
@@ -952,6 +1062,8 @@ impl<'n> ServiceFacturation<'n> {
                 .await?
                 .ok_or(regle("facture.absente"))?
         };
+        // La reprise se réimpute sur le nouvel échéancier, même montant, plus ancienne d'abord.
+        let apres = recalculer_dans(&mut unite, &contexte, &apres).await?;
         let id = apres.id.vers_chaine();
         unite.auditer(
             "facture",

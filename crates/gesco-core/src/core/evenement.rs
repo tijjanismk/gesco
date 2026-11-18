@@ -91,6 +91,16 @@ pub enum TypeEvenement {
     FactureAjustee,
     /// Un avoir de l'élève règle ses échéances, sans encaissement.
     AvoirUtilise,
+    /// Ce qu'un parent avait payé avant GESCO est enregistré pour une inscription.
+    RepriseAvantGescoEnregistree,
+    /// Une reprise avant GESCO est remplacée par un autre montant.
+    RepriseAvantGescoModifiee,
+    /// Une reprise avant GESCO est annulée, avec son motif.
+    RepriseAvantGescoAnnulee,
+    /// Un classeur de reprises avant GESCO est importé.
+    ImportReprisesApplique,
+    /// Un frais facultatif oublié est ajouté à une facture validée.
+    FraisAjoute,
     /// Une remise est proposée à la direction (§5).
     RemiseProposee,
     /// Une remise est accordée ; elle réduit l'échéancier.
@@ -373,6 +383,11 @@ impl TypeEvenement {
         Self::EcheancierDecale,
         Self::FactureAjustee,
         Self::AvoirUtilise,
+        Self::RepriseAvantGescoEnregistree,
+        Self::RepriseAvantGescoModifiee,
+        Self::RepriseAvantGescoAnnulee,
+        Self::ImportReprisesApplique,
+        Self::FraisAjoute,
         Self::RemiseProposee,
         Self::RemiseAccordee,
         Self::RemiseRefusee,
@@ -534,6 +549,11 @@ impl TypeEvenement {
             Self::EcheancierDecale => "EcheancierDecale",
             Self::FactureAjustee => "FactureAjustee",
             Self::AvoirUtilise => "AvoirUtilise",
+            Self::RepriseAvantGescoEnregistree => "RepriseAvantGescoEnregistree",
+            Self::RepriseAvantGescoModifiee => "RepriseAvantGescoModifiee",
+            Self::RepriseAvantGescoAnnulee => "RepriseAvantGescoAnnulee",
+            Self::ImportReprisesApplique => "ImportReprisesApplique",
+            Self::FraisAjoute => "FraisAjoute",
             Self::RemiseProposee => "RemiseProposee",
             Self::RemiseAccordee => "RemiseAccordee",
             Self::RemiseRefusee => "RemiseRefusee",
@@ -697,6 +717,11 @@ impl TypeEvenement {
             | Self::EcheancierDecale
             | Self::FactureAjustee
             | Self::AvoirUtilise
+            | Self::RepriseAvantGescoEnregistree
+            | Self::RepriseAvantGescoModifiee
+            | Self::RepriseAvantGescoAnnulee
+            | Self::ImportReprisesApplique
+            | Self::FraisAjoute
             | Self::RemiseProposee
             | Self::RemiseAccordee
             | Self::RemiseRefusee

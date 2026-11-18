@@ -60,6 +60,7 @@ mod portail_entree;
 mod postes;
 mod rapports;
 mod recettes;
+mod reprises;
 mod reseau_local;
 mod scolarite;
 mod socle_services;

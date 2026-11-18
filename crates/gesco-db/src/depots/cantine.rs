@@ -50,6 +50,11 @@ pub async fn abonnes(
                 JOIN echeance e ON e.id = u.echeance_id
                 JOIN ligne_facture l ON l.id = e.ligne_facture_id
              WHERE l.facture_id = f.id AND l.type_frais = 'cantine' AND e.date_echeance <= ?3)
+            + (SELECT COALESCE(SUM(r.montant), 0) FROM reprise_imputation r
+                JOIN echeance e ON e.id = r.echeance_id
+                JOIN ligne_facture l ON l.id = e.ligne_facture_id
+             WHERE l.facture_id = f.id AND l.type_frais = 'cantine' AND r.statut = 'active'
+                AND e.statut = 'due' AND e.date_echeance <= ?3)
          FROM inscription i
             JOIN eleve el ON el.id = i.eleve_id
             JOIN personne p ON p.id = el.personne_id

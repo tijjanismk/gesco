@@ -213,9 +213,37 @@ pub async fn imputations_de_la_facture(
         "SELECT p.echeance_id, p.montant FROM reprise_imputation p
          JOIN echeance e ON e.id = p.echeance_id
          WHERE e.facture_id = ?1 AND p.etablissement_id = ?2 AND p.statut = 'active'
+            AND e.statut = 'due'
          ORDER BY e.date_echeance, e.rang",
     )
     .bind(facture_id.vers_chaine())
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?;
+    lignes
+        .into_iter()
+        .map(|(e, m)| {
+            Ok(PartReprise {
+                echeance_id: lire_id("reprise_imputation", "echeance_id", &e)?,
+                montant: Montant::depuis_francs(m),
+            })
+        })
+        .collect()
+}
+
+/// Parts actives d'une reprise, toutes échéances (même contre-passées), par date puis rang.
+pub async fn parts_actives(
+    cnx: &mut Connexion,
+    reprise_id: Id<RepriseAvantGesco>,
+    contexte: &Contexte,
+) -> Resultat<Vec<PartReprise>> {
+    let lignes: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT p.echeance_id, p.montant FROM reprise_imputation p
+         JOIN echeance e ON e.id = p.echeance_id
+         WHERE p.reprise_id = ?1 AND p.etablissement_id = ?2 AND p.statut = 'active'
+         ORDER BY e.date_echeance, e.rang",
+    )
+    .bind(reprise_id.vers_chaine())
     .bind(contexte.etablissement_id.vers_chaine())
     .fetch_all(cnx)
     .await?;

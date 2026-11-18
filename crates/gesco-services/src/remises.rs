@@ -293,6 +293,17 @@ impl<'n> ServiceRemises<'n> {
             remises::annuler_parts(unite.connexion(), apres.id, None, &contexte).await?;
         }
         remises::ecrire(unite.connexion(), &apres, &contexte).await?;
+        if vers == StatutRemise::Annulee
+            && let Some(facture) = gesco_db::depots::factures::facture_vivante(
+                unite.connexion(),
+                apres.inscription_id,
+                &contexte,
+            )
+            .await?
+        {
+            // Le dû remonte : l'excédent payé avant GESCO l'absorbe d'abord.
+            crate::facturation::recalculer_dans(&mut unite, &contexte, &facture).await?;
+        }
         let id_texte = apres.id.vers_chaine();
         let (operation, evenement, origine) = if vers == StatutRemise::Annulee {
             (
