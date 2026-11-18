@@ -50,7 +50,10 @@ Option 1, migration 0066 (ou la suivante libre) :
   et le reste au parent (précisions du porteur du 18 novembre 2026) ; l'écart entre les frais de
   l'école et le montant de l'État est toujours renoncé par l'école.
 - `montant_etat` : montant attendu de l'État par année, niveau et série (vide = les frais de
-  l'école) ; table de réglage, créée seulement si la réponse à T-164 est b).
+  l'école) ; table de réglage. Aucun barème public de l'État n'a été trouvé (recherche du
+  18 novembre 2026 : rapport de l'OCLEI, presse) et les montants varient selon la filière et
+  l'établissement : l'école règle le sien. Un montant supérieur à la scolarité de l'école est un
+  complément attendu de l'État, calculé, suivi hors facture.
 - `versement_etat` : un versement de l'État (date, montant, référence, année concernée), lié à la
   `recette_tresorerie` qui porte l'argent, ou marqué « reçu avant GESCO » sans recette.
 - `versement_etat_part` : ce qu'un versement attribue à une inscription (active ou annulée).

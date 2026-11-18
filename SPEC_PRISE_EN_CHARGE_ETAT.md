@@ -4,10 +4,12 @@
 **Objet** : la scolarité d'un élève orienté par l'État est due par l'État, pas par le parent ; le
 parent ne doit que le reste ; les versements de l'État, souvent tardifs et groupés, se répartissent
 sur les élèves ; l'école suit ce que l'État lui doit et l'imprime pour le réclamer ; version 2.0.0
-**Statut** : v1.1 — **proposée** le 18 novembre 2026 au porteur du projet ; deux questions restent
-ouvertes, T-164 et T-171 (§14) ; T-165 à T-170 sont tranchées dans la spécification, le porteur
-ayant laissé le choix (« pour la gestion de l'État, débrouille pour ne pas fausser ») ; v1.0
-proposée le même jour
+**Statut** : v1.2 — **prête à coder** le 18 novembre 2026 : T-164 à T-171 toutes tranchées (§14),
+T-171 par le porteur (« pas question de frais d'inscription pour l'État »), T-164 par une logique
+souple après recherche (le porteur : « regarde sur Internet combien l'État paie pour un élève, ou
+une logique flexible »), T-165 à T-170 dans la spécification, le porteur ayant laissé le choix
+(« pour la gestion de l'État, débrouille pour ne pas fausser ») ; v1.1 et v1.0 proposées le même
+jour
 **Décisions qui la fondent** : porteur du projet, 18 novembre 2026, à la question « pour un élève
 orienté par l'État, qui paie la scolarité ? » : « L'État, pas le parent » (`docs/orchestration.md`) ;
 puis, le même jour : « pas d'inscription et la cantine est le parent s'il l'école possède une et pour
@@ -91,7 +93,8 @@ automatisé (§12) :
    laisse une part « non répartie » visible, jamais imputée au parent ; la somme répartie ne
    dépasse jamais le montant reçu.
 7. L'état de ce que doit l'État (par élève, par classe, en total, échu et à venir) se lit, s'exporte
-   en Excel et s'imprime ; ses totaux égalent la somme des restes de l'État des factures.
+   en Excel et s'imprime ; ses totaux égalent la somme des restes de l'État des factures et des
+   compléments non reçus.
 8. La part de l'État est une recette à recevoir : elle n'entre au journal de trésorerie et au
    réalisé du budget qu'à la réception de l'argent ; « à recevoir de l'État » se lit à part, hors
    des totaux réalisés.
@@ -180,33 +183,52 @@ Décision du porteur (18 novembre 2026), sans réglage, pour un élève dont la 
 | Nature de la ligne | Due par | Dans le calcul (§3.4) |
 |---|---|---|
 | Scolarité | **L'État** | Échéance « à l'État » |
-| Inscription | **Personne** : elle n'est pas due (T-171, recommandation) | Échéance « non due » : tout son dû est renoncé, à la charge de l'école |
+| Inscription | **Personne** : ni le parent ni l'État (réponse du porteur à T-171) | Échéance « non due » : tout son dû est renoncé, à la charge de l'école |
 | Cantine | **Le parent**, s'il y a une ligne de cantine sur la facture (l'école qui n'a pas de cantine n'en facture pas) | Échéance ordinaire |
 | Tenue, transport, examen, autre | Le parent | Échéance ordinaire |
 
-Ainsi la seule chose que l'école règle est le montant attendu de l'État (§3.3). Si la réponse à
-T-171 est « l'État paie l'inscription », l'inscription passe simplement en échéance « à l'État » :
-rien d'autre ne change.
+Ainsi la seule chose que l'école règle est le montant attendu de l'État (§3.3).
 
-**Montant attendu de l'État par niveau et série** (T-164) : dans les réglages de l'école (Finance),
-visibles seulement si l'école a une classe de lycée ou du technique, un tableau des niveaux du
-lycée et du technique de l'année (et de leurs séries), une case par ligne, vide par défaut ; vide =
-les frais de l'école. Table `montant_etat` (année, niveau, série facultative, montant facultatif),
+**Montant attendu de l'État par niveau et série** (T-164, tranchée) : dans les réglages de l'école
+(Finance), visibles seulement si l'école a une classe de lycée ou du technique, un tableau des
+niveaux du lycée et du technique de l'année (et de leurs séries), une case par ligne, vide par
+défaut ; vide = les frais de l'école. Aide sous le tableau : « Tout ce que l'État verse à l'école
+pour un élève orienté de ce niveau (frais scolaires, matériel didactique…). Laissez vide si vous ne
+le connaissez pas encore. » Table `montant_etat` (année, niveau, série facultative, montant facultatif),
 ADR. Changer ce tableau ne change pas les élèves déjà cochés (chaque version de prise en charge
 porte son montant) ; l'écran propose ensuite « Appliquer aux 37 élèves déjà cochés », avec l'aperçu
 de ce qui change pour l'État (§6.1).
 
 ### 3.3 Montant attendu
 
-À la case cochée, le montant attendu se propose ainsi (T-164, recommandation) :
+**Ce qu'on sait de ce que paie l'État** (recherche du 18 novembre 2026, T-164) : aucun barème
+public par élève n'a été trouvé. Le rapport de l'OCLEI sur les subventions aux écoles privées
+(2017-2021) dit que l'État y paie, pour ses élèves orientés, des **frais scolaires**, une
+**demi-bourse** (matériel didactique) et, pour certains, des **pensions alimentaires** ; ses tableaux
+donnent, selon les établissements, de 145 000 F à 181 000 F environ par élève et par an, tout
+compris ; la presse cite 96 000 F de frais scolaires plus 30 000 F de demi-bourse. Les états de
+paiement sont établis par l'établissement, vérifiés par l'académie, à partir d'une base de données
+unique du ministère. Le montant varie donc selon la filière et l'établissement, et peut dépasser la
+scolarité de l'école. D'où une logique souple, sans montant livré :
+
+À la case cochée, le montant attendu se propose ainsi :
 1. le montant de `montant_etat` pour le niveau et la série de la classe, s'il est réglé ;
 2. sinon, **les frais de l'école** : la scolarité de la facture après les remises et les baisses
    (son dû net) ; sans facture encore, la scolarité de la grille en vigueur pour le niveau et la
    série.
 
-Il se corrige ensuite élève par élève ou pour une sélection (« Montant attendu : 100 000 F pour
-les 12 élèves cochés »), par le titulaire de la permission (§8). Il ne change pas de lui-même :
-un changement de classe propose le nouveau montant si la règle en donne un autre (§5.3).
+Il se corrige ensuite élève par élève ou pour une sélection (« Montant attendu : 126 000 F pour
+les 12 élèves cochés »), par le titulaire de la permission (§8), par exemple d'après l'état de
+paiement validé par l'académie. Il ne change pas de lui-même : un changement de classe propose le
+nouveau montant si la règle en donne un autre (§5.3).
+
+**Plus ou moins que la scolarité de l'école** :
+- moins (100 000 F attendus pour 120 000 F de scolarité) : l'écart est renoncé, à la charge de
+  l'école (T-165) ;
+- plus (126 000 F attendus pour 100 000 F de scolarité, la demi-bourse en plus) : les 100 000 F
+  de la scolarité vont sur les échéances, les 26 000 F restants sont un **complément attendu de
+  l'État**, suivi avec ce qu'il doit (§9) mais hors de la facture, qui ne le facture pas et ne se
+  réécrit pas. Reçu, il n'est pas « reçu en plus » : il était attendu.
 
 ### 3.4 Le partage d'une facture (calcul, R-20)
 
@@ -221,11 +243,12 @@ Pour une facture vivante, échéances dues rangées par date puis par rang :
 - `S` = ce que l'État a payé pour cette inscription : somme des parts actives des versements de
   l'État non annulés (§7).
 
-**Ce que l'État doit en tout**, `E` :
-- version courante `en_cours` : `E = min(montant_attendu − abandonne, N)` ;
-- version courante `terminee` (case décochée) : `E = min(S, N)` — après la fin de la prise en
-  charge, l'État doit exactement ce qu'il a déjà payé ; le reste revient au parent ;
-- pas de prise en charge : `E = 0`.
+**Ce que l'État doit sur la facture**, `E`, et **hors facture**, `K` (complément, §3.3) :
+- version courante `en_cours` : `A = montant_attendu − abandonne` ; `E = min(A, N)` ;
+  `K = A − E` ;
+- version courante `terminee` (case décochée) : `E = min(S, N)`, `K = 0` — après la fin de la
+  prise en charge, l'État doit exactement ce qu'il a déjà payé ; le reste revient au parent ;
+- pas de prise en charge : `E = 0`, `K = 0`.
 
 **Ce que personne ne doit**, `R` (version `en_cours` seulement), à la charge de l'école, jamais du
 parent (T-165, tranchée) :
@@ -244,7 +267,9 @@ parent (T-165, tranchée) :
 
 **Côté État** : `S` placé de la plus ancienne à la plus récente sur `part_etat(e)` donne
 `paye_etat(e)` ; `reste_etat(e) = part_etat(e) − paye_etat(e)` ; ce qui dépasse la somme des
-`part_etat` est **reçu en plus** pour cet élève (§7.5).
+`part_etat` va ensuite au complément (`paye_complement`, au plus `K`) ; le reste est **reçu en
+plus** pour cet élève (§7.5). **Ce que l'État doit encore** pour l'élève = somme des
+`reste_etat` + `K − paye_complement`. Le complément n'entre ni dans la facture ni dans son statut.
 
 **Côté parent** (les versements et les avoirs gardent leurs imputations, §3.5) :
 - `m(e)` = versements imputés + avoirs utilisés sur l'échéance ;
@@ -339,7 +364,8 @@ Règles :
 champ `paye` devient l'argent du parent qui compte pour l'échéance (`c + t + u`) ; `reste` le reste
 du parent. `net` ne change pas de sens.
 
-`FactureAffichee` gagne : `part_etat`, `renonce`, `paye_etat`, `reste_etat`, `recu_en_plus_etat`,
+`FactureAffichee` gagne : `part_etat`, `renonce`, `paye_etat`, `reste_etat`, `complement_etat`
+(`K`), `paye_complement`, `recu_en_plus_etat`,
 `trop_paye` (X), `trop_paye_reporte` (somme des `t`) ; `a_rembourser` (créé par la reprise) devient
 le total du §3.4 ; `prise_en_charge` : la version courante (statut, montant attendu, abandon,
 référence), ou rien.
@@ -637,9 +663,10 @@ Déclarées à la frontière et pour les postes reliés (phase 11) comme les aut
 
 ### 9.1 Chiffres
 
-Par inscription, recalculés (R-20) : attendu (`montant_attendu`), abandonné, **dû** (`E`), **reçu**
-(somme des parts actives, `S`), **reste dû** (somme des `reste_etat`), dont **échu** (échéances
-dont la date est passée ou du jour), reçu en plus. Par classe et pour l'école : les sommes, plus le
+Par inscription, recalculés (R-20) : attendu (`montant_attendu`), abandonné, **dû** (`E + K`),
+**reçu** (somme des parts actives, `S`), **reste dû** (somme des `reste_etat` + complément non
+reçu), dont **échu** (échéances dont la date est passée ou du jour ; le complément compte comme
+échu avec la dernière tranche), reçu en plus. Par classe et pour l'école : les sommes, plus le
 non réparti des versements de l'année.
 
 ### 9.2 L'état imprimable
@@ -746,6 +773,11 @@ seule fois, après le lot 5 (précision du porteur du 17 novembre 2026). Rust :
 3. **Écart** : attendu 100 000 F → renoncé 20 000 F sur la tranche d'avril, à la charge de
    l'école ; le parent ne doit rien de plus. Abandon de 36 000 F ensuite → part de l'État
    64 000 F, renoncé 56 000 F ; le parent ne doit toujours rien de plus.
+3 bis. **Complément** : scolarité de l'école 100 000 F, attendu 126 000 F → 100 000 F sur les
+   échéances, complément 26 000 F hors facture, l'État doit 126 000 F, total de la facture
+   inchangé ; versement de l'État de 126 000 F → l'État ne doit plus rien, rien de « reçu en
+   plus », facture soldée ; versement de 110 000 F → facture soldée côté État, complément restant
+   16 000 F dans ce que doit l'État ; abandon de 16 000 F → l'État ne doit plus rien.
 4. **Décocher** (suite de l'exemple 2, après le remboursement de 33 000 F) : sans versement de
    l'État → l'État ne doit rien, le parent doit 135 000 F (inscription 15 000 F, scolarité
    120 000 F et cantine 30 000 F, moins 63 000 F payés, plus 33 000 F rendus ; 33 000 F sur la
@@ -758,7 +790,7 @@ seule fois, après le lot 5 (précision du porteur du 17 novembre 2026). Rust :
 5. **Propriété du partage** : pour toute suite de versements, remises, ajustements, frais ajoutés,
    reprises, remboursements, cases cochées et décochées, abandons, versements et répartitions de
    l'État : `net = part_etat + renonce + part_parent` ; contrôle du §3.4 ; aucun reste négatif ;
-   somme des `paye_etat` + reçu en plus = `S` ; sans prise en charge, chiffres identiques à ceux
+   somme des `paye_etat` + `paye_complement` + reçu en plus = `S` ; sans prise en charge, chiffres identiques à ceux
    d'aujourd'hui.
 6. **Versement groupé** : un virement de 2 400 000 F pour 20 élèves → 20 parts, une recette, aucune
    session touchée ; répartition de 2 500 000 F refusée (`versement_etat.reparti_superieur`) ;
@@ -795,8 +827,7 @@ versement et de la section « Frais » d'un élève coché.
 
 Huit étapes courtes, commit et push sur `developpement` après chacune ; fmt, clippy, tsc et ESLint
 à chaque étape ; essais écrits avec le code, passés seulement à la fin du codage, après le lot 5.
-Les réponses à T-164 et T-171 arrivent avant l'étape 1 ; une réponse autre que la recommandation se
-reporte dans ce document avant de coder.
+Toutes les questions sont tranchées : rien n'attend le porteur avant l'étape 1.
 
 1. **Tables et noyau** : migration 0066 montante et descendante (`prise_en_charge_etat`,
    `montant_etat`, `versement_etat`, `versement_etat_part`, index, déclencheurs, `CHECK`), ADR,
@@ -835,39 +866,45 @@ corrections, puis l'installeur.
 ## 14. Questions au porteur du projet
 
 Numérotées à partir de T-164 (T-163 est la dernière employée, vérifié dans `docs/orchestration.md`
-et les spécifications le 18 novembre 2026). Le porteur ayant laissé le choix pour la gestion de
-l'État (« débrouille pour ne pas fausser »), seules restent ouvertes les deux questions qui
-changent ce que voit l'école : **T-164** et **T-171**. T-165 à T-170 sont tranchées ci-dessous par
-la solution la plus simple qui ne fausse aucun chiffre ; leurs numéros restent pour la trace.
+et les spécifications le 18 novembre 2026). **Toutes tranchées** le 18 novembre 2026 : T-171 par
+le porteur ; T-164 par une logique souple après une recherche sur Internet, comme le porteur l'a
+demandé ; T-165 à T-170 par la solution la plus simple qui ne fausse aucun chiffre, le porteur
+ayant laissé le choix (« pour la gestion de l'État, débrouille pour ne pas fausser »).
 
-### T-164 — Combien l'État paie-t-il pour un élève ? (ouverte)
+### T-164 — Combien l'État paie-t-il pour un élève ? (tranchée)
 
-- a) toujours **les frais de l'école** : la scolarité de la facture (rien à régler) ;
-- b) **un montant par niveau et par série**, réglé par l'école pour l'année ; case vide = les frais
-  de l'école ; corrigeable élève par élève ;
-- c) un montant unique pour tous les élèves pris en charge de l'école ;
-- d) saisi élève par élève, sans valeur proposée.
+Le porteur : « regarde sur Internet combien l'État paie pour un élève, ou une logique flexible ».
 
-*Recommandation* : b). Les sommes de l'État dépendent souvent de la filière (général, technique,
-série) et ne suivent pas les tarifs de chaque école privée ; b) les règle une fois par niveau et
-série, retombe sur a) quand l'école ne règle rien, contient c) (même montant partout) et permet la
-correction d'un élève (d). L'école qui ne connaît pas encore le montant de l'État laisse vide et
-corrige plus tard pour tous les élèves cochés d'un geste. Avec a), la table `montant_etat` n'est
-pas créée. Étapes 1 et 3.
+Recherche du 18 novembre 2026 : **aucun barème officiel par élève n'est publié en ligne**. Ce que
+disent les sources trouvées :
+- rapport de l'OCLEI sur les subventions de l'État aux écoles privées du secondaire (2017-2021) :
+  l'État paie pour ses élèves orientés des frais scolaires, une demi-bourse (« dépenses liées au
+  matériel didactique ») et des pensions alimentaires ; 196 milliards F en quatre ans ; ses
+  tableaux par établissement donnent, tout compris, de 145 000 F à 181 000 F environ par élève et
+  par an ; jusqu'en 2017 les décisions d'attribution « ne précisaient que le nombre d'élèves »,
+  les états de paiement étant établis par l'établissement et vérifiés par l'académie, puis une base
+  de données unique du ministère sert de référence ;
+- presse malienne (2024) : 96 000 F de frais scolaires plus 30 000 F de demi-bourse, soit
+  126 000 F par élève orienté, sans texte cité ni année ; des subventions versées « à tour de
+  rôle », certaines pas encore reçues en mai.
 
-### T-171 — Les frais d'inscription d'un élève pris en charge (ouverte)
+Décision : **logique souple, sans montant livré**. Un montant par niveau et série que l'école
+règle pour l'année (vide = la scolarité de l'école), corrigeable pour un élève ou une sélection
+d'après l'état de paiement validé par l'académie ; s'il dépasse la scolarité, l'excédent est un
+**complément attendu de l'État** suivi hors facture (§3.3, §3.4) ; s'il est plus bas, l'écart est
+renoncé par l'école. Un montant livré serait faux pour une partie des écoles et des filières.
+Étapes 1 et 3.
 
-Le porteur a dit « pas d'inscription » : le parent ne la paie pas. Reste à savoir si l'État la
-paie.
-- a) **personne ne la doit** : la ligne reste sur la facture (rien n'est réécrit), son dû est
-  renoncé, à la charge de l'école ; l'État n'en doit rien ;
-- b) **l'État la paie** : elle entre dans ce que l'État doit, avec la scolarité.
+Sources : [rapport de l'OCLEI](https://oclei.ml/wp-content/uploads/2023/11/OCLEI-Rapport-Subventions-Ecoles.pdf),
+[Mali Émergence, juillet 2024](https://maliemergenceinfo.com/2024/07/26/ecoles-privees-le-capharnaum/),
+[Bamada.net](https://bamada.net/rapport-de-loclei-sur-les-subventions-accordees-aux-ecoles-privees-au-mali-1077-etablissements-secondaires-prives-fonctionnent-sur-la-base-de-faux-documents),
+[Benbere](https://benbere.org/terre-dopportunites/orientation-scolaire-embarras-choix-apres-def/).
 
-*Recommandation* : a). « Pas d'inscription » se lit comme « pas de frais d'inscription pour un
-élève orienté » ; la mettre au compte de l'État gonflerait chaque réclamation d'une somme que
-l'administration risque de refuser, et laisserait un reste dû par l'État qui ne viendra jamais. Si
-l'État la paie dans les faits, b) se règle en une ligne (§3.2) et l'argent reçu en plus en a)
-reste visible (§7.5) en attendant. Étape 2.
+### T-171 — Les frais d'inscription d'un élève pris en charge (tranchée)
+
+Le porteur : « pas question de frais d'inscription pour l'État ». **Personne ne les doit** :
+ni le parent, ni l'État. La ligne reste sur la facture (rien n'est réécrit), son dû est renoncé, à
+la charge de l'école ; elle n'entre pas dans ce que doit l'État. §3.2. Étape 2.
 
 ### T-165 — L'État paie moins que les frais de l'école : qui paie l'écart ? (tranchée)
 
@@ -914,3 +951,4 @@ récente : l'état montre l'échu et l'à-venir sans aucun réglage. §3.4, §9.
 |---|---|---|
 | 1.0 | 18 novembre 2026 | Proposée d'après la décision du porteur du jour (« L'État, pas le parent ») ; vérification du code : case des rapports sans effet financier, `etat_echeances` seul calcul du reste, recettes hors versements sans session ; partage calculé de chaque échéance entre l'État et le parent, trop-payé reporté puis à rembourser, versement de l'État par une recette et une répartition, reçu avant GESCO, état imprimable, croisement avec la reprise ; quatre tables (ADR) ; T-164 à T-170 ; huit étapes |
 | 1.1 | 18 novembre 2026 | Précisions du porteur du jour (« pas d'inscription et la cantine est le parent s'il l'école possède une et pour la gestion de l'État débrouille pour ne pas fausser ») et rappel que GESCO n'est installé dans aucune école : inscription non due pour un élève coché (T-171, ouverte : personne ou l'État), cantine due par le parent si la facture en porte une, scolarité seule à l'État, plus de réglage des natures ni de l'écart (colonnes `types_frais` et `ecart_a_charge` retirées) ; T-165 à T-170 tranchées sur leurs recommandations ; exemples et essais refaits (essai 4 bis : école sans cantine) |
+| 1.2 | 18 novembre 2026 | Prête à coder. T-171 répondue par le porteur (« pas question de frais d'inscription pour l'État ») : inscription due par personne. T-164 tranchée après recherche sur Internet (pas de barème public ; rapport de l'OCLEI : frais scolaires, demi-bourse, pensions, de 145 000 F à 181 000 F environ par élève selon les établissements ; presse : 96 000 F + 30 000 F) : montant par niveau et série réglé par l'école, vide = scolarité de l'école, corrigeable ; un montant supérieur à la scolarité devient un complément attendu de l'État, suivi hors facture (§3.3, §3.4, §9.1) ; essai 3 bis |
