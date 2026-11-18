@@ -884,3 +884,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (`SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2) → tous les essais en une fois et corrections → installeur
   2.0.0 pour l'école d'essai du porteur → lots 3 (quiz) et 5 (devoirs), toujours dans la 2.0.0.
   L'orchestrateur principal enchaîne.
+- 2026-11-18, porteur : « on code le quiz et devoir le vendredi ». Lots 3 (quiz) et 5 (devoirs)
+  codés à partir du vendredi 20 novembre 2026, une fois finis la reprise, la prise en charge par
+  l'État, les essais et l'installeur 2.0.0 ; s'ils ne le sont pas ce jour-là, dès qu'ils le sont.
