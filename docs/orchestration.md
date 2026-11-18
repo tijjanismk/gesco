@@ -769,3 +769,45 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   (`commandes.rs`).
 - Police Andika : déposée le 18 novembre 2026 après l'accord du porteur du projet (régulière et grasse, `OFL.txt`) ; chargée avec la leçon (`eleve/src/police.css`), premier chargement mesuré à 75 Ko compressés, écart levé.
 - Disque : 12 Go libres après l'étape 5 (`CARGO_INCREMENTAL=0`).
+
+## Passage de relais du 18 novembre 2026 — lot 4, après l'étape 6
+
+- Fait : police Andika chargée avec la leçon (`eleve/src/police.css`), premier chargement mesuré
+  à 75 Ko compressés (`pnpm build`), écart levé ; **étape 6** (charge) commitée et poussée ; fmt,
+  clippy `-j 4` (noyau, services, réseau, toutes cibles), tsc et ESLint verts ; essais écrits,
+  **aucun lancé**. Détail : `ETAT_AVANCEMENT.md`, « Étape 6 » et « Police Andika ».
+- Reste : **étape 7** de `SPEC_PHASE_12_LOT_4.md` §13, sans lancer d'essai, puis commit et push ;
+  fin quand `ETAT_AVANCEMENT.md` dit « lot 4 codé, essais écrits non lancés ».
+  - Playwright d'ensemble `frontend/e2e/portail-eleves.spec.ts` (modèle : `postes.spec.ts` et
+    `bibliotheque-lot2.spec.ts`, application de débogage pilotée par CDP) : école créée avec la
+    bibliothèque livrée (`GESCO_PAQUETS_BIBLIOTHEQUE`), réseau puis portail allumés (en mode
+    d'essai, le portail écoute la machine elle-même : vérifier `gesco-app/src/poste.rs`,
+    `superviser_portail`, ports 80 puis 47 801), un « téléphone » de 360 pixels par
+    `chromium.launch({ channel: "msedge" })` (aucun navigateur téléchargé) : lire sans code,
+    leçon avec formules, son (`e2e/son-essai.mp3` ajouté à une leçon comme au lot 2), PDF ;
+    captures dans `e2e/captures/`. **Point à trancher** : un élève entré avec son code (pour
+    « J'ai fini » et le suivi du maître) demande son code en clair, que GESCO n'écrit que dans
+    le PDF des billets (règle : le code n'est écrit nulle part ailleurs). Pistes : un crochet de
+    débogage seulement (`cfg!(debug_assertions)` et `GESCO_DOSSIER_ESSAI`, comme
+    `dossier_essai()` dans `gesco-app/src/main.rs`) qui dépose les codes remis dans un fichier du
+    dossier d'essai ; ou lire le code dans le PDF rendu en image. Ne rien changer à la règle en
+    publication.
+  - Skill `livraison` : règle de pare-feu des ports 80 et 47 801 (TCP, réseau privé seulement),
+    posée et retirée par l'installeur à côté de celle du 47 800 (`gesco-reseau/src/pare_feu.rs`,
+    hooks NSIS) ; un port 80 pris ne bloque rien ; le portail ne démarre jamais sur un poste relié
+    (vérifier `portail_a_servir` et l'appel de `superviser_portail` dans `gesco-app`).
+  - Documents : guide d'installation (`docs/guide-installation.md`, section « Le portail des
+    élèves » : Wi-Fi des élèves séparé si le routeur le permet, adresse fixe du poste principal,
+    affiche, billets, une trentaine d'appareils actifs pour un routeur ordinaire, ce que voit un
+    téléphone sans Internet) ; manuel `docs/manuel-2.0-bibliotheque.md` (« Ouvrir les cours aux
+    élèves », « Remettre les codes », « Suivre ses élèves », réglage « Les maîtres ont leur
+    compte ») ; `docs/notes-de-version-2.0.0.md` ; `docs/essais-a-la-main-2.0.md` (vrais
+    téléphones : Android récent et ancien, un iPhone si possible ; entrer, lire, son, vidéo,
+    PDF, raccourci sur l'écran d'accueil, page d'attente). Aucun texte affiché ne cite T-xx ni
+    SPEC.
+- À lancer par la session des essais (en plus de ceux des étapes 1 à 5) :
+  `au_dela_de_ses_places_le_portail_dit_d_attendre_puis_reprend` et
+  `la_page_d_attente_se_relance_au_rythme_annonce` (`gesco-reseau`), puis l'outil de mesure
+  `cargo test -p gesco-reseau --release --test reseau soixante_eleves -- --ignored --nocapture`,
+  dont les chiffres vont dans la section « Mesure » de l'ADR « charge du portail des élèves ».
+- Disque : 9 Go libres (`CARGO_INCREMENTAL=0`).
