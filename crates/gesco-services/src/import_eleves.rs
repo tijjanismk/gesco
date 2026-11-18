@@ -8,7 +8,7 @@ use std::path::Path;
 
 use calamine::{Data, Reader};
 use gesco_core::commun::DateCivile;
-use gesco_core::core::{Operation, TypeEvenement};
+use gesco_core::core::{AnneeScolaire, Operation, TypeEvenement};
 use gesco_core::scolarite::import_eleves::{
     Champ, Decoupe, Disposition, EleveLu, ligne_vide, lire_ligne, reconnaitre,
     verifier_correspondance,
@@ -87,6 +87,10 @@ pub struct Analyse {
     pub classes: Vec<String>,
     /// L'école saisit ses matricules : la colonne matricule est exigée.
     pub matricule_manuel: bool,
+    /// Premier jour de l'année courante (la rentrée) : date d'arrivée proposée, `AAAA-MM-JJ`.
+    pub rentree: String,
+    /// Dernier jour de l'année courante, borne de la date d'arrivée, `AAAA-MM-JJ`.
+    pub fin_annee: String,
 }
 
 /// Réglages de l'assistant, valables pour la validation et l'application.
@@ -100,6 +104,10 @@ pub struct Reglages {
     pub disposition: Disposition,
     /// Règle de découpe d'une colonne « nom et prénoms ».
     pub decoupe: Decoupe,
+    /// « Dans l'école depuis le » : date d'inscription de chaque brouillon, `AAAA-MM-JJ` ;
+    /// vide, la rentrée (comme une inscription préparée avant la rentrée).
+    #[serde(default)]
+    pub depuis_le: String,
 }
 
 /// Sort d'une ligne.
@@ -402,6 +410,14 @@ impl<'n> ServiceImport<'n> {
         } else {
             Disposition::ColonneClasse
         };
+        let (rentree, fin_annee) = {
+            let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
+            let mut cnx = self.connexion().await?;
+            match annee_scolaire::courante(&mut cnx, &contexte).await? {
+                Some(annee) => (jour(annee.debut)?.to_string(), jour(annee.fin)?.to_string()),
+                None => (String::new(), String::new()),
+            }
+        };
         Ok(Analyse {
             fichier_id: fichier_id.to_owned(),
             feuilles,
@@ -409,6 +425,8 @@ impl<'n> ServiceImport<'n> {
             disposition,
             classes: libelles,
             matricule_manuel,
+            rentree,
+            fin_annee,
         })
     }
 
@@ -424,6 +442,13 @@ impl<'n> ServiceImport<'n> {
         verifier_correspondance(&reglages.champs, reglages.disposition).map_err(regle)?;
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let classes = self.classes_courantes(session).await?;
+        // La date d'arrivée se vérifie dès l'aperçu, pas seulement à l'écriture.
+        {
+            let mut cnx = self.connexion().await?;
+            if let Some(annee) = annee_scolaire::courante(&mut cnx, &contexte).await? {
+                date_d_arrivee(&reglages.depuis_le, &annee)?;
+            }
+        }
         let matricule_manuel = ServiceEleves::nouveau(self.noyau)
             .reglages(session)
             .await?
@@ -603,7 +628,7 @@ impl<'n> ServiceImport<'n> {
                 .await?
                 .ok_or(regle("eleve.annee_absente"))?
         };
-        let aujourd_hui = jour(contexte.maintenant)?;
+        let depuis_le = date_d_arrivee(&reglages.depuis_le, &annee)?;
         let mut responsables_par_telephone: HashMap<String, Responsable> = {
             let mut cnx = self.connexion().await?;
             personnes::responsables(&mut cnx, &contexte)
@@ -738,7 +763,7 @@ impl<'n> ServiceImport<'n> {
                 annee_id: annee.id,
                 eleve_id: eleve.id,
                 classe_id: classe.id,
-                date_inscription: aujourd_hui,
+                date_inscription: depuis_le,
                 type_inscription: TypeInscription::deduire(false, ""),
                 statut: StatutInscription::Brouillon,
                 redoublant: false,
@@ -792,6 +817,21 @@ impl<'n> ServiceImport<'n> {
 }
 
 /// Classe de l'année dont le libellé correspond, à la casse et aux accents près.
+/// Date d'arrivée des élèves importés : la date saisie, ou la rentrée si elle est vide ;
+/// refusée hors de l'année (`inscription.date_hors_annee`), comme à l'inscription à l'écran.
+pub fn date_d_arrivee(saisie: &str, annee: &AnneeScolaire) -> Resultat<DateCivile> {
+    let debut = jour(annee.debut)?;
+    let date = if saisie.trim().is_empty() {
+        debut
+    } else {
+        DateCivile::analyser(saisie.trim()).ok_or(regle("inscription.date_invalide"))?
+    };
+    if date < debut || date > jour(annee.fin)? {
+        return Err(regle("inscription.date_hors_annee"));
+    }
+    Ok(date)
+}
+
 fn classe_de<'c>(classes: &'c [Classe], libelle: &str) -> Option<&'c Classe> {
     let cherche = recherche::normaliser(libelle);
     if cherche.is_empty() {

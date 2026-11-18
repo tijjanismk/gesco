@@ -388,6 +388,8 @@ export const catalogue = {
   "import.disposition.colonne_classe": "Dans une colonne du fichier",
   "import.disposition.feuille_par_classe": "Une feuille par classe, nommée comme la classe",
   "import.decoupe": "Découpe de la colonne « nom et prénoms »",
+  "import.depuis_le": "Dans l'école depuis le",
+  "import.depuis_le.aide": "Pour des élèves qui sont là depuis la rentrée, gardez cette date.",
   "import.decoupe.nom_d_abord": "Le premier mot est le nom (DIALLO Moussa)",
   "import.decoupe.nom_en_dernier": "Le dernier mot est le nom (Moussa DIALLO)",
   "import.feuilles": "Feuilles du fichier : {feuilles}.",

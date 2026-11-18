@@ -376,3 +376,93 @@ async fn un_classeur_de_quinze_eleves_s_importe_apres_sauvegarde() {
         "import.format_inconnu"
     );
 }
+
+/// Date d'arrivée (SPEC_REPRISE_AVANT_GESCO §8.2, essai 12) : un import fait au deuxième mois
+/// date les inscriptions de la rentrée ; la facture garde toutes ses tranches, le relevé d'un
+/// jour passé montre l'élève ; une date hors de l'année est refusée.
+#[tokio::test]
+async fn l_import_date_les_inscriptions_de_la_rentree() {
+    let dossier = tempfile::tempdir().unwrap();
+    let (p, admin) = ecole(dossier.path()).await;
+    let annees = p.ok("annees_lister", Some(&admin), Value::Null).await;
+    poser_grille(&p, &admin, &annees[0]["id"]).await;
+    // Nous sommes le 17 novembre 2026 ; la rentrée était le 1er octobre.
+    p.horloge.avancer(44 * 86_400_000);
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let chemin = dossier.path().join("arrivee.csv");
+    std::fs::write(
+        &chemin,
+        "Nom;Prénoms;Sexe;Date de naissance;Classe\r\nSIDIBE;Aminata;F;14/07/2013;7e A\r\n",
+    )
+    .unwrap();
+    let analyse = p
+        .ok(
+            "import_eleves_analyser",
+            Some(&admin),
+            json!({ "chemin": chemin.to_string_lossy() }),
+        )
+        .await;
+    assert_eq!(analyse["rentree"], "2026-10-01");
+    let reglages = |depuis_le: &str| {
+        json!({
+            "fichier_id": analyse["fichier_id"],
+            "champs": analyse["champs"],
+            "disposition": "colonne_classe",
+            "decoupe": "nom_d_abord",
+            "depuis_le": depuis_le,
+        })
+    };
+    // Une date hors de l'année est refusée dès l'aperçu.
+    assert_eq!(
+        p.refus(
+            "import_eleves_valider",
+            Some(&admin),
+            reglages("2025-09-01")
+        )
+        .await
+        .cle,
+        "inscription.date_hors_annee"
+    );
+    p.ok("import_eleves_valider", Some(&admin), reglages(""))
+        .await;
+    let rapport = p
+        .ok("import_eleves_appliquer", Some(&admin), reglages(""))
+        .await;
+    assert_eq!(rapport["importes"], 1);
+    let eleves = p
+        .ok(
+            "eleves_rechercher",
+            Some(&admin),
+            json!({ "texte": "SIDIBE" }),
+        )
+        .await;
+    let fiche = p
+        .ok("eleve_lire", Some(&admin), json!({ "id": eleves[0]["id"] }))
+        .await;
+    let inscription = &fiche["inscriptions"][0]["inscription"];
+    assert_eq!(inscription["date_inscription"], "2026-10-01");
+    p.ok(
+        "inscriptions_valider_classe",
+        Some(&admin),
+        json!({ "id": inscription["classe_id"] }),
+    )
+    .await;
+    // Toutes les tranches : 10 000 F d'inscription et 100 000 F de scolarité.
+    let situation = p
+        .ok(
+            "situation_financiere",
+            Some(&admin),
+            json!({ "id": fiche["eleve"]["id"] }),
+        )
+        .await;
+    assert_eq!(situation[0]["facture"]["facture"]["total"], 110_000);
+    // Le relevé du 20 octobre montre l'élève.
+    let releve = p
+        .ok(
+            "absences_releve_lire",
+            Some(&admin),
+            json!({ "classe_id": inscription["classe_id"], "date": "2026-10-20" }),
+        )
+        .await;
+    assert_eq!(releve["lignes"].as_array().unwrap().len(), 1);
+}

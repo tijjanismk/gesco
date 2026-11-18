@@ -4,7 +4,7 @@ import { useState } from "react";
 import { appeler } from "../../api";
 import { choisirTableur } from "../../api/fichiers";
 import { Bouton } from "../../composants/Bouton";
-import { Selection } from "../../composants/Champ";
+import { Champ as ChampSaisie, Selection } from "../../composants/Champ";
 import { useEtreSeul } from "../../composants/EtreSeul";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, dateCivile, t, texteDeCle } from "../../i18n";
@@ -54,6 +54,7 @@ export function ImportEleves({ surTermine }: { surTermine: () => void }) {
   const [champs, setChamps] = useState<Champ[]>([]);
   const [disposition, setDisposition] = useState<Disposition>("colonne_classe");
   const [decoupe, setDecoupe] = useState<Decoupe>("nom_d_abord");
+  const [depuisLe, setDepuisLe] = useState("");
   const [apercu, setApercu] = useState<Apercu | null>(null);
   const [rapport, setRapport] = useState<Rapport | null>(null);
   const seul = useEtreSeul("seul.import");
@@ -67,10 +68,11 @@ export function ImportEleves({ surTermine }: { surTermine: () => void }) {
       setAnalyse(resultat);
       setChamps(resultat.champs);
       setDisposition(resultat.disposition);
+      setDepuisLe(resultat.rentree);
       setApercu(null);
     },
   });
-  const reglages = analyse === null ? null : { fichier_id: analyse.fichier_id, champs, disposition, decoupe };
+  const reglages = analyse === null ? null : { fichier_id: analyse.fichier_id, champs, disposition, decoupe, depuis_le: depuisLe };
   const validation = useMutation({
     mutationFn: () => appeler("import_eleves_valider", reglages ?? { fichier_id: "", champs: [], disposition, decoupe }),
     onSuccess: setApercu,
@@ -137,6 +139,19 @@ export function ImportEleves({ surTermine }: { surTermine: () => void }) {
                     options={(Object.keys(DECOUPES) as Decoupe[]).map((d) => ({ valeur: d, libelle: t(DECOUPES[d]) }))}
                   />
                 ) : null}
+                <ChampSaisie
+                  id="import-depuis-le"
+                  type="date"
+                  libelle={t("import.depuis_le")}
+                  aide={t("import.depuis_le.aide")}
+                  value={depuisLe}
+                  min={analyse.rentree}
+                  max={analyse.fin_annee}
+                  onChange={(e) => {
+                    setDepuisLe(e.target.value);
+                    setApercu(null);
+                  }}
+                />
               </div>
               {disposition === "feuille_par_classe" ? (
                 <p className="text-sm text-muet">{t("import.feuilles", { feuilles: analyse.feuilles.map((f) => f.nom).join(", ") })}</p>

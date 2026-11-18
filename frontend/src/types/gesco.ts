@@ -229,6 +229,10 @@ export type Analyse = {
 	classes: string[],
 	/**  L'école saisit ses matricules : la colonne matricule est exigée. */
 	matricule_manuel: boolean,
+	/**  Premier jour de l'année courante (la rentrée) : date d'arrivée proposée, `AAAA-MM-JJ`. */
+	rentree: string,
+	/**  Dernier jour de l'année courante, borne de la date d'arrivée, `AAAA-MM-JJ`. */
+	fin_annee: string,
 };
 
 /**  Ce que GESCO a compris de la liste. */
@@ -10351,6 +10355,11 @@ export type Reglages = {
 	disposition: Disposition,
 	/**  Règle de découpe d'une colonne « nom et prénoms ». */
 	decoupe: Decoupe,
+	/**
+	 *  « Dans l'école depuis le » : date d'inscription de chaque brouillon, `AAAA-MM-JJ` ;
+	 *  vide, la rentrée (comme une inscription préparée avant la rentrée).
+	 */
+	depuis_le?: string,
 };
 
 /**  Réglages de la paie de l'école. */
