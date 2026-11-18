@@ -74,6 +74,10 @@ pub struct PortailVivant {
     pub lecture: lecture::CacheLecture,
     /// Gestes d'avancement qui attendent d'être écrits (toutes les cinq secondes).
     pub avancement: suivi::FileAvancement,
+    /// Places des morceaux de vidéo lus et envoyés en même temps.
+    pub videos: std::sync::Arc<tokio::sync::Semaphore>,
+    /// Places des PDF fabriqués en même temps.
+    pub pdf: std::sync::Arc<tokio::sync::Semaphore>,
 }
 
 impl Default for PortailVivant {
@@ -88,6 +92,8 @@ impl Default for PortailVivant {
             ),
             lecture: lecture::CacheLecture::default(),
             avancement: suivi::FileAvancement::default(),
+            videos: std::sync::Arc::new(tokio::sync::Semaphore::new(regles::VIDEOS_SIMULTANEES)),
+            pdf: std::sync::Arc::new(tokio::sync::Semaphore::new(regles::PDF_SIMULTANES)),
         }
     }
 }

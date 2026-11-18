@@ -90,3 +90,23 @@ la seule base de l'école.
   lit : baisser les bornes, ou servir le portail depuis un autre ordinateur.
 - Les écoles demandent plus que deux classes à la fois : revoir les bornes et le routeur conseillé.
 - Le portail en ligne prend le relais des lectures : la charge locale baisse d'elle-même.
+
+## Mesure
+
+Bornes posées à l'étape 6 (18 novembre 2026), valeurs de départ ci-dessus, dans
+`gesco-core/src/bibliotheque/portail.rs` : `REQUETES_SIMULTANEES` (48, pages, fichiers et API,
+par le serveur du portail), `VIDEOS_SIMULTANEES` (4, morceau de vidéo tenu jusqu'à son envoi),
+`PDF_SIMULTANES` (2, fabrication seulement ; un PDF déjà fait se sert sans attendre). Une
+requête attend une place au plus 2 secondes (API, page d'entrée), 10 secondes (fichiers des
+pages, morceau de vidéo) ou 30 secondes (fabrication d'un PDF), puis reçoit « occupé » (429,
+`Retry-After: 5`) ; la page d'entrée affiche alors la phrase d'attente et se relance seule.
+
+Outil : `cargo test -p gesco-reseau --release --test reseau soixante_eleves -- --ignored --nocapture`
+(soixante élèves d'une classe entrent avec leur code, lisent le catalogue, ouvrent quatre leçons
+chacun, les marquent ouvertes puis finies, un sur dix enregistre un PDF ; pendant ce temps un
+poste relié encaisse trente fois et un autre saisit soixante notes). Il échoue si un
+encaissement dépasse une seconde ou si une leçon met deux secondes à s'ouvrir.
+
+| Date | Poste | Leçons (médiane / plus longue) | Encaissement (médiane / plus long) | Note saisie (médiane / plus longue) | Réponses « occupé » |
+|---|---|---|---|---|---|
+| à remplir par la session des essais | poste du porteur du projet | | | | |

@@ -80,6 +80,9 @@ pub enum ReponseLecture<T> {
     SansSession,
     /// Rien de visible pour cette session à cette adresse (404).
     Introuvable,
+    /// Trop d'élèves en même temps : aucune place libérée pendant l'attente permise (429) ;
+    /// l'élève lit « Beaucoup d'élèves sont connectés » et la page se relance seule.
+    Occupe,
     /// Ce qui est lu.
     Lu(T),
 }
@@ -91,6 +94,7 @@ impl<T> ReponseLecture<T> {
             Self::Ferme => ReponseLecture::Ferme,
             Self::SansSession => ReponseLecture::SansSession,
             Self::Introuvable => ReponseLecture::Introuvable,
+            Self::Occupe => ReponseLecture::Occupe,
             Self::Lu(t) => f(t).map_or(ReponseLecture::Introuvable, ReponseLecture::Lu),
         }
     }
@@ -862,6 +866,32 @@ pub enum FichierLuPortail {
     },
     /// Fichier absent (effacé, paquet non lu) : la leçon s'ouvre sans lui.
     Absent,
+}
+
+/// Un fichier lu pour le portail, avec la place de vidéo qu'il tient : le serveur la garde
+/// jusqu'à ce que le morceau soit envoyé au téléphone, pour que quatre vidéos au plus passent
+/// sur le Wi-Fi en même temps.
+#[derive(Debug)]
+pub struct FichierEnvoye {
+    /// Ce qui est lu.
+    pub lu: FichierLuPortail,
+    /// Place de vidéo tenue jusqu'à l'envoi ; aucune pour une image ou un son.
+    pub place: Option<tokio::sync::OwnedSemaphorePermit>,
+}
+
+/// Prend une place parmi `places`, en attendant au plus `attente_ms` ; `None` si aucune ne s'est
+/// libérée (ou si les places sont fermées).
+pub async fn prendre_place(
+    places: &std::sync::Arc<tokio::sync::Semaphore>,
+    attente_ms: u64,
+) -> Option<tokio::sync::OwnedSemaphorePermit> {
+    tokio::time::timeout(
+        std::time::Duration::from_millis(attente_ms),
+        std::sync::Arc::clone(places).acquire_owned(),
+    )
+    .await
+    .ok()?
+    .ok()
 }
 
 /// Début et longueur à servir d'un média de `taille` octets ; `None` hors du fichier.

@@ -3,7 +3,11 @@
 //! de l'élève voyage dans un témoin `HttpOnly`, `SameSite=Strict` ; ni le code ni le jeton ne
 //! vont au journal.
 
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
 use axum::Json;
+use axum::body::{Body, Bytes, HttpBody};
 use axum::extract::{Path, State};
 use axum::http::header::{
     ACCEPT_RANGES, CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_RANGE, CONTENT_TYPE, COOKIE, RANGE,
@@ -12,9 +16,12 @@ use axum::http::header::{
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use gesco_services::portail::entree::{DemandeEntrer, DemandeLireSansCode, Entree};
-use gesco_services::portail::lecture::{FichierLuPortail, Plage, ReponseLecture};
+use gesco_services::portail::lecture::{FichierEnvoye, FichierLuPortail, Plage, ReponseLecture};
 use gesco_services::portail::suivi::DemandeAvancement;
+use http_body_util::Full;
+use hyper::body::{Frame, SizeHint};
 use serde_json::json;
+use tokio::sync::OwnedSemaphorePermit;
 
 use super::EtatPortail;
 
@@ -118,6 +125,7 @@ fn sans_lecture<T>(r: &ReponseLecture<T>) -> Option<Response> {
         ReponseLecture::Ferme => Some(StatusCode::SERVICE_UNAVAILABLE.into_response()),
         ReponseLecture::SansSession => Some(StatusCode::UNAUTHORIZED.into_response()),
         ReponseLecture::Introuvable => Some(StatusCode::NOT_FOUND.into_response()),
+        ReponseLecture::Occupe => Some(super::occupe_api()),
         ReponseLecture::Lu(_) => None,
     }
 }
@@ -190,16 +198,25 @@ pub(crate) async fn fichier(
         .application
         .portail_fichier(jeton.as_deref(), &empreinte, plage(&entetes))
         .await;
-    let morceau = match lu {
-        Ok(ReponseLecture::Lu(FichierLuPortail::Servi(m))) => m,
-        Ok(ReponseLecture::Lu(FichierLuPortail::HorsPlage { taille })) => {
+    let (morceau, place) = match lu {
+        Ok(ReponseLecture::Lu(FichierEnvoye {
+            lu: FichierLuPortail::Servi(m),
+            place,
+        })) => (m, place),
+        Ok(ReponseLecture::Lu(FichierEnvoye {
+            lu: FichierLuPortail::HorsPlage { taille },
+            ..
+        })) => {
             let mut reponse = StatusCode::RANGE_NOT_SATISFIABLE.into_response();
             if let Ok(v) = HeaderValue::from_str(&format!("bytes */{taille}")) {
                 reponse.headers_mut().insert(CONTENT_RANGE, v);
             }
             return reponse;
         }
-        Ok(ReponseLecture::Lu(FichierLuPortail::Absent)) => {
+        Ok(ReponseLecture::Lu(FichierEnvoye {
+            lu: FichierLuPortail::Absent,
+            ..
+        })) => {
             return StatusCode::NOT_FOUND.into_response();
         }
         Ok(autre) => return sans_lecture(&autre).unwrap_or_else(panne),
@@ -215,7 +232,15 @@ pub(crate) async fn fichier(
     } else {
         StatusCode::OK
     };
-    let mut reponse = (statut, morceau.octets).into_response();
+    // Un morceau de vidéo garde sa place jusqu'à ce que le corps soit envoyé et lâché.
+    let corps = match place {
+        Some(place) => Body::new(CorpsTenu {
+            corps: Full::new(Bytes::from(morceau.octets)),
+            _place: place,
+        }),
+        None => Body::from(morceau.octets),
+    };
+    let mut reponse = (statut, corps).into_response();
     let h = reponse.headers_mut();
     h.insert(CONTENT_TYPE, type_mime);
     h.insert(ACCEPT_RANGES, HeaderValue::from_static("bytes"));
@@ -228,6 +253,33 @@ pub(crate) async fn fichier(
         h.insert(CONTENT_RANGE, v);
     }
     reponse
+}
+
+/// Corps d'une réponse qui tient une place (vidéo) jusqu'à ce qu'il soit lâché, c'est-à-dire
+/// envoyé ou abandonné par le téléphone.
+struct CorpsTenu {
+    corps: Full<Bytes>,
+    _place: OwnedSemaphorePermit,
+}
+
+impl HttpBody for CorpsTenu {
+    type Data = Bytes;
+    type Error = std::convert::Infallible;
+
+    fn poll_frame(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+        Pin::new(&mut self.corps).poll_frame(cx)
+    }
+
+    fn is_end_stream(&self) -> bool {
+        self.corps.is_end_stream()
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        self.corps.size_hint()
+    }
 }
 
 /// Nom de fichier pour l'en-tête `Content-Disposition` : une forme ASCII et la forme UTF-8.

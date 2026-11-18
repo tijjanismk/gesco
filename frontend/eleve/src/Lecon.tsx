@@ -3,11 +3,11 @@ import "katex/dist/katex.min.css";
 import "./police.css";
 
 import katex from "katex";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { adresseFichier, adressePdf, envoyer } from "./api";
 import { Attente, Chargement, Retour } from "./communs";
-import { useLecture } from "./lecture";
+import { ATTENTE_MS, useLecture } from "./lecture";
 import { replier } from "./replier";
 import { useSuivi } from "./suivi";
 import { nature, T, voirLie } from "./textes";
@@ -50,6 +50,88 @@ function Formule({ latex, seule }: { latex: string; seule: boolean }) {
     <div className="my-3" dangerouslySetInnerHTML={{ __html: html }} />
   ) : (
     <span dangerouslySetInnerHTML={{ __html: html }} />
+  );
+}
+
+/** Relances d'un son ou d'une vidéo refusés, au plus (une minute) : au-delà, le lecteur reste tel
+ *  quel et l'élève peut appuyer sur lecture. */
+const RELANCES_MAX = 12;
+
+/** Un son ou une vidéo. Quand le poste principal est occupé (quatre vidéos à la fois au plus),
+ *  la phrase d'attente paraît sous le lecteur, qui se relance seul à l'endroit où il en était. */
+function Media({ sorte, adresse }: { sorte: "video" | "audio"; adresse: string }) {
+  const media = useRef<HTMLMediaElement | null>(null);
+  const minuterie = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const essais = useRef(0);
+  const reprendreA = useRef(0);
+  const [attente, setAttente] = useState(false);
+  useEffect(
+    () => () => {
+      if (minuterie.current !== undefined) clearTimeout(minuterie.current);
+    },
+    [],
+  );
+  const lier = (element: HTMLMediaElement | null) => {
+    media.current = element;
+  };
+  const surErreur = () => {
+    const m = media.current;
+    if (m === null || essais.current >= RELANCES_MAX) {
+      setAttente(false);
+      return;
+    }
+    essais.current += 1;
+    if (m.currentTime > 0) reprendreA.current = m.currentTime;
+    setAttente(true);
+    minuterie.current = setTimeout(() => {
+      media.current?.load();
+    }, ATTENTE_MS);
+  };
+  const surMetadonnees = () => {
+    const m = media.current;
+    if (m !== null && reprendreA.current > 0) {
+      m.currentTime = reprendreA.current;
+      reprendreA.current = 0;
+    }
+  };
+  const surPret = () => {
+    essais.current = 0;
+    setAttente(false);
+  };
+  const lecteur =
+    sorte === "video" ? (
+      <video
+        ref={lier}
+        controls
+        playsInline
+        preload="metadata"
+        src={adresse}
+        onError={surErreur}
+        onLoadedMetadata={surMetadonnees}
+        onCanPlay={surPret}
+        className="w-full rounded bg-marine"
+      />
+    ) : (
+      <audio
+        ref={lier}
+        controls
+        preload="none"
+        src={adresse}
+        onError={surErreur}
+        onLoadedMetadata={surMetadonnees}
+        onCanPlay={surPret}
+        className="w-full"
+      />
+    );
+  return (
+    <>
+      {lecteur}
+      {attente && (
+        <span role="status" className="mt-1 block text-muet">
+          {T.occupe}
+        </span>
+      )}
+    </>
   );
 }
 
@@ -96,7 +178,7 @@ function EnligneRendu({ element }: { element: Enligne }): ReactNode {
       if (adresse === undefined) return null;
       return (
         <figure className="my-3">
-          <video controls playsInline preload="metadata" src={adresse} className="w-full rounded bg-marine" />
+          <Media sorte="video" adresse={adresse} />
           {element.titre !== "" && <figcaption className="mt-1 text-muet">{element.titre}</figcaption>}
         </figure>
       );
@@ -107,7 +189,7 @@ function EnligneRendu({ element }: { element: Enligne }): ReactNode {
       return (
         <figure className="my-3">
           {element.titre !== "" && <figcaption className="mb-1 font-bold">{element.titre}</figcaption>}
-          <audio controls preload="none" src={adresse} className="w-full" />
+          <Media sorte="audio" adresse={adresse} />
         </figure>
       );
     }

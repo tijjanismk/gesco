@@ -39,6 +39,34 @@ pub const VERIFICATIONS_SIMULTANEES: usize = 4;
 /// Billets par page A4.
 pub const BILLETS_PAR_PAGE: usize = 10;
 
+// Charge (ADR « charge du portail des élèves ») : la gestion d'abord. Valeurs de départ, à régler
+// d'après la mesure de l'outil `soixante_eleves_lisent_pendant_que_deux_postes_travaillent`.
+
+/// Requêtes du portail servies en même temps, au plus (pages, fichiers et API).
+pub const REQUETES_SIMULTANEES: usize = 48;
+
+/// Morceaux de vidéo lus et envoyés en même temps, au plus.
+pub const VIDEOS_SIMULTANEES: usize = 4;
+
+/// PDF fabriqués en même temps, au plus ; un PDF déjà fabriqué se sert sans attendre.
+pub const PDF_SIMULTANES: usize = 2;
+
+/// Attente d'une place, en millisecondes, pour l'API et la page d'entrée : au-delà, l'élève
+/// lit « Beaucoup d'élèves sont connectés » et la page se relance seule.
+pub const ATTENTE_PLACE_MS: u64 = 2_000;
+
+/// Attente d'une place pour un fichier des pages ou un morceau de vidéo : ce sont des lectures
+/// courtes, et un fichier des pages refusé laisserait l'écran blanc.
+pub const ATTENTE_PLACE_FICHIER_MS: u64 = 10_000;
+
+/// Attente d'une place pour fabriquer un PDF : une fabrication dure quelques secondes, et le
+/// téléphone attend son téléchargement.
+pub const ATTENTE_PLACE_PDF_MS: u64 = 30_000;
+
+/// Secondes après lesquelles la page se relance seule quand le poste est occupé
+/// (`Retry-After`) ; les écrans de l'élève réessaient au même rythme.
+pub const RELANCE_S: u64 = 5;
+
 /// Jour d'un instant, `AAAA-MM-JJ` (le Mali vit à l'heure universelle).
 pub fn jour_de(instant: crate::commun::Horodatage) -> String {
     instant.vers_rfc3339().chars().take(10).collect()

@@ -1843,17 +1843,21 @@ impl Application {
     }
 
     /// Un fichier appelé par un contenu visible pour l'élève : entier, ou un morceau d'un son
-    /// ou d'une vidéo.
+    /// ou d'une vidéo. Un morceau de vidéo prend une des quatre places des vidéos, rendue avec
+    /// le fichier pour que le serveur la garde jusqu'à l'envoi ; sans place libre après
+    /// l'attente permise, « occupé ».
     pub async fn portail_fichier(
         &self,
         jeton: Option<&str>,
         empreinte: &str,
         plage: Option<crate::portail::lecture::Plage>,
     ) -> Result<
-        crate::portail::lecture::ReponseLecture<crate::portail::lecture::FichierLuPortail>,
+        crate::portail::lecture::ReponseLecture<crate::portail::lecture::FichierEnvoye>,
         ErreurCommande,
     > {
-        use crate::portail::lecture::{FichierLuPortail, ReponseLecture};
+        use crate::portail::lecture::{
+            FichierEnvoye, FichierLuPortail, ReponseLecture, SourceFichier, prendre_place,
+        };
         if !crate::portail::lecture::empreinte_sure(empreinte) {
             return Ok(ReponseLecture::Introuvable);
         }
@@ -1863,6 +1867,18 @@ impl Application {
         };
         let Some((source, type_mime)) = l.lecture.fichier(empreinte, &l.session) else {
             return Ok(ReponseLecture::Introuvable);
+        };
+        let place = match source {
+            SourceFichier::Video(_) => match prendre_place(
+                &self.portail.videos,
+                gesco_core::bibliotheque::portail::ATTENTE_PLACE_FICHIER_MS,
+            )
+            .await
+            {
+                Some(place) => Some(place),
+                None => return Ok(ReponseLecture::Occupe),
+            },
+            _ => None,
         };
         let bibliotheque = self.bibliotheque(&l.ouverte.noyau);
         let lu = crate::origine::dans(
@@ -1880,12 +1896,14 @@ impl Application {
         .await?;
         Ok(match lu {
             FichierLuPortail::Absent => ReponseLecture::Introuvable,
-            autre => ReponseLecture::Lu(autre),
+            autre => ReponseLecture::Lu(FichierEnvoye { lu: autre, place }),
         })
     }
 
     /// Le PDF « leçon complète » d'un contenu visible : fabriqué une fois par version, gardé
-    /// hors de la sauvegarde. Rend (nom proposé, PDF).
+    /// hors de la sauvegarde. Rend (nom proposé, PDF). Deux fabrications au plus en même
+    /// temps ; les autres attendent leur tour, puis relisent le PDF qu'une autre a peut-être
+    /// fabriqué entre-temps ; sans place après l'attente permise, « occupé ».
     pub async fn portail_pdf(
         &self,
         jeton: Option<&str>,
@@ -1904,6 +1922,17 @@ impl Application {
         };
         let nom = lecture_portail::nom_du_pdf(&contenu.titre);
         let dossier = self.espace.pdf_portail();
+        if let Some(pdf) = lecture_portail::pdf_garde(&dossier, &contenu) {
+            return Ok(ReponseLecture::Lu((nom, pdf)));
+        }
+        let Some(_place) = lecture_portail::prendre_place(
+            &self.portail.pdf,
+            gesco_core::bibliotheque::portail::ATTENTE_PLACE_PDF_MS,
+        )
+        .await
+        else {
+            return Ok(ReponseLecture::Occupe);
+        };
         if let Some(pdf) = lecture_portail::pdf_garde(&dossier, &contenu) {
             return Ok(ReponseLecture::Lu((nom, pdf)));
         }

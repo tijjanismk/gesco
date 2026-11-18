@@ -12,15 +12,20 @@ use std::path::{Path as Chemin, PathBuf};
 use std::sync::Arc;
 
 use axum::Router;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Request, State};
 use axum::http::header::{
     ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_SECURITY_POLICY, CONTENT_TYPE,
-    REFERRER_POLICY, VARY, X_CONTENT_TYPE_OPTIONS, X_FRAME_OPTIONS,
+    REFERRER_POLICY, RETRY_AFTER, VARY, X_CONTENT_TYPE_OPTIONS, X_FRAME_OPTIONS,
 };
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
+use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{MethodRouter, get, post};
+use gesco_core::bibliotheque::portail::{
+    ATTENTE_PLACE_FICHIER_MS, ATTENTE_PLACE_MS, RELANCE_S, REQUETES_SIMULTANEES,
+};
 use gesco_services::Application;
+use gesco_services::portail::lecture::prendre_place;
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 
@@ -63,6 +68,30 @@ p { font-size: 1.125rem; line-height: 1.5; }
 </html>
 "#;
 
+/// Page servie à la racine quand le poste est occupé : la phrase des écrans de l'élève, et la
+/// page se relance seule (`RELANCE_S` secondes) ; rien ne vient d'ailleurs.
+const PAGE_OCCUPEE: &str = r#"<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="5">
+<title>Les cours</title>
+<style>
+body { margin: 0; font-family: sans-serif; background: #f1f3f7; color: #1e2533; }
+main { max-width: 32rem; margin: 0 auto; padding: 2rem 1rem; }
+p { font-size: 1.25rem; line-height: 1.5; text-align: center; }
+@media (prefers-color-scheme: dark) { body { background: #0f1828; color: #e3e8f2; } }
+</style>
+</head>
+<body>
+<main>
+<p role="status">Beaucoup d'élèves sont connectés. Réessaie dans un instant.</p>
+</main>
+</body>
+</html>
+"#;
+
 /// Routes du portail, et rien d'autre (SPEC_PHASE_12_LOT_4 §3) : méthode et chemin. Le
 /// routeur est construit depuis cette liste ; un essai vérifie qu'elle est complète et que les
 /// routes de la gestion n'y répondent pas.
@@ -88,6 +117,8 @@ pub struct EtatPortail {
     /// Dossier des écrans des élèves construits (`index.html`, `assets/`) ; sans lui, la racine
     /// sert la page d'essai.
     pages: Option<Arc<PathBuf>>,
+    /// Places des requêtes servies en même temps ([`REQUETES_SIMULTANEES`]).
+    places: Arc<tokio::sync::Semaphore>,
 }
 
 /// Les routes du portail, avec leur méthode et leur chemin, dans l'ordre de [`ROUTES_PORTAIL`].
@@ -115,17 +146,72 @@ fn routes() -> Vec<(&'static str, &'static str, MethodRouter<EtatPortail>)> {
 /// Routeur du portail : ses seules routes, et les en-têtes de chaque réponse. `pages` est le
 /// dossier des écrans des élèves construits, s'il est livré.
 pub fn routeur_portail(application: Arc<Application>, pages: Option<PathBuf>) -> Router {
+    routeur_borne(application, pages, REQUETES_SIMULTANEES)
+}
+
+/// Routeur du portail avec `places` requêtes servies en même temps (les essais en prennent
+/// moins pour voir la borne).
+fn routeur_borne(application: Arc<Application>, pages: Option<PathBuf>, places: usize) -> Router {
+    let etat = EtatPortail {
+        application,
+        pages: pages.map(Arc::new),
+        places: Arc::new(tokio::sync::Semaphore::new(places)),
+    };
     let mut routeur = Router::new();
     for (_, chemin, route) in routes() {
         routeur = routeur.route(chemin, route);
     }
     routeur
         .fallback(introuvable)
+        .layer(axum::middleware::from_fn_with_state(etat.clone(), borner))
         .layer(axum::middleware::map_response(entetes))
-        .with_state(EtatPortail {
-            application,
-            pages: pages.map(Arc::new),
-        })
+        .with_state(etat)
+}
+
+/// Borne les requêtes servies en même temps (ADR « charge ») : chacune prend une place,
+/// rendue quand la réponse est prête. Sans place libre après l'attente permise : la page
+/// d'attente à la racine, 429 ailleurs, avec `Retry-After`. La gestion passe d'abord : le
+/// portail ne prend jamais plus que ses places.
+async fn borner(State(etat): State<EtatPortail>, requete: Request, suite: Next) -> Response {
+    let chemin = requete.uri().path();
+    let attente = if chemin.starts_with("/assets/") {
+        ATTENTE_PLACE_FICHIER_MS
+    } else {
+        ATTENTE_PLACE_MS
+    };
+    let racine = chemin == "/";
+    let Some(_place) = prendre_place(&etat.places, attente).await else {
+        return if racine { occupe_page() } else { occupe_api() };
+    };
+    suite.run(requete).await
+}
+
+/// En-tête `Retry-After` du poste occupé.
+fn relance() -> HeaderValue {
+    HeaderValue::from(RELANCE_S)
+}
+
+/// Réponse « occupé » de l'API et des fichiers : 429, réessayer dans quelques secondes. Les
+/// écrans de l'élève la montrent comme « Beaucoup d'élèves sont connectés ».
+pub(crate) fn occupe_api() -> Response {
+    let mut reponse = StatusCode::TOO_MANY_REQUESTS.into_response();
+    reponse.headers_mut().insert(RETRY_AFTER, relance());
+    reponse
+}
+
+/// Page d'attente de la racine, qui se relance seule.
+fn occupe_page() -> Response {
+    let mut reponse = (
+        StatusCode::TOO_MANY_REQUESTS,
+        [(
+            CONTENT_TYPE,
+            HeaderValue::from_static("text/html; charset=utf-8"),
+        )],
+        PAGE_OCCUPEE,
+    )
+        .into_response();
+    reponse.headers_mut().insert(RETRY_AFTER, relance());
+    reponse
 }
 
 /// En-têtes de toute réponse du portail : politique de contenu stricte, aucune page dans un
@@ -263,7 +349,20 @@ pub async fn servir_portail(
     pages: Option<PathBuf>,
     arret: impl Future<Output = ()> + Send,
 ) -> std::io::Result<()> {
-    let routes = routeur_portail(application, pages);
+    servir_portail_avec_places(ecoute, application, pages, REQUETES_SIMULTANEES, arret).await
+}
+
+/// [`servir_portail`] avec `places` requêtes servies en même temps : les essais en prennent
+/// une seule pour voir la page d'attente sans lancer cinquante requêtes.
+#[doc(hidden)]
+pub async fn servir_portail_avec_places(
+    ecoute: TcpListener,
+    application: Arc<Application>,
+    pages: Option<PathBuf>,
+    places: usize,
+    arret: impl Future<Output = ()> + Send,
+) -> std::io::Result<()> {
+    let routes = routeur_borne(application, pages, places);
     tokio::pin!(arret);
     loop {
         let (flux, adresse) = tokio::select! {
@@ -384,6 +483,28 @@ mod tests {
         for faux in ["", "..", "../secret", ".env", "a/b", "a\\b", "%2e%2e"] {
             assert!(!nom_de_fichier_sur(faux), "{faux}");
         }
+    }
+
+    #[test]
+    fn la_page_d_attente_se_relance_au_rythme_annonce() {
+        assert!(PAGE_OCCUPEE.contains(&format!("content=\"{RELANCE_S}\"")));
+        assert!(
+            PAGE_OCCUPEE.contains("Beaucoup d'élèves sont connectés. Réessaie dans un instant.")
+        );
+        // Rien ne vient d'ailleurs : ni script, ni police, ni image.
+        assert!(!PAGE_OCCUPEE.contains("<script") && !PAGE_OCCUPEE.contains("//"));
+        let r = occupe_api();
+        assert_eq!(r.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(
+            r.headers().get(RETRY_AFTER),
+            Some(&HeaderValue::from(RELANCE_S))
+        );
+        let r = occupe_page();
+        assert_eq!(r.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(
+            r.headers().get(RETRY_AFTER),
+            Some(&HeaderValue::from(RELANCE_S))
+        );
     }
 
     #[test]

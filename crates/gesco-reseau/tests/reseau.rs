@@ -53,7 +53,14 @@ struct Ecole {
 }
 
 async fn ecole() -> Ecole {
+    ecole_avec(|_| ()).await
+}
+
+/// Comme [`ecole`], après `preparer` sur le dossier de données vide (un paquet de la
+/// bibliothèque à installer avec l'école, par exemple).
+async fn ecole_avec(preparer: impl FnOnce(&std::path::Path)) -> Ecole {
     let dossier = tempfile::tempdir().unwrap();
+    preparer(dossier.path());
     let application = Arc::new(
         Application::demarrer(OptionsApplication {
             racine: dossier.path().to_path_buf(),
@@ -1455,4 +1462,647 @@ async fn le_portail_eteint_n_ecoute_pas_et_s_allume_avec_la_direction() {
         .sur_place("audit_lister", json!({ "utilisateur_id": null, "entite": "parametre", "operation": null, "depuis": null, "jusqua": null, "page": 0 }))
         .await;
     assert!(journal.to_string().contains("portail.allumer"), "{journal}");
+}
+
+// --- Charge du portail (SPEC_PHASE_12_LOT_4 §0.3, critère 7 ; ADR « charge du portail ») -------
+
+#[tokio::test]
+async fn au_dela_de_ses_places_le_portail_dit_d_attendre_puis_reprend() {
+    use gesco_core::bibliotheque::portail::{ATTENTE_PLACE_MS, RELANCE_S};
+
+    let ecole = ecole().await;
+    ecole.installer().await;
+    let ecoute = ecouter_boucle_locale(0).await.unwrap();
+    let adresse = ecoute.local_addr().unwrap();
+    let (_arret, attente) = oneshot::channel::<()>();
+    tokio::spawn(portail::servir_portail_avec_places(
+        ecoute,
+        Arc::clone(&ecole.application),
+        None,
+        1,
+        async move {
+            let _ = attente.await;
+        },
+    ));
+    // Un téléphone lent tient la seule place : le corps qu'il annonce n'arrive pas.
+    let mut lent = TcpStream::connect(adresse).await.unwrap();
+    lent.write_all(
+        b"POST /eleve/api/entrer HTTP/1.1\r\nHost: portail\r\nContent-Type: application/json\r\nContent-Length: 64\r\n\r\n",
+    )
+    .await
+    .unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+    // L'API répond « occupé » après l'attente permise, avec le délai de relance.
+    let debut = std::time::Instant::now();
+    let (statut, tete, corps) = portail_brut(adresse, "GET", "/eleve/api/catalogue").await;
+    assert_eq!(statut, 429);
+    assert!(
+        tete.contains(&format!("retry-after: {RELANCE_S}")),
+        "{tete}"
+    );
+    assert!(corps.is_empty());
+    assert!(debut.elapsed() >= std::time::Duration::from_millis(ATTENTE_PLACE_MS));
+    // La page d'entrée dit d'attendre, en clair, et se relance seule ; en-têtes stricts gardés.
+    let (statut, tete, corps) = portail_brut(adresse, "GET", "/").await;
+    assert_eq!(statut, 429);
+    assert!(corps.contains("Beaucoup d'élèves sont connectés. Réessaie dans un instant."));
+    assert!(corps.contains(&format!("http-equiv=\"refresh\" content=\"{RELANCE_S}\"")));
+    assert!(
+        tete.contains("content-security-policy: default-src 'self'"),
+        "{tete}"
+    );
+    // Le téléphone lent part : la place revient ; la gestion reste introuvable.
+    drop(lent);
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let (statut, _, corps) = portail_brut(adresse, "GET", "/").await;
+    assert_eq!(statut, 200);
+    assert!(corps.contains("GESCO répond"));
+    assert_eq!(
+        portail_brut(adresse, "POST", "/api/commandes/encaisser")
+            .await
+            .0,
+        404
+    );
+}
+
+/// Élèves simulés par l'outil de mesure : une classe entière.
+const ELEVES_SIMULES: usize = 60;
+
+/// Leçons du paquet de l'outil de mesure.
+const LECONS_DE_CHARGE: usize = 12;
+
+/// Paquet de la bibliothèque pour l'outil de mesure : douze leçons de mathématiques de 9e, avec
+/// formules, signées de la clé d'essai de l'école (`ecole`).
+fn paquet_de_charge() -> Vec<u8> {
+    use gesco_core::bibliotheque::NatureContenu;
+    use gesco_core::bibliotheque::paquet::{
+        ChapitrePaquet, ContenuPaquet, DisciplinePaquet, ManifestePaquet, fabriquer_paquet,
+    };
+    let chapitre = ChapitrePaquet {
+        cle: "9/MATH/Algèbre/Calcul".to_owned(),
+        niveau: "9".to_owned(),
+        series: vec![],
+        discipline: "MATH".to_owned(),
+        partie: "Algèbre".to_owned(),
+        titre: "Calcul littéral".to_owned(),
+        ordre: 1,
+        a_confirmer: false,
+    };
+    let mut fichiers = Vec::new();
+    let mut contenus = Vec::new();
+    for i in 1..=LECONS_DE_CHARGE {
+        let cle = format!("9e-annee/mathematiques/charge-{i:02}");
+        let fichier = format!("{cle}.md");
+        let mut texte = format!("# Leçon {i}\n\n");
+        for j in 1..=40 {
+            texte.push_str(&format!(
+                "Exemple {j} : $({i}x + {j})^2 = {}x^2 + {}x + {}$.\n\n",
+                i * i,
+                2 * i * j,
+                j * j
+            ));
+        }
+        fichiers.push((fichier.clone(), texte.into_bytes()));
+        contenus.push(ContenuPaquet {
+            cle,
+            nature: NatureContenu::Lecon,
+            chapitre: chapitre.cle.clone(),
+            titre: format!("Leçon {i}"),
+            ordre: u32::try_from(i).unwrap(),
+            lie: None,
+            examen: None,
+            session: None,
+            fichier,
+            faits: None,
+            images: vec![],
+        });
+    }
+    let manifeste = ManifestePaquet {
+        code: "bibliotheque-mali".to_owned(),
+        version: "2026.11.1".to_owned(),
+        date: "2026-11-15".to_owned(),
+        gesco_minimum: "0.1.0".to_owned(),
+        programme: String::new(),
+        disciplines: vec![DisciplinePaquet {
+            code: "MATH".to_owned(),
+            libelle: "Mathématiques".to_owned(),
+        }],
+        chapitres: vec![chapitre],
+        contenus,
+        fichiers: vec![],
+    };
+    fabriquer_paquet(&manifeste, &fichiers, &[43; 32]).unwrap()
+}
+
+/// Appel au portail comme un téléphone : témoin de session, corps JSON, réponses compressées
+/// acceptées. Rend le statut, le jeton posé par la réponse et le corps (texte, ou taille d'un
+/// corps binaire).
+async fn telephone(
+    adresse: SocketAddr,
+    methode: &str,
+    chemin: &str,
+    jeton: Option<&str>,
+    corps: Option<&str>,
+) -> (u16, Option<String>, String) {
+    let mut flux = TcpStream::connect(adresse).await.unwrap();
+    let corps = corps.unwrap_or_default();
+    let mut requete = format!(
+        "{methode} {chemin} HTTP/1.1\r\nHost: portail\r\nConnection: close\r\nAccept-Encoding: gzip\r\nContent-Type: application/json\r\nContent-Length: {}\r\n",
+        corps.len()
+    );
+    if let Some(jeton) = jeton {
+        requete.push_str(&format!("Cookie: gesco_eleve={jeton}\r\n"));
+    }
+    requete.push_str("\r\n");
+    requete.push_str(corps);
+    flux.write_all(requete.as_bytes()).await.unwrap();
+    let mut brut = Vec::new();
+    let _ = flux.read_to_end(&mut brut).await;
+    let fin_tete = brut
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .unwrap_or(brut.len());
+    let tete = String::from_utf8_lossy(&brut[..fin_tete]).to_lowercase();
+    let reste = brut.get(fin_tete + 4..).unwrap_or_default();
+    let statut = tete
+        .split_whitespace()
+        .nth(1)
+        .and_then(|code| code.parse().ok())
+        .unwrap();
+    let pose = tete
+        .lines()
+        .find_map(|l| l.strip_prefix("set-cookie: gesco_eleve="))
+        .and_then(|v| v.split(';').next())
+        .filter(|v| !v.is_empty())
+        .map(str::to_owned);
+    let texte = match std::str::from_utf8(reste) {
+        Ok(t) => t.to_owned(),
+        Err(_) => format!("{} octets", reste.len()),
+    };
+    (statut, pose, texte)
+}
+
+/// Comme [`telephone`], en réessayant comme les écrans de l'élève tant que le poste est
+/// occupé (429 ou 503) ; compte les refus dans `occupe`.
+async fn telephone_patient(
+    adresse: SocketAddr,
+    methode: &str,
+    chemin: &str,
+    jeton: Option<&str>,
+    corps: Option<&str>,
+    occupe: &mut usize,
+) -> (u16, Option<String>, String) {
+    use gesco_core::bibliotheque::portail::RELANCE_S;
+    loop {
+        let reponse = telephone(adresse, methode, chemin, jeton, corps).await;
+        if reponse.0 != 429 && reponse.0 != 503 {
+            return reponse;
+        }
+        *occupe += 1;
+        assert!(*occupe < 100, "{chemin} reste occupé");
+        tokio::time::sleep(std::time::Duration::from_secs(RELANCE_S)).await;
+    }
+}
+
+/// Ce qu'un élève simulé a vécu.
+#[derive(Default)]
+struct VecuEleve {
+    /// Durée d'ouverture de chaque leçon (contenu et ses fichiers), attentes comprises.
+    lecons: Vec<std::time::Duration>,
+    /// Réponses « occupé » reçues.
+    occupe: usize,
+}
+
+/// Un élève de la classe : il entre avec son code, lit le catalogue, ouvre quatre leçons (et
+/// leurs fichiers), marque chacune ouverte puis finie, enregistre un PDF une fois sur dix, et
+/// regarde son avancement.
+async fn eleve_simule(
+    adresse: SocketAddr,
+    rang: usize,
+    matricule: String,
+    code: String,
+) -> VecuEleve {
+    let mut vecu = VecuEleve::default();
+    let entree = json!({ "matricule": matricule, "code": code, "pas_mon_telephone": false });
+    let (statut, jeton, corps) = telephone_patient(
+        adresse,
+        "POST",
+        "/eleve/api/entrer",
+        None,
+        Some(&entree.to_string()),
+        &mut vecu.occupe,
+    )
+    .await;
+    assert_eq!(statut, 200, "{matricule} : {corps}");
+    let jeton = jeton.unwrap();
+    let (statut, _, corps) = telephone_patient(
+        adresse,
+        "GET",
+        "/eleve/api/catalogue",
+        Some(&jeton),
+        None,
+        &mut vecu.occupe,
+    )
+    .await;
+    assert_eq!(statut, 200, "{corps}");
+    let catalogue: Value = serde_json::from_str(&corps).unwrap();
+    let ids: Vec<String> = catalogue["matieres"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|m| m["parties"].as_array().unwrap().iter())
+        .flat_map(|p| p["chapitres"].as_array().unwrap().iter())
+        .flat_map(|c| c["contenus"].as_array().unwrap().iter())
+        .map(|c| c["id"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(
+        ids.len(),
+        LECONS_DE_CHARGE,
+        "{matricule} voit toutes les leçons"
+    );
+    for k in 0..4 {
+        let id = &ids[(rang + k * 3) % ids.len()];
+        let debut = std::time::Instant::now();
+        let (statut, _, corps) = telephone_patient(
+            adresse,
+            "GET",
+            &format!("/eleve/api/contenu/{id}"),
+            Some(&jeton),
+            None,
+            &mut vecu.occupe,
+        )
+        .await;
+        assert_eq!(statut, 200, "{corps}");
+        let contenu: Value = serde_json::from_str(&corps).unwrap();
+        for image in contenu["images"].as_array().unwrap() {
+            let empreinte = image["empreinte"].as_str().unwrap();
+            telephone_patient(
+                adresse,
+                "GET",
+                &format!("/eleve/api/fichier/{empreinte}"),
+                Some(&jeton),
+                None,
+                &mut vecu.occupe,
+            )
+            .await;
+        }
+        vecu.lecons.push(debut.elapsed());
+        let version = contenu["version"].as_str().unwrap();
+        for geste in ["ouvert", "fini"] {
+            let corps = json!({ "contenu_id": id, "version": version, "geste": geste });
+            let (statut, _, _) = telephone_patient(
+                adresse,
+                "POST",
+                "/eleve/api/avancement",
+                Some(&jeton),
+                Some(&corps.to_string()),
+                &mut vecu.occupe,
+            )
+            .await;
+            assert_eq!(statut, 204);
+            // Le temps de lire un peu.
+            tokio::time::sleep(std::time::Duration::from_millis(
+                200 + 50 * u64::try_from(rang % 10).unwrap(),
+            ))
+            .await;
+        }
+        if k == 0 && rang.is_multiple_of(10) {
+            let (statut, _, corps) = telephone_patient(
+                adresse,
+                "GET",
+                &format!("/eleve/api/pdf/{id}"),
+                Some(&jeton),
+                None,
+                &mut vecu.occupe,
+            )
+            .await;
+            assert_eq!(statut, 200, "{corps}");
+        }
+    }
+    let (statut, _, _) = telephone_patient(
+        adresse,
+        "GET",
+        "/eleve/api/mon-avancement",
+        Some(&jeton),
+        None,
+        &mut vecu.occupe,
+    )
+    .await;
+    assert_eq!(statut, 200);
+    vecu
+}
+
+/// Médiane et plus longue de durées, en millisecondes.
+fn mediane_et_max(durees: &mut [std::time::Duration]) -> (u128, u128) {
+    durees.sort();
+    let mediane = durees.get(durees.len() / 2).map_or(0, |d| d.as_millis());
+    let max = durees.last().map_or(0, |d| d.as_millis());
+    (mediane, max)
+}
+
+/// Outil de mesure de l'étape 6 (critère 7) : soixante élèves d'une classe lisent et marquent
+/// des leçons par le portail pendant qu'un poste relié encaisse et qu'un autre saisit des notes.
+/// Un encaissement reste sous une seconde ; une leçon s'ouvre en moins de deux secondes. Les
+/// chiffres imprimés s'écrivent dans la section « Mesure » de l'ADR « charge du portail des
+/// élèves ».
+///
+/// Long : `cargo test -p gesco-reseau --release --test reseau soixante_eleves -- --ignored --nocapture`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "mesure de charge, à lancer en --release avec --ignored sur le poste du porteur"]
+#[allow(clippy::print_stdout, clippy::too_many_lines)]
+async fn soixante_eleves_lisent_pendant_que_deux_postes_travaillent() {
+    let ecole = Arc::new(
+        ecole_avec(|dossier| {
+            let bibliotheque = dossier.join("bibliotheque");
+            std::fs::create_dir_all(&bibliotheque).unwrap();
+            std::fs::write(
+                bibliotheque.join("bibliotheque-mali-1.gbib"),
+                paquet_de_charge(),
+            )
+            .unwrap();
+        })
+        .await,
+    );
+    ecole.installer().await;
+    let admin = ecole.connecter_sur_place().await;
+    let ok = async |nom: &str, entree: Value| {
+        ecole
+            .sur_place(nom, Some(&admin), entree)
+            .await
+            .unwrap_or_else(|e| panic!("{nom} : {e}"))
+    };
+
+    // Année 2026-2027, une classe de 9e, ses frais.
+    let annees = ok("annees_lister", Value::Null).await;
+    let annee = match annees
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["libelle"] == "2026-2027")
+    {
+        Some(a) => a["id"].clone(),
+        None => {
+            let a = ok(
+                "annee_creer",
+                json!({ "libelle": "2026-2027", "debut": 1_790_812_800_000_i64,
+                    "fin": 1_816_992_000_000_i64 }),
+            )
+            .await;
+            ok("annee_activer", json!({ "id": a["id"] })).await;
+            a["id"].clone()
+        }
+    };
+    let niveaux = ok("niveaux_lister", Value::Null).await;
+    let neuvieme = niveaux["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .unwrap()["id"]
+        .clone();
+    let classe = ok(
+        "classe_creer",
+        json!({ "annee_id": annee, "niveau_id": neuvieme, "serie_id": null,
+            "libelle": "9e Charge" }),
+    )
+    .await["id"]
+        .clone();
+    let grille = ok(
+        "grille_creer",
+        json!({ "annee_id": annee, "copie_de": null }),
+    )
+    .await;
+    let plans: Vec<Value> = grille["contenu"]["plans"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| json!({ "libelle": p["libelle"], "par_defaut": p["par_defaut"], "tranches": p["tranches"] }))
+        .collect();
+    ok(
+        "grille_modifier",
+        json!({ "id": grille["grille"]["id"], "lue_le": grille["modifiee_le"],
+            "libelle": "Frais 2026-2027", "plans": plans, "lignes": [
+                { "niveau_id": neuvieme, "serie_id": null, "type_frais": "inscription",
+                  "libelle": "Frais d'inscription", "montant": 10_000, "obligatoire": true,
+                  "exigibilite": "une_fois" },
+                { "niveau_id": neuvieme, "serie_id": null, "type_frais": "scolarite",
+                  "libelle": "Scolarité", "montant": 150_000, "obligatoire": true,
+                  "exigibilite": "selon_plan" } ] }),
+    )
+    .await;
+    ok(
+        "grille_mettre_en_vigueur",
+        json!({ "id": grille["grille"]["id"] }),
+    )
+    .await;
+
+    // Soixante élèves inscrits, la moitié avec une mère qui paie ; chacun reçoit son code.
+    let mut eleves = Vec::new();
+    for i in 0..ELEVES_SIMULES {
+        let matricule = format!("C-{:04}", 1000 + i);
+        let fiche = ok(
+            "eleve_creer",
+            json!({ "identite": { "nom": "Keita", "prenoms": format!("Élève {i}"),
+                "sexe": "masculin", "date_naissance": "2011-05-04",
+                "date_naissance_estimee": false, "lieu_naissance": "Kati",
+                "nationalite": "Malienne", "adresse": "", "telephones": [] },
+                "matricule_interne": matricule, "matricule_national": "", "acte_nature": "acte",
+                "acte_numero": "", "acte_date": "", "ecole_origine": "" }),
+        )
+        .await;
+        let eleve_id = fiche["eleve"]["id"].clone();
+        if i < ELEVES_SIMULES / 2 {
+            ok(
+                "responsable_rattacher",
+                json!({ "eleve_id": eleve_id, "responsable_id": null,
+                    "saisie": { "identite": { "nom": "Keita", "prenoms": format!("Mère {i}"),
+                        "sexe": "feminin", "date_naissance": "", "date_naissance_estimee": false,
+                        "lieu_naissance": "", "nationalite": "", "adresse": "",
+                        "telephones": ["76 00 00 00"] }, "profession": "", "employeur": "" },
+                    "qualites": { "lien": "mere", "est_responsable_legal": true,
+                        "est_payeur": true, "recoit_notifications": true,
+                        "vient_chercher": false, "ordre_priorite": 1 } }),
+            )
+            .await;
+        }
+        let inscription = ok(
+            "inscription_creer",
+            json!({ "eleve_id": eleve_id, "classe_id": classe, "date_inscription": "",
+                "redoublant": false, "etablissement_origine": "" }),
+        )
+        .await["inscription"]["id"]
+            .clone();
+        eleves.push((
+            eleve_id.as_str().unwrap().to_owned(),
+            matricule,
+            inscription,
+        ));
+    }
+    ok("inscriptions_valider_classe", json!({ "id": classe })).await;
+    let mut codes = Vec::new();
+    for (eleve_id, _, _) in &eleves {
+        codes.push(
+            ecole
+                .application
+                .portail_code_pour_essai(eleve_id)
+                .await
+                .unwrap(),
+        );
+    }
+
+    // Le portail est allumé, servi sur la machine elle-même.
+    let etat = ok("portail_etat", Value::Null).await;
+    let mut reglages = etat["reglages"].clone();
+    reglages["eleves"] = Value::Bool(true);
+    ok("portail_regler", reglages).await;
+    let ecoute = ecouter_boucle_locale(0).await.unwrap();
+    let portail_adresse = ecoute.local_addr().unwrap();
+    let (_arret, attente) = oneshot::channel::<()>();
+    tokio::spawn(portail::servir_portail(
+        ecoute,
+        Arc::clone(&ecole.application),
+        None,
+        async move {
+            let _ = attente.await;
+        },
+    ));
+
+    // Une évaluation de mathématiques au 1er trimestre, pour le poste qui saisit.
+    let ped = ok("pedagogie_lire", json!({ "id": annee })).await;
+    let math = ped["matieres"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["code"] == "MATH")
+        .unwrap()["id"]
+        .clone();
+    let periode = ped["periodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["periode"]["niveau_id"] == neuvieme && x["periode"]["rang"] == 1)
+        .unwrap()["periode"]["id"]
+        .clone();
+    let evaluation = ok(
+        "evaluation_creer",
+        json!({ "classe_id": classe, "periode_id": periode, "matiere_id": math,
+            "type_evaluation": "devoir", "libelle": "Devoir 1", "date": "2026-11-20",
+            "bareme": null }),
+    )
+    .await["id"]
+        .clone();
+
+    // Les deux postes reliés : la caisse et la saisie, chacun avec sa session.
+    let caisse = ecole.connecter_par_reseau().await;
+    let saisie = ecole.connecter_par_reseau().await;
+    let _ = ecole
+        .par_reseau(
+            "caisse_ouvrir",
+            Some(&caisse),
+            json!({ "fonds_initial": 0 }),
+        )
+        .await;
+
+    // Tout part en même temps.
+    let mut taches = tokio::task::JoinSet::new();
+    for (rang, ((_, matricule, _), code)) in eleves.iter().zip(codes).enumerate() {
+        taches.spawn(eleve_simule(portail_adresse, rang, matricule.clone(), code));
+    }
+    let a_payer: Vec<Value> = eleves
+        .iter()
+        .take(ELEVES_SIMULES / 2)
+        .map(|(_, _, i)| i.clone())
+        .collect();
+    let ecole_caisse = Arc::clone(&ecole);
+    let caissier = tokio::spawn(async move {
+        let mut durees = Vec::new();
+        for (n, inscription) in a_payer.iter().enumerate() {
+            let preparation = ecole_caisse
+                .par_reseau(
+                    "encaissement_preparer",
+                    Some(&caisse),
+                    json!({ "inscription_id": inscription, "montant": 5_000 }),
+                )
+                .await
+                .unwrap();
+            let debut = std::time::Instant::now();
+            ecole_caisse
+                .par_reseau(
+                    "encaisser",
+                    Some(&caisse),
+                    json!({ "cle_idempotence": format!("charge-{n}"),
+                        "inscription_id": inscription, "montant": 5_000, "mode": "especes",
+                        "reference": "",
+                        "payeur_id": preparation["payeurs"][0]["responsable_id"],
+                        "payeur_nom": "", "repartition": null }),
+                )
+                .await
+                .unwrap();
+            durees.push(debut.elapsed());
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        }
+        durees
+    });
+    let inscriptions: Vec<Value> = eleves.iter().map(|(_, _, i)| i.clone()).collect();
+    let ecole_saisie = Arc::clone(&ecole);
+    let saisisseur = tokio::spawn(async move {
+        let mut durees = Vec::new();
+        for (n, inscription) in inscriptions.iter().enumerate() {
+            let debut = std::time::Instant::now();
+            ecole_saisie
+                .par_reseau(
+                    "note_saisir",
+                    Some(&saisie),
+                    json!({ "evaluation_id": evaluation, "inscription_id": inscription,
+                        "saisie": format!("{}", 8 + n % 12) }),
+                )
+                .await
+                .unwrap();
+            durees.push(debut.elapsed());
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        }
+        durees
+    });
+
+    let debut = std::time::Instant::now();
+    let mut lecons = Vec::new();
+    let mut occupe = 0;
+    while let Some(vecu) = taches.join_next().await {
+        let vecu = vecu.unwrap();
+        lecons.extend(vecu.lecons);
+        occupe += vecu.occupe;
+    }
+    let mut encaissements = caissier.await.unwrap();
+    let mut notes = saisisseur.await.unwrap();
+    let duree = debut.elapsed();
+
+    // L'avancement attendait dans la file : il s'écrit en une fois.
+    let ecrits = ecole.application.portail_avancement_ecrire().await;
+
+    let (lecon_mediane, lecon_max) = mediane_et_max(&mut lecons);
+    let (caisse_mediane, caisse_max) = mediane_et_max(&mut encaissements);
+    let (note_mediane, note_max) = mediane_et_max(&mut notes);
+    println!(
+        "Mesure du portail : {ELEVES_SIMULES} élèves, deux postes, {:.1} s",
+        duree.as_secs_f64()
+    );
+    println!(
+        "  leçons ouvertes : {}, médiane {lecon_mediane} ms, plus longue {lecon_max} ms",
+        lecons.len()
+    );
+    println!(
+        "  encaissements : {}, médiane {caisse_mediane} ms, plus long {caisse_max} ms",
+        encaissements.len()
+    );
+    println!(
+        "  notes saisies : {}, médiane {note_mediane} ms, plus longue {note_max} ms",
+        notes.len()
+    );
+    println!("  réponses « occupé » : {occupe} ; gestes écrits à la fin : {ecrits}");
+    assert!(caisse_max < 1_000, "un encaissement a pris {caisse_max} ms");
+    assert!(
+        lecon_max < 2_000,
+        "une leçon a mis {lecon_max} ms à s'ouvrir"
+    );
 }
