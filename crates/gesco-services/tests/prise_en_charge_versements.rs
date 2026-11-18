@@ -1,9 +1,9 @@
 //! Versement de l'État (SPEC_PRISE_EN_CHARGE_ETAT §7, §8, §10, §12) : caisse intacte (essai 1),
 //! versement groupé (essai 6), année close (essai 7, partie versement), annulation depuis la
-//! trésorerie, droits du versement (essai 9, partie versement), trace et totaux. Les commandes
-//! viennent avec les écrans : le service s'appelle ici par l'aide d'essai de l'application, avec la
-//! session du jeton, comme le feront les commandes du même nom. Écrits avec le code, passés à la
-//! fin du codage de la 2.0.0.
+//! trésorerie, droits du versement (essai 9, partie versement), trace et totaux, répartition par
+//! fichier (essai 11). Les commandes viennent avec les écrans : le service s'appelle ici par
+//! l'aide d'essai de l'application, avec la session du jeton, comme le feront les commandes du
+//! même nom. Écrits avec le code, passés à la fin du codage de la 2.0.0.
 
 #![allow(
     clippy::unwrap_used,
@@ -1166,4 +1166,417 @@ async fn le_versement_de_l_etat_demande_la_tresorerie() {
         json!({ "versement_id": id, "motif": "Doublon" }),
     )
     .await;
+}
+
+/// Essai 11 : la répartition d'un versement par fichier. Le modèle est prérempli (élèves cochés,
+/// répartition actuelle) ; un fichier avec chaque cas de la vérification ligne par ligne donne
+/// l'aperçu attendu sans rien écrire ; un total au-delà du reçu est refusé en entier ; l'import
+/// écrit les seules lignes valides et en avertissement, après une sauvegarde, en remplaçant la
+/// répartition du versement ; un fichier lu avant un autre geste sur le versement est refusé.
+#[tokio::test]
+async fn la_repartition_par_fichier_n_ecrit_que_les_lignes_retenues() {
+    let dossier = tempfile::tempdir().unwrap();
+    let e = lycee(dossier.path()).await;
+    banque(&e).await;
+    let mut matricules = std::collections::HashMap::new();
+    let mut inscriptions = std::collections::HashMap::new();
+    for prenoms in [
+        "Awa", "Binta", "Coumba", "Djeneba", "Fanta", "Hawa", "Kadi", "Mariam", "Nana", "Oumou",
+        "Penda", "Rokia", "Salimata", "Tata",
+    ] {
+        let (fiche, ins) = inscrit(&e, prenoms, &e.dixieme).await;
+        matricules.insert(
+            prenoms,
+            fiche["eleve"]["matricule_interne"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+        );
+        inscriptions.insert(prenoms, ins);
+    }
+    // Une homonyme de Tata dans la même classe : sans matricule, on ne sait pas laquelle.
+    let (_, tata_bis) = inscrit(&e, "Tata", &e.dixieme).await;
+    let i = |p: &str| inscriptions[p].clone();
+    let a_cocher: Vec<Value> = [
+        "Awa", "Binta", "Coumba", "Fanta", "Hawa", "Kadi", "Mariam", "Nana", "Oumou", "Penda",
+        "Rokia", "Tata",
+    ]
+    .iter()
+    .map(|p| i(p))
+    .chain([tata_bis.clone()])
+    .collect();
+    let a_cocher: Vec<&Value> = a_cocher.iter().collect();
+    ok(
+        &e,
+        "prise_en_charge_regler",
+        &e.admin,
+        cocher(&a_cocher, None),
+    )
+    .await;
+    // Djeneba est cochée avec sa référence d'orientation ; Salimata ne l'est pas.
+    ok(
+        &e,
+        "prise_en_charge_regler",
+        &e.admin,
+        json!({ "cibles": cibles(&[&i("Djeneba")]), "geste": "cocher", "montant_attendu": null,
+            "reference": "ORI-2026-0042" }),
+    )
+    .await;
+    // Le virement de 1 000 000 F, déjà réparti en partie à l'écran : Nana 60 000 F, Oumou
+    // 50 000 F, Fanta 40 000 F ; Fanta est ensuite décochée.
+    let (nana, oumou, fanta) = (i("Nana"), i("Oumou"), i("Fanta"));
+    let r = ok(
+        &e,
+        "versement_etat_enregistrer",
+        &e.admin,
+        virement(
+            1_000_000,
+            &[(&nana, 60_000), (&oumou, 50_000), (&fanta, 40_000)],
+        ),
+    )
+    .await;
+    let versement_id = r["detail"]["versement"]["versement"]["id"].clone();
+    ok(
+        &e,
+        "prise_en_charge_regler",
+        &e.admin,
+        json!({ "cibles": cibles(&[&fanta]), "geste": "decocher", "motif": "Pas orienté par l'État" }),
+    )
+    .await;
+
+    // Le modèle : les treize élèves cochés et Fanta (qui a une part), la répartition actuelle
+    // dans « Montant versé », et le mode d'emploi.
+    let modele = dossier.path().join("repartition-versement-etat.xlsx");
+    let ecrit = ok(
+        &e,
+        "versement_etat_modele",
+        &e.admin,
+        json!({ "chemin": modele.to_str().unwrap(), "versement_id": versement_id }),
+    )
+    .await;
+    assert_eq!(ecrit["lignes"], 14);
+    let feuilles = gesco_services::import_eleves::lire_fichier(modele.to_str().unwrap()).unwrap();
+    assert_eq!(feuilles.len(), 2);
+    let repartition = &feuilles[0].1;
+    assert_eq!(
+        repartition[0],
+        [
+            "Matricule",
+            "Nom",
+            "Prénoms",
+            "Classe",
+            "Série",
+            "Référence",
+            "Attendu",
+            "Reste dû par l'État",
+            "Montant versé"
+        ]
+    );
+    let du_modele = |p: &str| {
+        repartition
+            .iter()
+            .find(|l| l[0] == matricules[p])
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(du_modele("Nana")[6], "120000");
+    assert_eq!(du_modele("Nana")[7], "120000");
+    assert_eq!(du_modele("Nana")[8], "60000");
+    assert_eq!(du_modele("Awa")[8], "");
+    assert_eq!(du_modele("Djeneba")[5], "ORI-2026-0042");
+    assert!(repartition.iter().all(|l| l[0] != matricules["Salimata"]));
+    assert_eq!(feuilles[1].1[0], ["Mode d'emploi"]);
+    // Sans versement, la colonne est vide et Fanta, décochée, n'y est plus.
+    let vide = dossier.path().join("vide.xlsx");
+    let ecrit = ok(
+        &e,
+        "versement_etat_modele",
+        &e.admin,
+        json!({ "chemin": vide.to_str().unwrap(), "annee_id": e.annee["id"] }),
+    )
+    .await;
+    assert_eq!(ecrit["lignes"], 13);
+
+    let entete =
+        "Matricule;Nom;Prénoms;Classe;Série;Référence;Attendu;Reste dû par l'État;Montant versé";
+    let ecrire = |nom: &str, lignes: &[String]| {
+        let chemin = dossier.path().join(nom);
+        std::fs::write(&chemin, format!("{entete}\n{}\n", lignes.join("\n"))).unwrap();
+        chemin.to_str().unwrap().to_owned()
+    };
+    let m = |p: &str| matricules[p].clone();
+
+    // Un total au-delà du reçu : l'aperçu le dit, l'import est refusé en entier.
+    let trop = ecrire(
+        "trop.csv",
+        &[
+            format!("{};Coulibaly;Awa;10e A;;;;;600000", m("Awa")),
+            format!("{};Coulibaly;Binta;10e A;;;;;500 000", m("Binta")),
+        ],
+    );
+    let apercu = ok(
+        &e,
+        "versement_etat_analyser_import",
+        &e.admin,
+        json!({ "chemin": trop, "versement_id": versement_id }),
+    )
+    .await;
+    assert_eq!(apercu["refus"], "versement_etat.reparti_superieur");
+    assert_eq!(apercu["depassement"], 100_000);
+    assert_eq!(
+        refus(
+            &e,
+            "versement_etat_importer",
+            &e.admin,
+            json!({ "fichier_id": apercu["fichier_id"], "versement_id": versement_id,
+                "lue_le": apercu["lue_le"] }),
+        )
+        .await,
+        "versement_etat.reparti_superieur"
+    );
+
+    let chemin = ecrire(
+        "repartition.csv",
+        &[
+            // Ligne 2 : valide.
+            format!("{};Coulibaly;Awa;10e A;;;120000;120000;120000", m("Awa")),
+            // 3 : valide, « 120 000 F ».
+            format!("{};Coulibaly;Binta;10e A;;;;;120 000 F", m("Binta")),
+            // 4 : 10 000 F de plus que ce que l'État doit encore, « 130.000 ».
+            format!("{};Coulibaly;Coumba;10e A;;;;;130.000", m("Coumba")),
+            // 5 : sans matricule, retrouvée par la référence d'orientation.
+            ";Coulibaly;Djeneba;10e A;;ORI-2026-0042;;;120000".to_owned(),
+            // 6 : sans matricule ni référence, retrouvée par le nom et la classe.
+            ";COULIBALY;hawa;10e A;;;;;100000".to_owned(),
+            // 7 : matricule et nom inconnus.
+            "XX-9999;Coulibaly;Inconnue;10e A;;;;;50000".to_owned(),
+            // 8 et 9 : la même élève deux fois.
+            format!("{};Coulibaly;Kadi;10e A;;;;;60000", m("Kadi")),
+            format!("{};Coulibaly;Kadi;10e A;;;;;60000", m("Kadi")),
+            // 10 : montant illisible.
+            format!("{};Coulibaly;Mariam;10e A;;;;;beaucoup", m("Mariam")),
+            // 11 : valide, remplace les 60 000 F de l'écran.
+            format!("{};Coulibaly;Nana;10e A;;;;;120000", m("Nana")),
+            // 12 : case vide.
+            format!("{};Coulibaly;Penda;10e A;;;;;", m("Penda")),
+            // 13 : zéro.
+            format!("{};Coulibaly;Rokia;10e A;;;;;0", m("Rokia")),
+            // 14 : pas cochée.
+            format!("{};Coulibaly;Salimata;10e A;;;;;120000", m("Salimata")),
+            // 15 : deux homonymes dans la classe, sans matricule.
+            ";Coulibaly;Tata;10e A;;;;;120000".to_owned(),
+            // 16 : décochée, garde sa part de ce versement.
+            format!("{};Coulibaly;Fanta;10e A;;;;;40000", m("Fanta")),
+            // Oumou est absente du fichier : sa part de 50 000 F sera retirée.
+        ],
+    );
+    let apercu = ok(
+        &e,
+        "versement_etat_analyser_import",
+        &e.admin,
+        json!({ "chemin": chemin, "versement_id": versement_id }),
+    )
+    .await;
+    let numero = |n: u64| -> Value {
+        apercu["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["numero"] == n)
+            .unwrap()
+            .clone()
+    };
+    let cles = |l: &Value| -> Vec<String> {
+        l["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["cle"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    let attendu: [(u64, &str, &[&str]); 15] = [
+        (2, "valide", &[]),
+        (3, "valide", &[]),
+        (
+            4,
+            "avertissement",
+            &["import_repartition_etat.plus_que_le_reste"],
+        ),
+        (5, "valide", &[]),
+        (
+            6,
+            "avertissement",
+            &["import_repartition_etat.retrouve_par_le_nom"],
+        ),
+        (7, "erreur", &["import_repartition_etat.introuvable"]),
+        (8, "erreur", &["import_repartition_etat.deux_fois"]),
+        (9, "erreur", &["import_repartition_etat.deux_fois"]),
+        (10, "erreur", &["import_repartition_etat.montant_illisible"]),
+        (11, "valide", &[]),
+        (12, "ignoree", &[]),
+        (13, "ignoree", &["import_repartition_etat.zero"]),
+        (14, "erreur", &["import_repartition_etat.non_coche"]),
+        (15, "erreur", &["import_repartition_etat.plusieurs"]),
+        (16, "avertissement", &["import_repartition_etat.decoche"]),
+    ];
+    for (n_ligne, sort, messages) in attendu {
+        let l = numero(n_ligne);
+        assert_eq!(l["sort"], sort, "ligne {n_ligne}");
+        assert_eq!(cles(&l), messages, "ligne {n_ligne}");
+    }
+    assert_eq!(numero(3)["montant"], 120_000);
+    assert_eq!(numero(4)["montant"], 130_000);
+    assert_eq!(numero(4)["messages"][0]["montant"], 10_000);
+    assert_eq!(numero(4)["messages"][0]["autre"], 120_000);
+    assert_eq!(numero(5)["inscription_id"], i("Djeneba")["id"]);
+    assert_eq!(numero(6)["inscription_id"], i("Hawa")["id"]);
+    assert_eq!(apercu["valides"], 4);
+    assert_eq!(apercu["avertissements"], 3);
+    assert_eq!(apercu["erreurs"], 6);
+    assert_eq!(apercu["ignorees"], 2);
+    // 120 000 × 4 + 130 000 + 100 000 + 40 000.
+    assert_eq!(apercu["recu"], 1_000_000);
+    assert_eq!(apercu["reparti"], 750_000);
+    assert_eq!(apercu["non_reparti"], 250_000);
+    assert_eq!(apercu["depassement"], 0);
+    assert!(apercu["refus"].is_null());
+    assert_eq!(apercu["nombre_eleves"], 7);
+    assert_eq!(apercu["parts_actuelles"], 3);
+    assert_eq!(apercu["montant_actuel"], 150_000);
+    assert_eq!(apercu["retirees"], 1);
+    assert_eq!(apercu["montant_retire"], 50_000);
+    // L'aperçu n'a rien écrit.
+    let detail = ok(
+        &e,
+        "versement_etat_lire",
+        &e.admin,
+        json!({ "versement_id": versement_id }),
+    )
+    .await;
+    assert_eq!(detail["parts"].as_array().unwrap().len(), 3);
+    assert_eq!(detail["versement"]["reparti"], 150_000);
+
+    let sauvegardes =
+        e.p.ok("sauvegardes_lister", Some(&e.admin), Value::Null)
+            .await;
+    let rapport = ok(
+        &e,
+        "versement_etat_importer",
+        &e.admin,
+        json!({ "fichier_id": apercu["fichier_id"], "versement_id": versement_id,
+            "lue_le": apercu["lue_le"] }),
+    )
+    .await;
+    // La sauvegarde est prise avant l'écriture.
+    assert_eq!(
+        e.p.ok("sauvegardes_lister", Some(&e.admin), Value::Null)
+            .await
+            .as_array()
+            .unwrap()
+            .len(),
+        sauvegardes.as_array().unwrap().len() + 1
+    );
+    assert_eq!(rapport["change"], true);
+    assert_eq!(rapport["nombre_eleves"], 7);
+    assert_eq!(rapport["reparti"], 750_000);
+    assert_eq!(rapport["non_reparti"], 250_000);
+    assert_eq!(rapport["ignorees"], 2);
+    assert_eq!(rapport["retirees"], 1);
+    assert_eq!(rapport["refusees"].as_array().unwrap().len(), 6);
+
+    // Seules les lignes valides et en avertissement sont écrites, avec l'origine « import » ; la
+    // répartition de l'écran est remplacée.
+    let detail = ok(
+        &e,
+        "versement_etat_lire",
+        &e.admin,
+        json!({ "versement_id": versement_id }),
+    )
+    .await;
+    let ecrites = detail["parts"].as_array().unwrap();
+    assert_eq!(ecrites.len(), 7);
+    assert!(ecrites.iter().all(|p| p["origine"] == "import"));
+    let part = |p: &str| {
+        ecrites
+            .iter()
+            .find(|l| l["inscription_id"] == i(p)["id"])
+            .map(|l| n(&l["montant"]))
+    };
+    assert_eq!(part("Awa"), Some(120_000));
+    assert_eq!(part("Coumba"), Some(130_000));
+    assert_eq!(part("Djeneba"), Some(120_000));
+    assert_eq!(part("Hawa"), Some(100_000));
+    assert_eq!(part("Nana"), Some(120_000));
+    assert_eq!(part("Fanta"), Some(40_000));
+    for absente in [
+        "Oumou", "Kadi", "Mariam", "Penda", "Rokia", "Salimata", "Tata",
+    ] {
+        assert_eq!(part(absente), None, "{absente}");
+    }
+    assert_eq!(detail["versement"]["reparti"], 750_000);
+    assert_eq!(detail["versement"]["non_reparti"], 250_000);
+    assert_eq!(
+        compter(
+            &e,
+            "SELECT COUNT(*) FROM versement_etat_part WHERE statut = 'annulee'"
+        )
+        .await,
+        3
+    );
+    let liste = lister(&e).await;
+    assert_eq!(ligne(&liste, &i("Awa"))["reste_etat"], 0);
+    assert_eq!(ligne(&liste, &oumou)["reste_etat"], 120_000);
+    assert_eq!(ligne(&liste, &i("Coumba"))["recu_en_plus"], 10_000);
+    // L'argent n'a pas bougé : une seule recette, celle du virement.
+    assert_eq!(
+        compter(&e, "SELECT COUNT(*) FROM recette_tresorerie").await,
+        1
+    );
+    assert_eq!(
+        compter(
+            &e,
+            "SELECT COUNT(*) FROM journal_audit WHERE entite = 'import_repartition_etat'"
+        )
+        .await,
+        1
+    );
+    assert_eq!(
+        compter(
+            &e,
+            "SELECT COUNT(*) FROM outbox WHERE type_evenement = 'ImportRepartitionEtatApplique'"
+        )
+        .await,
+        1
+    );
+
+    // Le même fichier, lu puis devancé par une répartition à l'écran : refusé, rien d'écrit.
+    let encore = ok(
+        &e,
+        "versement_etat_analyser_import",
+        &e.admin,
+        json!({ "chemin": chemin, "versement_id": versement_id }),
+    )
+    .await;
+    assert_eq!(encore["parts_actuelles"], 7);
+    assert_eq!(encore["retirees"], 0);
+    let awa = i("Awa");
+    ok(
+        &e,
+        "versement_etat_repartir",
+        &e.admin,
+        json!({ "versement_id": versement_id, "lue_le": encore["lue_le"],
+            "parts": parts(&[(&awa, 100_000)]) }),
+    )
+    .await;
+    assert_eq!(
+        refus(
+            &e,
+            "versement_etat_importer",
+            &e.admin,
+            json!({ "fichier_id": encore["fichier_id"], "versement_id": versement_id,
+                "lue_le": encore["lue_le"] }),
+        )
+        .await,
+        "fiche.modifiee_entre_temps"
+    );
 }

@@ -36,13 +36,16 @@ use crate::session::Session;
 
 mod versements;
 
-pub(crate) use versements::annuler_versement_de_la_recette_dans;
 pub use versements::{
     ApercuVersementEtat, AvertissementPartEtat, DemandeAnnulationVersementEtat,
     DemandeApercuVersementEtat, DemandeRepartitionProposee, DemandeRepartitionVersementEtat,
     DemandeVersementEtat, DemandeVersementEtatId, DemandeVersementsEtat, DetailVersementEtat,
     EleveARepartir, LIBELLE_VERSEMENT_PAR_DEFAUT, ListeVersementsEtat, PartAffichee, PartSaisie,
     REFERENCE_VERSEMENT_MAX, RepartitionProposee, ReponseVersementEtat, VersementEtatAffiche,
+};
+pub(crate) use versements::{
+    annuler_versement_de_la_recette_dans, lignes_versement, repartir_dans,
+    repartition_proposee_dans,
 };
 
 fn regle(cle: &'static str) -> ErreurService {

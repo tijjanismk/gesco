@@ -109,6 +109,8 @@ pub enum TypeEvenement {
     VersementEtatReparti,
     /// Un versement de l'État est annulé, avec son motif.
     VersementEtatAnnule,
+    /// La répartition d'un versement de l'État est importée d'un fichier.
+    ImportRepartitionEtatApplique,
     /// Un classeur de reprises avant GESCO est importé.
     ImportReprisesApplique,
     /// Un frais facultatif oublié est ajouté à une facture validée.
@@ -404,6 +406,7 @@ impl TypeEvenement {
         Self::VersementEtatEnregistre,
         Self::VersementEtatReparti,
         Self::VersementEtatAnnule,
+        Self::ImportRepartitionEtatApplique,
         Self::ImportReprisesApplique,
         Self::FraisAjoute,
         Self::RemiseProposee,
@@ -576,6 +579,7 @@ impl TypeEvenement {
             Self::VersementEtatEnregistre => "VersementEtatEnregistre",
             Self::VersementEtatReparti => "VersementEtatReparti",
             Self::VersementEtatAnnule => "VersementEtatAnnule",
+            Self::ImportRepartitionEtatApplique => "ImportRepartitionEtatApplique",
             Self::ImportReprisesApplique => "ImportReprisesApplique",
             Self::FraisAjoute => "FraisAjoute",
             Self::RemiseProposee => "RemiseProposee",
@@ -750,6 +754,7 @@ impl TypeEvenement {
             | Self::VersementEtatEnregistre
             | Self::VersementEtatReparti
             | Self::VersementEtatAnnule
+            | Self::ImportRepartitionEtatApplique
             | Self::ImportReprisesApplique
             | Self::FraisAjoute
             | Self::RemiseProposee

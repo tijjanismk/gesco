@@ -8,24 +8,24 @@ import { useEtreSeul } from "../../composants/EtreSeul";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { Tableau } from "../../composants/Tableau";
 import { type Cle, francs, t, texteDeCle } from "../../i18n";
-import type { ApercuReprises, LigneImportReprise, RapportReprises, SortLigneReprise } from "../../types/gesco";
+import type { ApercuReprises, MessageLigneReprise, RapportReprises, SortLigneReprise } from "../../types/gesco";
 
-const SORTS: Record<SortLigneReprise, Cle> = {
+export const SORTS: Record<SortLigneReprise, Cle> = {
   valide: "import_reprises.sort.valide",
   avertissement: "import_reprises.sort.avertissement",
   erreur: "import_reprises.sort.erreur",
   ignoree: "import_reprises.sort.ignoree",
 };
 
-const COULEURS: Record<SortLigneReprise, string> = {
+export const COULEURS: Record<SortLigneReprise, string> = {
   valide: "text-encre",
   avertissement: "text-ocre",
   erreur: "text-rouge",
   ignoree: "text-muet",
 };
 
-/** Messages d'une ligne, avec leurs montants. */
-export function messagesLigne(l: LigneImportReprise): string {
+/** Messages d'une ligne, avec leurs montants (import des reprises ou de la répartition de l'État). */
+export function messagesLigne(l: { readonly messages: readonly MessageLigneReprise[] }): string {
   return l.messages
     .map((m) => texteDeCle(m.cle, { montant: m.montant === null ? "" : francs(m.montant), autre: m.autre === null ? "" : francs(m.autre) }))
     .join(" · ");

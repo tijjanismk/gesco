@@ -12,6 +12,7 @@ import { dateCivile, francs, t } from "../../i18n";
 import type { AvertissementPartEtat, ModePaiement, OriginePartEtat, VersementEtatAffiche } from "../../types/gesco";
 import { ChoixCompte, modesDu } from "./Depenses";
 import { MODES } from "./Encaissement";
+import { ImportRepartitionEtat, ModeleRepartitionEtat } from "./ImportRepartitionEtat";
 import { APRES_PRISE_EN_CHARGE, depassementAttendu, lireFrancs, memeMontantPourChaque, partsDeLaSaisie, piedRepartition, type SaisieRepartition, saisieInitiale } from "./prise_en_charge";
 import { filtrerLignes } from "./reprise";
 
@@ -217,6 +218,7 @@ function NouveauVersement({
         surSaisies={setSaisies}
         permissions={permissions}
       />
+      <ModeleRepartitionEtat key={`modele-${annee}`} anneeId={annee} />
       <MessageErreur erreur={enregistrement.error} />
       <div className="flex flex-wrap gap-2">
         <Bouton onClick={() => enregistrement.mutate()} disabled={enregistrement.isPending || lu === null || lu <= 0 || pied.refuse || referenceManque}>
@@ -404,7 +406,7 @@ export function DetailVersement({ versementId, permissions, surFermer }: { verse
   const relire = useRelire();
   const detail = useQuery({ queryKey: ["versement-etat", versementId], queryFn: () => appeler("versement_etat_lire", { versement_id: versementId }) });
   const gere = commandeAutorisee("versement_etat_repartir", permissions);
-  const [mode, setMode] = useState<"lecture" | "repartition" | "annulation">("lecture");
+  const [mode, setMode] = useState<"lecture" | "repartition" | "fichier" | "annulation">("lecture");
   const [saisies, setSaisies] = useState<Record<string, SaisieRepartition> | null>(null);
   const [motif, setMotif] = useState("");
   const [avertissements, setAvertissements] = useState<AvertissementPartEtat[]>([]);
@@ -457,6 +459,7 @@ export function DetailVersement({ versementId, permissions, surFermer }: { verse
         </>
       ) : (
         <>
+          {mode === "fichier" ? <ImportRepartitionEtat versementId={versementId} anneeId={v.versement.annee_id} surFini={() => setMode("lecture")} /> : null}
           {d.parts.length === 0 ? (
             <p className="text-sm text-muet">{t("vetat.sans_repartition")}</p>
           ) : (
@@ -489,6 +492,7 @@ export function DetailVersement({ versementId, permissions, surFermer }: { verse
             {gere && valide && mode === "lecture" ? (
               <>
                 <Bouton variante="secondaire" onClick={() => setMode("repartition")}>{t(v.non_reparti > 0 ? "vetat.completer" : "vetat.modifier")}</Bouton>
+                <Bouton variante="secondaire" onClick={() => setMode("fichier")}>{t("vetat.par_fichier")}</Bouton>
                 <Bouton variante="secondaire" onClick={() => setMode("annulation")}>{t("vetat.annuler")}</Bouton>
               </>
             ) : null}

@@ -171,6 +171,7 @@ pub const COMMANDES_DE_FICHE: &[&str] = &[
     "montants_etat_regler",
     "versement_etat_repartir",
     "versement_etat_annuler",
+    "versement_etat_importer",
 ];
 
 /// Pourquoi une commande qui modifie ne vérifie pas l'instant de dernière modification.
@@ -270,6 +271,7 @@ pub const COMMANDES_SEULES: &[(&str, &str)] = &[
     ("sauvegarde_restaurer", "poste.occupe.restauration"),
     ("import_eleves_appliquer", "poste.occupe.import"),
     ("reprises_importer", "poste.occupe.import"),
+    ("versement_etat_importer", "poste.occupe.import"),
     ("personnel_import_appliquer", "poste.occupe.import"),
     ("programme_import_appliquer", "poste.occupe.import"),
     ("referentiel_import_appliquer", "poste.occupe.import"),
@@ -289,6 +291,8 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("import_eleves_analyser", Fichier::Lu("chemin")),
     ("reprises_modele", Fichier::Ecrit("chemin")),
     ("reprises_analyser_import", Fichier::Lu("chemin")),
+    ("versement_etat_modele", Fichier::Ecrit("chemin")),
+    ("versement_etat_analyser_import", Fichier::Lu("chemin")),
     ("notes_import_analyser", Fichier::Lu("chemin")),
     ("notes_importer", Fichier::Lu("chemin")),
     ("personnel_import_modele", Fichier::Ecrit("chemin")),
@@ -812,6 +816,13 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("versement_etat_enregistrer", Permission::TREASURY_MANAGE),
     Commande::permise("versement_etat_repartir", Permission::TREASURY_MANAGE),
     Commande::permise("versement_etat_annuler", Permission::TREASURY_MANAGE),
+    // Répartition par fichier (§7.4) : modèle, aperçu, écriture.
+    Commande::permise("versement_etat_modele", Permission::TREASURY_MANAGE),
+    Commande::permise(
+        "versement_etat_analyser_import",
+        Permission::TREASURY_MANAGE,
+    ),
+    Commande::permise("versement_etat_importer", Permission::TREASURY_MANAGE),
     Commande::connectee("caisse_session_courante"),
     Commande::permise("caisse_ouvrir", Permission::CASHBOX_OPEN),
     Commande::permise("caisse_cloturer", Permission::CASHBOX_CLOSE),

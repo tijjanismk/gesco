@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ApercuEleve } from "../../types/gesco";
-import { depassementAttendu, lireFrancs, memeMontantPourChaque, partsDeLaSaisie, piedRepartition, resumerApercu, saisieInitiale } from "./prise_en_charge";
+import { depassementAttendu, importRepartition, lireFrancs, memeMontantPourChaque, partsDeLaSaisie, piedRepartition, resumerApercu, saisieInitiale } from "./prise_en_charge";
 
 /** Élève de l'exemple : inscription 15 000 F, scolarité 120 000 F, cantine 30 000 F ; le parent a
  *  payé 63 000 F (inscription et première tranche) avant la case. */
@@ -169,5 +169,20 @@ describe("part au-delà de ce que l'État doit", () => {
     expect(depassementAttendu({ attendu: 120_000, reste_du_etat: 120_000, pris_en_charge: true }, 120_000)).toBeNull();
     // Un élève décoché n'a plus d'attendu à porter.
     expect(depassementAttendu({ attendu: 120_000, reste_du_etat: 0, pris_en_charge: false }, 40_000)).toEqual({ en_plus: 40_000, attendu_porte: null });
+  });
+});
+
+describe("importRepartition", () => {
+  it("écrit les lignes valides et en avertissement", () => {
+    expect(importRepartition({ valides: 3, avertissements: 2, retirees: 0, refus: null })).toEqual({ aEcrire: 5, possible: true });
+  });
+  it("refuse tout au-delà du montant reçu", () => {
+    expect(importRepartition({ valides: 3, avertissements: 0, retirees: 0, refus: "versement_etat.reparti_superieur" })).toEqual({ aEcrire: 3, possible: false });
+  });
+  it("un fichier vide retire encore les parts actuelles", () => {
+    expect(importRepartition({ valides: 0, avertissements: 0, retirees: 2, refus: null })).toEqual({ aEcrire: 0, possible: true });
+  });
+  it("rien à écrire ni à retirer : rien à faire", () => {
+    expect(importRepartition({ valides: 0, avertissements: 0, retirees: 0, refus: null }).possible).toBe(false);
   });
 });

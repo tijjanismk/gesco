@@ -2207,6 +2207,12 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	versement_etat_annuler: Signature<DemandeAnnulationVersementEtat, DetailVersementEtat>,
 	/**  Signature de la commande du même nom. */
+	versement_etat_modele: Signature<DemandeModeleRepartitionEtat, FichierEcrit>,
+	/**  Signature de la commande du même nom. */
+	versement_etat_analyser_import: Signature<DemandeAnalyseRepartitionEtat, ApercuRepartitionEtat>,
+	/**  Signature de la commande du même nom. */
+	versement_etat_importer: Signature<DemandeImportRepartitionEtat, RapportRepartitionEtat>,
+	/**  Signature de la commande du même nom. */
 	caisse_session_courante: Signature<null, SessionAffichee | null>,
 	/**  Signature de la commande du même nom. */
 	caisse_ouvrir: Signature<DemandeOuverture, SessionAffichee>,
@@ -11097,6 +11103,130 @@ export type VersementEtatRecu = {
 	reference: string,
 	/**  Part attribuée à l'inscription. */
 	montant: Montant,
+};
+
+/**  Modèle à écrire, prérempli avec les élèves pris en charge de l'année. */
+export type DemandeModeleRepartitionEtat = {
+	/**  Chemin du classeur, extension `.xlsx` ; rendu par le dialogue du système. */
+	chemin: string,
+	/**  Année concernée, si aucun versement n'est donné ; absente, l'année courante. */
+	annee_id?: string | null,
+	/**
+	 *  Versement dont la répartition actuelle remplit la colonne « Montant versé » ; absent, la
+	 *  colonne est vide.
+	 */
+	versement_id?: string | null,
+};
+
+/**  Fichier rempli à analyser pour un versement. */
+export type DemandeAnalyseRepartitionEtat = {
+	/**  Chemin du fichier `.xlsx`, `.xls`, `.ods` ou `.csv`. */
+	chemin: string,
+	/**  Versement à répartir. */
+	versement_id: string,
+};
+
+/**  Import d'un fichier déjà analysé. */
+export type DemandeImportRepartitionEtat = {
+	/**  Fichier rendu par l'analyse. */
+	fichier_id: string,
+	/**  Versement à répartir, le même qu'à l'analyse. */
+	versement_id: string,
+	/**
+	 *  Instant de lecture du versement rendu par l'analyse : rien ne s'écrit si sa répartition a
+	 *  changé depuis.
+	 */
+	lue_le?: number | null,
+};
+
+/**  Une ligne du fichier, telle que GESCO la comprend. */
+export type LigneImportRepartitionEtat = {
+	/**  Numéro de la ligne dans le fichier, en-tête compris. */
+	numero: number,
+	/**  Matricule, tel qu'écrit. */
+	matricule: string,
+	/**  Nom, tel qu'écrit. */
+	nom: string,
+	/**  Prénoms, tels qu'écrits. */
+	prenoms: string,
+	/**  Classe, telle qu'écrite. */
+	classe: string,
+	/**  Référence d'orientation, telle qu'écrite. */
+	reference: string,
+	/**  Montant versé, tel qu'écrit. */
+	saisi: string,
+	/**  Montant lu. */
+	montant: Montant | null,
+	/**  Élève retrouvé : prénoms et nom. */
+	eleve: string,
+	/**  Inscription retrouvée. */
+	inscription_id: string | null,
+	/**  Sort de la ligne. */
+	sort: SortLigneReprise,
+	/**  Messages, dans l'ordre. */
+	messages: MessageLigneReprise[],
+};
+
+/**  Aperçu du fichier, avant toute écriture. */
+export type ApercuRepartitionEtat = {
+	/**  Fichier déposé, à rendre à l'import. */
+	fichier_id: string,
+	/**  Nom du fichier. */
+	nom: string,
+	/**  Versement à répartir. */
+	versement_id: string,
+	/**  Instant de lecture du versement, à rendre à l'import. */
+	lue_le: number,
+	/**  Lignes, dans l'ordre du fichier. */
+	lignes: LigneImportRepartitionEtat[],
+	/**  Lignes valides. */
+	valides: number,
+	/**  Lignes en avertissement (écrites). */
+	avertissements: number,
+	/**  Lignes en erreur (laissées de côté). */
+	erreurs: number,
+	/**  Lignes ignorées (case vide ou zéro). */
+	ignorees: number,
+	/**  Montant reçu du versement. */
+	recu: Montant,
+	/**  Total des lignes qui seront écrites. */
+	reparti: Montant,
+	/**  Reçu moins réparti, s'il reste quelque chose. */
+	non_reparti: Montant,
+	/**  Réparti au-delà du reçu (refusé). */
+	depassement: Montant,
+	/**  Refus de l'import entier, s'il y en a un (`versement_etat.reparti_superieur`). */
+	refus: string | null,
+	/**  Élèves qui auront une part. */
+	nombre_eleves: number,
+	/**  Parts actives du versement, que l'import remplace. */
+	parts_actuelles: number,
+	/**  Total des parts actives du versement. */
+	montant_actuel: Montant,
+	/**  Élèves qui ont une part du versement et n'en auront plus. */
+	retirees: number,
+	/**  Total des parts retirées. */
+	montant_retire: Montant,
+};
+
+/**  Ce que l'import a fait. */
+export type RapportRepartitionEtat = {
+	/**  Versement réparti. */
+	versement_id: string,
+	/**  Faux si la répartition était déjà celle du fichier : rien n'a changé. */
+	change: boolean,
+	/**  Élèves qui ont une part. */
+	nombre_eleves: number,
+	/**  Total réparti. */
+	reparti: Montant,
+	/**  Reçu moins réparti. */
+	non_reparti: Montant,
+	/**  Lignes ignorées. */
+	ignorees: number,
+	/**  Élèves dont la part a été retirée. */
+	retirees: number,
+	/**  Lignes refusées, à corriger et réimporter. */
+	refusees: LigneImportRepartitionEtat[],
 };
 
 /**  État d'une reprise ou d'une de ses parts. */

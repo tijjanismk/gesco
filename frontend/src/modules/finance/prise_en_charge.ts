@@ -2,7 +2,7 @@
 // décochage, pied d'une répartition de versement, « même montant pour chaque élève coché »,
 // part au-delà de ce que l'État doit. Le noyau Rust décide ; ces calculs ne servent qu'à montrer
 // et à préparer la demande.
-import type { ApercuEleve, EleveARepartir, PartSaisie } from "../../types/gesco";
+import type { ApercuEleve, ApercuRepartitionEtat, EleveARepartir, PartSaisie } from "../../types/gesco";
 import { lireSaisieReprise } from "./reprise";
 
 /** Vrai si la session lit la liste des élèves pris en charge : la facturation ou la remise. */
@@ -144,4 +144,14 @@ export function depassementAttendu(
   const en_plus = montant - eleve.reste_du_etat;
   if (en_plus <= 0) return null;
   return { en_plus, attendu_porte: eleve.pris_en_charge ? eleve.attendu + en_plus : null };
+}
+
+/** Ce que l'import d'un fichier ferait de la répartition d'un versement : lignes écrites, et si
+ *  l'écriture est possible. Le fichier donne la répartition entière : un fichier sans ligne à
+ *  écrire peut encore retirer les parts actuelles ; un total au-delà du reçu refuse tout. */
+export function importRepartition(
+  apercu: Pick<ApercuRepartitionEtat, "valides" | "avertissements" | "retirees" | "refus">,
+): { aEcrire: number; possible: boolean } {
+  const aEcrire = apercu.valides + apercu.avertissements;
+  return { aEcrire, possible: apercu.refus === null && (aEcrire > 0 || apercu.retirees > 0) };
 }

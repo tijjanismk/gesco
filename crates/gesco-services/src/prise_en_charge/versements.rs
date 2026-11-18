@@ -358,7 +358,7 @@ fn ou_par_defaut(texte: &str, defaut: &str) -> String {
 }
 
 /// Lignes de fraîcheur d'un versement : sa ligne et ses parts.
-fn lignes_versement(id: Id<VersementEtat>) -> Vec<Ligne> {
+pub(crate) fn lignes_versement(id: Id<VersementEtat>) -> Vec<Ligne> {
     vec![
         Ligne::par_id("versement_etat", id.vers_chaine()),
         Ligne {
@@ -887,6 +887,92 @@ async fn avertissements_ecrits(
     Ok(avertissements)
 }
 
+/// La liste de répartition proposée, sans vérifier de permission : élèves pris en charge de
+/// l'année concernée (celle du versement s'il est donné) et ceux qui ont une part du versement,
+/// avec attendu, déjà reçu et reste dû par l'État hors de ce versement. Sert aussi l'import de la
+/// répartition (modèle et analyse).
+pub(crate) async fn repartition_proposee_dans(
+    cnx: &mut Connexion,
+    versement_id: Option<Id<VersementEtat>>,
+    annee_id: Option<Id<AnneeScolaire>>,
+    contexte: &Contexte,
+) -> Resultat<RepartitionProposee> {
+    let versement = match versement_id {
+        Some(id) => Some(
+            prise_en_charge::versement(cnx, id, contexte)
+                .await?
+                .ok_or(regle("versement_etat.introuvable"))?,
+        ),
+        None => None,
+    };
+    let annee_id = versement.as_ref().map(|v| v.annee_id).or(annee_id);
+    let annee = annee_demandee(cnx, annee_id, contexte).await?;
+    let parts = match &versement {
+        Some(v) => par_inscription(&actives(
+            &prise_en_charge::parts_du_versement(cnx, v.id, contexte).await?,
+        ))?,
+        None => HashMap::new(),
+    };
+    let mut selection: Vec<Id<Inscription>> =
+        prise_en_charge::courantes_de_l_annee(cnx, annee.id, contexte)
+            .await?
+            .into_iter()
+            .filter(|v| {
+                v.statut == StatutPriseEnCharge::EnCours || parts.contains_key(&v.inscription_id)
+            })
+            .map(|v| v.inscription_id)
+            .collect();
+    for id in parts.keys() {
+        if !selection.contains(id) {
+            selection.push(*id);
+        }
+    }
+    let noms = noms_des_eleves(cnx, contexte).await?;
+    let mut eleves = Vec::with_capacity(selection.len());
+    for id in selection {
+        let cible = lire_cible(cnx, id, contexte).await?;
+        let part = parts.get(&id).copied().unwrap_or(Montant::ZERO);
+        let paye = prise_en_charge::paye_etat(cnx, id, contexte).await?;
+        let deja_recu = calcul(paye.soustraire(part))?.max(Montant::ZERO);
+        let partage = partage_avec_recu(cnx, &cible, deja_recu, contexte).await?;
+        let reste_du_etat = calcul(partage.doit_encore_etat())?;
+        let (eleve, matricule) = noms
+            .get(&cible.inscription.eleve_id)
+            .cloned()
+            .unwrap_or_default();
+        let en_cours = cible.en_cours();
+        eleves.push(EleveARepartir {
+            inscription_id: id,
+            eleve_id: cible.inscription.eleve_id,
+            eleve,
+            matricule,
+            classe_id: cible.classe.id,
+            classe: cible.classe.libelle.clone(),
+            reference: cible
+                .courante
+                .as_ref()
+                .map(|v| v.reference.clone())
+                .unwrap_or_default(),
+            pris_en_charge: en_cours.is_some(),
+            attendu: en_cours.map_or(Montant::ZERO, |v| v.montant_attendu),
+            deja_recu,
+            reste_du_etat,
+            part,
+            propose: if part.est_nul() { reste_du_etat } else { part },
+        });
+    }
+    eleves.sort_by(|a, b| (&a.classe, &a.eleve).cmp(&(&b.classe, &b.eleve)));
+    Ok(RepartitionProposee {
+        annee_id: annee.id,
+        annee: annee.libelle.clone(),
+        annee_close: annee_close(&annee),
+        versement_id: versement.as_ref().map(|v| v.id),
+        montant: versement.as_ref().map(|v| v.montant),
+        total_reste_du_etat: somme(eleves.iter().map(|e| e.reste_du_etat))?,
+        eleves,
+    })
+}
+
 // ---------------------------------------------------------------------------------------------
 // Le service
 // ---------------------------------------------------------------------------------------------
@@ -958,81 +1044,7 @@ impl ServicePriseEnCharge<'_> {
         self.exiger(session, Permission::TREASURY_READ).await?;
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
-        let versement = match demande.versement_id {
-            Some(id) => Some(
-                prise_en_charge::versement(&mut cnx, id, &contexte)
-                    .await?
-                    .ok_or(regle("versement_etat.introuvable"))?,
-            ),
-            None => None,
-        };
-        let annee_id = versement.as_ref().map(|v| v.annee_id).or(demande.annee_id);
-        let annee = annee_demandee(&mut cnx, annee_id, &contexte).await?;
-        let parts = match &versement {
-            Some(v) => par_inscription(&actives(
-                &prise_en_charge::parts_du_versement(&mut cnx, v.id, &contexte).await?,
-            ))?,
-            None => HashMap::new(),
-        };
-        let mut selection: Vec<Id<Inscription>> =
-            prise_en_charge::courantes_de_l_annee(&mut cnx, annee.id, &contexte)
-                .await?
-                .into_iter()
-                .filter(|v| {
-                    v.statut == StatutPriseEnCharge::EnCours
-                        || parts.contains_key(&v.inscription_id)
-                })
-                .map(|v| v.inscription_id)
-                .collect();
-        for id in parts.keys() {
-            if !selection.contains(id) {
-                selection.push(*id);
-            }
-        }
-        let noms = noms_des_eleves(&mut cnx, &contexte).await?;
-        let mut eleves = Vec::with_capacity(selection.len());
-        for id in selection {
-            let cible = lire_cible(&mut cnx, id, &contexte).await?;
-            let part = parts.get(&id).copied().unwrap_or(Montant::ZERO);
-            let paye = prise_en_charge::paye_etat(&mut cnx, id, &contexte).await?;
-            let deja_recu = calcul(paye.soustraire(part))?.max(Montant::ZERO);
-            let partage = partage_avec_recu(&mut cnx, &cible, deja_recu, &contexte).await?;
-            let reste_du_etat = calcul(partage.doit_encore_etat())?;
-            let (eleve, matricule) = noms
-                .get(&cible.inscription.eleve_id)
-                .cloned()
-                .unwrap_or_default();
-            let en_cours = cible.en_cours();
-            eleves.push(EleveARepartir {
-                inscription_id: id,
-                eleve_id: cible.inscription.eleve_id,
-                eleve,
-                matricule,
-                classe_id: cible.classe.id,
-                classe: cible.classe.libelle.clone(),
-                reference: cible
-                    .courante
-                    .as_ref()
-                    .map(|v| v.reference.clone())
-                    .unwrap_or_default(),
-                pris_en_charge: en_cours.is_some(),
-                attendu: en_cours.map_or(Montant::ZERO, |v| v.montant_attendu),
-                deja_recu,
-                reste_du_etat,
-                part,
-                propose: if part.est_nul() { reste_du_etat } else { part },
-            });
-        }
-        eleves.sort_by(|a, b| (&a.classe, &a.eleve).cmp(&(&b.classe, &b.eleve)));
-        Ok(RepartitionProposee {
-            annee_id: annee.id,
-            annee: annee.libelle.clone(),
-            annee_close: annee_close(&annee),
-            versement_id: versement.as_ref().map(|v| v.id),
-            montant: versement.as_ref().map(|v| v.montant),
-            total_reste_du_etat: somme(eleves.iter().map(|e| e.reste_du_etat))?,
-            eleves,
-        })
+        repartition_proposee_dans(&mut cnx, demande.versement_id, demande.annee_id, &contexte).await
     }
 
     /// Pied d'une répartition (reçu, réparti, non réparti), refus éventuel et avertissements,

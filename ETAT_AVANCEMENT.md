@@ -37,7 +37,7 @@ Repère : prochaine migration **0063**.
 
 ## Prise en charge par l'État
 
-**État (18 novembre 2026) : en cours de code, étapes 1 à 5 faites.** Spécification
+**État (18 novembre 2026) : en cours de code, étapes 1 à 6 faites.** Spécification
 `SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2 (prête à coder le 18 novembre 2026, T-164 à T-171 tranchées),
 ADR `docs/adr/2026-11-18-prise-en-charge-par-l-etat.md` accepté le 18 novembre 2026.
 Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé : ils
@@ -50,7 +50,7 @@ passent tous ensemble dans la session des essais de la 2.0.0.
 | 3 | Service de la prise en charge : cocher, modifier, abandonner, décocher, sélection, aperçu, montant proposé, case, année close | faite (18 novembre 2026) ; essais 7 (partie case), 9, 10 (partie audit), sélection, montant proposé, motif recopié, facture née d'une inscription cochée écrits, non lancés |
 | 4 | Versement de l'État : enregistrer, répartir, compléter, annuler, recette, année close | faite (18 novembre 2026) ; essais 1, 6, 7 (partie versement), 9 (partie versement), annulation par la trésorerie et refus de la répartition écrits, non lancés |
 | 5 | Commandes et écrans, textes, matrice des permissions | faite (18 novembre 2026) ; essais vitest (aperçu du cochage, pied de la répartition, « même montant ») écrits, non lancés |
-| 6 | Répartition par fichier | à faire |
+| 6 | Répartition par fichier | faite (18 novembre 2026) ; essai 11 et vitest (`importRepartition`) écrits, non lancés |
 | 7 | Ce que doit l'État et rapports | à faire |
 | 8 | Fin d'année et manuel | à faire |
 
@@ -443,6 +443,86 @@ base, services, toutes cibles ; `gesco-app` non touché), tsc, ESLint.
   l'arrêt du jour de sa saisie), pas l'arrêt recalculé de la liste des versements.
 - L'avertissement d'une part au-delà de ce que l'État doit est calculé à l'écran pendant la saisie
   (reste dû hors du versement) ; le noyau rend le sien après l'enregistrement, avec le même bouton.
+
+**Étape 6 (18 novembre 2026)** : répartition par fichier, `gesco-services/src/import_repartition_etat.rs`
+(même façon de faire que `import_reprises.rs`), `ServiceImportRepartitionEtat` : `ecrire_modele`
+(`DemandeModeleRepartitionEtat` : chemin `.xlsx`, année ou versement → `FichierEcrit`) écrit par
+`gesco_docs::tableur::classeur_feuilles` une feuille « Répartition » (matricule, nom, prénoms,
+classe, série, référence, attendu, reste dû par l'État, « Montant versé ») et une feuille « Mode
+d'emploi » ; `analyser` (`DemandeAnalyseRepartitionEtat` : chemin, versement →
+`ApercuRepartitionEtat`) lit le fichier par `import_eleves::lire_fichier` (xlsx, xls, ods, csv),
+retrouve l'élève parmi les inscriptions de l'année du versement par le matricule (interne ou
+national), à défaut par la référence d'orientation de sa version courante, à défaut par le nom,
+les prénoms et la classe (avertissement `retrouve_par_le_nom`, forme tolérante comme les
+reprises), lit le montant par `reprise::lire_montant` (« 120000 », « 120 000 », « 120 000 F »,
+« 120.000 ») et donne à chaque ligne (`LigneImportRepartitionEtat`) son sort et ses messages
+(`SortLigneReprise` et `MessageLigneReprise` de l'import des reprises, réutilisés) : erreurs
+`introuvable`, `plusieurs`, `deux_fois`, `montant_illisible`, `non_coche` (« Cet élève n'est pas
+coché pris en charge ») ; avertissements `plus_que_le_reste` (montant au-delà du reste dû par
+l'État hors de ce versement, avec l'écart et le reste), `retrouve_par_le_nom`, `decoche` ; case
+vide ignorée, zéro ignoré (`zero`) ; totaux reçu, réparti, non réparti, dépassement, refus
+`versement_etat.reparti_superieur`, élèves, parts actuelles du versement et parts qui seraient
+retirées, `lue_le` du versement. `importer` (`DemandeImportRepartitionEtat` : fichier, versement,
+`lue_le` → `RapportRepartitionEtat` : change, élèves, réparti, non réparti, ignorées, retirées,
+lignes refusées) : refus entier au-delà du reçu, fraîcheur du versement, puis en une transaction
+critique `prise_en_charge::repartir_dans` (origine `import`, contexte d'audit
+`versement_etat.importer` ; recalcul des factures, audit avant et après, `VersementEtatReparti` si
+la répartition change), un audit `import_repartition_etat` et l'événement
+`ImportRepartitionEtatApplique` (ajouté à `TypeEvenement`). La frontière prend la sauvegarde
+automatique avant l'écriture (R-48) et garde le fichier analysé (un par utilisateur), comme
+`reprises_importer`. `versements.rs` : `repartition_proposee_dans` (la liste proposée sans contrôle
+de permission, servie au modèle et à l'analyse) ; `lignes_versement`, `repartir_dans` et
+`repartition_proposee_dans` réexportés `pub(crate)` par `prise_en_charge.rs`. **Commandes** (après
+`versement_etat_annuler` dans `commandes.rs`, `frontiere.rs`, `gesco.ts`, `acces.ts`),
+`treasury:manage` : `versement_etat_modele` et `versement_etat_analyser_import`
+(`COMMANDES_A_FICHIER`), `versement_etat_importer` (`COMMANDES_SEULES`, « import » ;
+`COMMANDES_DE_FICHE`, son entrée porte `lue_le`). **Écran** : `ImportRepartitionEtat.tsx` —
+`DetailVersement` gagne « Répartir par fichier » (versement valide) : « Télécharger le modèle
+Excel », « Importer le fichier rempli », aperçu ligne par ligne (couleurs et sorts de l'import des
+reprises), pied reçu / réparti / non réparti, dépassement, « La répartition actuelle (…) sera
+remplacée », parts retirées, « Répartir selon le fichier » (demande d'être seul), bilan, lignes
+refusées exportables ; `NouveauVersement` montre `ModeleRepartitionEtat` (le modèle de l'année et
+la marche à suivre). `ImportReprises.tsx` exporte `SORTS` et `COULEURS`, et `messagesLigne` prend
+toute ligne qui a des messages. Fonction pure `importRepartition` (lignes à écrire, écriture
+possible) dans `prise_en_charge.ts`, essai vitest. Textes `import_repartition_etat.*`,
+`vetat.par_fichier`, `vetat.fichier_apres` dans `fr-ML.ts`. Essai 11 écrit, non lancé :
+`tests/prise_en_charge_versements.rs`, `la_repartition_par_fichier_n_ecrit_que_les_lignes_retenues`
+(modèle prérempli et mode d'emploi, avec et sans versement ; total au-delà du reçu refusé en
+entier ; un fichier avec chaque cas → aperçu attendu ligne par ligne et totaux, rien d'écrit ;
+import : sauvegarde prise avant, sept parts d'origine `import`, les trois parts de l'écran
+annulées, la part absente du fichier retirée, reçu en plus, une seule recette, audit et
+événement ; fichier lu avant une répartition à l'écran refusé `fiche.modifiee_entre_temps`).
+Vérifiés : fmt, clippy (`-j 4`, noyau, documents, services, toutes cibles), tsc, ESLint.
+
+Écarts à la spécification (étape 6) :
+- L'import **remplace** la répartition entière du versement, comme « Modifier la répartition »
+  (§7.3) ; il ne la complète pas. La spécification dit « répartir » sans trancher ; remplacer est
+  le seul sens où le fichier dit exactement ce que l'État a payé pour qui, et où réimporter le
+  même fichier ne double rien. L'aperçu dit combien de parts actuelles sont remplacées et
+  combien seraient retirées.
+- Pour que le fichier rendu tel quel ne retire rien, le modèle d'un versement déjà réparti remplit
+  « Montant versé » avec la part actuelle de chaque élève (vide sinon, et toujours vide pour le
+  modèle téléchargé depuis le formulaire d'un nouveau versement) ; il liste aussi les élèves
+  décochés qui ont une part de ce versement.
+- Le versement doit exister : dans « Nouveau versement de l'État », l'argent s'enregistre d'abord
+  (sans élève, tout non réparti), puis « Répartir par fichier » sur le versement ouvert ; le
+  formulaire propose déjà le modèle de l'année.
+- Élève décoché qui a déjà une part de ce versement : avertissement `decoche` (sa part est gardée,
+  comme le permet l'écran depuis l'étape 4), pas d'erreur ; aucun « au-delà du reste dû » pour
+  lui, l'État ne lui devant plus rien. Tout autre élève non coché : erreur `non_coche`.
+- Zéro vaut une case vide (ignorée, message « Zéro : pas de part »).
+- Recherche en cascade : un matricule inconnu laisse chercher par la référence puis par le nom ;
+  la référence ne donne pas d'avertissement, le nom oui. Un élève présent deux fois n'est compté
+  que sur ses lignes qui portent un montant.
+- Un total au-delà du reçu refuse **tout** l'import (rien d'écrit) ; l'aperçu le montre avant.
+  L'écriture se fait par un seul `repartir_dans` : si un élève devenait non recevable entre
+  l'aperçu et l'import, tout l'import est refusé (l'import des reprises refusait la ligne seule).
+- En plus de la spécification : fraîcheur du versement (`lue_le` rendu par l'aperçu, vérifié à
+  l'import), l'import « demande d'être seul » sur le réseau comme celui des reprises, le service
+  vérifie aussi `treasury:manage`, l'audit et l'événement de l'import s'écrivent même si la
+  répartition ne change pas (alors sans `VersementEtatReparti`).
+- `gesco-docs` n'est pas touché : `tableur::classeur_feuilles` suffit (le modèle des reprises n'y
+  avait rien ajouté non plus).
 
 Ce que les étapes suivantes doivent savoir : l'import de la répartition (étape 6) se branche
 dans `VersementsEtat.tsx` (`DetailVersement` et `NouveauVersement`, à côté de
