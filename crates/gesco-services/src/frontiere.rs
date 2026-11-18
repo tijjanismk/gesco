@@ -1839,6 +1839,67 @@ impl Application {
         .await?)
     }
 
+    /// Appelle le service de la prise en charge par l'État avec la session du jeton, comme le
+    /// feront les commandes du même nom (`prise_en_charge_regler`, `prise_en_charge_abandonner`,
+    /// `prise_en_charge_apercu`, `prises_en_charge_lister`, `prise_en_charge_historique`,
+    /// `montants_etat_lire`, `montants_etat_regler`) : réservé aux essais tant que ces commandes
+    /// n'existent pas. Les permissions sont vérifiées par le service.
+    #[doc(hidden)]
+    pub async fn prise_en_charge_essai(
+        &self,
+        nom: &str,
+        jeton: &Jeton,
+        entree: serde_json::Value,
+    ) -> Result<serde_json::Value, ErreurCommande> {
+        use crate::prise_en_charge::ServicePriseEnCharge;
+        fn lire<T: serde::de::DeserializeOwned>(entree: serde_json::Value) -> Resultat<T> {
+            serde_json::from_value(entree).map_err(|_| ErreurService::Regle {
+                cle: "commande.entree_invalide",
+            })
+        }
+        let Some(ouverte) = self.etat.read().await.clone() else {
+            return Err(ErreurService::Regle {
+                cle: "application.cles_verrouillees",
+            }
+            .into());
+        };
+        let session =
+            Garde::nouvelle(&ouverte.noyau, Arc::new(PorteeTotale)).session_active(jeton)?;
+        let service = ServicePriseEnCharge::nouveau(&ouverte.noyau);
+        let sortie = match nom {
+            "prise_en_charge_regler" => {
+                serde_json::to_value(service.regler(&session, &lire(entree)?).await?)
+            }
+            "prise_en_charge_abandonner" => {
+                serde_json::to_value(service.abandonner(&session, &lire(entree)?).await?)
+            }
+            "prise_en_charge_apercu" => {
+                serde_json::to_value(service.apercu(&session, &lire(entree)?).await?)
+            }
+            "prises_en_charge_lister" => {
+                serde_json::to_value(service.lister(&session, &lire(entree)?).await?)
+            }
+            "prise_en_charge_historique" => {
+                let demande: crate::prise_en_charge::DemandeInscriptionPriseEnCharge =
+                    lire(entree)?;
+                serde_json::to_value(service.historique(&session, demande.inscription_id).await?)
+            }
+            "montants_etat_lire" => {
+                serde_json::to_value(service.montants_lire(&session, &lire(entree)?).await?)
+            }
+            "montants_etat_regler" => {
+                serde_json::to_value(service.montants_regler(&session, &lire(entree)?).await?)
+            }
+            _ => {
+                return Err(ErreurService::Regle {
+                    cle: "commande.inconnue",
+                }
+                .into());
+            }
+        };
+        Ok(sortie.map_err(ErreurService::from)?)
+    }
+
     /// Enregistre un versement de l'État reçu avant GESCO, entièrement attribué à une
     /// inscription, et recalcule sa facture : réservé aux essais, aucune commande n'y mène.
     #[doc(hidden)]

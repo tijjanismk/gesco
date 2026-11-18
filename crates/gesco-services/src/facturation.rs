@@ -133,6 +133,69 @@ pub(crate) async fn etat_facture(
     facture_id: Id<Facture>,
     contexte: &Contexte,
 ) -> Resultat<EtatFacture> {
+    let lue = lire_facture(cnx, facture_id, contexte).await?;
+    let partage = partager(&lue.entree).map_err(|_| regle("facture.calcul_impossible"))?;
+    let echeances = lue
+        .lues
+        .into_iter()
+        .zip(&partage.echeances)
+        .map(
+            |((echeance, remise, ajustement, net), p)| EcheanceAffichee {
+                echeance,
+                remise,
+                ajustement,
+                net,
+                part_etat: p.part_etat,
+                renonce: p.renonce,
+                part_parent: p.part_parent,
+                paye_etat: p.paye_etat,
+                reste_etat: p.reste_etat,
+                verse_parent: p.verse_parent,
+                reprise: p.reprise,
+                paye: p.paye,
+                reste: p.reste,
+            },
+        )
+        .collect();
+    Ok(EtatFacture {
+        echeances,
+        partage,
+        prise_en_charge: lue.version,
+    })
+}
+
+/// Partage qu'aurait la facture avec une autre version courante de la prise en charge, sans rien
+/// écrire : l'aperçu d'un geste de la direction (SPEC_PRISE_EN_CHARGE_ETAT §6.1).
+pub(crate) async fn partage_simule(
+    cnx: &mut gesco_db::Connexion,
+    facture_id: Id<Facture>,
+    version: VersionCourante,
+    contexte: &Contexte,
+) -> Resultat<Partage> {
+    let mut lue = lire_facture(cnx, facture_id, contexte).await?;
+    if lue.version.is_none() {
+        let inscription_id = factures::lire(cnx, facture_id, contexte)
+            .await?
+            .inscription_id;
+        lue.entree.paye_etat = prise_en_charge::paye_etat(cnx, inscription_id, contexte).await?;
+    }
+    lue.entree.version = version;
+    partager(&lue.entree).map_err(|_| regle("facture.calcul_impossible"))
+}
+
+/// Ce que le partage lit d'une facture : ses échéances dues avec remise, baisse et net, l'entrée
+/// du calcul et la version courante de la prise en charge.
+struct FactureLue {
+    lues: Vec<(Echeance, Montant, Montant, Montant)>,
+    entree: EntreePartage,
+    version: Option<PriseEnChargeEtat>,
+}
+
+async fn lire_facture(
+    cnx: &mut gesco_db::Connexion,
+    facture_id: Id<Facture>,
+    contexte: &Contexte,
+) -> Resultat<FactureLue> {
     let inscription_id = factures::lire(cnx, facture_id, contexte)
         .await?
         .inscription_id;
@@ -200,39 +263,16 @@ pub(crate) async fn etat_facture(
         });
         lues.push((echeance, remise, ajustement, net));
     }
-    let partage = partager(&EntreePartage {
-        echeances: a_partager,
-        version: VersionCourante::depuis(version.as_ref()),
-        paye_etat,
-        rembourse,
-        reprise,
-    })
-    .map_err(|_| regle("facture.calcul_impossible"))?;
-    let echeances = lues
-        .into_iter()
-        .zip(&partage.echeances)
-        .map(
-            |((echeance, remise, ajustement, net), p)| EcheanceAffichee {
-                echeance,
-                remise,
-                ajustement,
-                net,
-                part_etat: p.part_etat,
-                renonce: p.renonce,
-                part_parent: p.part_parent,
-                paye_etat: p.paye_etat,
-                reste_etat: p.reste_etat,
-                verse_parent: p.verse_parent,
-                reprise: p.reprise,
-                paye: p.paye,
-                reste: p.reste,
-            },
-        )
-        .collect();
-    Ok(EtatFacture {
-        echeances,
-        partage,
-        prise_en_charge: version,
+    Ok(FactureLue {
+        lues,
+        entree: EntreePartage {
+            echeances: a_partager,
+            version: VersionCourante::depuis(version.as_ref()),
+            paye_etat,
+            rembourse,
+            reprise,
+        },
+        version,
     })
 }
 
@@ -617,6 +657,17 @@ pub(crate) async fn facturer_dans(
         }
     }
     crate::remises::reappliquer_dans(unite, contexte, &facture).await?;
+    // Une inscription déjà cochée « pris en charge par l'État » : la facture naît partagée, son
+    // statut se calcule dès sa naissance (SPEC_PRISE_EN_CHARGE_ETAT §3.7).
+    let facture = if prise_en_charge::courante(unite.connexion(), tarif.inscription_id, contexte)
+        .await?
+        .is_some()
+    {
+        let relue = factures::lire(unite.connexion(), facture.id, contexte).await?;
+        recalculer_dans(unite, contexte, &relue).await?
+    } else {
+        facture
+    };
     let id = facture.id.vers_chaine();
     unite.auditer(
         "facture",

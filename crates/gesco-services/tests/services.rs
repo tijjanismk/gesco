@@ -59,6 +59,7 @@ mod plusieurs;
 mod portail_entree;
 mod postes;
 mod prise_en_charge;
+mod prise_en_charge_service;
 mod rapports;
 mod recettes;
 mod reprises;

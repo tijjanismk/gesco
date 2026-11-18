@@ -71,6 +71,12 @@ pub struct ApercuAjustement {
     pub baisse: Montant,
     /// Part de la baisse déjà payée, qui deviendrait un avoir.
     pub avoir: Montant,
+    /// Élève pris en charge par l'État et nouvelle classe ni du lycée ni du technique : l'écran
+    /// propose de décocher la case, sans le faire (SPEC_PRISE_EN_CHARGE_ETAT §5.3).
+    pub proposer_decocher: bool,
+    /// Montant attendu de l'État réglé pour la nouvelle classe, quand il diffère de celui de
+    /// l'élève pris en charge : l'écran propose de l'appliquer, sans le faire.
+    pub montant_etat_propose: Option<Montant>,
 }
 
 /// Hausse d'une nature de frais : sa ligne de la grille et ses échéances (date, libellé, montant).
@@ -108,6 +114,8 @@ impl Prepare {
             hausse,
             baisse,
             avoir,
+            proposer_decocher: false,
+            montant_etat_propose: None,
         })
     }
 }
@@ -485,18 +493,30 @@ impl<'n> ServiceAjustements<'n> {
             )
             .await?;
         let depuis = jour(contexte.maintenant)?;
-        match preparer(&mut cnx, &contexte, &inscription, &avant, &apres, depuis).await? {
-            Some(p) => p.apercu(),
-            None => Ok(ApercuAjustement {
-                classe_avant: avant.libelle,
-                classe_apres: apres.libelle,
-                sans_facture: true,
-                ecarts: Vec::new(),
-                hausse: Montant::ZERO,
-                baisse: Montant::ZERO,
-                avoir: Montant::ZERO,
-            }),
-        }
+        let mut apercu =
+            match preparer(&mut cnx, &contexte, &inscription, &avant, &apres, depuis).await? {
+                Some(p) => p.apercu()?,
+                None => ApercuAjustement {
+                    classe_avant: avant.libelle,
+                    classe_apres: apres.libelle.clone(),
+                    sans_facture: true,
+                    ecarts: Vec::new(),
+                    hausse: Montant::ZERO,
+                    baisse: Montant::ZERO,
+                    avoir: Montant::ZERO,
+                    proposer_decocher: false,
+                    montant_etat_propose: None,
+                },
+            };
+        (apercu.proposer_decocher, apercu.montant_etat_propose) =
+            crate::prise_en_charge::proposition_changement_classe(
+                &mut cnx,
+                &inscription,
+                &apres,
+                &contexte,
+            )
+            .await?;
+        Ok(apercu)
     }
 
     /// Applique à la facture les frais de la classe actuelle de l'élève, pour les tranches à

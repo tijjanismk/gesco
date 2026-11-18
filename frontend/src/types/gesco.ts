@@ -359,6 +359,16 @@ export type ApercuAjustement = {
 	baisse: Montant,
 	/**  Part de la baisse déjà payée, qui deviendrait un avoir. */
 	avoir: Montant,
+	/**
+	 *  Élève pris en charge par l'État et nouvelle classe ni du lycée ni du technique : l'écran
+	 *  propose de décocher la case, sans le faire (SPEC_PRISE_EN_CHARGE_ETAT §5.3).
+	 */
+	proposer_decocher: boolean,
+	/**
+	 *  Montant attendu de l'État réglé pour la nouvelle classe, quand il diffère de celui de
+	 *  l'élève pris en charge : l'écran propose de l'appliquer, sans le faire.
+	 */
+	montant_etat_propose: Montant | null,
 };
 
 /**  Ce qui partira, et le nom proposé pour le fichier. */

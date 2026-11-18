@@ -11,7 +11,7 @@ use gesco_core::core::complements::{
     ANNEE_RECRUTEMENT_MIN, DegreDifficulte, DifficulteEleve, DiplomeEleve, Fonctionnement,
     NOTE_DIFFICULTE_MAX, PedagogieClasse, Specialite, StatutRapport, TypeDifficulte,
 };
-use gesco_core::core::{Operation, RubriqueFiche};
+use gesco_core::core::{Operation, Permission, RubriqueFiche};
 use gesco_core::scolarite::{Classe, Inscription};
 use gesco_db::depots::complements::{self, PremiereInscription};
 use gesco_db::depots::{annee_scolaire, fiche, statistiques};
@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::erreur::{ErreurService, Resultat};
 use crate::noyau::Noyau;
+use crate::prise_en_charge::{CiblePriseEnCharge, Geste, MOTIF_DECOCHAGE_PROPOSE};
 use crate::session::Session;
 
 fn regle(cle: &'static str) -> ErreurService {
@@ -313,6 +314,18 @@ impl<'n> ServiceComplements<'n> {
             .await?;
         let (eleve_id, classe_id, annee_avant, prise_avant) =
             complements::inscription(unite.connexion(), demande.inscription_id, &contexte).await?;
+        // La case change ce que doit le parent : elle passe par la prise en charge par l'État et
+        // demande la permission des remises (SPEC_PRISE_EN_CHARGE_ETAT §8), avant toute écriture.
+        let prise_change = prise_avant != demande.prise_en_charge_etat;
+        if prise_change
+            && !self
+                .noyau
+                .permissions_de(unite.connexion(), session.utilisateur_id, &contexte)
+                .await?
+                .contains(&Permission::INVOICES_DISCOUNT)
+        {
+            return Err(ErreurService::permission(Permission::INVOICES_DISCOUNT));
+        }
         let annee_apres = demande.annee_recrutement.map(i64::from);
         let mut change = false;
         if annee_avant != annee_apres {
@@ -333,22 +346,30 @@ impl<'n> ServiceComplements<'n> {
             );
             change = true;
         }
-        if prise_avant != demande.prise_en_charge_etat {
-            complements::ecrire_prise_en_charge(
-                unite.connexion(),
-                demande.inscription_id,
-                demande.prise_en_charge_etat,
+        if prise_change {
+            // Cocher avec le montant proposé ; décocher avec le motif proposé, la grille n'en
+            // demandant pas. Version, case, facture, audit et événement : le même geste que
+            // l'écran de la prise en charge.
+            let geste = if demande.prise_en_charge_etat {
+                Geste::Cocher {
+                    attendu: None,
+                    reference: None,
+                }
+            } else {
+                Geste::Decocher {
+                    motif: MOTIF_DECOCHAGE_PROPOSE.to_owned(),
+                }
+            };
+            crate::prise_en_charge::regler_dans(
+                &mut unite,
                 &contexte,
+                &[CiblePriseEnCharge {
+                    inscription_id: demande.inscription_id,
+                    lue_le: None,
+                }],
+                &geste,
             )
             .await?;
-            unite.auditer(
-                "inscription",
-                &demande.inscription_id.vers_chaine(),
-                Operation::Modification,
-                Some(serde_json::json!({ "prise_en_charge_etat": prise_avant })),
-                Some(serde_json::json!({ "prise_en_charge_etat": demande.prise_en_charge_etat })),
-                "complements.regler_eleve",
-            );
             change = true;
         }
         if change {

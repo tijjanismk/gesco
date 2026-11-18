@@ -97,6 +97,12 @@ pub enum TypeEvenement {
     RepriseAvantGescoModifiee,
     /// Une reprise avant GESCO est annulée, avec son motif.
     RepriseAvantGescoAnnulee,
+    /// La case « Pris en charge par l'État » est cochée pour une inscription.
+    PriseEnChargeEtatCochee,
+    /// Le montant attendu de l'État, la référence ou l'abandon d'une inscription changent.
+    PriseEnChargeEtatModifiee,
+    /// La case « Pris en charge par l'État » est décochée, avec son motif.
+    PriseEnChargeEtatDecochee,
     /// Un classeur de reprises avant GESCO est importé.
     ImportReprisesApplique,
     /// Un frais facultatif oublié est ajouté à une facture validée.
@@ -386,6 +392,9 @@ impl TypeEvenement {
         Self::RepriseAvantGescoEnregistree,
         Self::RepriseAvantGescoModifiee,
         Self::RepriseAvantGescoAnnulee,
+        Self::PriseEnChargeEtatCochee,
+        Self::PriseEnChargeEtatModifiee,
+        Self::PriseEnChargeEtatDecochee,
         Self::ImportReprisesApplique,
         Self::FraisAjoute,
         Self::RemiseProposee,
@@ -552,6 +561,9 @@ impl TypeEvenement {
             Self::RepriseAvantGescoEnregistree => "RepriseAvantGescoEnregistree",
             Self::RepriseAvantGescoModifiee => "RepriseAvantGescoModifiee",
             Self::RepriseAvantGescoAnnulee => "RepriseAvantGescoAnnulee",
+            Self::PriseEnChargeEtatCochee => "PriseEnChargeEtatCochee",
+            Self::PriseEnChargeEtatModifiee => "PriseEnChargeEtatModifiee",
+            Self::PriseEnChargeEtatDecochee => "PriseEnChargeEtatDecochee",
             Self::ImportReprisesApplique => "ImportReprisesApplique",
             Self::FraisAjoute => "FraisAjoute",
             Self::RemiseProposee => "RemiseProposee",
@@ -720,6 +732,9 @@ impl TypeEvenement {
             | Self::RepriseAvantGescoEnregistree
             | Self::RepriseAvantGescoModifiee
             | Self::RepriseAvantGescoAnnulee
+            | Self::PriseEnChargeEtatCochee
+            | Self::PriseEnChargeEtatModifiee
+            | Self::PriseEnChargeEtatDecochee
             | Self::ImportReprisesApplique
             | Self::FraisAjoute
             | Self::RemiseProposee

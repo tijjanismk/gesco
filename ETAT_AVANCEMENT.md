@@ -37,7 +37,7 @@ Repère : prochaine migration **0063**.
 
 ## Prise en charge par l'État
 
-**État (18 novembre 2026) : en cours de code, étapes 1 et 2 faites.** Spécification
+**État (18 novembre 2026) : en cours de code, étapes 1 à 3 faites.** Spécification
 `SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2 (prête à coder le 18 novembre 2026, T-164 à T-171 tranchées),
 ADR `docs/adr/2026-11-18-prise-en-charge-par-l-etat.md` accepté le 18 novembre 2026.
 Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé : ils
@@ -47,7 +47,7 @@ passent tous ensemble dans la session des essais de la 2.0.0.
 |---|---|---|
 | 1 | Tables et noyau : migration 0066, catégorie livrée « Versements de l'État », dépôt `prise_en_charge.rs`, calcul pur du partage (`finance/prise_en_charge.rs`) | faite (18 novembre 2026) ; essais 5 (calcul pur), 2, 3, 3 bis, 4, 4 bis (calcul pur) et 10 (base) écrits, non lancés |
 | 2 | Calcul de la facture : `etat_echeances`, `EcheanceAffichee`, `FactureAffichee`, `recalculer_dans`, remises, plan, abandon et départ, frais ajouté, abonnés de la cantine, refus du remboursement | faite (18 novembre 2026) ; essais 2, 3, 3 bis, 4, 4 bis et 8 (par le service) écrits, non lancés |
-| 3 | Service de la prise en charge : cocher, modifier, abandonner, décocher, sélection, aperçu, montant proposé, case, année close | à faire |
+| 3 | Service de la prise en charge : cocher, modifier, abandonner, décocher, sélection, aperçu, montant proposé, case, année close | faite (18 novembre 2026) ; essais 7 (partie case), 9, 10 (partie audit), sélection, montant proposé, motif recopié, facture née d'une inscription cochée écrits, non lancés |
 | 4 | Versement de l'État : enregistrer, répartir, compléter, annuler, recette, année close | à faire |
 | 5 | Commandes et écrans, textes, matrice des permissions | à faire |
 | 6 | Répartition par fichier | à faire |
@@ -170,6 +170,92 @@ clippy (`-j 4`, noyau, base, services, toutes cibles), tsc, ESLint.
   encore au dû net, pas au dû du parent (étape 8) ; relevé de compte (étape 7) ; propositions de
   l'aperçu du changement de classe (étape 3) ; la facture née d'une inscription déjà cochée n'est
   pas recalculée à sa création (statut « émise », chiffres justes à la lecture ; étape 3).
+
+**Étape 3 (18 novembre 2026)** : service de la prise en charge,
+`gesco-services/src/prise_en_charge.rs`, `ServicePriseEnCharge` : `regler`
+(`DemandePriseEnCharge` : `cibles` = `CiblePriseEnCharge { inscription_id, lue_le }`, `geste`
+`GesteCase` = `cocher`, `modifier`, `appliquer_montant_propose`, `decocher`, `montant_attendu`,
+`reference`, `motif`), `abandonner` (`DemandeAbandonPriseEnCharge` : `cibles`, `montant` absent =
+ce que l'État doit encore, `defaire`, `motif`), tous deux rendant `Vec<LignePriseEnCharge>` ;
+`apercu` (`DemandeApercuPriseEnCharge` : `inscriptions`, `geste` `GestePriseEnCharge` aux six
+gestes, `montant_attendu`, `montant_abandon` → `ApercuPriseEnCharge`, avec `ApercuEleve` par
+élève : montant proposé, attendu et abandon avant et après, dû et reste de l'État avant et après,
+reste du parent avant et après, trop-payé, reporté, à rembourser, rendu « dont déjà remboursé »,
+refus nommé de l'élève) ; `lister` (`DemandePrisesEnCharge` → `ListePrisesEnCharge`,
+`LignePriseEnCharge` : case possible, statut, référence, attendu, abandon, montant proposé, dû,
+reçu, reste et reste échu de l'État, reçu en plus, reste du parent, à rembourser, sans facture,
+`lue_le` ; totaux) ; `historique` ; `montants_lire` (`DemandeMontantsEtat` → `MontantsEtat` :
+`LigneMontantEtat` par niveau et série avec les frais de l'école, les élèves cochés et ceux à
+changer, `inscriptions_a_changer`, `lue_le`) et `montants_regler` (`DemandeReglageMontantsEtat`,
+`MontantEtatSaisi`). Chaque geste : une transaction en durabilité critique pour l'élève ou la
+sélection, fraîcheur (`crate::fraicheur::verifier`) des versions et de la facture de chaque ligne
+avant toute écriture, nouvelle version par `inserer_version` (l'ancienne `remplacee`), case des
+rapports, `recalculer_dans`, audit avant et après par élève (`prise_en_charge_etat`) et un audit
+du lot (`prise_en_charge_lot`) pour une sélection, événements `PriseEnChargeEtatCochee`,
+`PriseEnChargeEtatModifiee` (modifier, appliquer, abandonner, défaire), `PriseEnChargeEtatDecochee`
+(ajoutés à `TypeEvenement`). `regler_dans` (dans une unité ouverte) sert aussi la grille. Montant
+proposé (§3.3) : `montant_etat` du niveau et de la série de la classe, sinon le net de la
+scolarité de la facture, sinon la scolarité de la grille en vigueur. Règles : cocher seulement en
+classe du lycée ou du technique (`prise_en_charge.classe_non_concernee`) ; année close ou
+archivée : cocher et décocher refusés (`prise_en_charge.annee_close`), modifier et abandonner
+permis ; motif obligatoire pour décocher et abandonner (`prise_en_charge.motif_obligatoire`) ;
+abandon jamais au-delà de ce que l'État doit encore (`prise_en_charge.abandon_superieur`) ;
+modifier, abandonner ou défaire pour un élève non coché : `prise_en_charge.non_cochee` ; en
+modifiant l'attendu ou la référence d'un élève dont l'abandon reste, le motif de l'abandon est
+recopié. Permissions dans le service (`droits_de`) : `invoices:discount` pour régler, abandonner
+et l'aperçu, `invoices:issue` (ou `invoices:discount`) pour lister, `students:read` pour
+l'historique et les montants lus, `fees:manage` pour les montants réglés.
+`ServiceComplements::regler_eleve` : un changement de la case exige `invoices:discount` avant
+toute écriture et passe par `regler_dans` (cocher au montant proposé, décocher avec le motif
+proposé) ; le reste inchangé. `facturation::facturer_dans` : la facture née d'une inscription déjà
+cochée (validation, rattrapage) est recalculée à sa naissance. `facturation::partage_simule` : le
+partage avec une autre version, sans rien écrire (aperçu). Changement de classe (§5.3) :
+`ApercuAjustement` gagne `proposer_decocher` et `montant_etat_propose`, remplis par
+`prise_en_charge::proposition_changement_classe` dans `ServiceAjustements::apercu`, sans rien
+écrire (`gesco.ts` écrit à la main). Textes d'erreur dans `fr-ML.ts` (dont
+`prise_en_charge.reference_trop_longue`, clé de l'étape 1 qui manquait). Aide d'essai
+`Application::prise_en_charge_essai` (`#[doc(hidden)]`) : appelle le service avec la session du
+jeton, sous le nom des futures commandes. Essais écrits, non lancés :
+`gesco-services/tests/prise_en_charge_service.rs` (sélection en une transaction avec le montant
+proposé du tableau, de la facture et de la grille, aperçu groupé, audits et événements, facture
+née soldée d'une inscription cochée payée par l'État, sélection refusée en entier ; aperçu du
+décochage et d'un autre attendu ; essai 7, partie case ; essai 9, grille comprise ; essai 10,
+partie audit, motif recopié, fraîcheur ; changement de classe et « Appliquer aux élèves déjà
+cochés »). Vérifiés : fmt, clippy (`-j 4`, noyau, base, services, toutes cibles), tsc, ESLint.
+
+Écarts à la spécification (étape 3) :
+- Les commandes ne sont pas déclarées (étape 5) : les essais passent par
+  `Application::prise_en_charge_essai`, qui aiguille les noms `prise_en_charge_regler`,
+  `prise_en_charge_abandonner`, `prise_en_charge_apercu`, `prises_en_charge_lister`,
+  `prise_en_charge_historique`, `montants_etat_lire`, `montants_etat_regler` vers le service ; à
+  l'étape 5, l'aide `appeler` du fichier d'essai passe à `p.appeler` et l'aide d'application se
+  retire.
+- `prises_en_charge_lister` se lit avec `invoices:issue` **ou** `invoices:discount` : le Directeur
+  coche (il a `invoices:discount`) mais n'a pas `invoices:issue` ; sans cela il ne verrait pas la
+  liste de ses gestes.
+- Grille « Pour les rapports » : sa demande n'a pas de motif ; décocher y prend le motif proposé
+  « Pas orienté par l'État », cocher le montant proposé. L'étape 5 peut ajouter un motif à la
+  grille.
+- Geste en plus, `appliquer_montant_propose` (« Appliquer aux élèves déjà cochés ») : l'attendu de
+  chaque élève coché passe au montant proposé ce jour-là.
+- La version terminée garde l'attendu et la référence de la version qu'elle remplace (abandon à
+  zéro) ; le calcul ne lit pas l'attendu d'une version terminée.
+- Un attendu corrigé sous l'abandon ramène l'abandon à l'attendu.
+- Cocher un élève déjà coché, ou décocher un élève qui ne l'est pas, ne fait rien (pas de refus) :
+  une sélection peut les contenir. Un refus pour un élève de la sélection annule toute la
+  sélection. Décocher, modifier et abandonner restent permis pour un élève dont la classe n'est
+  plus du lycée ni du technique (le changement de classe propose de décocher).
+- Année close = statut « clôturée » ou « archivée ».
+- Liste : toutes les inscriptions des classes du lycée et du technique de l'année, brouillons
+  compris, plus toute inscription qui a une version (même changée de classe) ; sans facture, la
+  part de l'État est tout entière en complément ; le complément compte comme échu avec la dernière
+  tranche de l'État, rien d'échu sans facture.
+- Tableau des montants : une ligne par niveau et série des classes du lycée et du technique de
+  l'année, plus les lignes déjà réglées ; une ligne absente de la demande ne change pas ; un audit
+  par ligne changée, aucun événement (la spécification n'en nomme pas) ; permis sur une année
+  close ; niveau ou série hors du lycée et du technique : `prise_en_charge.niveau_non_concerne`.
+- Les essais de l'étape 2 gardent les aides d'essai (`prise_en_charge_pour_essai`) : ils
+  emploient des classes de 7e et 8e, où le vrai service refuse de cocher.
 
 Repère : prochaine migration **0067**.
 
