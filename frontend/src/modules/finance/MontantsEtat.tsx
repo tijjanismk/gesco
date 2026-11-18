@@ -104,7 +104,7 @@ export function MontantsEtat({ anneeId, permissions }: { anneeId: string; permis
       <div className="flex flex-wrap gap-2">
         {regle ? (
           <Bouton onClick={() => enregistrement.mutate()} disabled={enregistrement.isPending || changees.length === 0 || illisible}>
-            {t("commun.enregistrer")}
+            {t("pec.montants.enregistrer")}
           </Bouton>
         ) : null}
         {aChanger > 0 && commandeAutorisee("prise_en_charge_regler", permissions) && geste === null ? (

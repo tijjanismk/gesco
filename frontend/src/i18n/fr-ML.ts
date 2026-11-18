@@ -1357,6 +1357,7 @@ export const catalogue = {
   "pec.fiche.trop_paye": "Payé par le parent sur la part de l'État : {montant}",
   "pec.fiche.reporte": "Reporté sur ses autres frais : {montant}",
   "pec.montants.titre": "Montant attendu de l'État par élève orienté",
+  "pec.montants.enregistrer": "Enregistrer les montants de l'État",
   "pec.montants.niveau": "Niveau et série",
   "pec.montants.montant": "Montant attendu de l'État",
   "pec.montants.montant_de": "Montant attendu de l'État : {niveau}",

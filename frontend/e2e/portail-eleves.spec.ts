@@ -168,8 +168,10 @@ async function ouvrirRacineCarree(p: Page) {
   await p.getByRole("link", { name: /Mathématiques/ }).first().click();
   await p.getByRole("link", { name: new RegExp(RACINE_CARREE) }).first().click();
   await expect(p.getByRole("heading", { name: RACINE_CARREE })).toBeVisible({ timeout: 30_000 });
-  // Les formules sont rendues par KaTeX, comme au bureau.
-  await expect(p.locator(".katex").first()).toBeVisible({ timeout: 30_000 });
+  // Cette leçon de 9e écrit ses calculs en caractères ordinaires, comme au bureau ; aucune
+  // formule n'y échoue.
+  await expect(p.locator("code", { hasText: "√a ≥ 0" }).first()).toBeVisible({ timeout: 30_000 });
+  await expect(p.locator(".katex-error")).toHaveCount(0);
 }
 
 test.describe.configure({ mode: "serial" });
@@ -243,12 +245,18 @@ test("lot 4 : l'école est créée avec la bibliothèque, une 9e A de trois él�
     const ped = await api.appeler("pedagogie_lire", { id: annee.id });
     const neuvieme = ped.niveaux.find((n) => n.code === "9");
     const classe = await api.appeler("classe_creer", { annee_id: annee.id, niveau_id: neuvieme.id, serie_id: null, libelle: "9e A" });
+    // L'école saisit ses matricules ; chaque élève a un parent joignable, sans quoi rien ne se valide.
+    await api.appeler("parametre_definir", { cle: "matricule.saisie_manuelle", valeur: { type: "booleen", valeur: true } });
     let rang = 0;
     for (const [prenom, matricule] of ${eleves}) {
       rang += 1;
       const fiche = await api.appeler("eleve_creer", { identite: { nom: "Coulibaly", prenoms: prenom, sexe: rang % 2 === 0 ? "feminin" : "masculin",
         date_naissance: "2011-01-05", date_naissance_estimee: false, lieu_naissance: "Ségou", nationalite: "Malienne", adresse: "", telephones: [] },
         matricule_interne: matricule, matricule_national: "MN-90000" + String(rang), acte_nature: "acte", acte_numero: "", acte_date: "", ecole_origine: "" });
+      await api.appeler("responsable_rattacher", { eleve_id: fiche.eleve.id, responsable_id: null,
+        saisie: { identite: { nom: "Coulibaly", prenoms: "Mariam", sexe: "feminin", date_naissance: "", date_naissance_estimee: false,
+          lieu_naissance: "", nationalite: "", adresse: "", telephones: ["76 12 34 0" + String(rang)] }, profession: "", employeur: "" },
+        qualites: { lien: "mere", est_responsable_legal: true, est_payeur: true, recoit_notifications: true, vient_chercher: false, ordre_priorite: 1 } });
       await api.appeler("inscription_creer", { eleve_id: fiche.eleve.id, classe_id: classe.id, date_inscription: "", redoublant: false, etablissement_origine: "" });
     }
     const bilan = await api.appeler("inscriptions_valider_classe", { id: classe.id });
@@ -302,7 +310,9 @@ test("lot 4 : la direction allume le réseau puis le portail ; l'adresse et le p
   expect(await portailEcoute()).toBe(false);
   await allerA("nav.parametres");
   const section = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("portail.reglages.titre"), exact: true }) });
-  await section.locator("#portail-eleves").check();
+  // La case suit GESCO : elle se coche quand le réglage est écrit.
+  await section.locator("#portail-eleves").click();
+  await expect(section.locator("#portail-eleves")).toBeChecked();
   // Sans le réseau de l'école, une ligne et le bouton qui l'allume ; rien ne bloque.
   await expect(section.getByText(texte("portail.reglages.reseau_d_abord"))).toBeVisible();
   await section.getByRole("button", { name: texte("portail.reglages.allumer_reseau"), exact: true }).click();
@@ -378,6 +388,11 @@ test("lot 4 : un élève entre avec son code, écoute le son, finit la leçon et
   // Le son se lit depuis le portail, par requêtes partielles : dix secondes.
   const son = p.locator("audio").first();
   await expect(son).toBeAttached({ timeout: 30_000 });
+  // Le lecteur ne charge rien avant qu'on appuie (Wi-Fi ménagé) : l'essai demande l'en-tête.
+  await son.evaluate((a: HTMLAudioElement) => {
+    a.preload = "metadata";
+    a.load();
+  });
   await expect
     .poll(() => son.evaluate((a: HTMLAudioElement) => (Number.isFinite(a.duration) ? Math.round(a.duration) : 0)), { timeout: 30_000 })
     .toBe(10);

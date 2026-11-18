@@ -406,7 +406,8 @@ test("phase 3 : la direction saisit les frais de l'année et les met en vigueur"
   await page.locator("#frais-ligne-1-niveau-3").check();
   await page.locator("#frais-ligne-1-type").selectOption("inscription");
   await page.locator("#frais-ligne-1-montant").fill("10000");
-  await page.getByRole("button", { name: texte("commun.enregistrer") }).click();
+  // « Enregistrer » seul : la section des montants de l'État a son propre bouton.
+  await page.getByRole("button", { name: texte("commun.enregistrer"), exact: true }).click();
   await expect(page.getByText(/Enregistré à/)).toBeVisible();
   await capturer("50-frais-de-l-annee");
 
@@ -3807,4 +3808,232 @@ test("sauvegarde hors de l'école : le dossier OneDrive trouvé, une copie envoy
   await expect(page.getByRole("cell", { name: texte("sauvegarde.envoi.deposee"), exact: true })).toBeVisible();
   await expect.poll(() => page.locator("select[id^='sorte-']").evaluateAll((listes) => listes.map((l) => (l as HTMLSelectElement).value))).toContain("synchronise");
   await capturer("229-copie-hors-ecole-envoyee");
+});
+
+// --- Payé avant GESCO et prise en charge par l'État -----------------------------------------
+
+/** Un texte du catalogue en expression : chaque marque `{nom}` donnée prend sa valeur (une
+ *  expression), les autres valent n'importe quoi. */
+function selon(cle: Cle, valeurs: Readonly<Record<string, string>> = {}): RegExp {
+  const echappe = texte(cle).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(echappe.replace(/\\\{(\w+)\\\}/g, (_, nom: string) => valeurs[nom] ?? ".+"));
+}
+
+/** Un montant tel que `francs` l'écrit (« 75 000 F », espaces fines), en expression. */
+const enFrancs = (montant: number) => `${String(montant).replace(/\B(?=(\d{3})+(?!\d))/g, "\\s")}\\sF`;
+
+/** La section « Frais » de la fiche ouverte. */
+const sectionFrais = () => page.locator("section").filter({ has: page.getByRole("heading", { name: texte("facture.titre"), exact: true }) }).first();
+
+/** Ouvre la fiche d'un élève par la recherche de la liste. */
+async function ouvrirFiche(recherche: string, cellule: string, nom: string) {
+  await allerA("nav.eleves");
+  await page.locator("#eleves-recherche").fill(recherche);
+  await page.getByRole("cell", { name: cellule, exact: true }).first().click();
+  await expect(page.getByRole("heading", { name: nom })).toBeVisible();
+}
+
+test("payé avant GESCO : la 7e B saisit au clavier ce que deux parents avaient payé, l'un plus que son dû ; un classeur s'importe après son aperçu ; la fiche le montre", async () => {
+  test.setTimeout(240_000);
+  if (!(await page.getByText(texte("bandeau.utilisateur").replace("{nom}", NOM)).isVisible())) await revenirALaDirection();
+  await allerA("nav.paye_avant_gesco");
+  await expect(page.getByRole("heading", { name: texte("paye_avant.titre"), exact: true })).toBeVisible();
+  // Une caisse a déjà été ouverte cette année : la date d'arrêt est la veille de la première.
+  await expect(page.getByText(selon("paye_avant.arrete"))).toBeVisible();
+  await page.locator("#paye-avant-classe").selectOption({ label: "7e B" });
+  await page.locator("#paye-avant-recherche").fill("BALLO");
+  const caseDe = (eleve: string) => page.getByRole("textbox", { name: texte("paye_avant.case").replace("{eleve}", eleve), exact: true });
+
+  // Alou : le montant au clavier, Entrée l'enregistre et passe à la ligne suivante.
+  const alou = caseDe("Alou BALLO");
+  const rangAlou = Number(await alou.getAttribute("data-reprise"));
+  await alou.click();
+  await page.keyboard.type("50 000");
+  await page.keyboard.press("Enter");
+  await expect(alou).toHaveValue("50000");
+  await expect(page.locator(`[data-reprise="${String(rangAlou + 1)}"]`)).toBeFocused();
+
+  // Boubou : le cahier dit plus que ce que GESCO lui facture ; le montant est pris, l'excédent
+  // va dans « À rembourser » et le reste tombe à zéro.
+  const boubou = caseDe("Boubou BALLO");
+  await boubou.fill("500000");
+  await boubou.press("Enter");
+  await expect(boubou).toHaveValue("500000");
+  const ligneBoubou = page.getByRole("row").filter({ has: boubou });
+  // Colonnes : classe, élève, matricule, dû, payé avant GESCO, payé dans GESCO, reste, à rembourser.
+  await expect(ligneBoubou.getByRole("cell").nth(6)).toHaveText(/^0\sF$/);
+  await expect(ligneBoubou.getByRole("cell").nth(7)).toHaveText(/\d\sF$/);
+  await expect(page.getByText(selon("paye_avant.totaux_a_rembourser", { nombre: "1" }))).toBeVisible();
+  await capturer("420-reprise-paye-avant-gesco");
+
+  // Le modèle Excel, prérempli avec les élèves de la 7e B.
+  await page.getByRole("button", { name: texte("import_reprises.ouvrir"), exact: true }).click();
+  const importer = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("import_reprises.titre"), exact: true }) });
+  const modele = join(dossier, "paye-avant-gesco-modele.xlsx");
+  await substituerEnregistrement(modele);
+  await importer.getByRole("button", { name: texte("import_reprises.modele"), exact: true }).click();
+  await expect(importer.getByText(selon("import_reprises.modele_ecrit"))).toBeVisible({ timeout: 30_000 });
+  await rendreDialogues();
+  expect(readFileSync(modele).subarray(0, 2).toString("latin1")).toBe("PK");
+
+  // Le classeur rempli d'après le cahier : deux lignes valides, un excédent à vérifier, une ligne
+  // inchangée, un matricule inconnu et un montant illisible.
+  const fichier = join(dossier, "paye-avant-gesco-cahier.csv");
+  const lignes = [
+    "Matricule;Nom;Prénoms;Classe;Payé avant GESCO;Note",
+    "B/2026/010;CAMARA;Alou;7e B;75 000;cahier p. 12",
+    "B/2026/011;CAMARA;Boubou;7e B;60.000;",
+    "B/2026/002;BALLO;Boubou;7e B;500000;",
+    "B/2026/999;KANTE;Nana;7e B;20 000;",
+    "B/2026/012;CAMARA;Daouda;7e B;deux cents;",
+    "B/2026/013;CAMARA;Fanta;7e B;400 000;reçus 0451 à 0453",
+  ];
+  writeFileSync(fichier, `\uFEFF${lignes.join("\r\n")}\r\n`, "utf8");
+  await substituerOuverture(fichier);
+  await importer.getByRole("button", { name: texte("import_reprises.choisir"), exact: true }).click();
+  const resume = texte("import_reprises.resume").replace("{valides}", "2").replace("{avertissements}", "1").replace("{erreurs}", "2").replace("{ignorees}", "1");
+  const compte = resume.slice(resume.indexOf("{fichier}") + "{fichier}".length, resume.indexOf(" Total"));
+  await expect(importer.getByRole("status").filter({ hasText: compte })).toBeVisible({ timeout: 30_000 });
+  await rendreDialogues();
+  const ligneApercu = (matricule: string) => importer.getByRole("row").filter({ hasText: matricule });
+  await expect(ligneApercu("B/2026/999")).toContainText(texte("import_reprises.introuvable"));
+  await expect(ligneApercu("B/2026/012")).toContainText(texte("import_reprises.montant_illisible"));
+  await expect(ligneApercu("B/2026/002")).toContainText(texte("import_reprises.inchange"));
+  await expect(ligneApercu("B/2026/013")).toContainText(texte("import_reprises.sort.avertissement"));
+  await expect(ligneApercu("B/2026/013").getByText(selon("import_reprises.a_rembourser"))).toBeVisible();
+  await importer.getByRole("heading", { name: texte("import_reprises.titre"), exact: true }).scrollIntoViewIfNeeded();
+  await capturer("421-reprise-apercu-import");
+
+  // Les trois lignes valides ou à vérifier s'écrivent, après la sauvegarde automatique.
+  await importer.getByRole("button", { name: texte("import_reprises.importer").replace("{nombre}", "3"), exact: true }).click();
+  const bilan = texte("import_reprises.bilan").split(",")[0]?.replace("{enregistrees}", "3") ?? "";
+  await expect(importer.getByRole("status").filter({ hasText: bilan })).toBeVisible({ timeout: 60_000 });
+  await page.locator("#paye-avant-recherche").fill("CAMARA");
+  await expect(caseDe("Alou CAMARA")).toHaveValue("75000");
+  await expect(page.getByRole("row").filter({ has: caseDe("Alou CAMARA") })).toContainText("cahier p. 12");
+
+  // La fiche de Boubou : « Payé avant GESCO », l'excédent à rendre et « Rembourser ».
+  await ouvrirFiche("Boubou BALLO", "Boubou", "Boubou BALLO");
+  const frais = sectionFrais();
+  await expect(frais.getByRole("columnheader", { name: texte("facture.avant_gesco"), exact: true })).toBeVisible();
+  await expect(frais.getByText(selon("paye_avant.ligne", { montant: enFrancs(500_000) }))).toBeVisible();
+  const aRembourser = frais.getByText(selon("paye_avant.a_rembourser_ligne"));
+  await expect(aRembourser).toBeVisible();
+  await expect(frais.getByRole("button", { name: texte("paye_avant.modifier"), exact: true })).toBeVisible();
+  await expect(frais.getByRole("button", { name: texte("paye_avant.rembourser"), exact: true })).toBeVisible();
+  await aRembourser.scrollIntoViewIfNeeded();
+  await capturer("422-reprise-frais-de-la-fiche");
+
+  // « Rembourser » ouvre la dépense préremplie de l'excédent ; elle n'est pas enregistrée ici.
+  await frais.getByRole("button", { name: texte("paye_avant.rembourser"), exact: true }).click();
+  await expect(frais.getByText(texte("paye_avant.rembourser_titre").replace("{eleve}", "Boubou BALLO"), { exact: true })).toBeVisible();
+  await expect(frais.locator('[id^="rembourser-montant-"]')).toHaveValue(/^\d+$/);
+  await frais.getByText(texte("paye_avant.rembourser_titre").replace("{eleve}", "Boubou BALLO"), { exact: true }).scrollIntoViewIfNeeded();
+  await capturer("423-reprise-rembourser-le-parent");
+
+  // « Ajouter un frais » propose les frais facultatifs du niveau qui manquent à la facture.
+  await frais.getByRole("button", { name: texte("frais_ajoute.ajouter"), exact: true }).click();
+  const facultatifs = frais.locator("div").filter({ has: page.getByText(texte("frais_ajoute.titre"), { exact: true }) }).last();
+  await expect(facultatifs).toBeVisible();
+  await facultatifs.getByRole("button", { name: texte("frais_ajoute.fermer"), exact: true }).click();
+  await expect(frais.getByRole("button", { name: texte("frais_ajoute.ajouter"), exact: true })).toBeVisible();
+});
+
+test("prise en charge par l'État : les deux apprentis du CAP 1 Électricité cochés, un virement de l'État réparti sur eux, l'état imprimé ; la fiche le montre", async () => {
+  test.setTimeout(240_000);
+  if (!(await page.getByText(texte("bandeau.utilisateur").replace("{nom}", NOM)).isVisible())) await revenirALaDirection();
+  await allerA("nav.prise_en_charge_etat");
+  await expect(page.getByRole("heading", { name: texte("pec.titre"), exact: true })).toBeVisible();
+
+  // Onglet « Élèves » : la classe du technique, ses deux apprentis cochés d'un geste.
+  await page.locator("#pec-classe").selectOption({ label: "CAP 1 Électricité" });
+  const caseDe = (eleve: string) => page.getByRole("checkbox", { name: texte("pec.case").replace("{eleve}", eleve), exact: true });
+  await expect(caseDe("Moussa Diallo")).not.toBeChecked();
+  await page.getByRole("button", { name: texte("pec.cocher_affiches").replace("{nombre}", "2"), exact: true }).click();
+  await expect(page.getByText(texte("pec.geste.cocher_selection").replace("{nombre}", "2"), { exact: true })).toBeVisible();
+  // L'aperçu : ce que les parents ne doivent plus, ce que l'État devra.
+  await expect(page.getByText(selon("pec.apercu.etat"))).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: texte("pec.confirmer"), exact: true }).click();
+  await expect(caseDe("Moussa Diallo")).toBeChecked({ timeout: 30_000 });
+  await expect(caseDe("Sékou Konaté")).toBeChecked();
+  await expect(page.getByText(selon("pec.totaux"))).toBeVisible();
+  await capturer("430-prise-en-charge-eleves");
+
+  // Onglet « Versements de l'État » : un virement à la banque, réparti sur la liste des cochés.
+  await page.getByRole("tab", { name: texte("pec.onglet.versements"), exact: true }).click();
+  await page.getByRole("button", { name: texte("vetat.nouveau"), exact: true }).click();
+  await expect(page.locator("#vetat-mode")).toHaveValue("virement");
+  await page.locator("#vetat-reference").fill("OV-2026-0815");
+  await page.locator("#vetat-libelle").fill("Scolarité des élèves orientés — 1er versement");
+  await page.getByRole("button", { name: texte("vetat.tout_cocher"), exact: true }).click();
+  const repartir = (eleve: string) => page.getByRole("checkbox", { name: texte("vetat.repartir_eleve").replace("{eleve}", eleve), exact: true });
+  await expect(repartir("Moussa Diallo")).toBeChecked();
+  await expect(repartir("Sékou Konaté")).toBeChecked();
+  // Chaque ligne cochée porte le reste dû par l'État : le virement en est la somme.
+  const parts = page.getByRole("textbox", { name: new RegExp(`^${texte("vetat.montant_eleve").replace("{eleve}", "")}`) });
+  const montants = await parts.evaluateAll((cases) => cases.map((c) => Number((c as HTMLInputElement).value.replace(/\D/g, ""))));
+  const total = montants.reduce((somme, m) => somme + m, 0);
+  expect(total).toBeGreaterThan(0);
+  await page.locator("#vetat-montant").fill(String(total));
+  await expect(page.getByText(selon("vetat.pied", { reparti: enFrancs(total), non_reparti: enFrancs(0) }))).toBeVisible();
+  await page.locator("#vetat-montant").scrollIntoViewIfNeeded();
+  await capturer("431-prise-en-charge-versement-de-l-etat");
+  await page.getByRole("button", { name: texte("vetat.enregistrer"), exact: true }).click();
+  const detail = page.locator("section").filter({ has: page.getByRole("heading", { name: selon("vetat.detail", { montant: enFrancs(total) }) }) });
+  await expect(detail).toBeVisible({ timeout: 30_000 });
+  await expect(detail.getByText(selon("vetat.detail_repartition", { reparti: enFrancs(total), non_reparti: enFrancs(0) }))).toBeVisible();
+  await expect(detail.getByRole("cell", { name: "Moussa Diallo", exact: true })).toBeVisible();
+  await expect(detail.getByRole("cell", { name: "Sékou Konaté", exact: true })).toBeVisible();
+
+  // Onglet « Ce que doit l'État » : l'état par classe, imprimé en PDF puis écrit en Excel.
+  await page.getByRole("tab", { name: texte("pec.onglet.du"), exact: true }).click();
+  await expect(page.getByText(selon("du_etat.sous_total", { classe: "CAP 1 Électricité", nombre: "2" }))).toBeVisible();
+  await page.getByRole("button", { name: texte("du_etat.imprimer"), exact: true }).click();
+  const apercu = page.getByTitle(texte("document.apercu"));
+  await expect(apercu).toBeVisible({ timeout: 30_000 });
+  // Le PDF lui-même est vérifié par les essais Rust (prise_en_charge_rapports) ; ici, il s'affiche.
+  expect(await apercu.getAttribute("src")).toMatch(/^blob:/);
+  // Le visionneur PDF de WebView2 rend la page hors du DOM : aucun signal à attendre.
+  await page.waitForTimeout(4000);
+  await apercu.scrollIntoViewIfNeeded();
+  await capturer("432-prise-en-charge-etat-imprime");
+  const classeur = join(dossier, "sommes-dues-par-l-etat.xlsx");
+  await substituerEnregistrement(classeur);
+  await page.getByRole("button", { name: texte("du_etat.excel"), exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "sommes-dues-par-l-etat.xlsx" })).toBeVisible({ timeout: 30_000 });
+  await rendreDialogues();
+  expect(readFileSync(classeur).subarray(0, 2).toString("latin1")).toBe("PK");
+
+  // La fiche de Moussa : la case, les colonnes de l'État, le versement reçu pour lui.
+  await ouvrirFiche("CAP/2026/001", "CAP/2026/001", "Moussa Diallo");
+  const frais = sectionFrais();
+  await expect(frais.getByText(selon("pec.fiche.coche"))).toBeVisible();
+  await expect(frais.getByRole("columnheader", { name: texte("facture.part_etat"), exact: true })).toBeVisible();
+  await expect(frais.getByRole("columnheader", { name: texte("facture.reste_etat"), exact: true })).toBeVisible();
+  await expect(frais.getByText(texte("pec.fiche.doit_titre"), { exact: true })).toBeVisible();
+  await expect(frais.getByText(selon("pec.fiche.versement", { reference: "OV-2026-0815" }))).toBeVisible();
+  await frais.getByText(selon("pec.fiche.coche")).scrollIntoViewIfNeeded();
+  await capturer("433-prise-en-charge-frais-de-la-fiche");
+});
+
+test("portail des élèves, école d'essai : le réseau et le portail allumés, les billets de la 7e A imprimés", async () => {
+  test.skip(process.env["GESCO_ECOLE_ESSAI"] === undefined, "réservé à l'école d'essai");
+  test.setTimeout(180_000);
+  await allerA("nav.parametres");
+  const section = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("portail.reglages.titre"), exact: true }) });
+  // La case suit GESCO : elle se coche quand le réglage est écrit.
+  await section.locator("#portail-eleves").click();
+  await expect(section.locator("#portail-eleves")).toBeChecked();
+  const allumerReseau = section.getByRole("button", { name: texte("portail.reglages.allumer_reseau"), exact: true });
+  if (await allumerReseau.isVisible()) await allumerReseau.click();
+  await expect(section.getByTestId("adresse-portail")).toBeVisible({ timeout: 30_000 });
+  await capturer("440-ecole-essai-portail-allume");
+
+  await allerA("nav.classes");
+  await page.getByRole("row").filter({ hasText: "7e A" }).first().click();
+  const codes = page.locator("section").filter({ has: page.getByRole("heading", { name: texte("portail.codes.titre"), exact: true }) });
+  await codes.getByRole("button", { name: texte("portail.codes.sans_code"), exact: true }).click();
+  // Chaque élève de la classe a désormais son code.
+  await expect(codes.getByText(/^(\d+) élèves sur \1 ont leur code\.$/)).toBeVisible({ timeout: 30_000 });
+  await capturer("441-ecole-essai-billets-7e-a");
 });
