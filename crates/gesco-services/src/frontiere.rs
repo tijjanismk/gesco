@@ -257,6 +257,7 @@ use crate::prise_en_charge::{
     ListeVersementsEtat, MontantsEtat, RepartitionProposee, ReponseVersementEtat,
     ServicePriseEnCharge,
 };
+use crate::prise_en_charge::{DemandeDuEtat, DemandeProductionDuEtat, DuEtat};
 use crate::rapports::{
     DemandeEffectifProbable, DemandePreparationRapport, DemandeRapport, DemandeRapports,
     DemandeReglageRapport, DemandeTexteRapport, ListeRapports, RapportEcole, ServiceRapports,
@@ -818,6 +819,16 @@ pub struct DocumentAffiche {
     pub pdf: String,
 }
 
+/// État des sommes dues par l'État produit : le PDF, ou le classeur Excel écrit
+/// (SPEC_PRISE_EN_CHARGE_ETAT §9.2).
+#[derive(Debug, Serialize, specta::Type)]
+pub struct DuEtatProduit {
+    /// Document produit (PDF), quand aucun chemin n'était donné.
+    pub document: Option<DocumentAffiche>,
+    /// Classeur écrit, quand un chemin était donné.
+    pub fichier: Option<FichierEcrit>,
+}
+
 /// PDF d'un rapport : l'aperçu d'un rapport en préparation, ou le document de son arrêt.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 pub struct PdfRapport {
@@ -1214,6 +1225,8 @@ contrat! {
     versement_etat_modele(DemandeModeleRepartitionEtat) -> FichierEcrit;
     versement_etat_analyser_import(DemandeAnalyseRepartitionEtat) -> ApercuRepartitionEtat;
     versement_etat_importer(DemandeImportRepartitionEtat) -> RapportRepartitionEtat;
+    du_etat_lister(DemandeDuEtat) -> DuEtat;
+    du_etat_produire(DemandeProductionDuEtat) -> DuEtatProduit;
     caisse_session_courante(()) -> Option<SessionAffichee>;
     caisse_ouvrir(DemandeOuverture) -> SessionAffichee;
     caisse_cloturer(DemandeCloture) -> SessionAffichee;
@@ -1868,6 +1881,33 @@ impl Application {
             motif,
         )
         .await?)
+    }
+
+    /// Données que reçoit le modèle du relevé de compte d'un élève, sous la garde de
+    /// `releve_compte_produire` : réservé aux essais (ce que le relevé remis au parent montre),
+    /// aucune commande n'y mène.
+    #[doc(hidden)]
+    pub async fn releve_compte_donnees_pour_essai(
+        &self,
+        jeton: &Jeton,
+        eleve_id: &str,
+    ) -> Result<serde_json::Value, ErreurCommande> {
+        let ouverte = self.etat.read().await.clone().ok_or(ErreurService::Regle {
+            cle: "application.cles_verrouillees",
+        })?;
+        let commande = Commande::par_nom("releve_compte_produire").ok_or(ErreurService::Regle {
+            cle: "commande.inconnue",
+        })?;
+        let session = Garde::nouvelle(&ouverte.noyau, Arc::new(PorteeTotale))
+            .autoriser(commande, Some(jeton), None)
+            .await?
+            .ok_or(ErreurService::Authentification(MotifRefus::SessionInvalide))?;
+        let eleve_id = Id::analyser(eleve_id).map_err(|_| ErreurService::Regle {
+            cle: "commande.entree_invalide",
+        })?;
+        Ok(ServiceEncaissement::nouveau(&ouverte.noyau)
+            .donnees_releve(&session, eleve_id)
+            .await?)
     }
 
     /// Enregistre un versement de l'État reçu avant GESCO, entièrement attribué à une
@@ -5030,6 +5070,59 @@ impl Application {
             .await?;
         self.imports.lock().await.remove(&entree.fichier_id);
         Ok(rapport)
+    }
+
+    async fn du_etat_lister(&self, appel: Appel, entree: DemandeDuEtat) -> Resultat<DuEtat> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .du_lister(appel.session()?, &entree)
+            .await
+    }
+
+    /// L'état des sommes dues par l'État : avec un chemin, le classeur Excel des mêmes colonnes ;
+    /// sinon le PDF, enregistré avec son QR de vérification.
+    async fn du_etat_produire(
+        &self,
+        appel: Appel,
+        entree: DemandeProductionDuEtat,
+    ) -> Resultat<DuEtatProduit> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let service = ServicePriseEnCharge::nouveau(&ouverte.noyau);
+        let filtres = entree.filtres();
+        if let Some(chemin) = entree.chemin {
+            let etat = service.du_lister(session, &filtres).await?;
+            let titre = format!("{} {}", crate::prise_en_charge::TITRE_DU_ETAT, etat.annee);
+            let fichier = crate::export::exporter_xlsx_feuilles(
+                chemin,
+                titre,
+                vec![crate::prise_en_charge::feuille_du_etat(&etat)],
+            )
+            .await?;
+            return Ok(DuEtatProduit {
+                document: None,
+                fichier: Some(fichier),
+            });
+        }
+        let (etat, donnees) = service.du_donnees(session, &filtres).await?;
+        let contexte = ouverte
+            .noyau
+            .contexte(session.etablissement_id, Some(session));
+        let produit = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier)
+            .produire(
+                contexte,
+                "sommes_dues_etat",
+                "annee_scolaire",
+                &etat.annee_id.vers_chaine(),
+                donnees,
+            )
+            .await?;
+        Ok(DuEtatProduit {
+            document: Some(DocumentAffiche {
+                pdf: base64(&produit.pdf),
+                document: produit.document,
+            }),
+            fichier: None,
+        })
     }
 
     async fn caisse_session_courante(

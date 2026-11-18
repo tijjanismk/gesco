@@ -11,7 +11,7 @@ export function litLaListe(permissions: readonly string[]): boolean {
 }
 
 /** Clés de requête relues après un geste de la prise en charge ou un versement de l'État. */
-export const APRES_PRISE_EN_CHARGE: readonly string[] = ["prises-en-charge", "situation", "impayes", "versements-etat", "repartition-etat", "complements-eleves", "montants-etat", "preparation"];
+export const APRES_PRISE_EN_CHARGE: readonly string[] = ["prises-en-charge", "situation", "impayes", "versements-etat", "repartition-etat", "complements-eleves", "montants-etat", "preparation", "du-etat"];
 
 /** Ce que l'aperçu d'un geste dit au parent et à l'école, pour un élève ou une sélection. */
 export interface ResumeApercu {

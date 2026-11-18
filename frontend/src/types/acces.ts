@@ -242,6 +242,8 @@ export const ACCES = {
   versement_etat_modele: { type: "permission", permission: "treasury:manage" },
   versement_etat_analyser_import: { type: "permission", permission: "treasury:manage" },
   versement_etat_importer: { type: "permission", permission: "treasury:manage" },
+  du_etat_lister: { type: "connecte" },
+  du_etat_produire: { type: "connecte" },
   caisse_session_courante: { type: "connecte" },
   caisse_ouvrir: { type: "permission", permission: "cashbox:open" },
   caisse_cloturer: { type: "permission", permission: "cashbox:close" },

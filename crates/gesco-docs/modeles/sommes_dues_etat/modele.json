@@ -1,0 +1,20 @@
+{
+  "id": "sommes_dues_etat",
+  "version": 1,
+  "libelle": "État des sommes dues par l'État, à joindre à une réclamation",
+  "variables": [
+    { "nom": "titre", "requise": true },
+    { "nom": "annee", "requise": true },
+    { "nom": "arrete_au", "requise": true },
+    { "nom": "precisions", "requise": true },
+    { "nom": "classes", "requise": true },
+    { "nom": "total", "requise": true },
+    { "nom": "recu_en_plus", "requise": false },
+    { "nom": "versements", "requise": true },
+    { "nom": "total_verse", "requise": true },
+    { "nom": "non_reparti", "requise": true },
+    { "nom": "fait_a", "requise": true },
+    { "nom": "qr", "requise": true },
+    { "nom": "reference", "requise": true }
+  ]
+}

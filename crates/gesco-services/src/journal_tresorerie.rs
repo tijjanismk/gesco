@@ -114,6 +114,11 @@ pub struct Budget {
     pub avant_gesco: Montant,
     /// Total des recettes réalisées, payé avant GESCO compris.
     pub recettes_realisees: Montant,
+    /// À recevoir de l'État : ce que l'État doit encore pour les élèves pris en charge de
+    /// l'année, montré sous les recettes et **hors du total réalisé** ; l'argent reçu de l'État
+    /// est déjà dans le réalisé, par sa recette « Versements de l'État »
+    /// (SPEC_PRISE_EN_CHARGE_ETAT §10). Rien si l'année n'a aucune prise en charge.
+    pub a_recevoir_etat: Option<Montant>,
 }
 
 /// Mois du journal.
@@ -323,6 +328,14 @@ impl<'n> ServiceJournal<'n> {
             .iter()
             .try_fold(avant_gesco, |s, l| s.ajouter(l.realise))
             .map_err(|_| calcul())?;
+        let a_recevoir_etat = crate::prise_en_charge::a_recevoir_de_l_etat(
+            &mut cnx,
+            &annee,
+            crate::inscriptions::jour(contexte.maintenant)?,
+            &contexte,
+        )
+        .await?
+        .map(|(reste, _)| reste);
         Ok(Budget {
             annee_id: annee.id,
             annee: annee.libelle.clone(),
@@ -339,6 +352,7 @@ impl<'n> ServiceJournal<'n> {
             depenses,
             avant_gesco,
             recettes_realisees,
+            a_recevoir_etat,
         })
     }
 

@@ -293,6 +293,7 @@ pub const COMMANDES_A_FICHIER: &[(&str, Fichier)] = &[
     ("reprises_analyser_import", Fichier::Lu("chemin")),
     ("versement_etat_modele", Fichier::Ecrit("chemin")),
     ("versement_etat_analyser_import", Fichier::Lu("chemin")),
+    ("du_etat_produire", Fichier::Ecrit("chemin")),
     ("notes_import_analyser", Fichier::Lu("chemin")),
     ("notes_importer", Fichier::Lu("chemin")),
     ("personnel_import_modele", Fichier::Ecrit("chemin")),
@@ -823,6 +824,10 @@ pub const COMMANDES: &[Commande] = &[
         Permission::TREASURY_MANAGE,
     ),
     Commande::permise("versement_etat_importer", Permission::TREASURY_MANAGE),
+    // Ce que doit l'État (§9) : l'écran, le PDF et l'Excel se lisent avec la facturation ou la
+    // remise, comme la liste des élèves ; le service vérifie l'une ou l'autre.
+    Commande::connectee("du_etat_lister"),
+    Commande::connectee("du_etat_produire"),
     Commande::connectee("caisse_session_courante"),
     Commande::permise("caisse_ouvrir", Permission::CASHBOX_OPEN),
     Commande::permise("caisse_cloturer", Permission::CASHBOX_CLOSE),

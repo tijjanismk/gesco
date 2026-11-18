@@ -775,7 +775,7 @@ fn avertissement(
 }
 
 /// Le versement tel que la liste le montre.
-async fn affiche(
+pub(super) async fn affiche(
     cnx: &mut Connexion,
     versement: VersementEtat,
     comptes: &[CompteTresorerie],

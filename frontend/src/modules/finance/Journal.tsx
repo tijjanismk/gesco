@@ -116,6 +116,11 @@ function Budget() {
               { titre: t("budget.ecart"), valeur: (l) => l.ecart },
             ]}
           />
+          {b.a_recevoir_etat === null ? null : (
+            <p className="text-sm text-encre">
+              {t("budget.a_recevoir_etat", { montant: francs(b.a_recevoir_etat) })} <span className="text-muet">{t("budget.a_recevoir_etat_aide")}</span>
+            </p>
+          )}
           <p className="text-sm font-medium text-encre">{t("budget.depenses")}</p>
           <Tableau nomExport={`budget-depenses-${b.annee}`} titre={t("budget.depenses")} lignes={b.depenses} cle={(l) => l.categorie.id} colonnes={colonnes} />
           {gere ? <Prevoir key={b.annee_id} b={b} surFait={(x) => client.setQueryData(["budget", annee], x)} /> : null}

@@ -37,7 +37,7 @@ Repère : prochaine migration **0063**.
 
 ## Prise en charge par l'État
 
-**État (18 novembre 2026) : en cours de code, étapes 1 à 6 faites.** Spécification
+**État (18 novembre 2026) : en cours de code, étapes 1 à 7 faites.** Spécification
 `SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2 (prête à coder le 18 novembre 2026, T-164 à T-171 tranchées),
 ADR `docs/adr/2026-11-18-prise-en-charge-par-l-etat.md` accepté le 18 novembre 2026.
 Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé : ils
@@ -51,7 +51,7 @@ passent tous ensemble dans la session des essais de la 2.0.0.
 | 4 | Versement de l'État : enregistrer, répartir, compléter, annuler, recette, année close | faite (18 novembre 2026) ; essais 1, 6, 7 (partie versement), 9 (partie versement), annulation par la trésorerie et refus de la répartition écrits, non lancés |
 | 5 | Commandes et écrans, textes, matrice des permissions | faite (18 novembre 2026) ; essais vitest (aperçu du cochage, pied de la répartition, « même montant ») écrits, non lancés |
 | 6 | Répartition par fichier | faite (18 novembre 2026) ; essai 11 et vitest (`importRepartition`) écrits, non lancés |
-| 7 | Ce que doit l'État et rapports | à faire |
+| 7 | Ce que doit l'État et rapports | faite (18 novembre 2026) ; essai 12 (état, filtres, budget, tuile, PDF, Excel, année close, droits, relevé de compte) écrit, non lancé |
 | 8 | Fin d'année et manuel | à faire |
 
 **Étape 1 (18 novembre 2026)** : migration **0066** (`0066_prise_en_charge_etat.up.sql` et
@@ -524,6 +524,95 @@ Vérifiés : fmt, clippy (`-j 4`, noyau, documents, services, toutes cibles), ts
 - `gesco-docs` n'est pas touché : `tableur::classeur_feuilles` suffit (le modèle des reprises n'y
   avait rien ajouté non plus).
 
+**Étape 7 (18 novembre 2026)** : ce que doit l'État et rapports. **Un seul calcul** :
+`prise_en_charge.rs` gagne `ChiffresEtat` (dû `E + K`, reçu `S`, reste dû = restes de l'État +
+complément non reçu, dont échu, reçu en plus) et `chiffres_etat`, sur `etat_actuel` (partage de
+`facturation::etat_facture` ; échu : échéances de date passée ou du jour, complément avec la
+dernière tranche de l'État) ; la ligne de l'onglet « Élèves » (`ligne`) les prend désormais de là.
+Sous-module `prise_en_charge/du_etat.rs` : `DemandeDuEtat` (année, classe, série,
+`seulement_dus`), `DemandeProductionDuEtat` (les mêmes et `chemin`), `LigneDuEtat` (élève,
+matricule, sexe « F »/« M », classe, série, référence, case cochée, attendu, abandonné, dû, reçu,
+reste, échu, reçu en plus), `TotauxDuEtat`, `ClasseDuEtat` (lignes et sous-total), `SerieDuEtat`,
+`VersementDuEtat`, `DuEtat` (année, année close, arrêté au, classes et séries des filtres, classes
+montrées, total général, versements valides de l'année, total versé, non réparti), `TITRE_DU_ETAT` ;
+`ServicePriseEnCharge::du_lister` et `du_donnees` (données du document ; « Fait à » avec le lieu
+des rapports de l'école, `rapports::dernier_regle`, à défaut des pointillés) ;
+`a_recevoir_de_l_etat` (reste et échu d'une année, rien sans prise en charge) et
+`feuille_du_etat` (Excel) ; `versements::affiche` passe `pub(super)`. **Commandes** (après
+`versement_etat_importer` dans `commandes.rs`, `frontiere.rs`, `gesco.ts`, `acces.ts`) :
+`du_etat_lister` et `du_etat_produire`, « connectées », le service exige `invoices:issue` ou
+`invoices:discount` comme `prises_en_charge_lister` ; `du_etat_produire` dans
+`COMMANDES_A_FICHIER` (`Ecrit("chemin")`) : avec un chemin `.xlsx`, le classeur (rendu
+`DuEtatProduit { document: null, fichier }`), sans chemin le PDF enregistré avec son QR
+(`DuEtatProduit { document, fichier: null }`, entité `annee_scolaire`). **Document** : modèle
+Typst `sommes_dues_etat` v1 (`gesco-docs/modeles/sommes_dues_etat`, ajouté au catalogue), A4
+paysage comme l'état de paie, en-tête commun de l'école (nom, adresse, logo ; les mentions en
+pied), titre « État des sommes dues par l'État », année, « arrêté au », précisions (classe, série,
+« seulement les élèves dont l'État doit encore », année close) ; par classe : élève, matricule,
+sexe, série, référence, attendu, reçu, reste dû, dont échu, sous-total ; total général ; reçu en
+plus s'il y en a ; versements de l'État de l'année (date, référence, libellé, montant ; « reçu
+avant GESCO »), total reçu, non réparti ; QR de vérification, « Fait à …, le … », « Le chef
+d'établissement », signature et cachet. **Excel** : une feuille, colonnes classe, élève,
+matricule, sexe, série, référence, attendu, reçu, reste dû, dont échu ; montants en nombres ; un
+sous-total par classe et le total général. **Écran** : `modules/finance/DuEtat.tsx`, onglet « Ce
+que doit l'État » de `PriseEnChargeEtat` (type d'onglet `"eleves" | "versements" | "du"`, montré à
+qui lit la liste des élèves) : filtres classe, série, « Seulement les élèves dont l'État doit
+encore » ; totaux, « Chiffres arrêtés au » ; « Imprimer » (aperçu du PDF) et « Excel » (dialogue
+d'enregistrement) ; tableau regroupé par classe avec sous-totaux et total général ; versements de
+l'année et non réparti ; `APRES_PRISE_EN_CHARGE` relit aussi `du-etat`. **Tableau de bord** :
+`Finances.a_recevoir_etat` (`ARecevoirEtat { reste, echu }`), rempli pour `invoices:issue` si
+l'année courante a une prise en charge ; tuile « À recevoir de l'État » (dont échu) dans le bloc
+des finances. **Budget** : `Budget.a_recevoir_etat` (`a_recevoir_de_l_etat` de l'année du budget),
+montré sous le tableau des recettes avec son aide, **hors** de `recettes_realisees` ; la recette
+« Versements de l'État » est déjà dans le réalisé par sa catégorie (`recettes::par_categorie_entre`,
+recettes non annulées), vérifié. **Relevé de compte** (`ServiceEncaissement::donnees_releve`,
+modèle `releve_compte` v3) : `echeances_du_parent` — une échéance dont l'État ou l'école porte une
+part ne montre que la part du parent, sans remise ; une échéance toute à l'État ou à l'école, où le
+parent n'a rien, n'apparaît pas ; total et remise recalculés sur ces lignes (dû − remise − payé =
+reste) ; mention « Scolarité prise en charge par l'État » (version en cours) sans montant ni retard
+de l'État ; « Payé sur des frais que la famille ne doit plus : …, dont … reporté sur ses autres
+frais » ; le bloc des remboursements paraît aussi quand il n'y a qu'un « à rembourser » (trop-payé
+sans reprise). **Double compte (§10)** : relu ; la répartition (`repartir_dans`) n'écrit que des
+parts ; le journal des encaissements ne lit que les versements des parents ; le journal de
+trésorerie et le budget lisent la recette. Aide d'essai
+`Application::releve_compte_donnees_pour_essai` (`#[doc(hidden)]`, sous la garde de
+`releve_compte_produire`). Textes `du_etat.*`, `pec.onglet.du`, `tableau.a_recevoir_etat*`,
+`budget.a_recevoir_etat*` dans `fr-ML.ts`. Essai 12 écrit, non lancé :
+`gesco-services/tests/prise_en_charge_rapports.rs` (totaux de l'état = somme des restes de l'État
+de la liste, ligne par ligne et en tout, sous-totaux, versements et non réparti ; filtres classe,
+série, seulement dus ; budget : recette « Versements de l'État » dans le réalisé, total réalisé =
+recettes + payé avant GESCO, « À recevoir de l'État » à part ; tuile ; PDF pour toutes les classes,
+une classe, seulement dus et une année close ; Excel de six lignes ; extension refusée ; droits :
+Caissier, Comptable, Directeur lisent, Secrétaire refusé ; sans prise en charge, ni tuile ni ligne
+du budget ; relevé de compte : part de l'État absente, mention, trop-payé, à rembourser, document
+produit). Vérifiés : fmt, clippy (`-j 4`, documents et services, toutes cibles), tsc, ESLint.
+
+Écarts à la spécification (étape 7) :
+- `du_etat_lister` et `du_etat_produire` sont « connectées » et leur service exige
+  `invoices:issue` **ou** `invoices:discount` (même cas que `prises_en_charge_lister`, écart de
+  l'étape 3) : le Directeur, qui coche, n'a pas `invoices:issue`. Le Caissier, qui a
+  `invoices:issue`, lit l'état, comme le veut le tableau des droits.
+- Une seule commande `du_etat_produire` pour le PDF et l'Excel : le chemin choisit l'Excel ; elle
+  rend `DuEtatProduit` (l'un ou l'autre).
+- Lignes de l'état : toute inscription de l'année dont la prise en charge est en cours, plus celles
+  dont la prise en charge est terminée mais que l'État a payées ou à qui il doit encore (« plus
+  coché » à l'écran) ; pour elles, « attendu » = ce que l'État doit (`min(S, N)`).
+- Totaux de l'état : ceux des élèves montrés (filtres compris) ; la liste des versements et le non
+  réparti sont ceux de toute l'année, quel que soit le filtre.
+- « Lieu » du document : celui des rapports de l'école (dernier rapport réglé), à défaut des
+  pointillés ; la fiche de l'établissement n'a ni lieu ni autorisation d'ouverture : une
+  autorisation se lit dans les mentions de pied de page, comme sur les autres documents.
+- Le document est toujours en A4 paysage (pas de réglage de format ni de colonnes réglables, comme
+  l'état de paie).
+- Excel : les colonnes du document plus la classe, une seule feuille, montants en nombres ; l'écran
+  n'a pas l'export CSV du `Tableau` (le tableau regroupé par classe est écrit à la main).
+- Tuile : dans le bloc des finances (montré avec `invoices:issue` ou `cashbox:reconcile`), remplie
+  seulement avec `invoices:issue`.
+- Budget : « À recevoir de l'État » est une phrase sous le tableau des recettes, pas une ligne du
+  tableau, pour ne se confondre ni avec une catégorie ni avec le total réalisé.
+- Relevé de compte : une remise sur une échéance couverte (inscription d'un élève coché) n'est pas
+  montrée au parent ; une prise en charge terminée ne porte pas la mention.
+
 Ce que les étapes suivantes doivent savoir : l'import de la répartition (étape 6) se branche
 dans `VersementsEtat.tsx` (`DetailVersement` et `NouveauVersement`, à côté de
 `EditeurRepartition`), ses commandes après `versement_etat_annuler` dans `commandes.rs`,
@@ -532,6 +621,9 @@ dans `VersementsEtat.tsx` (`DetailVersement` et `NouveauVersement`, à côté de
 reçoit un chemin) vont dans `COMMANDES_A_FICHIER` (et `COMMANDES_SEULES` si l'import l'exige).
 L'onglet « Ce que doit l'État » (étape 7) s'ajoute dans `PriseEnChargeEtat` (type d'onglet
 `"eleves" | "versements"` et la barre `role="tablist"`).
+
+L'étape 8 (fin d'année et manuel) peut lire ce que doit l'État d'une année close par
+`du_etat_lister` (année donnée) et produire son état par `du_etat_produire`.
 
 Repère : prochaine migration **0067**.
 

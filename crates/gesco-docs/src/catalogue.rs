@@ -121,6 +121,10 @@ const MODELES_INTEGRES: &[(&str, &str)] = &[
         include_str!("../modeles/suivi_eleves/modele.json"),
         include_str!("../modeles/suivi_eleves/modele.typ"),
     ),
+    (
+        include_str!("../modeles/sommes_dues_etat/modele.json"),
+        include_str!("../modeles/sommes_dues_etat/modele.typ"),
+    ),
 ];
 
 /// Variable déclarée par un modèle.

@@ -1,5 +1,7 @@
 // Relevé de compte (SPEC_PHASE_3 §4.4) : par année, la facture, ses échéances avec remise,
 // payé et reste, ce qui était payé avant GESCO, les versements avec leur reçu. Remis au parent qui demande où il en est.
+// Pour un élève pris en charge par l'État, les échéances ne portent que la part du parent et une
+// mention dit que la scolarité est prise en charge, sans montant ni retard de l'État.
 #import "/commun/entete.typ": page-standard
 
 #let d = json("/donnees.json")
@@ -22,6 +24,8 @@
     } else {
       let f = i.facture
       [Facture #f.numero · plan « #f.plan » · total #f.total · remises et baisses #f.remise · payé #f.paye · *reste #f.reste*]
+      // Élève pris en charge par l'État : la mention seule, sans montant ni retard de l'État.
+      if f.at("prise_en_charge", default: false) [ \ _Scolarité prise en charge par l'État._ ]
       table(
         columns: (largeur("echeance", 1fr), largeur("date", auto), largeur("du", auto), largeur("remise", auto), largeur("paye", auto), largeur("reste", auto)),
         stroke: 0.4pt,
@@ -45,6 +49,15 @@
           ..avant,
           ..i.versements.map(v => ([#v.numero], [#v.date], [#v.mode], [#v.montant])).flatten(),
         )
+      }
+      // Payé par le parent sur ce qui ne le regarde plus (prise en charge par l'État) : reporté
+      // sur ses autres frais, le reste à rembourser.
+      let tp = f.at("trop_paye", default: none)
+      if tp != none {
+        [Payé sur des frais que la famille ne doit plus : #tp]
+        let rep = f.at("trop_paye_reporte", default: none)
+        if rep != none [, dont #rep reporté sur ses autres frais]
+        [. \ ]
       }
       if r != none {
         for x in r.rembourse {

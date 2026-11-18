@@ -11,6 +11,7 @@ import { francs, t, texteDeCle } from "../../i18n";
 import type { LignePriseEnCharge, ListePrisesEnCharge } from "../../types/gesco";
 import { APRES_PRISE_EN_CHARGE, lireFrancs, litLaListe, resumerApercu } from "./prise_en_charge";
 import { filtrerLignes } from "./reprise";
+import { DuEtat } from "./DuEtat";
 import { VersementsEtat } from "./VersementsEtat";
 
 const TOUTES = "";
@@ -51,7 +52,8 @@ export function PriseEnChargeEtat() {
   const anneeId = annee ?? annees.data?.find((a) => a.est_courante)?.id ?? annees.data?.[0]?.id ?? null;
   const eleves = litLaListe(permissions);
   const versements = commandeAutorisee("versements_etat_lister", permissions);
-  const [onglet, setOnglet] = useState<"eleves" | "versements">("eleves");
+  const [onglet, setOnglet] = useState<"eleves" | "versements" | "du">("eleves");
+  // Qui ne lit pas la liste des élèves ne lit pas non plus ce que doit l'État.
   const actif = eleves ? onglet : "versements";
   return (
     <div className="flex flex-col gap-4">
@@ -74,9 +76,14 @@ export function PriseEnChargeEtat() {
         {versements ? (
           <OngletBouton actif={actif === "versements"} surClic={() => setOnglet("versements")}>{t("pec.onglet.versements")}</OngletBouton>
         ) : null}
+        {eleves ? (
+          <OngletBouton actif={actif === "du"} surClic={() => setOnglet("du")}>{t("pec.onglet.du")}</OngletBouton>
+        ) : null}
       </div>
       {anneeId === null || session.data === undefined ? null : actif === "eleves" && eleves ? (
         <OngletEleves key={anneeId} anneeId={anneeId} permissions={permissions} />
+      ) : actif === "du" && eleves ? (
+        <DuEtat key={anneeId} anneeId={anneeId} />
       ) : versements ? (
         <VersementsEtat key={anneeId} anneeId={anneeId} permissions={permissions} />
       ) : null}

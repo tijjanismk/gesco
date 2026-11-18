@@ -705,31 +705,50 @@ impl ServiceEncaissement<'_> {
         let inscriptions: Vec<serde_json::Value> = situations
             .iter()
             .map(|s| {
+                let echeances = s.facture.as_ref().map(echeances_du_parent).unwrap_or_default();
+                let total = |f: fn(&EcheanceDuParent) -> Montant| {
+                    echeances
+                        .iter()
+                        .try_fold(Montant::ZERO, |t, e| t.ajouter(f(e)))
+                        .unwrap_or(Montant::ZERO)
+                };
                 serde_json::json!({
                     "annee": s.annee,
                     "classe": s.classe,
+                    // Le relevé est remis au parent : ses échéances ne portent que sa part ; la
+                    // part de l'État n'y figure pas, ni son montant ni son retard
+                    // (SPEC_PRISE_EN_CHARGE_ETAT §6.4). Sans prise en charge, la facture entière.
                     "facture": s.facture.as_ref().map(|f| serde_json::json!({
                         "numero": f.facture.numero,
                         "plan": f.plan,
-                        "total": f.facture.total.formater(),
+                        "total": total(|e| e.du).formater(),
                         // Remises et baisses d'un changement de classe : ce que la famille ne doit
                         // plus, pour que dû, moins remise, moins payé donne le reste.
-                        "remise": f.remise.ajouter(f.ajustement).unwrap_or(f.remise).formater(),
+                        "remise": total(|e| e.remise).formater(),
                         "paye": f.paye.formater(),
                         "reste": f.reste.formater(),
-                        "echeances": f.echeances.iter().map(|e| serde_json::json!({
-                            "libelle": e.echeance.libelle,
-                            "date": date_civile(e.echeance.date),
-                            "montant": e.echeance.montant.formater(),
-                            "remise": e.remise.ajouter(e.ajustement).unwrap_or(e.remise).formater(),
-                            "paye": e.paye.formater(),
-                            "reste": e.reste.formater(),
+                        "echeances": echeances.iter().map(|e| serde_json::json!({
+                            "libelle": e.echeance.echeance.libelle,
+                            "date": date_civile(e.echeance.echeance.date),
+                            "montant": e.du.formater(),
+                            "remise": e.remise.formater(),
+                            "paye": e.echeance.paye.formater(),
+                            "reste": e.echeance.reste.formater(),
                         })).collect::<Vec<_>>(),
+                        "prise_en_charge": f.prise_en_charge.as_ref().is_some_and(|p| {
+                            p.statut == gesco_core::finance::prise_en_charge::StatutPriseEnCharge::EnCours
+                        }),
+                        // Payé par le parent sur ce qui ne le regarde plus, et ce qui en est
+                        // reporté sur ses autres frais.
+                        "trop_paye": (!f.trop_paye.est_nul()).then(|| f.trop_paye.formater()),
+                        "trop_paye_reporte": (!f.trop_paye_reporte.est_nul())
+                            .then(|| f.trop_paye_reporte.formater()),
                     })),
                     // Payé avant GESCO (SPEC_REPRISE_AVANT_GESCO §4) : en tête des paiements,
                     // sans reçu, avec sa date d'arrêt ; puis ce qui a été rendu au parent.
                     "reprise": s.reprise.as_ref().filter(|r| !r.chiffres.montant.est_nul()
-                        || !r.remboursements.is_empty()).map(|r| serde_json::json!({
+                        || !r.remboursements.is_empty()
+                        || !r.chiffres.a_rembourser.est_nul()).map(|r| serde_json::json!({
                         "montant": (!r.chiffres.montant.est_nul())
                             .then(|| r.chiffres.montant.formater()),
                         "arret": if r.a_ce_jour {
@@ -763,6 +782,45 @@ impl ServiceEncaissement<'_> {
             "inscriptions": inscriptions,
         }))
     }
+}
+
+/// Une échéance telle que le relevé remis au parent la montre : sa part seulement.
+struct EcheanceDuParent<'a> {
+    echeance: &'a EcheanceAffichee,
+    /// Dû par le parent avant remise : la part du parent et, sur une échéance qu'il doit
+    /// entièrement, la remise.
+    du: Montant,
+    /// Remise et baisse, sur une échéance que le parent doit entièrement.
+    remise: Montant,
+}
+
+/// Échéances du relevé remis au parent (SPEC_PRISE_EN_CHARGE_ETAT §6.4) : une échéance dont l'État
+/// ou l'école porte une part ne montre que la part du parent, sans remise ; une échéance tout
+/// entière à l'État ou à l'école, où le parent n'a rien payé, n'apparaît pas. Sans prise en
+/// charge, chaque échéance telle quelle. Dû − remise − payé = reste, ligne par ligne.
+fn echeances_du_parent(facture: &crate::facturation::FactureAffichee) -> Vec<EcheanceDuParent<'_>> {
+    facture
+        .echeances
+        .iter()
+        .filter_map(|e| {
+            let couverte = !e.part_etat.est_nul() || !e.renonce.est_nul();
+            if !couverte {
+                return Some(EcheanceDuParent {
+                    echeance: e,
+                    du: e.echeance.montant,
+                    remise: e.remise.ajouter(e.ajustement).unwrap_or(e.remise),
+                });
+            }
+            if e.part_parent.est_nul() && e.paye.est_nul() && e.reste.est_nul() {
+                return None;
+            }
+            Some(EcheanceDuParent {
+                echeance: e,
+                du: e.part_parent,
+                remise: Montant::ZERO,
+            })
+        })
+        .collect()
 }
 
 fn restes(etats: &[EcheanceAffichee]) -> Vec<(Id<Echeance>, Montant)> {

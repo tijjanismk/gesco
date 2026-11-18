@@ -107,6 +107,14 @@ function BlocFinances({ f }: { f: Finances }) {
         <Chiffre libelle={t("tableau.encaisse_jour")} valeur={francs(f.encaisse_jour)} detail={t("tableau.recus", { nombre: String(f.recus_jour) })} />
         <Chiffre libelle={t("tableau.encaisse_mois")} valeur={francs(f.encaisse_mois)} />
         <Chiffre libelle={t("tableau.reste_echu")} valeur={francs(f.reste_echu)} alerte={f.reste_echu > 0} detail={t("tableau.eleves_en_retard", { nombre: String(f.eleves_en_retard) })} />
+        {f.a_recevoir_etat === null ? null : (
+          <Chiffre
+            libelle={t("tableau.a_recevoir_etat")}
+            valeur={francs(f.a_recevoir_etat.reste)}
+            alerte={f.a_recevoir_etat.echu > 0}
+            detail={t("tableau.a_recevoir_etat_echu", { echu: francs(f.a_recevoir_etat.echu) })}
+          />
+        )}
       </Rangee>
       {f.par_tranche.every((x) => x.eleves === 0) ? null : (
         <Rangee>

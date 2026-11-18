@@ -73,6 +73,18 @@ pub struct Finances {
     pub eleves_en_retard: u32,
     /// Retards par ancienneté.
     pub par_tranche: Vec<TotalTranche>,
+    /// À recevoir de l'État pour l'année (`invoices:issue`), si l'année a une prise en charge
+    /// (SPEC_PRISE_EN_CHARGE_ETAT §9.3). « Reste échu » reste celui des parents.
+    pub a_recevoir_etat: Option<ARecevoirEtat>,
+}
+
+/// Ce que l'État doit encore à l'école pour l'année : la somme de ses restes, élève par élève.
+#[derive(Debug, Clone, Copy, Serialize, specta::Type)]
+pub struct ARecevoirEtat {
+    /// Reste dû par l'État.
+    pub reste: Montant,
+    /// Dont échu.
+    pub echu: Montant,
 }
 
 /// Scolarité du jour.
@@ -384,6 +396,25 @@ impl<'n> ServiceTableau<'n> {
                 .unwrap_or(aujourd_hui);
             let du_mois = recouvrement.journal(session, &journal(debut_mois)).await?;
             let impayes = recouvrement.impayes(session).await?;
+            let a_recevoir_etat = if a(Permission::INVOICES_ISSUE) {
+                let mut cnx = self
+                    .noyau
+                    .base()
+                    .pool()
+                    .acquire()
+                    .await
+                    .map_err(gesco_db::ErreurBase::from)?;
+                crate::prise_en_charge::a_recevoir_de_l_etat(
+                    &mut cnx,
+                    &annee,
+                    aujourd_hui,
+                    &contexte,
+                )
+                .await?
+                .map(|(reste, echu)| ARecevoirEtat { reste, echu })
+            } else {
+                None
+            };
             Some(Finances {
                 encaisse_jour: du_jour.total,
                 recus_jour: du_jour.nombre,
@@ -391,6 +422,7 @@ impl<'n> ServiceTableau<'n> {
                 reste_echu: impayes.echu,
                 eleves_en_retard: u32::try_from(impayes.lignes.len()).unwrap_or(u32::MAX),
                 par_tranche: impayes.par_tranche,
+                a_recevoir_etat,
             })
         } else {
             None

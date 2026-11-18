@@ -34,8 +34,14 @@ use crate::inscriptions::jour;
 use crate::noyau::Noyau;
 use crate::session::Session;
 
+mod du_etat;
 mod versements;
 
+pub use du_etat::{
+    ClasseDuEtat, DemandeDuEtat, DemandeProductionDuEtat, DuEtat, LigneDuEtat, SerieDuEtat,
+    TITRE_DU_ETAT, TotauxDuEtat, VersementDuEtat,
+};
+pub(crate) use du_etat::{a_recevoir_de_l_etat, feuille_du_etat};
 pub use versements::{
     ApercuVersementEtat, AvertissementPartEtat, DemandeAnnulationVersementEtat,
     DemandeApercuVersementEtat, DemandeRepartitionProposee, DemandeRepartitionVersementEtat,
@@ -534,6 +540,42 @@ async fn etat_actuel(
     let etat = etat_facture(cnx, facture.id, contexte).await?;
     let echu = reste_etat_echu(&etat.echeances, &etat.partage, aujourd_hui)?;
     Ok((etat.partage, echu))
+}
+
+/// Ce que doit l'État pour une inscription (§9.1), d'après son partage actuel : dû (`E + K`),
+/// reçu (`S`), reste dû (restes de l'État et complément non reçu), dont échu, reçu en plus. Un
+/// seul calcul pour la liste des élèves, l'état de ce que doit l'État, la tuile du tableau de
+/// bord et le budget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ChiffresEtat {
+    /// Dû par l'État : sur la facture et en complément.
+    pub du: Montant,
+    /// Reçu de l'État.
+    pub recu: Montant,
+    /// Reste dû par l'État.
+    pub reste: Montant,
+    /// Dont échu.
+    pub echu: Montant,
+    /// Reçu au-delà de ce que l'État doit.
+    pub recu_en_plus: Montant,
+}
+
+/// Partage actuel d'une inscription et ce que l'État doit pour elle.
+async fn chiffres_etat(
+    cnx: &mut Connexion,
+    cible: &Cible,
+    aujourd_hui: DateCivile,
+    contexte: &Contexte,
+) -> Resultat<(Partage, ChiffresEtat)> {
+    let (partage, echu) = etat_actuel(cnx, cible, aujourd_hui, contexte).await?;
+    let chiffres = ChiffresEtat {
+        du: calcul(partage.du_etat_total())?,
+        recu: partage.recu_etat,
+        reste: calcul(partage.doit_encore_etat())?,
+        echu,
+        recu_en_plus: partage.recu_en_plus,
+    };
+    Ok((partage, chiffres))
 }
 
 fn reste_etat_echu(
@@ -1525,7 +1567,7 @@ async fn ligne(
     aujourd_hui: DateCivile,
     contexte: &Contexte,
 ) -> Resultat<LignePriseEnCharge> {
-    let (partage, echu) = etat_actuel(cnx, cible, aujourd_hui, contexte).await?;
+    let (partage, etat) = chiffres_etat(cnx, cible, aujourd_hui, contexte).await?;
     let montant_propose = montant_propose(cnx, cible, contexte).await?;
     let lue_le = crate::fraicheur::instant(cnx, &cible.lignes_fraicheur()).await?;
     let (eleve, matricule) = noms
@@ -1551,11 +1593,11 @@ async fn ligne(
         montant_attendu: en_cours.map_or(Montant::ZERO, |v| v.montant_attendu),
         abandonne: en_cours.map_or(Montant::ZERO, |v| v.abandonne),
         montant_propose,
-        du_etat: calcul(partage.du_etat_total())?,
-        recu_etat: partage.recu_etat,
-        reste_etat: calcul(partage.doit_encore_etat())?,
-        reste_etat_echu: echu,
-        recu_en_plus: partage.recu_en_plus,
+        du_etat: etat.du,
+        recu_etat: etat.recu,
+        reste_etat: etat.reste,
+        reste_etat_echu: etat.echu,
+        recu_en_plus: etat.recu_en_plus,
         reste_parent: partage.reste_parent,
         a_rembourser: partage.a_rembourser,
         sans_facture: cible.facture.is_none(),

@@ -973,6 +973,13 @@ export type Budget = {
 	avant_gesco: Montant,
 	/**  Total des recettes réalisées, payé avant GESCO compris. */
 	recettes_realisees: Montant,
+	/**
+	 *  À recevoir de l'État : ce que l'État doit encore pour les élèves pris en charge de
+	 *  l'année, montré sous les recettes et **hors du total réalisé** ; l'argent reçu de l'État
+	 *  est déjà dans le réalisé, par sa recette « Versements de l'État »
+	 *  (SPEC_PRISE_EN_CHARGE_ETAT §10). Rien si l'année n'a aucune prise en charge.
+	 */
+	a_recevoir_etat: Montant | null,
 };
 
 /**  Bulletin d'un élève, dans une version. */
@@ -2212,6 +2219,8 @@ export type Contrat = {
 	versement_etat_analyser_import: Signature<DemandeAnalyseRepartitionEtat, ApercuRepartitionEtat>,
 	/**  Signature de la commande du même nom. */
 	versement_etat_importer: Signature<DemandeImportRepartitionEtat, RapportRepartitionEtat>,
+	du_etat_lister: Signature<DemandeDuEtat, DuEtat>,
+	du_etat_produire: Signature<DemandeProductionDuEtat, DuEtatProduit>,
 	/**  Signature de la commande du même nom. */
 	caisse_session_courante: Signature<null, SessionAffichee | null>,
 	/**  Signature de la commande du même nom. */
@@ -7596,6 +7605,19 @@ export type Finances = {
 	eleves_en_retard: number,
 	/**  Retards par ancienneté. */
 	par_tranche: TotalTranche[],
+	/**
+	 *  À recevoir de l'État pour l'année (`invoices:issue`), si l'année a une prise en charge
+	 *  (SPEC_PRISE_EN_CHARGE_ETAT §9.3). « Reste échu » reste celui des parents.
+	 */
+	a_recevoir_etat: ARecevoirEtat | null,
+};
+
+/**  Ce que l'État doit encore à l'école pour l'année : la somme de ses restes, élève par élève. */
+export type ARecevoirEtat = {
+	/**  Reste dû par l'État. */
+	reste: Montant,
+	/**  Dont échu. */
+	echu: Montant,
 };
 
 /**  Fonction proposée sur la fiche, rattachée à une catégorie. */
@@ -11227,6 +11249,175 @@ export type RapportRepartitionEtat = {
 	retirees: number,
 	/**  Lignes refusées, à corriger et réimporter. */
 	refusees: LigneImportRepartitionEtat[],
+};
+
+/**  Filtres de l'état de ce que doit l'État (§6.3, §9.2). */
+export type DemandeDuEtat = {
+	/**  Année ; absente, l'année courante. Une année close se lit et s'imprime. */
+	annee_id?: string | null,
+	/**  Classe ; absente, toutes. */
+	classe_id?: string | null,
+	/**  Série ; absente, toutes. */
+	serie_id?: string | null,
+	/**  Seulement les élèves dont l'État doit encore quelque chose. */
+	seulement_dus?: boolean,
+};
+
+/**  Production de l'état : le PDF, ou, avec un chemin, le classeur Excel des mêmes colonnes. */
+export type DemandeProductionDuEtat = {
+	/**  Année ; absente, l'année courante. */
+	annee_id?: string | null,
+	/**  Classe ; absente, toutes. */
+	classe_id?: string | null,
+	/**  Série ; absente, toutes. */
+	serie_id?: string | null,
+	/**  Seulement les élèves dont l'État doit encore quelque chose. */
+	seulement_dus?: boolean,
+	/**  Chemin du classeur `.xlsx` à écrire ; absent, le PDF. */
+	chemin?: string | null,
+};
+
+/**  Une inscription dans l'état. */
+export type LigneDuEtat = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	eleve: string,
+	/**  Matricule interne. */
+	matricule: string,
+	/**  Sexe, « F » ou « M » (vide s'il n'est pas connu). */
+	sexe: string,
+	/**  Classe. */
+	classe_id: string,
+	/**  Libellé de la classe. */
+	classe: string,
+	/**  Série de la classe. */
+	serie_id: string | null,
+	/**  Libellé de la série (vide sans série). */
+	serie: string,
+	/**  Référence d'orientation. */
+	reference: string,
+	/**
+	 *  Case cochée (version en cours) ; sinon prise en charge terminée, encore suivie pour ce
+	 *  que l'État a payé.
+	 */
+	pris_en_charge: boolean,
+	/**
+	 *  Attendu : le montant attendu d'un élève coché ; pour une prise en charge terminée, ce que
+	 *  l'État doit, c'est-à-dire ce qu'il a payé sur la facture.
+	 */
+	attendu: Montant,
+	/**  Abandonné par l'école (« Ne plus attendre »). */
+	abandonne: Montant,
+	/**  Dû par l'État : sur la facture et en complément. */
+	du: Montant,
+	/**  Reçu de l'État. */
+	recu: Montant,
+	/**  Reste dû par l'État. */
+	reste: Montant,
+	/**  Dont échu. */
+	echu: Montant,
+	/**  Reçu au-delà de ce que l'État doit pour l'élève. */
+	recu_en_plus: Montant,
+};
+
+/**  Totaux d'une classe ou de l'école. */
+export type TotauxDuEtat = {
+	/**  Élèves. */
+	nombre: number,
+	/**  Attendu. */
+	attendu: Montant,
+	/**  Abandonné. */
+	abandonne: Montant,
+	/**  Dû. */
+	du: Montant,
+	/**  Reçu. */
+	recu: Montant,
+	/**  Reste dû. */
+	reste: Montant,
+	/**  Dont échu. */
+	echu: Montant,
+	/**  Reçu en plus. */
+	recu_en_plus: Montant,
+};
+
+/**  Une classe de l'état, avec son sous-total. */
+export type ClasseDuEtat = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Libellé. */
+	classe: string,
+	/**  Élèves, par nom. */
+	lignes: LigneDuEtat[],
+	/**  Sous-total. */
+	totaux: TotauxDuEtat,
+};
+
+/**  Série proposée au filtre. */
+export type SerieDuEtat = {
+	/**  Série. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+};
+
+/**  Un versement de l'État de l'année, dans l'état. */
+export type VersementDuEtat = {
+	/**  Versement. */
+	versement_etat_id: string,
+	/**  Date affichée : la réception, ou l'arrêt avant GESCO pour un versement reçu avant GESCO. */
+	date: string,
+	/**  Référence. */
+	reference: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Reçu avant GESCO (déjà dans le solde d'ouverture). */
+	avant_gesco: boolean,
+	/**  Montant reçu. */
+	montant: Montant,
+	/**  Réparti sur des élèves. */
+	reparti: Montant,
+	/**  Reçu, pas encore réparti. */
+	non_reparti: Montant,
+};
+
+/**  Ce que doit l'État pour une année (§6.3, §9.2). */
+export type DuEtat = {
+	/**  Année. */
+	annee_id: string,
+	/**  Libellé de l'année. */
+	annee: string,
+	/**  Année close : l'État lui doit encore, l'état se produit. */
+	annee_close: boolean,
+	/**  Jour d'arrêt des chiffres (aujourd'hui). */
+	arrete_au: string,
+	/**  Classes qui ont une prise en charge, pour le filtre. */
+	classes_filtre: ClassePriseEnCharge[],
+	/**  Séries qui ont une prise en charge, pour le filtre. */
+	series_filtre: SerieDuEtat[],
+	/**  Classes montrées, par libellé, avec leurs élèves. */
+	classes: ClasseDuEtat[],
+	/**  Total général des élèves montrés. */
+	totaux: TotauxDuEtat,
+	/**  Versements valides de l'État pour l'année, par date. */
+	versements: VersementDuEtat[],
+	/**  Total reçu de l'État pour l'année. */
+	total_verse: Montant,
+	/**  Reçu de l'État pour l'année, pas encore réparti sur des élèves. */
+	non_reparti: Montant,
+};
+
+/**
+ *  État des sommes dues par l'État produit : le PDF, ou le classeur Excel écrit
+ *  (SPEC_PRISE_EN_CHARGE_ETAT §9.2).
+ */
+export type DuEtatProduit = {
+	/**  Document produit (PDF), quand aucun chemin n'était donné. */
+	document: DocumentAffiche | null,
+	/**  Classeur écrit, quand un chemin était donné. */
+	fichier: FichierEcrit | null,
 };
 
 /**  État d'une reprise ou d'une de ses parts. */
