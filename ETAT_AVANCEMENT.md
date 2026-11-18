@@ -37,7 +37,7 @@ Repère : prochaine migration **0063**.
 
 ## Reprise avant GESCO — installer GESCO en cours d'année
 
-**État (18 novembre 2026) : étapes 1 à 6 codées, essais écrits non lancés ; étapes 7 et 8 à faire.**
+**État (18 novembre 2026) : étapes 1 à 7 codées, essais écrits non lancés ; étape 8 à faire.**
 Spécification `SPEC_REPRISE_AVANT_GESCO.md` v1.2 (acceptée le 17 novembre 2026), ADR
 `docs/adr/2026-11-17-reprise-avant-gesco.md` accepté (complément à l'acceptation : colonne
 `depense.inscription_id` et catégorie « Remboursements aux parents » dans la même migration).
@@ -52,7 +52,7 @@ après le lot 5.
 | 4 | Remboursement par une dépense liée (refus au-delà de l'excédent, recalcul au paiement et à l'annulation), « Ajouter un frais » et « Retirer un frais » (`frais_ajoutes.rs`) | faite (18 novembre 2026) ; essais 3 et 3 bis écrits, non lancés |
 | 5 | Commandes (`reprises_lister`, `reprise_enregistrer`, `reprise_annuler`, `reprise_historique`, `frais_ajouter_apercu`, `frais_ajouter`, `frais_retirer`), écran « Payé avant GESCO », section « Frais » de la fiche (ligne, historique, excédent, « Rembourser », « Ajouter un frais »), relevé de compte, textes | faite (18 novembre 2026) ; fmt, clippy, tsc, ESLint verts |
 | 6 | Import Excel des reprises (`import_reprises.rs` : modèle prérempli avec « Mode d'emploi », aperçu ligne par ligne, écriture en une transaction après sauvegarde, rapport et export des refus ; `reprises_modele`, `reprises_analyser_import`, `reprises_importer`) | faite (18 novembre 2026) ; essai 11 écrit, non lancé |
-| 7 | Rapports (journal des encaissements, budget) | à faire |
+| 7 | Rapports : journal des encaissements (`avant_gesco`, ligne hors totaux à l'écran et dans les exports), budget (`avant_gesco`, `recettes_realisees`) | faite (18 novembre 2026) ; essais 1 et 10 écrits, non lancés |
 | 8 | Manuel, essais à la main, notes de version, vitest et propriété de la caisse | à faire |
 
 **Ce qui est en place (étapes 1 à 4)**
@@ -109,6 +109,11 @@ après le lot 5.
   la clé phonétique de la recherche tolérante. Une note vide dans le classeur garde la note
   existante. Le refus sous le minimum dit « déjà remboursés » ou, s'il vient d'un avoir de
   changement de classe, « avoir à couvrir ».
+- Journal des encaissements : la ligne « Payé avant GESCO — hors caisse » est donnée par année
+  dont la date d'arrêt tombe dans la période et qui a des reprises (une période sur deux années
+  peut en montrer deux) ; elle n'est pas filtrée par caissier ni par mode. Budget : le total des
+  recettes réalisées (`recettes_realisees`) est un champ nouveau, payé avant GESCO compris ;
+  l'écran le montre en dernière ligne des recettes.
 
 **Reste (étapes 5 à 8)** : voir le relais du 18 novembre 2026 dans `docs/orchestration.md`.
 

@@ -85,6 +85,17 @@ function Budget() {
     { titre: t("budget.realise"), valeur: (l: LigneBudget) => francs(l.realise) },
     { titre: t("budget.ecart"), valeur: reste },
   ];
+  // Recettes : les catégories, puis le payé avant GESCO (sans prévu, hors des catégories), puis
+  // le total réalisé qui le compte.
+  type RangeeRecette = { cle: string; libelle: string; prevu: string; realise: string; ecart: string };
+  const recettes: RangeeRecette[] =
+    b === undefined
+      ? []
+      : [
+          ...b.recettes.map((l) => ({ cle: l.categorie.id, libelle: l.categorie.libelle, prevu: francs(l.prevu), realise: francs(l.realise), ecart: reste(l) })),
+          ...(b.avant_gesco === 0 ? [] : [{ cle: "avant-gesco", libelle: t("budget.avant_gesco"), prevu: "", realise: francs(b.avant_gesco), ecart: "" }]),
+          { cle: "total", libelle: t("budget.total_realise"), prevu: "", realise: francs(b.recettes_realisees), ecart: "" },
+        ];
   return (
     <Section titre={t("budget.titre", { annee: b?.annee ?? "" })}>
       <MessageErreur erreur={budget.error} />
@@ -93,7 +104,18 @@ function Budget() {
           <Selection id="budget-annee" libelle={t("budget.annee")} valeur={b.annee_id} surChangement={setAnnee} options={b.annees.map((a) => ({ valeur: a.id, libelle: a.libelle }))} />
           {b.depassements > 0 ? <p className="text-sm text-ocre">{t("budget.avertissement", { nombre: String(b.depassements) })}</p> : null}
           <p className="text-sm font-medium text-encre">{t("budget.recettes")}</p>
-          <Tableau nomExport={`budget-recettes-${b.annee}`} titre={t("budget.recettes")} lignes={b.recettes} cle={(l) => l.categorie.id} colonnes={colonnes} />
+          <Tableau
+            nomExport={`budget-recettes-${b.annee}`}
+            titre={t("budget.recettes")}
+            lignes={recettes}
+            cle={(l) => l.cle}
+            colonnes={[
+              { titre: t("depense.categorie"), valeur: (l) => l.libelle },
+              { titre: t("budget.prevu"), valeur: (l) => l.prevu },
+              { titre: t("budget.realise"), valeur: (l) => l.realise },
+              { titre: t("budget.ecart"), valeur: (l) => l.ecart },
+            ]}
+          />
           <p className="text-sm font-medium text-encre">{t("budget.depenses")}</p>
           <Tableau nomExport={`budget-depenses-${b.annee}`} titre={t("budget.depenses")} lignes={b.depenses} cle={(l) => l.categorie.id} colonnes={colonnes} />
           {gere ? <Prevoir key={b.annee_id} b={b} surFait={(x) => client.setQueryData(["budget", annee], x)} /> : null}

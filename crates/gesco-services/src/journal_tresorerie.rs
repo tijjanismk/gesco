@@ -109,6 +109,11 @@ pub struct Budget {
     pub depenses: Vec<LigneBudget>,
     /// Catégories de dépense au-delà de leur prévu.
     pub depassements: u32,
+    /// Payé avant GESCO de l'année : une ligne de recettes à part, sans prévu, qui n'est pas
+    /// une catégorie de trésorerie (SPEC_REPRISE_AVANT_GESCO §7).
+    pub avant_gesco: Montant,
+    /// Total des recettes réalisées, payé avant GESCO compris.
+    pub recettes_realisees: Montant,
 }
 
 /// Mois du journal.
@@ -311,6 +316,13 @@ impl<'n> ServiceJournal<'n> {
         let (recettes, depenses): (Vec<_>, Vec<_>) = lignes
             .into_iter()
             .partition(|l| l.categorie.sens == Sens::Recette);
+        let avant_gesco = crate::reprises::avant_gesco_de_l_annee(&mut cnx, &annee, &contexte)
+            .await?
+            .total;
+        let recettes_realisees = recettes
+            .iter()
+            .try_fold(avant_gesco, |s, l| s.ajouter(l.realise))
+            .map_err(|_| calcul())?;
         Ok(Budget {
             annee_id: annee.id,
             annee: annee.libelle.clone(),
@@ -325,6 +337,8 @@ impl<'n> ServiceJournal<'n> {
                 .unwrap_or(u32::MAX),
             recettes,
             depenses,
+            avant_gesco,
+            recettes_realisees,
         })
     }
 

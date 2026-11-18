@@ -6,7 +6,8 @@ import { Champ, Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { Tableau } from "../../composants/Tableau";
 import { dateCivile, dateHeure, francs, t } from "../../i18n";
-import type { LigneImpaye, LigneJournal, ModePaiement, TotalTranche, TrancheAnciennete } from "../../types/gesco";
+import type { AvantGescoAnnee, LigneImpaye, LigneJournal, ModePaiement, TotalTranche, TrancheAnciennete } from "../../types/gesco";
+import { lendemain } from "./reprise";
 import { telephoneLisible } from "../scolarite/Identite";
 import { MODES } from "./Encaissement";
 import { aujourdHui } from "../../app/aujourdhui";
@@ -120,6 +121,19 @@ function etat(l: LigneJournal): string {
   return l.versement.statut === "annule" ? t("journal_caisse.annule", { motif: l.versement.motif_annulation }) : t("journal_caisse.valide");
 }
 
+/** Rangée du journal : un versement, ou le payé avant GESCO d'une année, hors caisse et hors
+ *  des totaux, placé sous les versements (et dans les exports). */
+type Rangee = { sorte: "versement"; ligne: LigneJournal } | { sorte: "avant"; avant: AvantGescoAnnee };
+
+function arret(a: AvantGescoAnnee): string {
+  return a.a_ce_jour ? t("paye_avant.arrete_a_ce_jour_court") : t("paye_avant.arrete_court", { date: dateCivile(lendemain(a.date_arret)) });
+}
+
+/** Valeur d'une colonne pour une rangée : celle du versement, ou ce que montre la ligne avant GESCO. */
+function colonne(versement: (l: LigneJournal) => string, avant: (a: AvantGescoAnnee) => string = () => ""): (r: Rangee) => string {
+  return (r) => (r.sorte === "versement" ? versement(r.ligne) : avant(r.avant));
+}
+
 /** Journal des encaissements (SPEC_PHASE_3 §9.2) : reçus d'une période, par caissier et par mode,
  *  annulations comprises, avec les totaux par jour et par mode. L'export du comptable. */
 export function JournalEncaissements() {
@@ -171,22 +185,30 @@ export function JournalEncaissements() {
               montant_annule: francs(donnees.montant_annule),
             })}
           </p>
+          {donnees.avant_gesco.map((a) => (
+            <p key={a.annee} className="text-sm text-muet">
+              {t("journal_caisse.avant_gesco", { annee: a.annee, nombre: String(a.nombre), total: francs(a.total), arret: arret(a) })}
+            </p>
+          ))}
           <Tableau
             nomExport={`encaissements-${du}-${au}`}
             titre={t("journal_caisse.titre")}
-            lignes={donnees.lignes}
-            cle={(l) => l.versement.id}
+            lignes={[
+              ...donnees.lignes.map((ligne): Rangee => ({ sorte: "versement", ligne })),
+              ...donnees.avant_gesco.map((avant): Rangee => ({ sorte: "avant", avant })),
+            ]}
+            cle={(r) => (r.sorte === "versement" ? r.ligne.versement.id : `avant-gesco-${r.avant.annee}`)}
             colonnes={[
-              { titre: t("journal_caisse.date"), valeur: (l) => dateHeure(l.versement.encaisse_le) },
-              { titre: t("journal_caisse.recu"), valeur: (l) => l.versement.numero_recu },
-              { titre: t("impayes.eleve"), valeur: (l) => l.eleve },
-              { titre: t("impayes.classe"), valeur: (l) => l.classe },
-              { titre: t("journal_caisse.payeur"), valeur: (l) => l.versement.payeur_nom },
-              { titre: t("journal_caisse.mode"), valeur: (l) => t(MODES[l.versement.mode]) },
-              { titre: t("journal_caisse.reference"), valeur: (l) => l.versement.reference },
-              { titre: t("journal_caisse.montant"), valeur: (l) => francs(l.versement.montant) },
-              { titre: t("journal_caisse.caissier"), valeur: (l) => l.caissier },
-              { titre: t("journal_caisse.etat"), valeur: etat },
+              { titre: t("journal_caisse.date"), valeur: colonne((l) => dateHeure(l.versement.encaisse_le), arret) },
+              { titre: t("journal_caisse.recu"), valeur: colonne((l) => l.versement.numero_recu) },
+              { titre: t("impayes.eleve"), valeur: colonne((l) => l.eleve, (a) => t("journal_caisse.avant_gesco_eleves", { nombre: String(a.nombre) })) },
+              { titre: t("impayes.classe"), valeur: colonne((l) => l.classe) },
+              { titre: t("journal_caisse.payeur"), valeur: colonne((l) => l.versement.payeur_nom) },
+              { titre: t("journal_caisse.mode"), valeur: colonne((l) => t(MODES[l.versement.mode]), () => t("journal_caisse.avant_gesco_ligne")) },
+              { titre: t("journal_caisse.reference"), valeur: colonne((l) => l.versement.reference) },
+              { titre: t("journal_caisse.montant"), valeur: colonne((l) => francs(l.versement.montant), (a) => francs(a.total)) },
+              { titre: t("journal_caisse.caissier"), valeur: colonne((l) => l.caissier) },
+              { titre: t("journal_caisse.etat"), valeur: colonne(etat, () => t("journal_caisse.hors_totaux")) },
             ]}
           />
           <div className="flex flex-wrap items-start gap-4">

@@ -661,6 +661,23 @@ export type AvanceAffichee = {
 	reste: Montant,
 };
 
+/**
+ *  Payé avant GESCO d'une année, pour le journal des encaissements et le budget (§7) : jamais
+ *  une recette de caisse, toujours une ligne à part.
+ */
+export type AvantGescoAnnee = {
+	/**  Libellé de l'année. */
+	annee: string,
+	/**  Arrêté avant GESCO : la veille de la première caisse de l'année. */
+	date_arret: string,
+	/**  Vrai tant qu'aucune caisse n'a été ouverte dans l'année (« à ce jour »). */
+	a_ce_jour: boolean,
+	/**  Élèves qui ont une reprise active. */
+	nombre: number,
+	/**  Total des reprises actives. */
+	total: Montant,
+};
+
 /**  Avertissement permanent affiché dans le bandeau tant que sa cause subsiste. */
 export type Avertissement = {
 	/**  Clé de traduction. */
@@ -939,6 +956,13 @@ export type Budget = {
 	depenses: LigneBudget[],
 	/**  Catégories de dépense au-delà de leur prévu. */
 	depassements: number,
+	/**
+	 *  Payé avant GESCO de l'année : une ligne de recettes à part, sans prévu, qui n'est pas
+	 *  une catégorie de trésorerie (SPEC_REPRISE_AVANT_GESCO §7).
+	 */
+	avant_gesco: Montant,
+	/**  Total des recettes réalisées, payé avant GESCO compris. */
+	recettes_realisees: Montant,
 };
 
 /**  Bulletin d'un élève, dans une version. */
@@ -8000,6 +8024,11 @@ export type JournalEncaissements = {
 	montant_annule: Montant,
 	/**  Caissiers de la période, tous filtres de caissier et de mode ignorés. */
 	caissiers: CaissierJournal[],
+	/**
+	 *  Payé avant GESCO des années dont la date d'arrêt tombe dans la période : hors caisse,
+	 *  sous les totaux et hors d'eux (SPEC_REPRISE_AVANT_GESCO §7).
+	 */
+	avant_gesco: AvantGescoAnnee[],
 };
 
 /**  Journal de trésorerie d'un mois. */

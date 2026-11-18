@@ -1126,3 +1126,299 @@ async fn situation_de(e: &Ecole, inscription: &Value) -> Value {
     .await[0]
         .clone()
 }
+
+/// Tout ce que la caisse et les comptes montrent, et ce que la base compte de versements, de
+/// reçus et de mouvements : rien de cela ne doit bouger avec une reprise.
+async fn photo_de_l_argent(e: &Ecole) -> Value {
+    let courante =
+        e.p.ok("caisse_session_courante", Some(&e.admin), Value::Null)
+            .await;
+    let sessions =
+        e.p.ok("caisse_sessions_lister", Some(&e.admin), Value::Null)
+            .await;
+    let journal =
+        e.p.ok(
+            "encaissements_lister",
+            Some(&e.admin),
+            json!({ "du": "2026-09-01", "au": "2026-12-31", "caissier_id": null, "mode": null }),
+        )
+        .await;
+    let tresorerie =
+        e.p.ok(
+            "journal_tresorerie_lire",
+            Some(&e.admin),
+            json!({ "mois": "2026-10" }),
+        )
+        .await;
+    let comptes = e.p.ok("tresorerie_lire", Some(&e.admin), Value::Null).await["comptes"].clone();
+    let mut livres = Vec::new();
+    for compte in comptes.as_array().unwrap() {
+        livres.push(
+            e.p.ok(
+                "livre_compte_lire",
+                Some(&e.admin),
+                json!({ "compte_id": compte["id"], "mois": "2026-10" }),
+            )
+            .await,
+        );
+    }
+    let mut cnx = base_brute(&e.p.racine, e.p.trousseau.clone()).await;
+    let mut compter = Vec::new();
+    for requete in [
+        "SELECT COUNT(*) FROM versement",
+        "SELECT COUNT(*) FROM imputation_versement",
+        "SELECT COUNT(*) FROM mouvement_caisse",
+        "SELECT COUNT(*) FROM session_caisse",
+    ] {
+        let n: i64 = sqlx::query_scalar(requete)
+            .fetch_one(&mut cnx)
+            .await
+            .unwrap();
+        compter.push(n);
+    }
+    let dernier_recu: Option<String> = sqlx::query_scalar("SELECT MAX(numero_recu) FROM versement")
+        .fetch_one(&mut cnx)
+        .await
+        .unwrap();
+    json!({
+        "session": courante["totaux"],
+        "sessions": sessions,
+        // Le journal des encaissements, ses lignes et ses totaux ; la ligne « Payé avant GESCO »
+        // est à part, hors de ses totaux.
+        "encaissements": { "lignes": journal["lignes"], "par_jour": journal["par_jour"],
+            "par_mode": journal["par_mode"], "nombre": journal["nombre"], "total": journal["total"],
+            "annules": journal["annules"], "montant_annule": journal["montant_annule"] },
+        "tresorerie": tresorerie,
+        "comptes": comptes,
+        "livres": livres,
+        "lignes": compter,
+        "dernier_recu": dernier_recu,
+    })
+}
+
+/// Essai 1 : pour une école qui a des sessions ouvertes et clôturées, des versements, une
+/// annulation, une sortie et des comptes avec leurs soldes d'ouverture, une reprise, sa
+/// modification, son annulation et un import ne changent rien à l'argent.
+#[tokio::test]
+async fn la_caisse_et_les_comptes_ne_voient_jamais_la_reprise() {
+    let dossier = tempfile::tempdir().unwrap();
+    let e = ecole(dossier.path()).await;
+    let (_, awa) = inscrit(&e, "Awa", &e.septieme).await;
+    let (fiche_b, binta) = inscrit(&e, "Binta", &e.septieme).await;
+    let (_, coumba) = inscrit(&e, "Coumba", &e.septieme).await;
+    // Un compte de banque avec son solde d'ouverture.
+    e.p.ok(
+        "compte_tresorerie_enregistrer",
+        Some(&e.admin),
+        json!({ "id": null, "nature": "banque", "libelle": "Compte courant", "organisme": "Banque",
+            "numero": "", "solde_ouverture": 250_000, "ouvert_le": "2026-10-01", "actif": true }),
+    )
+    .await;
+    // Une première session : deux versements, l'un annulé, puis la clôture.
+    e.p.ok(
+        "caisse_ouvrir",
+        Some(&e.admin),
+        json!({ "fonds_initial": 20_000 }),
+    )
+    .await;
+    payer(&e, &e.admin, &awa, "awa-1", 10_000).await;
+    let recu = payer(&e, &e.admin, &binta, "binta-1", 5_000).await;
+    e.p.ok(
+        "versement_annuler",
+        Some(&e.admin),
+        json!({ "id": recu["versement"]["id"], "motif": "Erreur de montant" }),
+    )
+    .await;
+    let courante =
+        e.p.ok("caisse_session_courante", Some(&e.admin), Value::Null)
+            .await;
+    e.p.ok(
+        "caisse_cloturer",
+        Some(&e.admin),
+        json!({ "total_compte": courante["totaux"]["theorique"], "motif_ecart": "" }),
+    )
+    .await;
+    // Une seconde session, ouverte : un versement et une sortie.
+    e.p.ok(
+        "caisse_ouvrir",
+        Some(&e.admin),
+        json!({ "fonds_initial": 30_000 }),
+    )
+    .await;
+    payer(&e, &e.admin, &coumba, "coumba-1", 25_000).await;
+    let depenses =
+        e.p.ok(
+            "depenses_lire",
+            Some(&e.admin),
+            json!({ "mois": "2026-10" }),
+        )
+        .await;
+    let ordinaire = depenses["categories"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["code"] != "remboursement_parent")
+        .unwrap()["id"]
+        .clone();
+    let caisse = depenses["comptes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["nature"] == "caisse")
+        .unwrap()["id"]
+        .clone();
+    e.p.ok(
+        "depense_saisir",
+        Some(&e.admin),
+        json!({ "date": "", "categorie_id": ordinaire, "libelle": "Craie", "beneficiaire": "Librairie",
+            "montant": 3_000, "paiement": { "compte_id": caisse, "mode": "especes", "reference": "" } }),
+    )
+    .await;
+
+    let avant = photo_de_l_argent(&e).await;
+    // Reprise, modification, annulation.
+    reprendre(&e, &e.admin, &coumba, 60_000).await;
+    assert_eq!(photo_de_l_argent(&e).await, avant, "après la reprise");
+    reprendre(&e, &e.admin, &coumba, 80_000).await;
+    assert_eq!(photo_de_l_argent(&e).await, avant, "après la modification");
+    e.p.ok(
+        "reprise_annuler",
+        Some(&e.admin),
+        json!({ "inscription_id": coumba["id"], "motif": "Saisie erronée" }),
+    )
+    .await;
+    assert_eq!(photo_de_l_argent(&e).await, avant, "après l'annulation");
+    // Une reprise plus grande que la facture : l'excédent n'est qu'une dette envers le parent.
+    reprendre(&e, &e.admin, &awa, 200_000).await;
+    assert_eq!(photo_de_l_argent(&e).await, avant, "après l'excédent");
+    // Un import.
+    let matricule = fiche_b["eleve"]["matricule_interne"].as_str().unwrap();
+    let chemin = dossier.path().join("reprises.csv");
+    std::fs::write(
+        &chemin,
+        format!("Matricule;Payé avant GESCO\n{matricule};45000\n"),
+    )
+    .unwrap();
+    let apercu =
+        e.p.ok(
+            "reprises_analyser_import",
+            Some(&e.admin),
+            json!({ "chemin": chemin.to_str().unwrap() }),
+        )
+        .await;
+    assert_eq!(apercu["valides"], 1);
+    e.p.ok(
+        "reprises_importer",
+        Some(&e.admin),
+        json!({ "fichier_id": apercu["fichier_id"] }),
+    )
+    .await;
+    assert_eq!(photo_de_l_argent(&e).await, avant, "après l'import");
+}
+
+/// Essai 10 : le journal des encaissements porte une ligne « Payé avant GESCO » hors de ses
+/// totaux quand sa période contient la date d'arrêt ; le budget la compte dans les recettes
+/// réalisées sans toucher aux catégories ; la date d'arrêt est la veille de la première caisse,
+/// ou « à ce jour » sans caisse.
+#[tokio::test]
+async fn les_rapports_montrent_la_reprise_a_part() {
+    let dossier = tempfile::tempdir().unwrap();
+    let e = ecole(dossier.path()).await;
+    let (_, awa) = inscrit(&e, "Awa", &e.septieme).await;
+    let journal =
+        |du: &str, au: &str| json!({ "du": du, "au": au, "caissier_id": null, "mode": null });
+    let budget_avant =
+        e.p.ok("budget_lire", Some(&e.admin), json!({ "annee_id": null }))
+            .await;
+    assert_eq!(budget_avant["avant_gesco"], 0);
+
+    reprendre(&e, &e.admin, &awa, 60_000).await;
+    // Sans caisse : arrêté « à ce jour », la veille d'aujourd'hui (4 octobre 2026).
+    let liste = e.p.ok("reprises_lister", Some(&e.admin), json!({})).await;
+    assert_eq!(liste["date_arret"], "2026-10-03");
+    assert_eq!(liste["a_ce_jour"], true);
+    let octobre =
+        e.p.ok(
+            "encaissements_lister",
+            Some(&e.admin),
+            journal("2026-10-01", "2026-10-31"),
+        )
+        .await;
+    assert_eq!(octobre["avant_gesco"].as_array().unwrap().len(), 1);
+    assert_eq!(octobre["avant_gesco"][0]["total"], 60_000);
+    assert_eq!(octobre["avant_gesco"][0]["nombre"], 1);
+    assert_eq!(octobre["avant_gesco"][0]["a_ce_jour"], true);
+    assert_eq!(octobre["total"], 0);
+    assert_eq!(octobre["nombre"], 0);
+    let apres_arret =
+        e.p.ok(
+            "encaissements_lister",
+            Some(&e.admin),
+            journal("2026-10-04", "2026-10-31"),
+        )
+        .await;
+    assert!(apres_arret["avant_gesco"].as_array().unwrap().is_empty());
+
+    // La première caisse ouvre trois jours plus tard : la date d'arrêt en est la veille.
+    e.p.horloge.avancer(3 * 86_400_000);
+    e.p.ok(
+        "caisse_ouvrir",
+        Some(&e.admin),
+        json!({ "fonds_initial": 0 }),
+    )
+    .await;
+    payer(&e, &e.admin, &awa, "awa-1", 10_000).await;
+    let liste = e.p.ok("reprises_lister", Some(&e.admin), json!({})).await;
+    assert_eq!(liste["date_arret"], "2026-10-06");
+    assert_eq!(liste["a_ce_jour"], false);
+    let octobre =
+        e.p.ok(
+            "encaissements_lister",
+            Some(&e.admin),
+            journal("2026-10-01", "2026-10-31"),
+        )
+        .await;
+    // Le versement est dans les totaux ; le payé avant GESCO n'y est pas.
+    assert_eq!(octobre["total"], 10_000);
+    assert_eq!(octobre["nombre"], 1);
+    assert_eq!(octobre["avant_gesco"][0]["total"], 60_000);
+    assert_eq!(octobre["avant_gesco"][0]["date_arret"], "2026-10-06");
+    assert_eq!(octobre["avant_gesco"][0]["a_ce_jour"], false);
+    assert_eq!(
+        octobre["par_jour"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|j| j["montant"].as_i64().unwrap())
+            .sum::<i64>(),
+        10_000
+    );
+    let septembre =
+        e.p.ok(
+            "encaissements_lister",
+            Some(&e.admin),
+            journal("2026-09-01", "2026-09-30"),
+        )
+        .await;
+    assert!(septembre["avant_gesco"].as_array().unwrap().is_empty());
+
+    // Budget : une ligne à part, comptée dans le total réalisé ; les catégories ne la reçoivent pas.
+    let budget =
+        e.p.ok("budget_lire", Some(&e.admin), json!({ "annee_id": null }))
+            .await;
+    assert_eq!(budget["avant_gesco"], 60_000);
+    let categories = |b: &Value| -> i64 {
+        b["recettes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| l["realise"].as_i64().unwrap())
+            .sum()
+    };
+    assert_eq!(
+        budget["recettes_realisees"].as_i64().unwrap(),
+        categories(&budget) + 60_000
+    );
+    // Les catégories ne reçoivent que le versement de la caisse.
+    assert_eq!(categories(&budget), categories(&budget_avant) + 10_000);
+}

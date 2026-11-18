@@ -395,6 +395,44 @@ async fn annuler_dans(
     Ok(())
 }
 
+/// Payé avant GESCO d'une année, pour le journal des encaissements et le budget (§7) : jamais
+/// une recette de caisse, toujours une ligne à part.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct AvantGescoAnnee {
+    /// Libellé de l'année.
+    pub annee: String,
+    /// Arrêté avant GESCO : la veille de la première caisse de l'année.
+    pub date_arret: DateCivile,
+    /// Vrai tant qu'aucune caisse n'a été ouverte dans l'année (« à ce jour »).
+    pub a_ce_jour: bool,
+    /// Élèves qui ont une reprise active.
+    pub nombre: u32,
+    /// Total des reprises actives.
+    pub total: Montant,
+}
+
+/// Total des reprises actives d'une année, avec sa date d'arrêt.
+pub(crate) async fn avant_gesco_de_l_annee(
+    cnx: &mut gesco_db::Connexion,
+    annee: &AnneeScolaire,
+    contexte: &Contexte,
+) -> Resultat<AvantGescoAnnee> {
+    let (date_arret, d_une_caisse) = arret_de_l_annee(cnx, annee, contexte).await?;
+    let actives = reprises::actives_de_l_annee(cnx, annee.id, contexte).await?;
+    let total = calcul(
+        actives
+            .iter()
+            .try_fold(Montant::ZERO, |s, r| s.ajouter(r.montant)),
+    )?;
+    Ok(AvantGescoAnnee {
+        annee: annee.libelle.clone(),
+        date_arret,
+        a_ce_jour: !d_une_caisse,
+        nombre: u32::try_from(actives.len()).unwrap_or(u32::MAX),
+        total,
+    })
+}
+
 /// Service de la reprise avant GESCO.
 pub struct ServiceReprises<'n> {
     noyau: &'n Noyau,

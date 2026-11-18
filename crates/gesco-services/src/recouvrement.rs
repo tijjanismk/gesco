@@ -192,6 +192,9 @@ pub struct JournalEncaissements {
     pub montant_annule: Montant,
     /// Caissiers de la période, tous filtres de caissier et de mode ignorés.
     pub caissiers: Vec<CaissierJournal>,
+    /// Payé avant GESCO des années dont la date d'arrêt tombe dans la période : hors caisse,
+    /// sous les totaux et hors d'eux (SPEC_REPRISE_AVANT_GESCO §7).
+    pub avant_gesco: Vec<crate::reprises::AvantGescoAnnee>,
 }
 
 /// Service du recouvrement.
@@ -433,6 +436,20 @@ impl<'n> ServiceRecouvrement<'n> {
             }
         }
         par_mode.sort_by_key(|t| ModePaiement::TOUS.iter().position(|m| *m == t.mode));
+        let mut avant_gesco = Vec::new();
+        {
+            let mut cnx = self.connexion().await?;
+            for annee in annee_scolaire::lister(&mut cnx, &contexte).await? {
+                let avant =
+                    crate::reprises::avant_gesco_de_l_annee(&mut cnx, &annee, &contexte).await?;
+                if demande.du <= avant.date_arret
+                    && avant.date_arret <= demande.au
+                    && !avant.total.est_nul()
+                {
+                    avant_gesco.push(avant);
+                }
+            }
+        }
         Ok(JournalEncaissements {
             lignes,
             par_jour,
@@ -442,6 +459,7 @@ impl<'n> ServiceRecouvrement<'n> {
             annules: nombre(annules),
             montant_annule,
             caissiers,
+            avant_gesco,
         })
     }
 }
