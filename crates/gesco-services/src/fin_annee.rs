@@ -5,9 +5,12 @@
 //! La règle de passage vient du CAP ou de l'académie, l'école la reporte dans son réglage
 //! (T-65) ; GESCO ne pose aucune décision seul (Q-30).
 
+use std::collections::HashMap;
+
 use gesco_core::commun::Id;
 use gesco_core::core::parametre::{Parametre, ValeurParametre, hors_bornes};
 use gesco_core::core::{AnneeScolaire, MachineAEtats, Operation, StatutAnnee, TypeEvenement};
+use gesco_core::finance::prise_en_charge::{PriseEnChargeEtat, StatutPriseEnCharge};
 use gesco_core::pedagogie::StatutBulletin;
 use gesco_core::pedagogie::regle::bareme_du_cycle;
 use gesco_core::scolarite::fin_annee::{cle_passage, code_de_retour, passage_par_defaut, proposer};
@@ -16,7 +19,9 @@ use gesco_core::scolarite::{
 };
 use gesco_db::Connexion;
 use gesco_db::contexte::Contexte;
-use gesco_db::depots::{academique, annee_scolaire, bulletins, inscriptions, parametre, personnes};
+use gesco_db::depots::{
+    academique, annee_scolaire, bulletins, inscriptions, parametre, personnes, prise_en_charge,
+};
 use gesco_db::nouvel_id;
 use gesco_db::unite::Durabilite;
 use serde::{Deserialize, Serialize};
@@ -24,6 +29,9 @@ use serde::{Deserialize, Serialize};
 use crate::erreur::{ErreurService, Resultat};
 use crate::inscriptions::jour;
 use crate::noyau::Noyau;
+use crate::prise_en_charge::{
+    CiblePriseEnCharge, Geste, montant_propose_de, prise_en_charge_possible, regler_dans,
+};
 use crate::referentiel::ServiceReferentiel;
 use crate::session::Session;
 
@@ -103,6 +111,10 @@ pub struct BilanReinscriptions {
     pub deja_inscrits: i64,
     /// Admis au dernier niveau que l'école enseigne : ils la quittent.
     pub sortants: i64,
+    /// Élèves préparés dont la scolarité était prise en charge par l'État et qui restent au
+    /// lycée ou au technique : leur nouvelle inscription porte la case cochée, que la direction
+    /// décoche si l'État ne les a pas reconduits.
+    pub prises_en_charge: i64,
     /// Niveaux où des élèves reviennent mais qui n'ont pas encore de classe.
     pub sans_classe: Vec<String>,
     /// Fin d'année mise à jour.
@@ -324,6 +336,13 @@ impl<'n> ServiceFinAnnee<'n> {
     /// Prépare dans l'année suivante chaque élève admis ou redoublant de l'année qui la précède :
     /// une inscription en brouillon dans une classe du niveau où il revient, que la secrétaire
     /// valide au guichet quand le parent vient (T-66). La facture naît à cette validation.
+    ///
+    /// Un élève dont la scolarité était prise en charge par l'État et qui revient au lycée ou au
+    /// technique reçoit la case cochée dans sa nouvelle inscription, par le geste « cocher » du
+    /// service de la prise en charge, dans la même transaction (T-169) : montant attendu
+    /// recalculé pour sa nouvelle classe (le montant réglé pour son niveau et sa série, sinon la
+    /// scolarité de la grille ; sans l'un ni l'autre, l'attendu de l'année qui s'achève),
+    /// référence d'orientation reprise, audit et événement.
     pub async fn preparer_reinscriptions(
         &self,
         session: &Session,
@@ -349,8 +368,17 @@ impl<'n> ServiceFinAnnee<'n> {
             .filter(|i| i.statut.est_vivante())
             .collect();
         let eleves = personnes::eleves(&mut cnx, &contexte).await?;
+        // Élèves dont la case est cochée dans l'année qui s'achève : leur version en cours.
+        let cochees: HashMap<Id<Inscription>, PriseEnChargeEtat> =
+            prise_en_charge::courantes_de_l_annee(&mut cnx, source.id, &contexte)
+                .await?
+                .into_iter()
+                .filter(|v| v.statut == StatutPriseEnCharge::EnCours)
+                .map(|v| (v.inscription_id, v))
+                .collect();
         let date_inscription = jour(cible.debut)?;
         let mut a_inserer = Vec::new();
+        let mut a_cocher: Vec<(Id<Inscription>, &PriseEnChargeEtat)> = Vec::new();
         let (mut deja_inscrits, mut sortants) = (0_i64, 0_i64);
         let mut sans_classe: Vec<String> = Vec::new();
         for origine in inscriptions::de_l_annee(&mut cnx, source.id, &contexte)
@@ -407,8 +435,14 @@ impl<'n> ServiceFinAnnee<'n> {
             let Some(classe_cible) = candidates.get(rang).or(candidates.last()) else {
                 continue;
             };
+            let id = nouvel_id();
+            if let Some(version) = cochees.get(&origine.id)
+                && prise_en_charge_possible(destination.cycle)
+            {
+                a_cocher.push((id, version));
+            }
             a_inserer.push(Inscription {
-                id: nouvel_id(),
+                id,
                 etablissement_id: session.etablissement_id,
                 annee_id: cible.id,
                 eleve_id: origine.eleve_id,
@@ -455,12 +489,34 @@ impl<'n> ServiceFinAnnee<'n> {
                     }),
                 );
             }
+            // La case proposée cochée : une version par élève, par le geste du service, au
+            // montant proposé pour la nouvelle classe ; sans montant réglé ni grille encore,
+            // l'attendu de l'année qui s'achève plutôt que zéro.
+            for (inscription_id, version) in &a_cocher {
+                let propose =
+                    montant_propose_de(unite.connexion(), *inscription_id, &contexte).await?;
+                let geste = Geste::Cocher {
+                    attendu: propose.est_nul().then_some(version.montant_attendu),
+                    reference: (!version.reference.is_empty()).then(|| version.reference.clone()),
+                };
+                regler_dans(
+                    &mut unite,
+                    &contexte,
+                    &[CiblePriseEnCharge {
+                        inscription_id: *inscription_id,
+                        lue_le: None,
+                    }],
+                    &geste,
+                )
+                .await?;
+            }
             self.noyau.terminer(unite).await?;
         }
         Ok(BilanReinscriptions {
             preparees,
             deja_inscrits,
             sortants,
+            prises_en_charge: a_cocher.len() as i64,
             sans_classe,
             fin: self.lire(session).await?,
         })

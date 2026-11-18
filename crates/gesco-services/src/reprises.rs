@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use gesco_core::commun::{DateCivile, Id, Montant};
 use gesco_core::core::{AnneeScolaire, Operation, StatutAnnee, TypeEvenement};
+use gesco_core::finance::prise_en_charge::StatutPriseEnCharge;
 use gesco_core::finance::reprise::{
     ChiffresReprise, OrigineReprise, RepriseAvantGesco, StatutReprise, date_d_arret, minimum,
     verifier_note,
@@ -23,7 +24,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::effets::Effet;
 use crate::erreur::{ErreurService, Resultat};
-use crate::facturation::{chiffres_reprise, etat_echeances, etat_facture, recalculer_dans};
+use crate::facturation::{chiffres_reprise, etat_facture, recalculer_dans};
 use crate::inscriptions::jour;
 use crate::noyau::Noyau;
 use crate::session::Session;
@@ -65,8 +66,12 @@ pub struct LigneRepriseAvantGesco {
     pub eleve: String,
     /// Matricule interne.
     pub matricule: String,
-    /// Dû de l'année, net des remises et des baisses.
+    /// Dû du parent pour l'année : net des remises et des baisses, sans la part de l'État ni ce
+    /// que l'école ne demande pas (inscription d'un élève pris en charge).
     pub du: Montant,
+    /// La scolarité de l'élève est prise en charge par l'État (case cochée) : l'écran le dit
+    /// sous le dû du parent.
+    pub pris_en_charge: bool,
     /// Payé avant GESCO : montant de la reprise active (zéro sans reprise).
     pub reprise: Montant,
     /// Note de la reprise active.
@@ -556,7 +561,8 @@ impl<'n> ServiceReprises<'n> {
         classes: &HashMap<Id<Classe>, String>,
         eleves: &HashMap<Id<Eleve>, (String, String)>,
     ) -> Resultat<LigneRepriseAvantGesco> {
-        let etats = etat_echeances(cnx, facture.id, contexte).await?;
+        let etat = etat_facture(cnx, facture.id, contexte).await?;
+        let etats = &etat.echeances;
         let somme = |f: fn(&crate::facturation::EcheanceAffichee) -> Montant| {
             calcul(etats.iter().try_fold(Montant::ZERO, |s, e| s.ajouter(f(e))))
         };
@@ -580,7 +586,11 @@ impl<'n> ServiceReprises<'n> {
                 .unwrap_or_default(),
             eleve,
             matricule,
-            du: somme(|e| e.net)?,
+            du: somme(|e| e.part_parent)?,
+            pris_en_charge: etat
+                .prise_en_charge
+                .as_ref()
+                .is_some_and(|v| v.statut == StatutPriseEnCharge::EnCours),
             reprise: chiffres.montant,
             note: active.map(|a| a.note).unwrap_or_default(),
             paye_gesco: calcul(somme(|e| e.paye)?.soustraire(somme(|e| e.reprise)?))?,

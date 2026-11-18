@@ -310,6 +310,7 @@ function Suivante({ suivante }: { suivante: AnneeSuivante }) {
           <p>{t("fin_annee.bilan_preparees", { nombre: bilan.preparees })}</p>
           {bilan.deja_inscrits > 0 ? <p>{t("fin_annee.bilan_deja", { nombre: bilan.deja_inscrits })}</p> : null}
           {bilan.sortants > 0 ? <p>{t("fin_annee.bilan_sortants", { nombre: bilan.sortants })}</p> : null}
+          {bilan.prises_en_charge > 0 ? <p>{t("fin_annee.bilan_prises_en_charge", { nombre: bilan.prises_en_charge })}</p> : null}
           {bilan.sans_classe.length > 0 ? <p className="text-ocre">{t("fin_annee.bilan_sans_classe", { niveaux: bilan.sans_classe.join(", ") })}</p> : null}
         </div>
       )}

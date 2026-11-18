@@ -251,6 +251,46 @@ l'école ; notez ceux que vous tapez.
 | H-26 | Relevé du jour d'un jour d'octobre ; une évaluation datée d'octobre | Les élèves importés y sont ; les absences et les notes s'enregistrent |
 | H-27 | Une fois l'année close | La liste se lit, les cases sont grisées, « Année close : lecture seule » |
 
+## I. Élèves pris en charge par l'État, à jouer par le porteur du projet sur l'école d'essai
+
+Sur l'école d'essai, avec une classe du lycée ou du technique dont les élèves sont validés,
+connecté en administrateur, puis en comptable, en secrétaire et en caissier. Le parcours est celui
+du chapitre `manuel-2.0-prise-en-charge-etat.md`. Les montants sont des exemples ; notez ceux que
+vous tapez.
+
+| N° | Faire | Attendu |
+|---|---|---|
+| I-1 | Finance → Frais de l'année : le tableau « Montant attendu de l'État par élève orienté » | Une ligne par niveau et série du lycée et du technique, avec la scolarité de l'école ; laisser une ligne vide, taper 126 000 F sur une autre |
+| I-2 | Finance → Prise en charge par l'État, onglet « Élèves », une classe : cocher un élève dont le parent n'a rien payé | L'aperçu dit le montant proposé et ce que le parent ne doit plus ; Entrée confirme ; le reste du parent tombe à sa cantine ou à zéro |
+| I-3 | « Cocher les N élèves affichés » sur une classe entière | Un seul aperçu groupé, un seul geste ; chaque élève a le montant de son niveau (126 000 F ou la scolarité de l'école) |
+| I-4 | Cocher un élève dont le parent a payé l'inscription et la 1re tranche, avec une cantine | L'aperçu dit le trop-payé, ce qui est reporté sur la cantine et ce qui est à rembourser ; sur la fiche, « Payé par le parent sur la part de l'État », « Reporté sur ses autres frais », « À rembourser au parent » et « Rembourser » |
+| I-5 | « Rembourser » cet élève, payé en espèces | Dépense préremplie « Trop-payé sur la part de l'État — … » ; la caisse perd exactement ce montant ; « À rembourser » tombe à zéro ; un second remboursement est refusé |
+| I-6 | Fiche d'un élève coché, section « Frais » | Colonnes « Part de l'État » et « Reste de l'État » ; le reste en grand est celui du parent ; bloc « Ce que doit l'État » ; historique des versions |
+| I-7 | Écran Caisse sur cet élève, puis encaisser | « Scolarité prise en charge par l'État : ne pas la réclamer au parent » ; le montant proposé est la part du parent ; un montant au-delà est refusé ; le reçu ne parle que de sa part |
+| I-8 | Relevé de compte de cet élève | Sa part seulement, la mention « Scolarité prise en charge par l'État », aucun montant ni retard de l'État |
+| I-9 | Impayés et file des SMS, un jour après la 1re tranche | Les élèves cochés dont le parent ne doit rien n'y sont pas ; aucune relance pour eux |
+| I-10 | Changer l'attendu d'un élève dans la ligne, Entrée ; puis « Appliquer ce montant » à une sélection | Les montants changent ; le reste du parent ne bouge pas |
+| I-11 | Décocher un élève remboursé à I-5 | Le motif est demandé (« Pas orienté par l'État » proposé) ; l'aperçu dit « Le parent devra … de plus, dont … déjà remboursés » ; après confirmation, le reste du parent remonte d'autant |
+| I-12 | Onglet « Versements de l'État » : « Nouveau versement de l'État », virement, compte de banque, référence, un montant pour la classe | La référence est exigée ; la liste des élèves cochés, montant prérempli = ce que l'État doit ; pied reçu, réparti, non réparti |
+| I-13 | Répartir plus que reçu | Refusé : « La répartition dépasse le montant reçu de … » |
+| I-14 | Répartir moins que reçu, une part au-delà de ce que l'État doit pour un élève, puis enregistrer | « Dont … de plus que l'attendu : corriger l'attendu ? » ; non réparti visible sur le versement ; la caisse du jour ne bouge pas ; la recette « Versements de l'État » est au livre du compte de banque |
+| I-15 | Journal de trésorerie du mois, budget, tableau de bord | L'argent de l'État une fois, dans « Versements de l'État » ; « À recevoir de l'État » sous les recettes du budget, hors du total réalisé ; tuile « À recevoir de l'État » |
+| I-16 | « Répartir par fichier » : télécharger le modèle, le remplir dans Excel avec une faute exprès (élève non coché, élève deux fois), importer | L'aperçu montre chaque ligne et les totaux ; une sauvegarde est faite avant ; la répartition du fichier remplace l'ancienne ; les refusées s'exportent ; réimporter le même fichier ne change rien |
+| I-17 | « Annuler le versement », avec motif | Sa recette est annulée ; ce que l'État doit remonte ; la caisse ne bouge pas |
+| I-18 | Un versement en espèces | Il entre dans la caisse ouverte ; annulé, il en ressort |
+| I-19 | Un versement « Reçu avant GESCO » | Ni compte ni caisse ; la date affichée est l'arrêt avant GESCO ; rien au journal de trésorerie ; il se répartit |
+| I-20 | « Ne plus attendre » sur un élève dont l'État a payé une partie | Le montant proposé est ce que l'État doit encore ; le motif est exigé ; le parent ne doit rien de plus |
+| I-21 | Onglet « Ce que doit l'État », une classe, « Seulement les élèves dont l'État doit encore », « Imprimer », puis « Excel » | Sous-totaux par classe, total général, versements et non réparti ; le PDF « État des sommes dues par l'État » avec QR, lieu, date et signature ; l'Excel s'ouvre avec les mêmes colonnes |
+| I-22 | Finance → Payé avant GESCO | Pour un élève coché, le dû du parent sans la scolarité, avec « sans la scolarité, prise en charge par l'État » ; un montant au-delà est « à rembourser » ; l'import du modèle dit de même |
+| I-23 | Connecté en secrétaire, puis en caissier | La case se voit sans se changer (onglet, fiche, grille « Pour les rapports ») ; le caissier n'enregistre pas de versement de l'État |
+| I-24 | Fin d'année : clôturer, préparer l'année suivante, « Préparer les réinscriptions » | Le bilan dit combien d'élèves pris en charge gardent la case ; leur nouvelle inscription est cochée avec le montant de leur nouvelle classe ; décocher l'un d'eux sur l'année suivante est accepté |
+| I-25 | L'année suivante ouverte : impayés ; onglet « Ce que doit l'État » sur l'année close ; un versement de l'État sur l'année close | Les arriérés ne portent que la part des parents ; l'État doit encore ce qui reste de l'année close ; le versement s'y enregistre et s'y répartit ; cocher sur l'année close est refusé |
+
+Captures à faire dans l'essai global Playwright (aucun nom réel) : cocher une classe ; enregistrer
+un virement réparti sur la liste ; imprimer l'état de ce que doit l'État ; captures de l'onglet
+« Élèves », du formulaire « Nouveau versement de l'État » et de la section « Frais » d'un élève
+coché.
+
 ## Ce qu'il faut rapporter
 
 1. Les lignes « pas vu », avec ce qui s'est affiché à la place.
@@ -265,3 +305,5 @@ l'école ; notez ceux que vous tapez.
    se connectant à un Wi-Fi sans Internet.
 8. Pour H-5 à H-12 : le temps de saisie d'une classe à l'écran et par le modèle Excel, et les
    lignes que l'aperçu a mises en erreur sans raison.
+9. Pour I-12 à I-16 : le temps de répartition d'un virement pour une classe, à l'écran et par le
+   modèle Excel ; tout chiffre de I-15 ou I-21 qui ne correspond pas à ce que l'école attendait.

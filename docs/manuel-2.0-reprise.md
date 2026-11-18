@@ -31,6 +31,14 @@ depuis la rentrée. GESCO doit y entrer **sans que le premier jour soit faux** :
 4. **La validation.** Validez les inscriptions par classe (plan par défaut). Pour les parents qui
    ont choisi un autre plan, changez le plan sur la fiche de l'élève ; accordez les remises et les
    bourses.
+
+   **4 bis. Les élèves pris en charge par l'État** (lycée et technique). Finance → Prise en
+   charge par l'État, onglet « Élèves » : choisissez la classe, puis cochez les élèves orientés
+   par l'État, un à un ou d'un geste (« Cocher les N élèves affichés »). Leur parent ne doit plus
+   la scolarité ni l'inscription. Si l'État a déjà payé une partie avant que l'école commence
+   GESCO, enregistrez ce versement dans l'onglet « Versements de l'État » avec la case « **Reçu
+   avant GESCO (déjà dans le solde d'ouverture)** » — ni recette, ni compte, ni caisse —, puis
+   répartissez-le sur les élèves. Le détail est dans le chapitre `manuel-2.0-prise-en-charge-etat.md`.
 5. **Payé avant GESCO.** Finance → Payé avant GESCO : saisissez à l'écran ce que chaque parent
    avait payé, ou remplissez le modèle Excel d'après le cahier et importez-le (section 2 et 3).
    Un parent qui a payé plus que sa facture : ajoutez d'abord le frais oublié s'il y en a un
@@ -45,8 +53,11 @@ depuis la rentrée. GESCO doit y entrer **sans que le premier jour soit faux** :
    clavier ou par l'import d'une grille ; pour un élève arrivé d'une autre école après la fin d'une
    période, saisissez sa moyenne reprise du relevé officiel.
 
-Les étapes 4 et 5 se font dans n'importe quel ordre : changer un plan après avoir saisi le payé
-avant GESCO garde le même reste à payer.
+Les étapes 4, 4 bis et 5 se font dans n'importe quel ordre : changer un plan après avoir saisi le
+payé avant GESCO garde le même reste à payer ; cocher un élève pris en charge avant ou après la
+saisie de ce que son parent avait payé donne les mêmes chiffres. Ce qu'un parent d'élève coché
+avait payé sur la scolarité ou l'inscription devient « à rembourser au parent », après ce qui
+couvre ses autres frais.
 
 ## 2. L'écran « Payé avant GESCO » (Finance → Payé avant GESCO)
 
@@ -59,8 +70,10 @@ avant GESCO garde le même reste à payer.
 - Sous la date : le total payé avant GESCO de la sélection et le nombre d'élèves ; s'il y a lieu,
   le total à rembourser et le nombre de parents ; et le nombre d'élèves encore en brouillon, à
   valider avant de pouvoir saisir ce qu'ils ont payé.
-- **Une ligne par élève validé** : classe, élève, matricule, dû de l'année (net des remises),
-  **payé avant GESCO** (la case), payé dans GESCO, reste, à rembourser.
+- **Une ligne par élève validé** : classe, élève, matricule, **dû du parent** (net des remises),
+  **payé avant GESCO** (la case), payé dans GESCO, reste, à rembourser. Pour un élève pris en
+  charge par l'État, le dû du parent est sans la scolarité ni l'inscription, et la colonne le dit :
+  « sans la scolarité, prise en charge par l'État ».
 - **La case se saisit au clavier** : tapez le montant (« 75000 », « 75 000 », « 75 000 F » ou
   « 75.000 »), puis **Entrée** : la ligne s'enregistre, le reste se met à jour, le curseur passe à
   l'élève suivant. Un montant plus grand que le dû est accepté : la colonne « à rembourser » montre
@@ -81,8 +94,10 @@ payer est le seul chiffre qui change. Le reçu d'un versement fait ensuite porte
 1. Dans l'écran « Payé avant GESCO », choisissez l'année et, si vous voulez, une classe, puis
    « Télécharger le modèle Excel ou importer » → « **Télécharger le modèle Excel** ».
 2. Le classeur contient les élèves validés de la sélection : matricule, nom, prénoms, classe, dû
-   de l'année (pour lecture), **Payé avant GESCO** (vide, ou le montant déjà saisi) et une note
-   facultative (« cahier p. 12 »). Une feuille « Mode d'emploi » rappelle les consignes.
+   de l'année (ce que doit le parent, pour lecture), **Payé avant GESCO** (vide, ou le montant
+   déjà saisi) et une note facultative (« cahier p. 12 »). Une feuille « Mode d'emploi » rappelle
+   les consignes. L'aperçu de l'import compare au dû du parent : pour un élève pris en charge par
+   l'État, ce qui dépasse sa cantine et ses autres frais est « à rembourser au parent ».
 3. Remplissez **seulement la colonne « Payé avant GESCO »** d'après le cahier. Une case vide ne
    change rien ; 0 annule ce qui avait été saisi.
 4. « **Choisir le fichier rempli** » : GESCO montre chaque ligne avant d'écrire.

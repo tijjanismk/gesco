@@ -41,12 +41,13 @@ pub const COLONNES_MODELE: [&str; 7] = [
 ];
 
 /// Mode d'emploi du modèle, une ligne par consigne.
-const MODE_D_EMPLOI: [&str; 5] = [
+const MODE_D_EMPLOI: [&str; 6] = [
     "Remplissez seulement la colonne « Payé avant GESCO », d'après le cahier ou les reçus papier.",
     "Un montant par élève, en francs, sans décimales : 75000, 75 000 ou 75 000 F.",
     "Laissez la case vide pour un élève dont vous ne voulez rien changer ; 0 annule ce qui avait été saisi.",
     "La note est facultative : la référence du cahier ou des reçus (« cahier p. 12 »).",
     "Gardez le matricule : c'est lui qui retrouve l'élève. Le dû de l'année est là pour lecture.",
+    "Le dû de l'année est ce que doit le parent : pour un élève pris en charge par l'État, sans la scolarité ni l'inscription. Ce que le parent a payé au-delà est à lui rembourser.",
 ];
 
 /// Motif d'annulation d'une reprise mise à zéro par un classeur.
@@ -755,7 +756,8 @@ fn verifier_ligne(ligne: &mut LigneImportReprise, donnees: &Annee) {
             Some(montant),
         );
     }
-    // Ce qui dépasse ce que l'élève doit encore (hors reprise) est à rendre au parent.
+    // Ce qui dépasse ce que le parent doit encore (hors reprise ; sans la part de l'État d'un
+    // élève pris en charge) est à lui rendre.
     let doit = (ecran.du.francs() - ecran.paye_gesco.francs()).max(0);
     let utilisable = (montant.francs() - ecran.rembourse.francs()).max(0);
     let excedent = utilisable - utilisable.min(doit);

@@ -666,6 +666,17 @@ async fn montant_propose(
     }
 }
 
+/// Montant attendu que le service proposerait aujourd'hui pour une inscription (§3.3), sans rien
+/// écrire : la réinscription s'en sert pour ne pas proposer zéro faute de grille.
+pub(crate) async fn montant_propose_de(
+    cnx: &mut Connexion,
+    inscription_id: Id<Inscription>,
+    contexte: &Contexte,
+) -> Resultat<Montant> {
+    let cible = lire_cible(cnx, inscription_id, contexte).await?;
+    montant_propose(cnx, &cible, contexte).await
+}
+
 /// Propositions de l'aperçu d'un changement de classe (§5.3), sans rien faire : décocher si la
 /// nouvelle classe n'est ni du lycée ni du technique ; le montant réglé pour la nouvelle classe
 /// s'il diffère de l'attendu de l'élève. Rien pour un élève qui n'est pas coché.

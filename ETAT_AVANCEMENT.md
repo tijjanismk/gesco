@@ -37,11 +37,30 @@ Repère : prochaine migration **0063**.
 
 ## Prise en charge par l'État
 
-**État (18 novembre 2026) : en cours de code, étapes 1 à 7 faites.** Spécification
+**État (18 novembre 2026) : prise en charge par l'État codée, essais écrits non lancés.** Les huit
+étapes sont faites ; les essais passent avec ceux de la 2.0.0, dans la session des essais
+(Playwright du §12 compris, dans l'essai global). Spécification
 `SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2 (prête à coder le 18 novembre 2026, T-164 à T-171 tranchées),
 ADR `docs/adr/2026-11-18-prise-en-charge-par-l-etat.md` accepté le 18 novembre 2026.
-Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé : ils
-passent tous ensemble dans la session des essais de la 2.0.0.
+Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé.
+
+Essais écrits, non lancés :
+- Rust : `gesco-core/src/finance/prise_en_charge.rs` (unitaires des essais 2, 3, 3 bis, 4, 4 bis et
+  propriétés de l'essai 5, proptest) ; `gesco-db/tests/prise_en_charge_0066.rs` (essai 10, base)
+  et le compte des migrations de `gesco-db/tests/socle.rs` (66) ;
+  `gesco-services/tests/prise_en_charge.rs` (essais 2, 3, 3 bis, 4, 4 bis et 8 par le service),
+  `prise_en_charge_service.rs` (sélection, montant proposé, aperçu, essais 7 partie case, 9, 10
+  partie audit, changement de classe, tableau des montants), `prise_en_charge_versements.rs`
+  (essais 1, 6, 7 partie versement, 9 partie versement, 11, annulation par la trésorerie),
+  `prise_en_charge_rapports.rs` (essai 12, relevé de compte), `prise_en_charge_fin_annee.rs`
+  (réinscription, essai 7 partie report, « Payé avant GESCO » et import des reprises) ; dans
+  `gesco-services/tests/reprises.rs`, l'essai qui parcourt les requêtes de paye
+  (`toute_requete_de_paye_lit_la_reprise`) exige aussi la prise en charge.
+- vitest : `frontend/src/modules/finance/prise_en_charge.test.ts` (aperçu du cochage, pied de la
+  répartition, « même montant », import de la répartition).
+- Playwright (essai global, §12) : cocher une classe, virement réparti sur la liste, imprimer
+  l'état ; captures de l'onglet « Élèves », du formulaire de versement et de la section « Frais »
+  d'un élève coché (liste dans `docs/essais-a-la-main-2.0.md`, partie I).
 
 | Étape | Contenu | État |
 |---|---|---|
@@ -52,7 +71,7 @@ passent tous ensemble dans la session des essais de la 2.0.0.
 | 5 | Commandes et écrans, textes, matrice des permissions | faite (18 novembre 2026) ; essais vitest (aperçu du cochage, pied de la répartition, « même montant ») écrits, non lancés |
 | 6 | Répartition par fichier | faite (18 novembre 2026) ; essai 11 et vitest (`importRepartition`) écrits, non lancés |
 | 7 | Ce que doit l'État et rapports | faite (18 novembre 2026) ; essai 12 (état, filtres, budget, tuile, PDF, Excel, année close, droits, relevé de compte) écrit, non lancé |
-| 8 | Fin d'année et manuel | à faire |
+| 8 | Fin d'année et manuel : réinscription, « Payé avant GESCO » et import des reprises, manuel, étape 4 bis, essais à la main (partie I), notes de version | faite (18 novembre 2026) ; essai 7 (partie report), réinscription, « Payé avant GESCO » écrits, non lancés |
 
 **Étape 1 (18 novembre 2026)** : migration **0066** (`0066_prise_en_charge_etat.up.sql` et
 `.down.sql`) : `prise_en_charge_etat` (versions `en_cours`, `terminee`, `remplacee` ; montant
@@ -624,6 +643,119 @@ L'onglet « Ce que doit l'État » (étape 7) s'ajoute dans `PriseEnChargeEtat` 
 
 L'étape 8 (fin d'année et manuel) peut lire ce que doit l'État d'une année close par
 `du_etat_lister` (année donnée) et produire son état par `du_etat_produire`.
+
+**Étape 8 (18 novembre 2026)** : fin d'année et manuel. **Réinscription** (§9.4, T-169) :
+`ServiceFinAnnee::preparer_reinscriptions` (`fin_annee.rs`) lit les versions en cours de l'année
+qui s'achève (`prise_en_charge::courantes_de_l_annee`) ; pour chaque élève préparé dont la case
+était cochée et dont la classe de destination est du lycée ou du technique
+(`prise_en_charge_possible`), après l'insertion des inscriptions et **dans la même transaction**
+critique, le geste « cocher » du service (`prise_en_charge::regler_dans`, une cible par élève) :
+version `en_cours`, case des rapports, audit (`prise_en_charge.cocher`) et événement
+`PriseEnChargeEtatCochee` ; montant attendu = montant proposé pour la nouvelle classe
+(`montant_etat` de l'année suivante, sinon la scolarité de la grille en vigueur), ou, s'il est nul
+(ni montant réglé ni grille encore), l'attendu de l'année qui s'achève ; référence d'orientation
+reprise. Nouvelle fonction `prise_en_charge::montant_propose_de`. `BilanReinscriptions` gagne
+`prises_en_charge` (écran Fin d'année : « N élève(s) pris en charge par l'État cette année gardent
+la case cochée… Décochez-la si l'État ne les a pas reconduits. »). La direction décoche ensuite
+sur l'année en préparation, comme ailleurs. **Report des impayés** : vérifié, les arriérés des
+années closes (`ServiceRecouvrement::impayes`, T-67) lisent `reste` par `etat_echeances` ; rien
+n'est reporté sur une facture. **« Payé avant GESCO »** (§11) : `LigneRepriseAvantGesco.du` =
+somme des `part_parent` (dû du parent), champ nouveau `pris_en_charge` (version en cours) ;
+l'écran renomme la colonne « Dû du parent » et ajoute sous le montant « sans la scolarité, prise
+en charge par l'État » (aussi dans l'export) ; l'import des reprises compare au même `du` (lu sur
+la ligne du service) : un excédent sur la part du parent est « à rembourser » ; une consigne de
+plus dans le « Mode d'emploi » du modèle. `gesco.ts` écrit à la main (`BilanReinscriptions`,
+`LigneRepriseAvantGesco`). **Documents** : `docs/manuel-2.0-prise-en-charge-etat.md` ;
+`docs/manuel-2.0-reprise.md` (étape 4 bis du parcours, colonne « Dû du parent », import) ;
+`docs/essais-a-la-main-2.0.md`, partie I (I-1 à I-25 et les captures Playwright du §12) ;
+`docs/notes-de-version-2.0.0.md`, « Élèves pris en charge par l'État ». Essais écrits, non lancés :
+`gesco-services/tests/prise_en_charge_fin_annee.rs` — `paye_avant_gesco_compare_au_du_du_parent`
+(dû du parent et mention, import : 20 000 F à rembourser pour un élève coché, valide pour un non
+coché) et `la_case_suit_l_eleve_et_la_part_de_l_etat_ne_se_reporte_pas` (quatre élèves préparés,
+deux cochés : 126 000 F du tableau et référence reprise pour l'admis en 11e S, attendu de l'année
+close pour le redoublant faute de grille, puis montant proposé de la grille ; ni le décoché ni le
+jamais coché ; un audit par élève ; préparer de nouveau ne coche rien ; décocher sur l'année en
+préparation ; facture née partagée à la validation ; arriérés de l'année close : cantine seule
+pour l'élève coché, aucun pour celui dont l'État doit tout, l'année entière pour les autres ; ce
+que doit l'État reste lisible et abandonnable sur l'année close). Vérifiés : fmt, clippy (`-j 4`,
+services, toutes cibles), tsc, ESLint.
+
+Écarts à la spécification (étape 8) :
+- La case cochée à la réinscription n'exige pas `invoices:discount` de qui prépare les
+  réinscriptions : c'est une proposition que GESCO fait d'office (T-169) ; la décocher l'exige.
+  L'audit porte le contexte `prise_en_charge.cocher`, sans audit de lot.
+- Sans montant réglé pour la nouvelle classe ni grille de l'année suivante, le montant proposé
+  serait zéro (l'État ne devrait rien, toute la scolarité serait renoncée) : la nouvelle version
+  prend alors l'attendu de l'année qui s'achève ; la liste propose ensuite le montant de la
+  grille, que « Appliquer » porte.
+- La référence d'orientation est reprise de l'année qui s'achève (la spécification n'en dit rien).
+- Un élève décoché (version terminée) ne reçoit pas la case ; préparer de nouveau ne touche pas un
+  élève déjà préparé (laissé tel quel), même décoché depuis.
+- La mention de l'écran « Payé avant GESCO » dit « sans la scolarité, prise en charge par l'État »
+  et non « dont scolarité prise en charge par l'État » : le dû du parent ne contient pas la
+  scolarité. La colonne s'appelle « Dû du parent » à l'écran ; celle du modèle Excel garde son nom
+  « Dû de l'année » (l'import lit les colonnes par leur nom), le mode d'emploi dit ce qu'elle
+  contient.
+- « Payé dans GESCO » reste l'argent du parent qui compte (versements et avoirs, report du
+  trop-payé compris) : dû du parent − payé avant − payé dans GESCO = reste ; le trop-payé non
+  reporté est dans « À rembourser ».
+
+**Écarts à la spécification (récapitulatif des huit étapes)**, une ligne chacun ; le détail et la
+raison sont dans le paragraphe de chaque étape :
+- 1 : motif exigé par la base pour toute version qui porte un abandon (le service le recopie).
+- 1 : montant de l'État par série, à défaut par niveau ; référence d'un versement de 120
+  caractères au plus ; un versement de l'État par recette au plus.
+- 1 : calcul pur — montants négatifs comptés pour zéro, champ `rembourse_en_trop` pour garder le
+  contrôle exact.
+- 1 : essai 5 sur le calcul pur ; la suite de gestes réels passe par les essais des étapes 2 à 4.
+- 2 : `EcheanceAffichee.verse_parent` (m(e)) en plus.
+- 2 : reprise placée par le calcul ; `recalculer_dans` non restreint sur une année close.
+- 2 : statut de la facture d'après l'argent qui compte (parent et État) ; un trop-payé non reporté
+  laisse « émise ».
+- 2 et 4 : refus `remboursement.superieur_a_l_excedent`, `versement.deja_rembourse` et
+  `versement_etat.reparti_superieur` sans montant (les erreurs de règle n'ont pas de paramètre).
+- 2 : remise sur l'inscription d'un élève coché acceptée jusqu'au renoncé.
+- 3 et 7 : `prises_en_charge_lister`, `du_etat_lister`, `du_etat_produire` avec `invoices:issue`
+  ou `invoices:discount` (le Directeur coche sans `invoices:issue`).
+- 3 et 5 : grille « Pour les rapports » sans motif (motif proposé « Pas orienté par l'État »).
+- 3 : geste en plus `appliquer_montant_propose` ; version terminée qui garde attendu et
+  référence ; attendu corrigé sous l'abandon qui ramène l'abandon.
+- 3 : cocher un élève coché ou décocher un non coché ne fait rien ; un refus annule toute la
+  sélection ; décocher, modifier et abandonner permis hors du lycée après un changement de classe.
+- 3 : année close = clôturée ou archivée ; la liste montre aussi les brouillons et les inscriptions
+  qui ont une version.
+- 3 : tableau des montants sans événement, permis sur une année close.
+- 4 : lecture d'un versement, liste proposée et aperçu en plus des commandes nommées.
+- 4 : « Porter l'attendu à la somme reçue » passe par `prise_en_charge_regler`.
+- 4 : une part va aussi à un élève décoché qui a une version ; mode libre parmi ceux du compte ;
+  date de réception future permise.
+- 4 : date d'un versement reçu avant GESCO gardée au jour de sa saisie, affichée recalculée ;
+  annuler ou répartir un tel versement sans `invoices:discount`.
+- 5 : `docs/matrice-permissions.md` inchangée (aucune permission nouvelle) ; `montants_etat_lire`
+  avec `fees:manage` aussi.
+- 5 : tableau des montants dans « Frais de l'année », pas dans les réglages de l'établissement.
+- 5 : entrée montrée d'après la liste de l'année courante.
+- 5 : case de l'assistant d'inscription après la validation.
+- 5 : fiche — « Cocher » et « Attendre de nouveau » en plus ; versements datés du jour enregistré.
+- 5 : avertissement d'une part au-delà de l'attendu calculé à l'écran pendant la saisie.
+- 6 : l'import remplace la répartition du versement ; modèle prérempli des parts actuelles.
+- 6 : le versement s'enregistre d'abord, puis « Répartir par fichier ».
+- 6 : élève décoché avec une part : avertissement, part gardée ; zéro vaut une case vide ;
+  recherche en cascade.
+- 6 : un total au-delà du reçu, ou un élève devenu non recevable, refuse tout l'import ;
+  fraîcheur, opération « seule », audit et événement même sans changement.
+- 7 : une seule commande `du_etat_produire` pour le PDF et l'Excel.
+- 7 : l'état montre aussi les élèves décochés que l'État a payés ou à qui il doit.
+- 7 : totaux de l'état filtrés, versements et non réparti de toute l'année.
+- 7 : lieu du document depuis les rapports de l'école ; A4 paysage seulement ; Excel sans CSV.
+- 7 : tuile remplie seulement avec `invoices:issue` ; « À recevoir de l'État » est une phrase
+  sous le tableau du budget.
+- 7 : relevé de compte sans remise sur une échéance couverte ; pas de mention pour une prise en
+  charge terminée.
+- 8 : case cochée d'office à la réinscription sans `invoices:discount` ; attendu de l'année close
+  à défaut de montant proposé ; référence reprise ; décochés non reconduits.
+- 8 : mention « sans la scolarité, prise en charge par l'État » ; colonne « Dû du parent » à
+  l'écran, « Dû de l'année » dans le modèle Excel.
 
 Repère : prochaine migration **0067**.
 

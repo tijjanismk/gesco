@@ -788,6 +788,12 @@ export type BilanReinscriptions = {
 	deja_inscrits: number,
 	/**  Admis au dernier niveau que l'école enseigne : ils la quittent. */
 	sortants: number,
+	/**
+	 *  Élèves préparés dont la scolarité était prise en charge par l'État et qui restent au
+	 *  lycée ou au technique : leur nouvelle inscription porte la case cochée, que la direction
+	 *  décoche si l'État ne les a pas reconduits.
+	 */
+	prises_en_charge: number,
 	/**  Niveaux où des élèves reviennent mais qui n'ont pas encore de classe. */
 	sans_classe: string[],
 	/**  Fin d'année mise à jour. */
@@ -8821,8 +8827,16 @@ export type LigneRepriseAvantGesco = {
 	eleve: string,
 	/**  Matricule interne. */
 	matricule: string,
-	/**  Dû de l'année, net des remises et des baisses. */
+	/**
+	 *  Dû du parent pour l'année : net des remises et des baisses, sans la part de l'État ni ce
+	 *  que l'école ne demande pas (inscription d'un élève pris en charge).
+	 */
 	du: Montant,
+	/**
+	 *  La scolarité de l'élève est prise en charge par l'État (case cochée) : l'écran le dit
+	 *  sous le dû du parent.
+	 */
+	pris_en_charge: boolean,
 	/**  Payé avant GESCO : montant de la reprise active (zéro sans reprise). */
 	reprise: Montant,
 	/**  Note de la reprise active. */

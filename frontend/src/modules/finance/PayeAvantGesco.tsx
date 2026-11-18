@@ -169,7 +169,16 @@ export function PayeAvantGesco() {
               { titre: t("paye_avant.classe"), valeur: (l) => l.classe },
               { titre: t("paye_avant.eleve"), valeur: (l) => l.eleve },
               { titre: t("paye_avant.matricule"), valeur: (l) => l.matricule },
-              { titre: t("paye_avant.du"), valeur: (l) => francs(l.du) },
+              {
+                titre: t("paye_avant.du"),
+                valeur: (l) => (l.pris_en_charge ? `${francs(l.du)} (${t("paye_avant.du_sans_etat")})` : francs(l.du)),
+                rendu: (l) => (
+                  <span className="flex flex-col">
+                    <span>{francs(l.du)}</span>
+                    {l.pris_en_charge ? <span className="text-xs text-muet">{t("paye_avant.du_sans_etat")}</span> : null}
+                  </span>
+                ),
+              },
               {
                 titre: t("paye_avant.paye_avant"),
                 valeur: (l) => (l.reprise === 0 ? "" : francs(l.reprise)),

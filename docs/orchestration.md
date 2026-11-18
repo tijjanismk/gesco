@@ -892,3 +892,23 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   les essais (avec ses corrections), la construction de l'installeur 2.0.0 et le push sur
   `developpement` s'enchaînent sans demander son accord ; résultats et captures lui sont montrés
   ensuite. Transmis à l'orchestrateur principal.
+
+## Prise en charge par l'État codée (18 novembre 2026)
+
+- Les huit étapes de `SPEC_PRISE_EN_CHARGE_ETAT.md` §13 sont faites, commitées et poussées une à
+  une sur `developpement` : `5be2a7d` (1, tables et noyau), `6dc4b37` (2, calcul de la facture),
+  `9ea8f4d` (3, service de la prise en charge), `9adc20c` (4, versement de l'État), `1327251`
+  (5, commandes et écrans), `6810fb5` (6, répartition par fichier), `0cdd072` (7, ce que doit
+  l'État et rapports) et le commit « Prise en charge par l'État, étape 8 : réinscription, payé
+  avant GESCO, manuel » (8). fmt, clippy `-j 4`, tsc et ESLint verts à chaque étape.
+- Essais écrits, **aucun lancé** : Rust (`gesco-core` `finance/prise_en_charge.rs`,
+  `gesco-db/tests/prise_en_charge_0066.rs`, `gesco-services/tests/prise_en_charge*.rs`), vitest
+  (`prise_en_charge.test.ts`), Playwright à faire dans l'essai global (§12 ; liste et captures dans
+  `docs/essais-a-la-main-2.0.md`, partie I). Détail, écarts et récapitulatif des écarts :
+  `ETAT_AVANCEMENT.md`, « Prise en charge par l'État ».
+- Documents : `docs/manuel-2.0-prise-en-charge-etat.md`, étape 4 bis du parcours dans
+  `docs/manuel-2.0-reprise.md`, essais à la main partie I, notes de version 2.0.0.
+- Repère : prochaine migration **0067**.
+- Suite, dans l'ordre du porteur : tous les essais de la 2.0.0 en une fois, avec leurs corrections
+  (dont la régénération du contrat TypeScript, écrit à la main) ; puis l'installeur 2.0.0 pour
+  l'école d'essai ; puis les lots 3 (quiz) et 5 (devoirs), toujours dans la 2.0.0.

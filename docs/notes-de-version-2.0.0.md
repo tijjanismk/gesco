@@ -99,6 +99,25 @@ ont toutes leurs tranches et figurent dans les relevés d'absences et les grille
 passés. Le journal des encaissements et le budget montrent le payé avant GESCO à part, hors des
 totaux de caisse. Le chapitre du manuel est `manuel-2.0-reprise.md`.
 
+**Élèves pris en charge par l'État.** Pour un élève orienté par l'État au lycée ou au technique,
+une case « Pris en charge par l'État » (Finance → Prise en charge par l'État, fiche de l'élève,
+grille « Pour les rapports », assistant d'inscription) : sa scolarité est due par l'État, son
+inscription par personne ; le parent ne doit que le reste (cantine si l'école en a une, tenue,
+transport…), et l'encaissement, les reçus, le relevé de compte, les impayés, les relances et les
+SMS ne parlent que de sa part. La case se coche pour un élève ou une classe entière, à tout moment
+de l'année, sans réécrire ni facture ni reçu. Le montant attendu de l'État se règle par niveau et
+série (vide : les frais de l'école) et se corrige élève par élève ; l'écart, ou ce que l'État ne
+paiera pas, est à la charge de l'école. Ce qu'un parent avait payé sur la part de l'État couvre ses
+autres frais, le surplus lui est remboursé par une dépense préremplie. Un versement de l'État,
+souvent un seul virement pour beaucoup d'élèves, entre une fois dans le compte de banque, sans
+toucher à la caisse, et se répartit sur les élèves à l'écran ou par un modèle Excel ; reçu avant
+GESCO, il se répartit sans recette. L'onglet « Ce que doit l'État » montre, par élève, par classe
+et en tout, ce que l'État doit encore et ce qui est échu, et l'imprime pour le réclamer (« État
+des sommes dues par l'État », avec QR) ou l'exporte en Excel. Le budget montre « À recevoir de
+l'État » hors du réalisé, le tableau de bord une tuile. À la réinscription, la case suit l'élève
+qui reste au lycée, avec le montant de sa nouvelle classe ; l'écran « Payé avant GESCO » montre le
+dû du parent. Le chapitre du manuel est `manuel-2.0-prise-en-charge-etat.md`.
+
 ## Mettre à jour
 
 Installez la 2.0.0 par-dessus la version en place : les données sont gardées. Dans une école à
