@@ -1398,13 +1398,19 @@ impl<'n> ServicePriseEnCharge<'n> {
     }
 
     /// Tableau des montants attendus de l'État d'une année (§3.2) : niveaux et séries du lycée
-    /// et du technique qui ont une classe dans l'année, et toute ligne déjà réglée.
+    /// et du technique qui ont une classe dans l'année, et toute ligne déjà réglée. Se lit avec la
+    /// lecture des élèves ou avec les frais (le Comptable règle les frais sans lire les fiches).
     pub async fn montants_lire(
         &self,
         session: &Session,
         demande: &DemandeMontantsEtat,
     ) -> Resultat<MontantsEtat> {
-        self.exiger(session, Permission::STUDENTS_READ).await?;
+        self.exiger_l_une(
+            session,
+            Permission::STUDENTS_READ,
+            &[Permission::FEES_MANAGE],
+        )
+        .await?;
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut cnx = self.connexion().await?;
         let annee = annee_demandee(&mut cnx, demande.annee_id, &contexte).await?;

@@ -80,7 +80,9 @@ export function RepriseInscription({
   });
   if (reprise === null) return null;
   const actuel = reprise.chiffres.montant;
-  if (actuel === 0 && reprise.remboursements.length === 0 && !modifie) return null;
+  // Le trop-payé d'un élève pris en charge par l'État s'ajoute à l'à rembourser : la ligne et
+  // « Rembourser » se montrent aussi sans payé avant GESCO.
+  if (actuel === 0 && reprise.remboursements.length === 0 && reprise.chiffres.a_rembourser === 0 && !modifie) return null;
   const geste = gesteDeLaSaisie(montant, actuel);
   const erreur = enregistrement.error ?? annulation.error;
   const refus = erreur instanceof ErreurApi ? erreur.cle : null;
@@ -188,6 +190,7 @@ export function RepriseInscription({
           eleve={eleve}
           payeurs={payeurs}
           aRembourser={reprise.chiffres.a_rembourser}
+          tropPayeEtat={actuel === 0 && (situation.facture?.trop_paye ?? 0) > 0}
           surFini={() => {
             setRembourser(false);
             surChange();
@@ -205,12 +208,15 @@ function RembourserParent({
   eleve,
   payeurs,
   aRembourser,
+  tropPayeEtat,
   surFini,
 }: {
   inscriptionId: string;
   eleve: string;
   payeurs: readonly string[];
   aRembourser: number;
+  /** L'excédent vient de ce que le parent avait payé sur la part de l'État. */
+  tropPayeEtat: boolean;
   surFini: () => void;
 }) {
   const client = useQueryClient();
@@ -224,7 +230,7 @@ function RembourserParent({
     payeur: payeurs[0] ?? "",
     aRembourser,
     categorieId: categorie?.id ?? "",
-    libelle: (nom) => t("paye_avant.libelle_remboursement", { eleve: nom }),
+    libelle: (nom) => t(tropPayeEtat ? "pec.libelle_remboursement" : "paye_avant.libelle_remboursement", { eleve: nom }),
   });
   const [beneficiaire, setBeneficiaire] = useState(prerempli.beneficiaire);
   const [montant, setMontant] = useState(String(prerempli.montant));
@@ -248,7 +254,7 @@ function RembourserParent({
         paiement: paie ? { compte_id: compte, mode: modeChoisi, reference } : null,
       }),
     onSuccess: () => {
-      for (const cle of ["depenses", "caisse", "reprises"]) void client.invalidateQueries({ queryKey: [cle] });
+      for (const cle of ["depenses", "caisse", "reprises", "prises-en-charge"]) void client.invalidateQueries({ queryKey: [cle] });
       surFini();
     },
   });

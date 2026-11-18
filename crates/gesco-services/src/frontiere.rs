@@ -243,6 +243,16 @@ use crate::postes::{
     AppairageConclu, DemandePoste, EtatReseau, ReseauAServir, ReseauVivant, RolePoste,
     ServicePostes,
 };
+use crate::prise_en_charge::{
+    ApercuPriseEnCharge, ApercuVersementEtat, DemandeAbandonPriseEnCharge,
+    DemandeAnnulationVersementEtat, DemandeApercuPriseEnCharge, DemandeApercuVersementEtat,
+    DemandeInscriptionPriseEnCharge, DemandeMontantsEtat, DemandePriseEnCharge,
+    DemandePrisesEnCharge, DemandeReglageMontantsEtat, DemandeRepartitionProposee,
+    DemandeRepartitionVersementEtat, DemandeVersementEtat, DemandeVersementEtatId,
+    DemandeVersementsEtat, DetailVersementEtat, LignePriseEnCharge, ListePrisesEnCharge,
+    ListeVersementsEtat, MontantsEtat, RepartitionProposee, ReponseVersementEtat,
+    ServicePriseEnCharge,
+};
 use crate::rapports::{
     DemandeEffectifProbable, DemandePreparationRapport, DemandeRapport, DemandeRapports,
     DemandeReglageRapport, DemandeTexteRapport, ListeRapports, RapportEcole, ServiceRapports,
@@ -1183,6 +1193,20 @@ contrat! {
     reprises_modele(DemandeModeleReprises) -> FichierEcrit;
     reprises_analyser_import(DemandeAnalyseReprises) -> ApercuReprises;
     reprises_importer(DemandeImportReprises) -> RapportReprises;
+    prises_en_charge_lister(DemandePrisesEnCharge) -> ListePrisesEnCharge;
+    prise_en_charge_apercu(DemandeApercuPriseEnCharge) -> ApercuPriseEnCharge;
+    prise_en_charge_regler(DemandePriseEnCharge) -> Vec<LignePriseEnCharge>;
+    prise_en_charge_abandonner(DemandeAbandonPriseEnCharge) -> Vec<LignePriseEnCharge>;
+    prise_en_charge_historique(DemandeInscriptionPriseEnCharge) -> Vec<gesco_core::finance::prise_en_charge::PriseEnChargeEtat>;
+    montants_etat_lire(DemandeMontantsEtat) -> MontantsEtat;
+    montants_etat_regler(DemandeReglageMontantsEtat) -> MontantsEtat;
+    versements_etat_lister(DemandeVersementsEtat) -> ListeVersementsEtat;
+    versement_etat_lire(DemandeVersementEtatId) -> DetailVersementEtat;
+    versement_etat_repartition_proposee(DemandeRepartitionProposee) -> RepartitionProposee;
+    versement_etat_apercu(DemandeApercuVersementEtat) -> ApercuVersementEtat;
+    versement_etat_enregistrer(DemandeVersementEtat) -> ReponseVersementEtat;
+    versement_etat_repartir(DemandeRepartitionVersementEtat) -> ReponseVersementEtat;
+    versement_etat_annuler(DemandeAnnulationVersementEtat) -> DetailVersementEtat;
     caisse_session_courante(()) -> Option<SessionAffichee>;
     caisse_ouvrir(DemandeOuverture) -> SessionAffichee;
     caisse_cloturer(DemandeCloture) -> SessionAffichee;
@@ -1837,100 +1861,6 @@ impl Application {
             motif,
         )
         .await?)
-    }
-
-    /// Appelle le service de la prise en charge par l'État avec la session du jeton, comme le
-    /// feront les commandes du même nom (`prise_en_charge_regler`, `prise_en_charge_abandonner`,
-    /// `prise_en_charge_apercu`, `prises_en_charge_lister`, `prise_en_charge_historique`,
-    /// `montants_etat_lire`, `montants_etat_regler`, `versements_etat_lister`,
-    /// `versement_etat_lire`, `versement_etat_repartition_proposee`, `versement_etat_apercu`,
-    /// `versement_etat_enregistrer`, `versement_etat_repartir`, `versement_etat_annuler`) :
-    /// réservé aux essais tant que ces commandes
-    /// n'existent pas. Les permissions sont vérifiées par le service.
-    #[doc(hidden)]
-    pub async fn prise_en_charge_essai(
-        &self,
-        nom: &str,
-        jeton: &Jeton,
-        entree: serde_json::Value,
-    ) -> Result<serde_json::Value, ErreurCommande> {
-        use crate::prise_en_charge::ServicePriseEnCharge;
-        fn lire<T: serde::de::DeserializeOwned>(entree: serde_json::Value) -> Resultat<T> {
-            serde_json::from_value(entree).map_err(|_| ErreurService::Regle {
-                cle: "commande.entree_invalide",
-            })
-        }
-        let Some(ouverte) = self.etat.read().await.clone() else {
-            return Err(ErreurService::Regle {
-                cle: "application.cles_verrouillees",
-            }
-            .into());
-        };
-        let session =
-            Garde::nouvelle(&ouverte.noyau, Arc::new(PorteeTotale)).session_active(jeton)?;
-        let service = ServicePriseEnCharge::nouveau(&ouverte.noyau);
-        let sortie = match nom {
-            "prise_en_charge_regler" => {
-                serde_json::to_value(service.regler(&session, &lire(entree)?).await?)
-            }
-            "prise_en_charge_abandonner" => {
-                serde_json::to_value(service.abandonner(&session, &lire(entree)?).await?)
-            }
-            "prise_en_charge_apercu" => {
-                serde_json::to_value(service.apercu(&session, &lire(entree)?).await?)
-            }
-            "prises_en_charge_lister" => {
-                serde_json::to_value(service.lister(&session, &lire(entree)?).await?)
-            }
-            "prise_en_charge_historique" => {
-                let demande: crate::prise_en_charge::DemandeInscriptionPriseEnCharge =
-                    lire(entree)?;
-                serde_json::to_value(service.historique(&session, demande.inscription_id).await?)
-            }
-            "montants_etat_lire" => {
-                serde_json::to_value(service.montants_lire(&session, &lire(entree)?).await?)
-            }
-            "montants_etat_regler" => {
-                serde_json::to_value(service.montants_regler(&session, &lire(entree)?).await?)
-            }
-            "versements_etat_lister" => {
-                serde_json::to_value(service.versements_lister(&session, &lire(entree)?).await?)
-            }
-            "versement_etat_lire" => {
-                let demande: crate::prise_en_charge::DemandeVersementEtatId = lire(entree)?;
-                serde_json::to_value(
-                    service
-                        .versement_lire(&session, demande.versement_id)
-                        .await?,
-                )
-            }
-            "versement_etat_repartition_proposee" => serde_json::to_value(
-                service
-                    .versement_repartition_proposee(&session, &lire(entree)?)
-                    .await?,
-            ),
-            "versement_etat_apercu" => {
-                serde_json::to_value(service.versement_apercu(&session, &lire(entree)?).await?)
-            }
-            "versement_etat_enregistrer" => serde_json::to_value(
-                service
-                    .versement_enregistrer(&session, &lire(entree)?)
-                    .await?,
-            ),
-            "versement_etat_repartir" => {
-                serde_json::to_value(service.versement_repartir(&session, &lire(entree)?).await?)
-            }
-            "versement_etat_annuler" => {
-                serde_json::to_value(service.versement_annuler(&session, &lire(entree)?).await?)
-            }
-            _ => {
-                return Err(ErreurService::Regle {
-                    cle: "commande.inconnue",
-                }
-                .into());
-            }
-        };
-        Ok(sortie.map_err(ErreurService::from)?)
     }
 
     /// Enregistre un versement de l'État reçu avant GESCO, entièrement attribué à une
@@ -4888,6 +4818,146 @@ impl Application {
             .await?;
         self.imports.lock().await.remove(&entree.fichier_id);
         Ok(rapport)
+    }
+
+    async fn prises_en_charge_lister(
+        &self,
+        appel: Appel,
+        entree: DemandePrisesEnCharge,
+    ) -> Resultat<ListePrisesEnCharge> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .lister(appel.session()?, &entree)
+            .await
+    }
+
+    async fn prise_en_charge_apercu(
+        &self,
+        appel: Appel,
+        entree: DemandeApercuPriseEnCharge,
+    ) -> Resultat<ApercuPriseEnCharge> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .apercu(appel.session()?, &entree)
+            .await
+    }
+
+    async fn prise_en_charge_regler(
+        &self,
+        appel: Appel,
+        entree: DemandePriseEnCharge,
+    ) -> Resultat<Vec<LignePriseEnCharge>> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .regler(appel.session()?, &entree)
+            .await
+    }
+
+    async fn prise_en_charge_abandonner(
+        &self,
+        appel: Appel,
+        entree: DemandeAbandonPriseEnCharge,
+    ) -> Resultat<Vec<LignePriseEnCharge>> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .abandonner(appel.session()?, &entree)
+            .await
+    }
+
+    async fn prise_en_charge_historique(
+        &self,
+        appel: Appel,
+        entree: DemandeInscriptionPriseEnCharge,
+    ) -> Resultat<Vec<gesco_core::finance::prise_en_charge::PriseEnChargeEtat>> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .historique(appel.session()?, entree.inscription_id)
+            .await
+    }
+
+    async fn montants_etat_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeMontantsEtat,
+    ) -> Resultat<MontantsEtat> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .montants_lire(appel.session()?, &entree)
+            .await
+    }
+
+    async fn montants_etat_regler(
+        &self,
+        appel: Appel,
+        entree: DemandeReglageMontantsEtat,
+    ) -> Resultat<MontantsEtat> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .montants_regler(appel.session()?, &entree)
+            .await
+    }
+
+    async fn versements_etat_lister(
+        &self,
+        appel: Appel,
+        entree: DemandeVersementsEtat,
+    ) -> Resultat<ListeVersementsEtat> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .versements_lister(appel.session()?, &entree)
+            .await
+    }
+
+    async fn versement_etat_lire(
+        &self,
+        appel: Appel,
+        entree: DemandeVersementEtatId,
+    ) -> Resultat<DetailVersementEtat> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .versement_lire(appel.session()?, entree.versement_id)
+            .await
+    }
+
+    async fn versement_etat_repartition_proposee(
+        &self,
+        appel: Appel,
+        entree: DemandeRepartitionProposee,
+    ) -> Resultat<RepartitionProposee> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .versement_repartition_proposee(appel.session()?, &entree)
+            .await
+    }
+
+    async fn versement_etat_apercu(
+        &self,
+        appel: Appel,
+        entree: DemandeApercuVersementEtat,
+    ) -> Resultat<ApercuVersementEtat> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .versement_apercu(appel.session()?, &entree)
+            .await
+    }
+
+    async fn versement_etat_enregistrer(
+        &self,
+        appel: Appel,
+        entree: DemandeVersementEtat,
+    ) -> Resultat<ReponseVersementEtat> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .versement_enregistrer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn versement_etat_repartir(
+        &self,
+        appel: Appel,
+        entree: DemandeRepartitionVersementEtat,
+    ) -> Resultat<ReponseVersementEtat> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .versement_repartir(appel.session()?, &entree)
+            .await
+    }
+
+    async fn versement_etat_annuler(
+        &self,
+        appel: Appel,
+        entree: DemandeAnnulationVersementEtat,
+    ) -> Resultat<DetailVersementEtat> {
+        ServicePriseEnCharge::nouveau(&appel.ouverte()?.noyau)
+            .versement_annuler(appel.session()?, &entree)
+            .await
     }
 
     async fn caisse_session_courante(

@@ -211,16 +211,14 @@ pub async fn situation(e: &Lycee, fiche: &Value) -> Value {
         .clone()
 }
 
-/// Appel du service, comme la commande du même nom.
+/// Appel de la commande, par la garde comme depuis l'écran.
 pub async fn appeler(
     e: &Lycee,
     nom: &str,
     jeton: &Jeton,
     entree: Value,
 ) -> Result<Value, ErreurCommande> {
-    e.p.application
-        .prise_en_charge_essai(nom, jeton, entree)
-        .await
+    e.p.appeler(nom, Some(jeton), entree).await
 }
 
 pub async fn ok(e: &Lycee, nom: &str, jeton: &Jeton, entree: Value) -> Value {
@@ -429,10 +427,17 @@ async fn cocher_une_selection_en_une_transaction() {
     );
 
     // Chaka : l'État a payé avant la validation ; la facture naît soldée.
-    e.p.application
-        .versement_etat_pour_essai(chaka_i["id"].as_str().unwrap(), 120_000)
-        .await
-        .unwrap();
+    ok(
+        &e,
+        "versement_etat_enregistrer",
+        &e.admin,
+        json!({
+            "montant": 120_000,
+            "avant_gesco": true,
+            "parts": [{ "inscription_id": chaka_i["id"], "montant": 120_000 }],
+        }),
+    )
+    .await;
     e.p.ok(
         "inscription_valider",
         Some(&e.admin),

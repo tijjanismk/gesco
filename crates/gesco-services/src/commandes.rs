@@ -168,6 +168,9 @@ pub const COMMANDES_DE_FICHE: &[&str] = &[
     "rapport_texte_enregistrer",
     "reprise_enregistrer",
     "reprise_annuler",
+    "montants_etat_regler",
+    "versement_etat_repartir",
+    "versement_etat_annuler",
 ];
 
 /// Pourquoi une commande qui modifie ne vérifie pas l'instant de dernière modification.
@@ -183,6 +186,9 @@ pub enum SansControle {
     Argent,
     /// Donnée de référence, réglée par la direction : la dernière écriture gagne.
     Reference,
+    /// Geste sur une sélection : chaque ligne visée porte son instant lu (`cibles[].lue_le`),
+    /// que le service vérifie ligne par ligne avant toute écriture.
+    Lignes,
 }
 
 /// Les autres commandes dont le nom dit qu'elles modifient, chacune avec sa raison. Un essai
@@ -240,6 +246,8 @@ pub const MODIFICATIONS_SANS_CONTROLE: &[(&str, SansControle)] = &[
         SansControle::Reference,
     ),
     ("bibliotheque_brouillon_enregistrer", SansControle::Etat),
+    ("prise_en_charge_regler", SansControle::Lignes),
+    ("versement_etat_enregistrer", SansControle::Argent),
 ];
 
 /// Terminaisons des noms de commandes qui modifient ce qui existe.
@@ -780,6 +788,30 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("reprises_modele", Permission::INVOICES_DISCOUNT),
     Commande::permise("reprises_analyser_import", Permission::INVOICES_DISCOUNT),
     Commande::permise("reprises_importer", Permission::INVOICES_DISCOUNT),
+    // Prise en charge par l'État (SPEC_PRISE_EN_CHARGE_ETAT §8) : cocher, modifier, abandonner et
+    // décocher sont des gestes de direction, comme une remise. La liste se lit avec la facturation
+    // ou la remise, et le tableau des montants avec la lecture des élèves ou les frais : le
+    // service vérifie l'une ou l'autre (le Directeur coche sans émettre de factures, le Comptable
+    // règle les frais sans lire les fiches).
+    Commande::connectee("prises_en_charge_lister"),
+    Commande::permise("prise_en_charge_apercu", Permission::INVOICES_DISCOUNT),
+    Commande::permise("prise_en_charge_regler", Permission::INVOICES_DISCOUNT),
+    Commande::permise("prise_en_charge_abandonner", Permission::INVOICES_DISCOUNT),
+    Commande::permise("prise_en_charge_historique", Permission::STUDENTS_READ),
+    Commande::connectee("montants_etat_lire"),
+    Commande::permise("montants_etat_regler", Permission::FEES_MANAGE),
+    // Versements de l'État (§7) : la trésorerie ; un versement reçu avant GESCO demande en plus la
+    // remise, que le service vérifie.
+    Commande::permise("versements_etat_lister", Permission::TREASURY_READ),
+    Commande::permise("versement_etat_lire", Permission::TREASURY_READ),
+    Commande::permise(
+        "versement_etat_repartition_proposee",
+        Permission::TREASURY_READ,
+    ),
+    Commande::permise("versement_etat_apercu", Permission::TREASURY_MANAGE),
+    Commande::permise("versement_etat_enregistrer", Permission::TREASURY_MANAGE),
+    Commande::permise("versement_etat_repartir", Permission::TREASURY_MANAGE),
+    Commande::permise("versement_etat_annuler", Permission::TREASURY_MANAGE),
     Commande::connectee("caisse_session_courante"),
     Commande::permise("caisse_ouvrir", Permission::CASHBOX_OPEN),
     Commande::permise("caisse_cloturer", Permission::CASHBOX_CLOSE),

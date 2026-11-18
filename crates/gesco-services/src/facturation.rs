@@ -471,6 +471,24 @@ pub struct SituationInscription {
     pub avoirs: Vec<Avoir>,
     /// Payé avant GESCO : reprise, excédent, remboursements ; absent sans facture.
     pub reprise: Option<crate::reprises::RepriseDeLInscription>,
+    /// Vrai si la classe de l'inscription est du lycée ou du technique : la case « Pris en charge
+    /// par l'État » y existe (SPEC_PRISE_EN_CHARGE_ETAT §3.7).
+    pub prise_en_charge_possible: bool,
+    /// Versements de l'État reçus pour l'inscription, par date de réception (§6.4).
+    pub versements_etat: Vec<VersementEtatRecu>,
+}
+
+/// Un versement de l'État reçu pour une inscription : la part qui lui est attribuée.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct VersementEtatRecu {
+    /// Versement de l'État.
+    pub versement_etat_id: Id<gesco_core::finance::prise_en_charge::VersementEtat>,
+    /// Jour de réception.
+    pub date: DateCivile,
+    /// Référence du versement.
+    pub reference: String,
+    /// Part attribuée à l'inscription.
+    pub montant: Montant,
 }
 
 /// Changement de plan d'une inscription.
@@ -1018,7 +1036,32 @@ impl<'n> ServiceFacturation<'n> {
                 crate::reprises::de_l_inscription_dans(&mut cnx, affichee.inscription.id, &contexte)
                     .await?
             };
+            let (prise_en_charge_possible, versements_etat) = {
+                let mut cnx = self.connexion().await?;
+                let classe =
+                    academique::classe(&mut cnx, affichee.inscription.classe_id, &contexte).await?;
+                let cycle = academique::niveau(&mut cnx, classe.niveau_id, &contexte)
+                    .await?
+                    .cycle;
+                let parts =
+                    prise_en_charge::parts_recues(&mut cnx, affichee.inscription.id, &contexte)
+                        .await?;
+                (
+                    crate::prise_en_charge::prise_en_charge_possible(cycle),
+                    parts
+                        .into_iter()
+                        .map(|p| VersementEtatRecu {
+                            versement_etat_id: p.versement_etat_id,
+                            date: p.date,
+                            reference: p.reference,
+                            montant: p.montant,
+                        })
+                        .collect(),
+                )
+            };
             situations.push(SituationInscription {
+                prise_en_charge_possible,
+                versements_etat,
                 reprise,
                 versements,
                 avoirs,

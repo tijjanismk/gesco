@@ -12,6 +12,7 @@ import { dateCivile, francs, moisCivil, t } from "../../i18n";
 import type { ModePaiement, RecetteAffichee, RecettesDuMois as Etat } from "../../types/gesco";
 import { lireMontant } from "../paie/calcul";
 import { ChoixCompte, modesDu } from "./Depenses";
+import { DetailVersement } from "./VersementsEtat";
 
 /** Autres recettes (SPEC_VERSION_1_1 §1) : un don, une location de salle, reçus hors des
  *  versements des parents, sur un compte de l'école ; leur annulation motivée. */
@@ -19,6 +20,8 @@ export function Recettes() {
   const client = useQueryClient();
   const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
   const gere = commandeAutorisee("recette_saisir", session.data?.permissions ?? []);
+  const litVersementsEtat = commandeAutorisee("versement_etat_lire", session.data?.permissions ?? []);
+  const [repartition, setRepartition] = useState<string | null>(null);
   const [mois, setMois] = useState(aujourdHui().slice(0, 7));
   const etat = useQuery({ queryKey: ["recettes", mois], queryFn: () => appeler("recettes_lire", { mois }), enabled: /^\d{4}-\d{2}$/.test(mois) });
   const apres = (e: Etat) => {
@@ -26,6 +29,8 @@ export function Recettes() {
     void client.invalidateQueries({ queryKey: ["recettes"] });
     void client.invalidateQueries({ queryKey: ["caisse"] });
     void client.invalidateQueries({ queryKey: ["comptes-soldes"] });
+    // Annuler la recette d'un versement de l'État annule le versement et sa répartition.
+    for (const cle of ["versements-etat", "versement-etat", "prises-en-charge", "situation"]) void client.invalidateQueries({ queryKey: [cle] });
   };
   const [choisie, setChoisie] = useState<string | null>(null);
   const e = etat.data;
@@ -45,7 +50,7 @@ export function Recettes() {
               titre={titre}
               lignes={e.recettes}
               cle={(r) => r.recette.id}
-              surSelection={gere ? (r) => setChoisie(r.recette.id) : undefined}
+              surSelection={gere || litVersementsEtat ? (r) => setChoisie(r.recette.id) : undefined}
               colonnes={[
                 { titre: t("depense.date"), valeur: (r) => dateCivile(r.recette.date) },
                 { titre: t("depense.categorie"), valeur: (r) => r.categorie },
@@ -56,7 +61,16 @@ export function Recettes() {
                 { titre: t("depense.etat"), valeur: (r) => (r.recette.annulee ? t("recette.annulee", { motif: r.recette.motif_annulation }) : t("recette.recue")) },
               ]}
             />
-            {recette === undefined || recette.recette.annulee ? null : <Annulation key={recette.recette.id} r={recette} surFait={apres} />}
+            {/* Une recette qui porte un versement de l'État ouvre sa répartition. */}
+            {recette === undefined || recette.versement_etat_id === null || !litVersementsEtat ? null : (
+              <div>
+                <Bouton variante="secondaire" onClick={() => setRepartition(recette.versement_etat_id)}>{t("recette.repartition")}</Bouton>
+              </div>
+            )}
+            {repartition === null ? null : (
+              <DetailVersement key={repartition} versementId={repartition} permissions={session.data?.permissions ?? []} surFermer={() => setRepartition(null)} />
+            )}
+            {recette === undefined || recette.recette.annulee || !gere ? null : <Annulation key={recette.recette.id} r={recette} surFait={apres} />}
           </Section>
         </>
       )}

@@ -101,6 +101,7 @@ export function PourLesRapports({ anneeId }: { anneeId: string | null }) {
           peutEleves={commandeAutorisee("complement_eleve_regler", droits)}
           peutClasse={commandeAutorisee("classe_rapports_regler", droits)}
           peutDifficultes={commandeAutorisee("difficulte_eleve_regler", droits)}
+          peutPrise={commandeAutorisee("prise_en_charge_regler", droits)}
         />
       ) : null}
       {commandeAutorisee("complements_personnel_lire", droits) ? (
@@ -117,11 +118,15 @@ function GrilleEleves({
   peutEleves,
   peutClasse,
   peutDifficultes,
+  peutPrise,
 }: {
   anneeId: string | null;
   peutEleves: boolean;
   peutClasse: boolean;
   peutDifficultes: boolean;
+  /** La case « Prise en charge par l'État » change ce que doit le parent : elle passe par le
+   *  service de la prise en charge, au seul titulaire de la remise ; les autres la lisent. */
+  peutPrise: boolean;
 }) {
   const [classeId, setClasseId] = useState<string | null>(null);
   const [ouvert, setOuvert] = useState<ComplementEleve | null>(null);
@@ -154,6 +159,17 @@ function GrilleEleves({
       prise_en_charge_etat: boolean;
     }) => appeler("complement_eleve_regler", v),
     onSuccess: garder,
+  });
+  const prise = useMutation({
+    mutationFn: (v: { inscription_id: string; coche: boolean }) =>
+      appeler("prise_en_charge_regler", {
+        cibles: [{ inscription_id: v.inscription_id, lue_le: null }],
+        geste: v.coche ? "cocher" : "decocher",
+        motif: v.coche ? "" : t("pec.motif_propose"),
+      }),
+    onSuccess: () => {
+      for (const c of ["complements-eleves", "prises-en-charge", "situation"]) void client.invalidateQueries({ queryKey: [c] });
+    },
   });
   const d = donnees.data;
   if (d === undefined) return <MessageErreur erreur={donnees.error} />;
@@ -240,7 +256,7 @@ function GrilleEleves({
               </p>
             )}
           </div>
-          <MessageErreur erreur={classe.error ?? eleve.error} />
+          <MessageErreur erreur={classe.error ?? eleve.error ?? prise.error} />
           {d.eleves.length === 0 ? (
             <p className="text-sm text-muet">{t("commun.aucune_ligne")}</p>
           ) : (
@@ -274,7 +290,9 @@ function GrilleEleves({
                       possible={d.prise_en_charge_possible}
                       peutModifier={peutEleves}
                       peutDifficultes={peutDifficultes}
+                      peutPrise={peutPrise && !prise.isPending}
                       surRegler={(v) => eleve.mutate(v)}
+                      surPrise={(coche) => prise.mutate({ inscription_id: e.inscription_id, coche })}
                       surOuvrir={() => setOuvert(e)}
                     />
                   ))}
@@ -296,13 +314,17 @@ function LigneEleve({
   possible,
   peutModifier,
   peutDifficultes,
+  peutPrise,
   surRegler,
+  surPrise,
   surOuvrir,
 }: {
   eleve: ComplementEleve;
   possible: boolean;
   peutModifier: boolean;
   peutDifficultes: boolean;
+  peutPrise: boolean;
+  surPrise: (coche: boolean) => void;
   surRegler: (v: {
     inscription_id: string;
     annee_recrutement: number | null;
@@ -378,8 +400,8 @@ function LigneEleve({
             type="checkbox"
             aria-label={`${t("complements.prise_en_charge")} · ${eleve.nom}`}
             checked={eleve.prise_en_charge_etat}
-            disabled={!peutModifier}
-            onChange={(e) => regler(eleve.annee_recrutement, e.target.checked)}
+            disabled={!peutPrise}
+            onChange={(e) => surPrise(e.target.checked)}
           />
         </td>
       ) : null}

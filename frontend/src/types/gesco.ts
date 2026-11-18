@@ -2179,6 +2179,34 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	reprises_importer: Signature<DemandeImportReprises, RapportReprises>,
 	/**  Signature de la commande du même nom. */
+	prises_en_charge_lister: Signature<DemandePrisesEnCharge, ListePrisesEnCharge>,
+	/**  Signature de la commande du même nom. */
+	prise_en_charge_apercu: Signature<DemandeApercuPriseEnCharge, ApercuPriseEnCharge>,
+	/**  Signature de la commande du même nom. */
+	prise_en_charge_regler: Signature<DemandePriseEnCharge, LignePriseEnCharge[]>,
+	/**  Signature de la commande du même nom. */
+	prise_en_charge_abandonner: Signature<DemandeAbandonPriseEnCharge, LignePriseEnCharge[]>,
+	/**  Signature de la commande du même nom. */
+	prise_en_charge_historique: Signature<DemandeInscriptionPriseEnCharge, PriseEnChargeEtat[]>,
+	/**  Signature de la commande du même nom. */
+	montants_etat_lire: Signature<DemandeMontantsEtat, MontantsEtat>,
+	/**  Signature de la commande du même nom. */
+	montants_etat_regler: Signature<DemandeReglageMontantsEtat, MontantsEtat>,
+	/**  Signature de la commande du même nom. */
+	versements_etat_lister: Signature<DemandeVersementsEtat, ListeVersementsEtat>,
+	/**  Signature de la commande du même nom. */
+	versement_etat_lire: Signature<DemandeVersementEtatId, DetailVersementEtat>,
+	/**  Signature de la commande du même nom. */
+	versement_etat_repartition_proposee: Signature<DemandeRepartitionProposee, RepartitionProposee>,
+	/**  Signature de la commande du même nom. */
+	versement_etat_apercu: Signature<DemandeApercuVersementEtat, ApercuVersementEtat>,
+	/**  Signature de la commande du même nom. */
+	versement_etat_enregistrer: Signature<DemandeVersementEtat, ReponseVersementEtat>,
+	/**  Signature de la commande du même nom. */
+	versement_etat_repartir: Signature<DemandeRepartitionVersementEtat, ReponseVersementEtat>,
+	/**  Signature de la commande du même nom. */
+	versement_etat_annuler: Signature<DemandeAnnulationVersementEtat, DetailVersementEtat>,
+	/**  Signature de la commande du même nom. */
 	caisse_session_courante: Signature<null, SessionAffichee | null>,
 	/**  Signature de la commande du même nom. */
 	caisse_ouvrir: Signature<DemandeOuverture, SessionAffichee>,
@@ -10426,6 +10454,651 @@ export type StatutPriseEnCharge =
 /**  Version ancienne, remplacée par une autre ; jamais supprimée (R-14). */
 "remplacee";
 
+/**
+ *  Une inscription visée par un geste, avec l'instant de lecture de sa ligne (modification
+ *  simultanée).
+ */
+export type CiblePriseEnCharge = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Instant de lecture de la ligne, renvoyé tel quel. */
+	lue_le?: number | null,
+};
+
+/**  Geste de la case, pour un élève ou une sélection (§3.7). */
+export type GesteCase = 
+/**  Cocher : version en cours, montant attendu donné ou proposé (§3.3). */
+"cocher" | 
+/**  Modifier le montant attendu ou la référence d'un élève coché. */
+"modifier" | 
+/**
+ *  Porter l'attendu de chaque élève coché au montant proposé aujourd'hui (« Appliquer aux
+ *  élèves déjà cochés » après un changement du tableau des montants).
+ */
+"appliquer_montant_propose" | 
+/**  Décocher, avec un motif. */
+"decocher";
+
+/**  Cocher, modifier ou décocher la prise en charge d'un élève ou d'une sélection. */
+export type DemandePriseEnCharge = {
+	/**  Inscriptions visées. */
+	cibles: CiblePriseEnCharge[],
+	/**  Geste. */
+	geste: GesteCase,
+	/**
+	 *  Montant attendu de l'État : en cochant, absent, le montant proposé de chaque élève ; en
+	 *  modifiant, absent, inchangé.
+	 */
+	montant_attendu?: Montant | null,
+	/**  Référence d'orientation (60 caractères au plus) ; absente, inchangée. */
+	reference?: string | null,
+	/**  Motif, obligatoire pour décocher. */
+	motif?: string,
+};
+
+/**  Ne plus attendre ce que l'État ne paiera pas (§3.6), ou défaire l'abandon. */
+export type DemandeAbandonPriseEnCharge = {
+	/**  Inscriptions visées. */
+	cibles: CiblePriseEnCharge[],
+	/**
+	 *  Montant à ne plus attendre, pour chaque élève ; absent, ce que l'État doit encore à
+	 *  chacun. Jamais plus que ce qu'il doit encore.
+	 */
+	montant?: Montant | null,
+	/**  Vrai pour défaire l'abandon : il revient à zéro. */
+	defaire?: boolean,
+	/**  Motif, obligatoire. */
+	motif: string,
+};
+
+/**  Geste dont l'aperçu est demandé. */
+export type GestePriseEnCharge = 
+/**  Cocher. */
+"cocher" | 
+/**  Modifier le montant attendu. */
+"modifier" | 
+/**  Appliquer le montant proposé aux élèves cochés. */
+"appliquer_montant_propose" | 
+/**  Décocher. */
+"decocher" | 
+/**  Ne plus attendre. */
+"abandonner" | 
+/**  Défaire l'abandon. */
+"defaire_abandon";
+
+/**  Ce que changerait un geste, sans rien écrire. */
+export type DemandeApercuPriseEnCharge = {
+	/**  Inscriptions visées. */
+	inscriptions: string[],
+	/**  Geste. */
+	geste: GestePriseEnCharge,
+	/**  Montant attendu (cocher, modifier) ; absent, comme pour le geste. */
+	montant_attendu?: Montant | null,
+	/**  Montant à ne plus attendre (abandonner) ; absent, ce que l'État doit encore. */
+	montant_abandon?: Montant | null,
+};
+
+/**  Ce qu'un geste changerait pour un élève. */
+export type ApercuEleve = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Nom et prénoms. */
+	eleve: string,
+	/**  Classe. */
+	classe: string,
+	/**
+	 *  Clé du refus du geste pour cet élève (classe hors du lycée et du technique, année close,
+	 *  case non cochée…) ; rien s'il est possible.
+	 */
+	refus: string | null,
+	/**  Vrai si le geste change quelque chose pour cet élève. */
+	change: boolean,
+	/**  Pas encore de facture : le partage s'appliquera à sa naissance. */
+	sans_facture: boolean,
+	/**  Montant attendu proposé (§3.3). */
+	montant_propose: Montant,
+	/**  Montant attendu avant le geste (zéro sans prise en charge en cours). */
+	attendu_avant: Montant,
+	/**  Montant attendu après. */
+	attendu_apres: Montant,
+	/**  Abandonné avant. */
+	abandonne_avant: Montant,
+	/**  Abandonné après. */
+	abandonne_apres: Montant,
+	/**  Dû par l'État avant (sur la facture et en complément). */
+	du_etat_avant: Montant,
+	/**  Dû par l'État après. */
+	du_etat_apres: Montant,
+	/**  Ce que l'État doit encore avant. */
+	doit_encore_etat_avant: Montant,
+	/**  Ce que l'État doit encore après. */
+	doit_encore_etat_apres: Montant,
+	/**  Reste du parent avant. */
+	reste_parent_avant: Montant,
+	/**  Reste du parent après. */
+	reste_parent_apres: Montant,
+	/**  Payé par le parent sur ce qui ne le regarde plus, après. */
+	trop_paye_apres: Montant,
+	/**  Trop-payé reporté sur ses autres frais, après. */
+	trop_paye_reporte_apres: Montant,
+	/**  À rembourser au parent avant. */
+	a_rembourser_avant: Montant,
+	/**  À rembourser au parent après. */
+	a_rembourser_apres: Montant,
+	/**  Argent déjà rendu au parent qu'il devra de nouveau, après (« dont déjà remboursé »). */
+	rendu_apres: Montant,
+};
+
+/**  Aperçu d'un geste pour un élève ou une sélection (§6.1). */
+export type ApercuPriseEnCharge = {
+	/**  Élèves, dans l'ordre demandé. */
+	eleves: ApercuEleve[],
+	/**  Élèves pour qui le geste change quelque chose. */
+	nombre: number,
+	/**  Élèves pour qui le geste est refusé. */
+	refuses: number,
+	/**  Ce que les parents ne doivent plus. */
+	parents_ne_doivent_plus: Montant,
+	/**  Ce que les parents devront en plus (décochage). */
+	parents_devront_en_plus: Montant,
+	/**  Dont l'argent déjà rendu aux parents qu'ils devront de nouveau. */
+	dont_deja_rembourse: Montant,
+	/**  Trop-payé des parents, après. */
+	trop_paye: Montant,
+	/**  Trop-payé reporté sur leurs autres frais, après. */
+	trop_paye_reporte: Montant,
+	/**  À rembourser aux parents, après. */
+	a_rembourser: Montant,
+	/**  Ce que l'État doit encore avant le geste. */
+	doit_encore_etat_avant: Montant,
+	/**  Ce que l'État doit encore après. */
+	doit_encore_etat_apres: Montant,
+};
+
+/**  Sélection de la liste des élèves (§6.1). */
+export type DemandePrisesEnCharge = {
+	/**  Année ; absente, l'année courante. */
+	annee_id?: string | null,
+	/**  Classe ; absente, toutes les classes du lycée et du technique. */
+	classe_id?: string | null,
+};
+
+/**  Une ligne de la liste : une inscription. */
+export type LignePriseEnCharge = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Classe. */
+	classe_id: string,
+	/**  Libellé de la classe. */
+	classe: string,
+	/**  Nom et prénoms. */
+	eleve: string,
+	/**  Matricule interne. */
+	matricule: string,
+	/**  Classe du lycée ou du technique : la case s'y coche. */
+	case_possible: boolean,
+	/**  Case cochée. */
+	pris_en_charge: boolean,
+	/**  Version courante (en cours ou terminée), s'il y en a une. */
+	statut: StatutPriseEnCharge | null,
+	/**  Référence d'orientation. */
+	reference: string,
+	/**  Montant attendu de l'État (zéro si la case n'est pas cochée). */
+	montant_attendu: Montant,
+	/**  Abandonné par l'école. */
+	abandonne: Montant,
+	/**  Montant que l'école proposerait aujourd'hui (§3.3). */
+	montant_propose: Montant,
+	/**  Dû par l'État : sur la facture et en complément. */
+	du_etat: Montant,
+	/**  Reçu de l'État pour l'élève. */
+	recu_etat: Montant,
+	/**  Reste dû par l'État. */
+	reste_etat: Montant,
+	/**  Dont échu. */
+	reste_etat_echu: Montant,
+	/**  Reçu de l'État au-delà de ce qu'il doit pour l'élève. */
+	recu_en_plus: Montant,
+	/**  Reste du parent. */
+	reste_parent: Montant,
+	/**  À rembourser au parent. */
+	a_rembourser: Montant,
+	/**  Pas encore de facture. */
+	sans_facture: boolean,
+	/**  Instant de lecture de la ligne, renvoyé avec le geste. */
+	lue_le: number,
+};
+
+/**  Classe proposée au filtre. */
+export type ClassePriseEnCharge = {
+	/**  Classe. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+};
+
+/**  Liste des élèves et totaux (§6.1). */
+export type ListePrisesEnCharge = {
+	/**  Année montrée. */
+	annee_id: string,
+	/**  Libellé de l'année. */
+	annee: string,
+	/**  Année close : cases grisées, montant et abandon modifiables. */
+	annee_close: boolean,
+	/**  Classes du lycée et du technique de l'année. */
+	classes: ClassePriseEnCharge[],
+	/**  Lignes, par classe puis par nom. */
+	lignes: LignePriseEnCharge[],
+	/**  Élèves pris en charge. */
+	nombre: number,
+	/**  Total attendu des élèves cochés. */
+	total_attendu: Montant,
+	/**  Total reçu de l'État. */
+	total_recu: Montant,
+	/**  Total dû par l'État. */
+	total_du_etat: Montant,
+	/**  Dont échu. */
+	total_du_etat_echu: Montant,
+	/**  Total reçu en plus. */
+	total_recu_en_plus: Montant,
+	/**  Total à rembourser aux parents. */
+	total_a_rembourser: Montant,
+};
+
+/**  Inscription visée par une lecture. */
+export type DemandeInscriptionPriseEnCharge = {
+	/**  Inscription. */
+	inscription_id: string,
+};
+
+/**  Année du tableau des montants attendus. */
+export type DemandeMontantsEtat = {
+	/**  Année ; absente, l'année courante. */
+	annee_id?: string | null,
+};
+
+/**  Une ligne du tableau des montants attendus (§3.2). */
+export type LigneMontantEtat = {
+	/**  Niveau. */
+	niveau_id: string,
+	/**  Libellé du niveau. */
+	niveau: string,
+	/**  Série ou filière, s'il y en a. */
+	serie_id: string | null,
+	/**  Libellé de la série. */
+	serie: string | null,
+	/**  Montant réglé ; vide, les frais de l'école. */
+	montant: Montant | null,
+	/**  Scolarité de la grille en vigueur pour ce niveau et cette série. */
+	frais_ecole: Montant,
+	/**  Élèves cochés de ce niveau et de cette série. */
+	eleves_coches: number,
+	/**  Élèves cochés dont l'attendu diffère du montant proposé aujourd'hui. */
+	eleves_a_changer: number,
+};
+
+/**  Tableau des montants attendus d'une année. */
+export type MontantsEtat = {
+	/**  Année. */
+	annee_id: string,
+	/**  Libellé de l'année. */
+	annee: string,
+	/**  Lignes : niveaux (et séries) du lycée et du technique de l'année. */
+	lignes: LigneMontantEtat[],
+	/**
+	 *  Élèves cochés dont l'attendu diffère du montant proposé : « Appliquer aux élèves déjà
+	 *  cochés » (aperçu, puis geste `appliquer_montant_propose`).
+	 */
+	inscriptions_a_changer: string[],
+	/**  Instant de lecture du tableau, renvoyé au réglage. */
+	lue_le: number,
+};
+
+/**  Un montant saisi dans le tableau. */
+export type MontantEtatSaisi = {
+	/**  Niveau. */
+	niveau_id: string,
+	/**  Série, s'il y en a. */
+	serie_id?: string | null,
+	/**  Montant ; vide, les frais de l'école. */
+	montant?: Montant | null,
+};
+
+/**  Réglage du tableau des montants attendus. */
+export type DemandeReglageMontantsEtat = {
+	/**  Année ; absente, l'année courante. */
+	annee_id?: string | null,
+	/**  Lignes saisies ; les autres ne changent pas. */
+	lignes: MontantEtatSaisi[],
+	/**  Instant de lecture du tableau. */
+	lue_le?: number | null,
+};
+
+/**  Ce que l'État a payé pour un élève, dans une répartition. */
+export type PartSaisie = {
+	/**  Inscription de l'année du versement. */
+	inscription_id: string,
+	/**  Montant ; zéro, la ligne est ignorée. */
+	montant: Montant,
+};
+
+/**  « Nouveau versement de l'État » (§7.2, §7.7). */
+export type DemandeVersementEtat = {
+	/**  Année concernée ; absente, l'année courante (une année précédente pour un arriéré). */
+	annee_id?: string | null,
+	/**  Jour de réception, `AAAA-MM-JJ` ; vide, aujourd'hui. Ignoré reçu avant GESCO. */
+	date?: string,
+	/**  Montant reçu. */
+	montant: Montant,
+	/**  Mode ; absent, le virement. Ignoré reçu avant GESCO. */
+	mode?: ModePaiement | null,
+	/**
+	 *  Compte où l'argent entre ; absent, le compte choisi pour le mode, à défaut le premier
+	 *  compte actif qui l'accepte. Ignoré reçu avant GESCO.
+	 */
+	compte_id?: string | null,
+	/**  Numéro de l'ordre de virement ou du chèque, exigé hors espèces. */
+	reference?: string,
+	/**  Libellé ; vide, « Scolarité des élèves orientés ». */
+	libelle?: string,
+	/**  Payeur ; vide, « État ». */
+	payeur?: string,
+	/**  Reçu avant GESCO : déjà dans le solde d'ouverture, sans recette. */
+	avant_gesco?: boolean,
+	/**  Répartition ; vide, tout est non réparti. */
+	parts?: PartSaisie[],
+};
+
+/**
+ *  Modifier ou compléter la répartition d'un versement (§7.3) : les parts données remplacent
+ *  toutes les parts actives.
+ */
+export type DemandeRepartitionVersementEtat = {
+	/**  Versement. */
+	versement_id: string,
+	/**  La répartition entière, après le geste. */
+	parts: PartSaisie[],
+	/**  Instant de lecture du versement, renvoyé tel quel. */
+	lue_le?: number | null,
+};
+
+/**  Annuler un versement de l'État (§7.3). */
+export type DemandeAnnulationVersementEtat = {
+	/**  Versement. */
+	versement_id: string,
+	/**  Motif, obligatoire. */
+	motif: string,
+	/**  Instant de lecture du versement, renvoyé tel quel. */
+	lue_le?: number | null,
+};
+
+/**  Année de la liste des versements. */
+export type DemandeVersementsEtat = {
+	/**  Année ; absente, l'année courante. */
+	annee_id?: string | null,
+};
+
+/**  Un versement désigné. */
+export type DemandeVersementEtatId = {
+	/**  Versement. */
+	versement_id: string,
+};
+
+/**  Liste de répartition proposée (§7.2, étape 2 du formulaire). */
+export type DemandeRepartitionProposee = {
+	/**  Année concernée ; absente, celle du versement, à défaut l'année courante. */
+	annee_id?: string | null,
+	/**  Versement dont on modifie la répartition ; absent pour un nouveau versement. */
+	versement_id?: string | null,
+};
+
+/**  Pied et avertissements d'une répartition, sans rien écrire. */
+export type DemandeApercuVersementEtat = {
+	/**  Versement dont on modifie la répartition ; absent pour un nouveau versement. */
+	versement_id?: string | null,
+	/**  Année concernée d'un nouveau versement ; absente, l'année courante. */
+	annee_id?: string | null,
+	/**  Montant reçu (celui du versement quand il existe). */
+	montant?: Montant | null,
+	/**  Répartition proposée. */
+	parts?: PartSaisie[],
+};
+
+/**  Un versement de l'État tel que la liste le montre (§6.2). */
+export type VersementEtatAffiche = {
+	/**  Le versement. */
+	versement: VersementEtat,
+	/**
+	 *  Date affichée : la réception, ou l'arrêt avant GESCO de l'année pour un versement reçu
+	 *  avant GESCO.
+	 */
+	date_affichee: string,
+	/**  Compte de la recette (aucun reçu avant GESCO). */
+	compte_id: string | null,
+	/**  Libellé du compte. */
+	compte: string,
+	/**  Mode de la recette. */
+	mode: ModePaiement | null,
+	/**  Somme des parts actives. */
+	reparti: Montant,
+	/**  Reçu, pas encore attribué (zéro pour un versement annulé). */
+	non_reparti: Montant,
+	/**  Élèves de la répartition. */
+	nombre_eleves: number,
+	/**  Instant de lecture, renvoyé avec la répartition ou l'annulation. */
+	lue_le: number,
+};
+
+/**  Versements de l'État d'une année (§6.2). */
+export type ListeVersementsEtat = {
+	/**  Année. */
+	annee_id: string,
+	/**  Libellé de l'année. */
+	annee: string,
+	/**  Année close : les versements s'y enregistrent et s'y répartissent encore. */
+	annee_close: boolean,
+	/**  Versements, valides et annulés, par date de réception. */
+	versements: VersementEtatAffiche[],
+	/**  Versements valides. */
+	nombre: number,
+	/**  Total reçu (versements valides). */
+	total_recu: Montant,
+	/**  Total réparti. */
+	total_reparti: Montant,
+	/**  Total non réparti. */
+	total_non_reparti: Montant,
+};
+
+/**  Une part de la répartition d'un versement. */
+export type PartAffichee = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Nom et prénoms. */
+	eleve: string,
+	/**  Matricule interne. */
+	matricule: string,
+	/**  Classe. */
+	classe: string,
+	/**  Montant. */
+	montant: Montant,
+	/**  Écran ou fichier. */
+	origine: OriginePartEtat,
+};
+
+/**  Un versement de l'État avec sa répartition. */
+export type DetailVersementEtat = {
+	/**  Le versement. */
+	versement: VersementEtatAffiche,
+	/**  Libellé de l'année concernée. */
+	annee: string,
+	/**  Année concernée close. */
+	annee_close: boolean,
+	/**  Parts actives, dans l'ordre de leur saisie. */
+	parts: PartAffichee[],
+};
+
+/**
+ *  Part au-delà de ce que l'État doit pour l'élève (§7.2) : acceptée, la différence est « reçu
+ *  en plus » ; l'attendu peut être porté à la somme reçue (`prise_en_charge_regler`, geste
+ *  `modifier`, montant `attendu_porte`).
+ */
+export type AvertissementPartEtat = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Nom et prénoms. */
+	eleve: string,
+	/**  Reçu de l'État au-delà de ce qu'il doit pour l'élève. */
+	en_plus: Montant,
+	/**  Montant attendu actuel (aucun pour un élève décoché). */
+	attendu: Montant | null,
+	/**  Attendu qui égale la somme reçue (aucun pour un élève décoché). */
+	attendu_porte: Montant | null,
+};
+
+/**  Réponse d'un enregistrement ou d'une répartition. */
+export type ReponseVersementEtat = {
+	/**  Le versement à jour. */
+	detail: DetailVersementEtat,
+	/**  Élèves qui ont reçu plus que ce que l'État leur doit. */
+	avertissements: AvertissementPartEtat[],
+};
+
+/**  Un élève de la liste de répartition. */
+export type EleveARepartir = {
+	/**  Inscription. */
+	inscription_id: string,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	eleve: string,
+	/**  Matricule interne. */
+	matricule: string,
+	/**  Classe. */
+	classe_id: string,
+	/**  Libellé de la classe. */
+	classe: string,
+	/**  Référence d'orientation. */
+	reference: string,
+	/**  Case cochée (faux pour un élève décoché qui a une part de ce versement). */
+	pris_en_charge: boolean,
+	/**  Montant attendu de l'État. */
+	attendu: Montant,
+	/**  Déjà reçu de l'État, hors de ce versement. */
+	deja_recu: Montant,
+	/**  Reste dû par l'État, hors de ce versement. */
+	reste_du_etat: Montant,
+	/**  Part de ce versement aujourd'hui. */
+	part: Montant,
+	/**  Montant prérempli : la part de ce versement, sinon le reste dû par l'État. */
+	propose: Montant,
+};
+
+/**
+ *  Liste de répartition proposée (§7.2) : les élèves pris en charge de l'année, et ceux qui ont
+ *  une part du versement.
+ */
+export type RepartitionProposee = {
+	/**  Année. */
+	annee_id: string,
+	/**  Libellé de l'année. */
+	annee: string,
+	/**  Année close. */
+	annee_close: boolean,
+	/**  Versement dont on modifie la répartition. */
+	versement_id: string | null,
+	/**  Montant reçu du versement. */
+	montant: Montant | null,
+	/**  Élèves, par classe puis par nom. */
+	eleves: EleveARepartir[],
+	/**  Total du reste dû par l'État, hors de ce versement. */
+	total_reste_du_etat: Montant,
+};
+
+/**  Pied d'une répartition et avertissements. */
+export type ApercuVersementEtat = {
+	/**  Montant reçu. */
+	montant: Montant,
+	/**  Réparti. */
+	reparti: Montant,
+	/**  Non réparti. */
+	non_reparti: Montant,
+	/**  Réparti au-delà du reçu. */
+	depassement: Montant,
+	/**  Élèves de la répartition. */
+	nombre_eleves: number,
+	/**  Clé du refus de l'enregistrement, s'il serait refusé. */
+	refus: string | null,
+	/**  Élèves qui recevraient plus que ce que l'État leur doit. */
+	avertissements: AvertissementPartEtat[],
+};
+
+/**
+ *  Un versement de l'État (§7.1) : l'argent, porté par une recette de trésorerie, ou reçu avant
+ *  GESCO (déjà dans le solde d'ouverture, sans recette).
+ */
+export type VersementEtat = {
+	/**  Identifiant technique. */
+	id: string,
+	/**  Établissement. */
+	etablissement_id: string,
+	/**  Année scolaire concernée (une année précédente pour un arriéré). */
+	annee_id: string,
+	/**  Jour de réception. */
+	date: string,
+	/**  Montant reçu, strictement positif. */
+	montant: Montant,
+	/**  Numéro de l'ordre de virement ou du chèque. */
+	reference: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Payeur (« État » par défaut). */
+	payeur: string,
+	/**  Recette qui porte l'argent ; absente exactement pour un versement reçu avant GESCO. */
+	recette_id: string | null,
+	/**  Reçu avant GESCO : déjà dans le solde d'ouverture du compte. */
+	avant_gesco: boolean,
+	/**  Valide ou annulé. */
+	statut: StatutVersementEtat,
+	/**  Motif de l'annulation. */
+	motif_annulation: string,
+	/**  Instant de la saisie. */
+	cree_le: number,
+	/**  Auteur. */
+	cree_par: string | null,
+	/**  Instant de la dernière écriture : l'écran le renvoie. */
+	mis_a_jour_le: number,
+	/**  Auteur de la dernière écriture. */
+	mis_a_jour_par: string | null,
+};
+
+/**  État d'un versement de l'État. */
+export type StatutVersementEtat = 
+/**  En vigueur. */
+"valide" | 
+/**  Annulé avec un motif ; jamais supprimé. */
+"annule";
+
+/**  D'où vient une part d'un versement de l'État. */
+export type OriginePartEtat = 
+/**  Répartie à l'écran. */
+"ecran" | 
+/**  Importée d'un fichier. */
+"import";
+
+/**  Un versement de l'État reçu pour une inscription : la part qui lui est attribuée. */
+export type VersementEtatRecu = {
+	/**  Versement de l'État. */
+	versement_etat_id: string,
+	/**  Jour de réception. */
+	date: string,
+	/**  Référence du versement. */
+	reference: string,
+	/**  Part attribuée à l'inscription. */
+	montant: Montant,
+};
+
 /**  État d'une reprise ou d'une de ses parts. */
 export type StatutReprise =
 /**  En vigueur. */
@@ -11904,6 +12577,13 @@ export type SituationInscription = {
 	avoirs: Avoir[],
 	/**  Payé avant GESCO : reprise, excédent, remboursements ; absent sans facture. */
 	reprise: RepriseDeLInscription | null,
+	/**
+	 *  Vrai si la classe de l'inscription est du lycée ou du technique : la case « Pris en charge
+	 *  par l'État » y existe (SPEC_PRISE_EN_CHARGE_ETAT §3.7).
+	 */
+	prise_en_charge_possible: boolean,
+	/**  Versements de l'État reçus pour l'inscription, par date de réception (§6.4). */
+	versements_etat: VersementEtatRecu[],
 };
 
 /**  SMS reçu, tel que le journal le garde : le code qu'il portait est masqué. */

@@ -2,7 +2,7 @@ import type { Cle } from "../i18n";
 import { ACCES, COMMANDES_DE_LA_SAISIE, COMMANDES_DU_MAITRE, COMMANDES_POSTE_PRINCIPAL, type NomCommande } from "../types/acces";
 import type { ModuleEcole } from "../types/gesco";
 
-export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "bibliotheque" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "paye-avant-gesco" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes" | "statistiques" | "inventaire" | "rapports";
+export type IdSection = "accueil" | "guichet" | "compte" | "utilisateurs" | "parametres" | "roles" | "annees" | "niveaux" | "pedagogie" | "enseignants" | "classes" | "eleves" | "inscriptions" | "notes" | "absences" | "bulletins" | "emploi-du-temps" | "bibliotheque" | "discipline" | "conduite" | "remises" | "convocations" | "fin-annee" | "frais" | "caisse" | "sessions-caisse" | "impayes" | "paye-avant-gesco" | "prise-en-charge-etat" | "journal-encaissements" | "depenses" | "recettes" | "fournisseurs" | "livres" | "journal-tresorerie" | "cantine" | "tresorerie" | "messages" | "personnel" | "heures" | "conges" | "paie" | "sauvegarde" | "journal" | "licence" | "postes" | "statistiques" | "inventaire" | "rapports";
 
 interface Section {
   id: IdSection;
@@ -12,6 +12,9 @@ interface Section {
   commande: NomCommande | null;
   /** Module que l'école active : éteint, la section ne paraît pas. */
   module?: ModuleEcole;
+  /** Pour une commande que son service garde : la section ne paraît qu'avec l'une de ces
+   *  permissions. */
+  unePermission?: readonly string[];
 }
 
 /** Barre latérale (§19.2). Une section n'apparaît que si la garde Rust autorise la commande qui
@@ -38,6 +41,13 @@ const SECTIONS: readonly Section[] = [
   { id: "impayes", libelle: "nav.impayes", groupe: "nav.groupe.finance", commande: "impayes_lister" },
   { id: "sessions-caisse", libelle: "nav.sessions_caisse", groupe: "nav.groupe.finance", commande: "caisse_sessions_lister" },
   { id: "paye-avant-gesco", libelle: "nav.paye_avant_gesco", groupe: "nav.groupe.finance", commande: "reprises_lister" },
+  {
+    id: "prise-en-charge-etat",
+    libelle: "nav.prise_en_charge_etat",
+    groupe: "nav.groupe.finance",
+    commande: "prises_en_charge_lister",
+    unePermission: ["invoices:issue", "invoices:discount", "treasury:read"],
+  },
   { id: "journal-encaissements", libelle: "nav.journal_encaissements", groupe: "nav.groupe.finance", commande: "encaissements_lister" },
   { id: "depenses", libelle: "nav.depenses", groupe: "nav.groupe.finance", commande: "depense_saisir", module: "tresorerie" },
   { id: "recettes", libelle: "nav.recettes", groupe: "nav.groupe.finance", commande: "recettes_lire", module: "tresorerie" },
@@ -83,11 +93,21 @@ export function commandeAutorisee(commande: NomCommande | null, permissions: rea
 }
 
 /** Sections affichées. Sur un poste relié, celles de ce qui ne se fait que sur le poste principal
- *  (sauvegardes, postes de l'école) ne paraissent pas. */
-export function sectionsAutorisees(permissions: readonly string[], modules: readonly ModuleEcole[], relie = false, maitre = false, saisie = true): Section[] {
+ *  (sauvegardes, postes de l'école) ne paraissent pas ; `cachees` retire celles que l'école n'a
+ *  pas à voir (la prise en charge par l'État sans lycée ni technique). */
+export function sectionsAutorisees(
+  permissions: readonly string[],
+  modules: readonly ModuleEcole[],
+  relie = false,
+  maitre = false,
+  saisie = true,
+  cachees: readonly IdSection[] = [],
+): Section[] {
   return SECTIONS.filter(
     (s) =>
+      !cachees.includes(s.id) &&
       commandeAutorisee(s.commande, permissions, maitre, saisie) &&
+      (s.unePermission === undefined || s.unePermission.some((p) => permissions.includes(p))) &&
       (s.module === undefined || modules.includes(s.module)) &&
       !(relie && s.commande !== null && COMMANDES_POSTE_PRINCIPAL.includes(s.commande)),
   );

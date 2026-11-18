@@ -11,6 +11,8 @@ export interface Colonne<T> {
   valeur: (ligne: T) => string;
   /** Ce que la case montre à l'écran (une saisie, par exemple) ; l'export garde `valeur`. */
   rendu?: (ligne: T) => ReactNode;
+  /** Colonne d'écran seulement (une case de sélection) : ni Excel ni CSV ne la reprennent. */
+  sansExport?: boolean;
 }
 
 /** CSV au séparateur point-virgule, celui qu'ouvre Excel en français. */
@@ -53,6 +55,7 @@ export function Tableau<T>({
 }) {
   const [exportation, setExportation] = useState<Exportation>(null);
   const [enCours, setEnCours] = useState(false);
+  const exportees = colonnes.filter((c) => c.sansExport !== true);
   const exporterExcel = async () => {
     setExportation(null);
     setEnCours(true);
@@ -62,8 +65,8 @@ export function Tableau<T>({
       const ecrit = await appeler("exporter_xlsx", {
         chemin,
         titre: titre ?? nomExport,
-        entetes: colonnes.map((c) => c.titre),
-        lignes: lignes.map((l) => colonnes.map((c) => c.valeur(l))),
+        entetes: exportees.map((c) => c.titre),
+        lignes: lignes.map((l) => exportees.map((c) => c.valeur(l))),
       });
       setExportation({ chemin: ecrit.chemin });
     } catch (erreur) {
@@ -78,7 +81,7 @@ export function Tableau<T>({
         <Bouton variante="secondaire" disabled={enCours} onClick={() => void exporterExcel()}>
           {t("commun.exporter_excel")}
         </Bouton>
-        <Bouton variante="secondaire" onClick={() => telecharger(nomExport, versCsv(colonnes, lignes))}>
+        <Bouton variante="secondaire" onClick={() => telecharger(nomExport, versCsv(exportees, lignes))}>
           {t("commun.exporter_csv")}
         </Bouton>
         {exportation !== null && "chemin" in exportation ? (

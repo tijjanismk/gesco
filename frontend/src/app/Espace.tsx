@@ -21,6 +21,7 @@ import { Caisse, SessionsCaisse } from "../modules/finance/Caisse";
 import { Impayes, JournalEncaissements } from "../modules/finance/Recouvrement";
 import { Frais } from "../modules/finance/Frais";
 import { PayeAvantGesco } from "../modules/finance/PayeAvantGesco";
+import { PriseEnChargeEtat, usePriseEnChargeMontree } from "../modules/finance/PriseEnChargeEtat";
 import { Eleves } from "../modules/scolarite/Eleves";
 import { Inscriptions } from "../modules/scolarite/Inscriptions";
 import { Enseignants } from "../modules/pedagogie/Enseignants";
@@ -108,6 +109,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
     courante.data.modules.includes("bibliotheque") &&
     commandeAutorisee("bibliotheque_en_attente", courante.data.permissions, courante.data.maitre);
   const aValider = useLeconsAValider(valide);
+  const priseEnCharge = usePriseEnChargeMontree(courante.data?.maitre === true ? undefined : courante.data?.permissions);
   const [recherche, setRecherche] = useState(false);
   const relireAvertissements = avertissements.refetch;
   useEffect(() => {
@@ -134,7 +136,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
   // saisie en cours restent en place, le bandeau du poste dit la coupure.
   if (courante.data === undefined) return <div className="p-6"><MessageErreur erreur={courante.error} /></div>;
   const { session: ouverte, permissions, doit_changer_mot_de_passe, modules, role_poste, maitre, maitre_saisit } = courante.data;
-  const sections = sectionsAutorisees(permissions, modules, role_poste === "relie", maitre, !maitre || maitre_saisit);
+  const sections = sectionsAutorisees(permissions, modules, role_poste === "relie", maitre, !maitre || maitre_saisit, priseEnCharge ? [] : ["prise-en-charge-etat"]);
   const peutChercher = commandeAutorisee("eleves_rechercher", permissions, maitre) && !doit_changer_mot_de_passe;
   const groupes = [...new Set(sections.map((s) => s.groupe))];
 
@@ -374,6 +376,8 @@ function Contenu({
       return <JournalEncaissements />;
     case "paye-avant-gesco":
       return <PayeAvantGesco />;
+    case "prise-en-charge-etat":
+      return <PriseEnChargeEtat />;
     case "inscriptions":
       return <Inscriptions surOuvrirEleve={surOuvrirEleve} />;
     case "eleves":

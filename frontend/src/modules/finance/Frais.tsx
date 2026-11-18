@@ -11,6 +11,7 @@ import { TYPES_REMISE, valeurRemise } from "./FraisEleve";
 import type { Cycle, EtatGrille, Exigibilite, GrilleAffichee, Referentiel, SaisiePlan, TypeFrais } from "../../types/gesco";
 import { CYCLES } from "../scolarite/Cycles";
 import { auJour, lireJour } from "./echeances";
+import { MontantsEtat } from "./MontantsEtat";
 import { deplier, type GroupeLigne, grouper, resumeNiveaux } from "./groupes";
 
 const TYPES_FRAIS: Record<TypeFrais, Cle> = {
@@ -123,6 +124,9 @@ export function Frais() {
       <MessageErreur erreur={annees.error ?? referentiel.error ?? grilles.error ?? creation.error} />
       {gere ? <Rattrapage /> : null}
       {commandeAutorisee("remises_en_attente", session.data?.permissions ?? []) ? <RemisesEnAttente /> : null}
+      {anneeId !== null && (session.data?.permissions ?? []).some((p) => p === "students:read" || p === "fees:manage") ? (
+        <MontantsEtat key={anneeId} anneeId={anneeId} permissions={session.data?.permissions ?? []} />
+      ) : null}
       {sansScolarite.length > 0 ? (
         <p role="status" className="text-sm text-ocre">{t("frais.niveaux_sans_scolarite", { niveaux: sansScolarite.join(", ") })}</p>
       ) : null}

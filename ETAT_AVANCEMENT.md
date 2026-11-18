@@ -37,7 +37,7 @@ Repère : prochaine migration **0063**.
 
 ## Prise en charge par l'État
 
-**État (18 novembre 2026) : en cours de code, étapes 1 à 4 faites.** Spécification
+**État (18 novembre 2026) : en cours de code, étapes 1 à 5 faites.** Spécification
 `SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2 (prête à coder le 18 novembre 2026, T-164 à T-171 tranchées),
 ADR `docs/adr/2026-11-18-prise-en-charge-par-l-etat.md` accepté le 18 novembre 2026.
 Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé : ils
@@ -49,7 +49,7 @@ passent tous ensemble dans la session des essais de la 2.0.0.
 | 2 | Calcul de la facture : `etat_echeances`, `EcheanceAffichee`, `FactureAffichee`, `recalculer_dans`, remises, plan, abandon et départ, frais ajouté, abonnés de la cantine, refus du remboursement | faite (18 novembre 2026) ; essais 2, 3, 3 bis, 4, 4 bis et 8 (par le service) écrits, non lancés |
 | 3 | Service de la prise en charge : cocher, modifier, abandonner, décocher, sélection, aperçu, montant proposé, case, année close | faite (18 novembre 2026) ; essais 7 (partie case), 9, 10 (partie audit), sélection, montant proposé, motif recopié, facture née d'une inscription cochée écrits, non lancés |
 | 4 | Versement de l'État : enregistrer, répartir, compléter, annuler, recette, année close | faite (18 novembre 2026) ; essais 1, 6, 7 (partie versement), 9 (partie versement), annulation par la trésorerie et refus de la répartition écrits, non lancés |
-| 5 | Commandes et écrans, textes, matrice des permissions | à faire |
+| 5 | Commandes et écrans, textes, matrice des permissions | faite (18 novembre 2026) ; essais vitest (aperçu du cochage, pied de la répartition, « même montant ») écrits, non lancés |
 | 6 | Répartition par fichier | à faire |
 | 7 | Ce que doit l'État et rapports | à faire |
 | 8 | Fin d'année et manuel | à faire |
@@ -348,6 +348,110 @@ intacte ». Vérifiés : fmt, clippy (`-j 4`, noyau, base, services, toutes cibl
   tableau des droits ; seul son enregistrement demande en plus `invoices:discount`.
 - La liste des recettes reçoit l'identifiant du versement ; le bouton « Répartition » vient avec
   les écrans (étape 5).
+
+**Étape 5 (18 novembre 2026)** : commandes et écrans. **Frontière** (`commandes.rs`, `frontiere.rs`,
+contrat et implémentation, déclarées comme les autres, donc servies aussi aux postes reliés) :
+`prises_en_charge_lister` (connectée, le service exige `invoices:issue` ou `invoices:discount`),
+`prise_en_charge_apercu`, `prise_en_charge_regler`, `prise_en_charge_abandonner`
+(`invoices:discount`), `prise_en_charge_historique` (`students:read`), `montants_etat_lire`
+(connectée, le service exige `students:read` ou `fees:manage`), `montants_etat_regler`
+(`fees:manage`), `versements_etat_lister`, `versement_etat_lire`,
+`versement_etat_repartition_proposee` (`treasury:read`), `versement_etat_apercu`,
+`versement_etat_enregistrer`, `versement_etat_repartir`, `versement_etat_annuler`
+(`treasury:manage` ; le service ajoute `invoices:discount` pour un versement reçu avant GESCO).
+Fiches protégées (`COMMANDES_DE_FICHE`, entrée avec `lue_le`) : `montants_etat_regler`,
+`versement_etat_repartir`, `versement_etat_annuler` ; `MODIFICATIONS_SANS_CONTROLE` :
+`prise_en_charge_regler` (nouvelle raison `SansControle::Lignes` : chaque cible porte son
+`lue_le`, vérifié ligne par ligne) et `versement_etat_enregistrer` (`Argent`). L'aide
+`Application::prise_en_charge_essai` est retirée : `tests/prise_en_charge_service.rs` (aide
+`appeler`, reprise par `prise_en_charge_versements.rs`) passe par `p.appeler`, donc par la garde ;
+le versement « reçu avant GESCO » de Chaka y passe par `versement_etat_enregistrer`. Les aides de
+données `prise_en_charge_pour_essai` et `versement_etat_pour_essai` restent : les essais de
+l'étape 2 (`tests/prise_en_charge.rs`) cochent des classes de 7e et 8e, que les commandes
+refusent. `SituationInscription` gagne `prise_en_charge_possible` (classe du lycée ou du
+technique) et `versements_etat` (`VersementEtatRecu` : versement, date, référence, part, par
+`prise_en_charge::parts_recues`). **Types** : `gesco.ts` et `acces.ts` écrits à la main comme
+specta les écrirait (39 types, 14 signatures, 14 accès). **Écrans** :
+`modules/finance/PriseEnChargeEtat.tsx` — entrée **Finance → Prise en charge par l'État**
+(`nav.prise_en_charge_etat`, montrée par `usePriseEnChargeMontree` si la liste de l'année
+courante a une classe du lycée ou du technique ou une ligne ; pour qui ne lit que les versements,
+toujours ; `navigation.ts` gagne `unePermission` et le paramètre `cachees` de
+`sectionsAutorisees`), sélection de l'année, onglets « Élèves » et « Versements de l'État » ;
+« Élèves » : classe, recherche, `Tableau` (colonne de sélection hors export, case, classe, élève,
+matricule, référence, attendu modifiable dans la ligne avec Entrée, reçu, reste dû par l'État dont
+échu, reste du parent, à rembourser), en-tête des totaux, « Cocher les N élèves affichés », tout
+choisir, cocher les choisis, « Appliquer ce montant » et « Ne plus attendre » sur la sélection,
+année close (cases grisées, montant et abandon modifiables), lecture seule sans
+`invoices:discount` ; `PanneauGeste` (aperçu par `prise_en_charge_apercu` : ce que le parent ne
+doit plus ou devra, dont déjà remboursé, trop-payé, reporté, à rembourser, ce que l'État doit
+avant et après, refus nommés ; motif au décochage et à l'abandon ; Entrée confirme), servi aussi
+à la fiche et au tableau des montants. `VersementsEtat.tsx` — liste (date affichée, référence,
+libellé, compte et mode ou « Reçu avant GESCO », montant, réparti, non réparti, élèves, état),
+totaux, « Nouveau versement de l'État » (l'argent : année concernée, date, montant, libellé et
+payeur préremplis, compte et mode par `ChoixCompte` — banque et virement par défaut —,
+référence exigée hors espèces ; case « Reçu avant GESCO (déjà dans le solde d'ouverture) » au
+seul titulaire de `invoices:discount` ; la répartition : `EditeurRepartition`, cases, montant
+prérempli = reste dû, « Même montant pour chaque élève coché », tout cocher, pied reçu / réparti /
+non réparti, refus au-delà du reçu, « Dont X de plus que l'attendu : corriger l'attendu ? » avec
+« Porter l'attendu à … » ; après l'enregistrement, les avertissements du noyau et le même
+bouton), `DetailVersement` (une ligne ouverte : parts, « Modifier » ou « Compléter la
+répartition », « Annuler le versement » avec motif). **Ailleurs** : `PriseEnChargeEleve.tsx` dans
+la section « Frais » de la fiche (ligne « Pris en charge par l'État » avec référence, attendu et
+abandon ; Modifier, Décocher, Ne plus attendre, Attendre de nouveau, Cocher pour une classe du
+lycée ou du technique ; historique des versions ; bloc « Ce que doit l'État » : dû, reçu, reste,
+complément, chaque versement, reçu en plus ; payé par le parent sur la part de l'État et
+reporté) ; `FraisEleve.tsx` : colonnes « Part de l'État » et « Reste de l'État » ;
+`RepriseEleve.tsx` : la ligne « À rembourser au parent » et « Rembourser » (déjà le total du
+partage) se montrent aussi sans payé avant GESCO, libellé de la dépense « Trop-payé sur la part
+de l'État — élève » quand l'excédent vient de là ; grille « Pour les rapports » : la case appelle
+`prise_en_charge_regler` (cocher au montant proposé, décocher au motif proposé), lecture seule
+sans `invoices:discount` ; assistant d'inscription, étape « Frais » : case « Pris en charge par
+l'État » au titulaire, pour une classe du lycée ou du technique, le premier versement se
+reprépare sur la part du parent ; écran Caisse : ligne « Scolarité prise en charge par l'État »
+sous le reste (et sur la ligne de chaque enfant de l'encaissement familial) ; « Frais de
+l'année » : `MontantsEtat.tsx`, tableau des montants par niveau et série (visible seulement s'il
+a des lignes, aide sous le tableau, « Appliquer aux N élèves déjà cochés » avec l'aperçu) ;
+« Autres recettes » : « Répartition » sur une recette qui porte un versement de l'État (ouvre
+`DetailVersement`). `Tableau` gagne `sansExport` (colonne d'écran seulement). Fonctions pures dans
+`modules/finance/prise_en_charge.ts` (`resumerApercu`, `piedRepartition`, `partsDeLaSaisie`,
+`memeMontantPourChaque`, `saisieInitiale`, `depassementAttendu`, `lireFrancs`, `litLaListe`,
+`APRES_PRISE_EN_CHARGE`) et essais vitest `prise_en_charge.test.ts` écrits, non lancés. Textes
+`pec.*`, `vetat.*` et quelques autres dans `fr-ML.ts`. Vérifiés : fmt, clippy (`-j 4`, noyau,
+base, services, toutes cibles ; `gesco-app` non touché), tsc, ESLint.
+
+Écarts à la spécification (étape 5) :
+- `docs/matrice-permissions.md` ne gagne pas de lignes : c'est la matrice rôle × permission,
+  générée et comparée par l'essai `matrice_permissions` ; aucune permission n'est nouvelle, elle
+  ne change donc pas. Le tableau commande → permission est dans `commandes.rs` et `acces.ts`.
+- `prises_en_charge_lister` et `montants_etat_lire` sont « connectées » et leur service vérifie
+  l'une de deux permissions (comme `depenses_lire`) : le Directeur coche sans `invoices:issue`
+  (écart de l'étape 3), et le Comptable règle le tableau des montants (`fees:manage`) sans
+  `students:read` ; `montants_lire` accepte désormais `fees:manage` (le tableau de la
+  spécification ne nomme que `students:read`).
+- Le tableau des montants est dans « Frais de l'année » (écran de la finance réglé par
+  `fees:manage`), pas dans les réglages de l'établissement.
+- L'entrée se montre d'après la liste de l'année courante (une classe du lycée ou du technique,
+  ou une ligne) ; une prise en charge d'une autre année seule ne la montre pas.
+- La grille « Pour les rapports » décoche sans demander de motif (motif proposé « Pas orienté par
+  l'État », comme à l'étape 3) ; l'onglet « Élèves » et la fiche le demandent.
+- L'assistant d'inscription montre la case à l'étape « Frais », après la validation (la facture
+  existe déjà et se partage au recalcul), pas avant la naissance de la facture.
+- La fiche propose aussi « Cocher » pour un élève d'une classe du lycée ou du technique, et
+  « Attendre de nouveau » (défaire l'abandon) ; la spécification ne montre la ligne que pour un
+  élève coché.
+- Les versements de la fiche portent la date enregistrée (pour un versement reçu avant GESCO,
+  l'arrêt du jour de sa saisie), pas l'arrêt recalculé de la liste des versements.
+- L'avertissement d'une part au-delà de ce que l'État doit est calculé à l'écran pendant la saisie
+  (reste dû hors du versement) ; le noyau rend le sien après l'enregistrement, avec le même bouton.
+
+Ce que les étapes suivantes doivent savoir : l'import de la répartition (étape 6) se branche
+dans `VersementsEtat.tsx` (`DetailVersement` et `NouveauVersement`, à côté de
+`EditeurRepartition`), ses commandes après `versement_etat_annuler` dans `commandes.rs`,
+`frontiere.rs` (contrat et méthodes), `gesco.ts` et `acces.ts`, et
+`versement_etat_modele`, `versement_etat_analyser_import` (et `versement_etat_importer` s'il
+reçoit un chemin) vont dans `COMMANDES_A_FICHIER` (et `COMMANDES_SEULES` si l'import l'exige).
+L'onglet « Ce que doit l'État » (étape 7) s'ajoute dans `PriseEnChargeEtat` (type d'onglet
+`"eleves" | "versements"` et la barre `role="tablist"`).
 
 Repère : prochaine migration **0067**.
 

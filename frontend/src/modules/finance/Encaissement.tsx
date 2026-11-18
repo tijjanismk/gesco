@@ -216,6 +216,8 @@ export function FormulaireEncaissement({
   return (
     <Section titre={t("encaissement.pour", { eleve: p.eleve, matricule: p.matricule, classe: p.classe })}>
       <p className="text-sm text-encre">{t("encaissement.situation", { reste: francs(p.reste), echu: francs(p.reste_echu) })}</p>
+      {/* Élève pris en charge par l'État : le caissier ne réclame pas sa scolarité. */}
+      {p.echeances.some((e) => e.part_etat > 0) ? <p className="text-sm text-muet">{t("encaissement.prise_en_charge_etat")}</p> : null}
       {p.caisse_ouverte ? null : <p className="text-sm text-rouge">{t("caisse.session_fermee")}</p>}
       <table className="w-full text-left font-condensee text-sm tabular-nums">
         <thead>
@@ -356,7 +358,7 @@ export function EncaissementFamille() {
             {lignes.map((l) => (
               <div key={l.enfant.id} className="flex flex-wrap items-end gap-3">
                 <p className="w-56 text-sm text-encre">
-                  {l.situation?.facture == null ? `${l.enfant.nom} · ${t("encaissement.aucune_facture")}` : `${l.enfant.nom} · ${l.situation.classe} · ${t("encaissement.reste_court", { reste: francs(l.situation.facture.reste) })}`}
+                  {l.situation?.facture == null ? `${l.enfant.nom} · ${t("encaissement.aucune_facture")}` : `${l.enfant.nom} · ${l.situation.classe} · ${t("encaissement.reste_court", { reste: francs(l.situation.facture.reste) })}${l.situation.facture.part_etat > 0 ? ` · ${t("encaissement.prise_en_charge_etat")}` : ""}`}
                 </p>
                 {l.situation?.facture == null ? null : (
                   <div className="w-40">

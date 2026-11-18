@@ -12,6 +12,7 @@ import type { Remise, SituationInscription, StatutRemise, TypeFrais, TypeRemise,
 import { EcartsFrais } from "./AjustementFrais";
 import { lireJour } from "./echeances";
 import { MODES } from "./Encaissement";
+import { PriseEnChargeInscription } from "./PriseEnChargeEleve";
 import { AjouterFrais, RepriseInscription } from "./RepriseEleve";
 
 export const TYPES_REMISE: Record<TypeRemise, Cle> = {
@@ -101,8 +102,12 @@ function FraisInscription({
     void client.invalidateQueries({ queryKey: ["remises-en-attente"] });
     void client.invalidateQueries({ queryKey: ["reprises"] });
     void client.invalidateQueries({ queryKey: ["reprise-historique", situation.inscription.id] });
+    void client.invalidateQueries({ queryKey: ["pec-historique", situation.inscription.id] });
+    void client.invalidateQueries({ queryKey: ["prises-en-charge"] });
   };
   const facture = situation.facture;
+  // Colonnes de l'État : pour un élève dont une part revient ou est revenue à l'État.
+  const colonnesEtat = facture !== null && (facture.part_etat > 0 || facture.paye_etat > 0);
   const [plan, setPlan] = useState(facture?.facture.plan_paiement_id ?? "");
   const changement = useMutation({
     mutationFn: () => appeler("echeancier_changer_plan", { inscription_id: situation.inscription.id, plan_paiement_id: plan }),
@@ -167,6 +172,12 @@ function FraisInscription({
                   <th key={cle} className="px-2 py-1 font-normal">{t(cle)}</th>
                 ))}
                 {facture.reprise === 0 ? null : <th className="px-2 py-1 font-normal">{t("facture.avant_gesco")}</th>}
+                {colonnesEtat ? (
+                  <>
+                    <th className="px-2 py-1 font-normal">{t("facture.part_etat")}</th>
+                    <th className="px-2 py-1 font-normal">{t("facture.reste_etat")}</th>
+                  </>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -179,6 +190,12 @@ function FraisInscription({
                   <td className="px-2 py-1">{e.ajustement === 0 ? "" : `− ${francs(e.ajustement)}`}</td>
                   <td className="px-2 py-1 font-medium">{francs(e.net)}</td>
                   {facture.reprise === 0 ? null : <td className="px-2 py-1">{e.reprise === 0 ? "" : francs(e.reprise)}</td>}
+                  {colonnesEtat ? (
+                    <>
+                      <td className="px-2 py-1">{e.part_etat === 0 ? "" : francs(e.part_etat)}</td>
+                      <td className="px-2 py-1">{e.reste_etat === 0 ? "" : francs(e.reste_etat)}</td>
+                    </>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -241,6 +258,7 @@ function FraisInscription({
           {t("facture.avoir", { montant: francs(a.montant), solde: francs(a.montant - a.utilise) })}
         </p>
       ))}
+      <PriseEnChargeInscription situation={situation} eleve={eleve} permissions={permissions} surChange={rafraichir} />
       <RepriseInscription situation={situation} eleve={eleve} payeurs={payeurs} permissions={permissions} surChange={rafraichir} />
       {situation.versements.length === 0 ? null : (
         <ul className="flex flex-col gap-1">
