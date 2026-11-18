@@ -811,3 +811,8 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   `cargo test -p gesco-reseau --release --test reseau soixante_eleves -- --ignored --nocapture`,
   dont les chiffres vont dans la section « Mesure » de l'ADR « charge du portail des élèves ».
 - Disque : 9 Go libres (`CARGO_INCREMENTAL=0`).
+- 2026-11-18, porteur : pour un élève de lycée orienté par l'État, « L'État, pas le parent » paie la
+  scolarité. Spécification « élèves pris en charge par l'État » lancée par l'orchestrateur principal
+  (spécification seule). **Ordre** : lot 4 (étape 7 en cours, `local_7360fc6c-82a4-4cdd-8221-5572544abceb`)
+  → reprise avant GESCO → prise en charge par l'État → lot 3 → lot 5 → tous les essais →
+  installeur 2.0.0. L'orchestrateur principal enchaîne.
