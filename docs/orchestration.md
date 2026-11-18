@@ -877,3 +877,10 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
     de version 2.0.0, vitest (saisie de la case, reste, préremplissage du remboursement) ;
     `ETAT_AVANCEMENT.md` dit alors « reprise avant GESCO codée, essais écrits non lancés ».
 - Ensuite (ordre du porteur) : prise en charge par l'État, lot 3, lot 5, puis tous les essais.
+- 2026-11-18, porteur : « après reprise faite le test et construit l'app ; le quiz et le devoir
+  attendent, tous en 2.0.0 », puis « Oui, avant les essais » pour la prise en charge par l'État.
+  **Ordre** (remplace le précédent) : reprise avant GESCO (étapes 5 à 8 en cours,
+  `local_4c484888-c375-4a0e-af5c-d3e8b5bd08c1`) → prise en charge par l'État
+  (`SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2) → tous les essais en une fois et corrections → installeur
+  2.0.0 pour l'école d'essai du porteur → lots 3 (quiz) et 5 (devoirs), toujours dans la 2.0.0.
+  L'orchestrateur principal enchaîne.
