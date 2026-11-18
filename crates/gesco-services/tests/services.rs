@@ -60,6 +60,7 @@ mod portail_entree;
 mod postes;
 mod prise_en_charge;
 mod prise_en_charge_service;
+mod prise_en_charge_versements;
 mod rapports;
 mod recettes;
 mod reprises;

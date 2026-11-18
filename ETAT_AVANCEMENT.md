@@ -37,7 +37,7 @@ Repère : prochaine migration **0063**.
 
 ## Prise en charge par l'État
 
-**État (18 novembre 2026) : en cours de code, étapes 1 à 3 faites.** Spécification
+**État (18 novembre 2026) : en cours de code, étapes 1 à 4 faites.** Spécification
 `SPEC_PRISE_EN_CHARGE_ETAT.md` v1.2 (prête à coder le 18 novembre 2026, T-164 à T-171 tranchées),
 ADR `docs/adr/2026-11-18-prise-en-charge-par-l-etat.md` accepté le 18 novembre 2026.
 Règle de la période : fmt, clippy `-j 4`, tsc et ESLint à chaque étape ; aucun essai lancé : ils
@@ -48,7 +48,7 @@ passent tous ensemble dans la session des essais de la 2.0.0.
 | 1 | Tables et noyau : migration 0066, catégorie livrée « Versements de l'État », dépôt `prise_en_charge.rs`, calcul pur du partage (`finance/prise_en_charge.rs`) | faite (18 novembre 2026) ; essais 5 (calcul pur), 2, 3, 3 bis, 4, 4 bis (calcul pur) et 10 (base) écrits, non lancés |
 | 2 | Calcul de la facture : `etat_echeances`, `EcheanceAffichee`, `FactureAffichee`, `recalculer_dans`, remises, plan, abandon et départ, frais ajouté, abonnés de la cantine, refus du remboursement | faite (18 novembre 2026) ; essais 2, 3, 3 bis, 4, 4 bis et 8 (par le service) écrits, non lancés |
 | 3 | Service de la prise en charge : cocher, modifier, abandonner, décocher, sélection, aperçu, montant proposé, case, année close | faite (18 novembre 2026) ; essais 7 (partie case), 9, 10 (partie audit), sélection, montant proposé, motif recopié, facture née d'une inscription cochée écrits, non lancés |
-| 4 | Versement de l'État : enregistrer, répartir, compléter, annuler, recette, année close | à faire |
+| 4 | Versement de l'État : enregistrer, répartir, compléter, annuler, recette, année close | faite (18 novembre 2026) ; essais 1, 6, 7 (partie versement), 9 (partie versement), annulation par la trésorerie et refus de la répartition écrits, non lancés |
 | 5 | Commandes et écrans, textes, matrice des permissions | à faire |
 | 6 | Répartition par fichier | à faire |
 | 7 | Ce que doit l'État et rapports | à faire |
@@ -256,6 +256,98 @@ cochés »). Vérifiés : fmt, clippy (`-j 4`, noyau, base, services, toutes cib
   close ; niveau ou série hors du lycée et du technique : `prise_en_charge.niveau_non_concerne`.
 - Les essais de l'étape 2 gardent les aides d'essai (`prise_en_charge_pour_essai`) : ils
   emploient des classes de 7e et 8e, où le vrai service refuse de cocher.
+
+**Étape 4 (18 novembre 2026)** : versement de l'État,
+`gesco-services/src/prise_en_charge/versements.rs` (sous-module de `prise_en_charge.rs`, méthodes
+de `ServicePriseEnCharge`). `versement_enregistrer` (`DemandeVersementEtat` : année (courante par
+défaut), date (vide = aujourd'hui), montant, mode (virement par défaut), compte (absent = compte
+du mode, à défaut le premier compte actif qui l'accepte), référence, libellé (« Scolarité des
+élèves orientés » par défaut), payeur (« État » par défaut), `avant_gesco`, `parts` de
+`PartSaisie { inscription_id, montant }` → `ReponseVersementEtat { detail, avertissements }`) :
+une transaction en durabilité critique, la recette créée par le code même de `recette_saisir`
+(`recettes::inserer_dans`, extrait de `ServiceRecettes::saisir`, qui l'appelle désormais :
+catégorie livrée `versement_etat` ; virement ou chèque au compte de banque sans session ;
+espèces dans la session ouverte de qui enregistre, `recette.caisse_fermee` sinon ; référence
+exigée hors espèces, `depense.reference_obligatoire` comme pour toute recette), le versement, les
+parts, le recalcul de chaque facture touchée, l'audit (`versement_etat`, création) et
+`VersementEtatEnregistre` ; reçu avant GESCO : ni recette, ni compte, ni session, date = arrêt
+avant GESCO de l'année (`reprises::arret_de_l_annee`), affichée recalculée (`date_affichee`).
+`versement_repartir` (`DemandeRepartitionVersementEtat` : versement, la répartition entière,
+`lue_le`) : anciennes parts `annulee`, nouvelles parts, recette inchangée, recalcul des factures
+des anciennes et des nouvelles parts, audit avant et après, `VersementEtatReparti` ; une
+répartition identique n'écrit rien (`repartir_dans`, qui prend l'origine des parts, servira à
+l'import de l'étape 6). `versement_annuler` (`DemandeAnnulationVersementEtat` : versement, motif
+obligatoire, `lue_le` → `DetailVersementEtat`) : recette annulée par `recettes::annuler_dans`
+(extrait de `ServiceRecettes::annuler` ; espèces ressorties par la session ouverte de qui annule),
+versement `annule`, parts `annulee`, recalcul, audit, `VersementEtatAnnule`.
+`ServiceRecettes::annuler` annule de même le versement de l'État que porte la recette
+(`annuler_versement_de_la_recette_dans`, dans la même transaction). Règles : parts positives (un
+zéro est ignoré ; `versement_etat.part_invalide`), un élève une fois
+(`versement_etat.eleve_en_double`), inscription de l'année du versement
+(`versement_etat.autre_annee`) qui a une version de prise en charge
+(`versement_etat.eleve_non_pris_en_charge`) ; réparti au-delà du reçu refusé
+(`versement_etat.reparti_superieur`) ; part au-delà de ce que l'État doit acceptée, avec
+`AvertissementPartEtat` (reçu en plus, attendu, `attendu_porte` = attendu + reçu en plus) dans la
+réponse et l'aperçu ; sans aucun élève permis ; année close permise pour enregistrer, répartir et
+annuler. Lectures : `versements_lister` (`DemandeVersementsEtat` → `ListeVersementsEtat`, lignes
+`VersementEtatAffiche` : le versement, date affichée, compte, mode, réparti, non réparti, nombre
+d'élèves, `lue_le` ; totaux des versements valides), `versement_lire` (`DemandeVersementEtatId` →
+`DetailVersementEtat`, parts `PartAffichee`), `versement_repartition_proposee`
+(`DemandeRepartitionProposee` → `RepartitionProposee`, `EleveARepartir` : attendu, déjà reçu et
+reste dû par l'État hors du versement qu'on modifie, part actuelle, montant prérempli),
+`versement_apercu` (`DemandeApercuVersementEtat` → `ApercuVersementEtat` : reçu, réparti, non
+réparti, dépassement, refus nommé, avertissements). `RecetteAffichee` gagne `versement_etat_id`
+(bouton « Répartition » de l'étape 5 ; `gesco.ts` écrit à la main). Permissions dans le service :
+`treasury:read` pour lister, lire et la liste proposée ; `treasury:manage` pour l'aperçu,
+enregistrer, répartir et annuler ; en plus `invoices:discount` pour enregistrer un versement reçu
+avant GESCO. Fraîcheur sur la ligne du versement et ses parts. Événements
+`VersementEtatEnregistre`, `VersementEtatReparti`, `VersementEtatAnnule` ajoutés à
+`TypeEvenement`. Dépôt : `versements_des_recettes`. `facturation::partage_avec_paye_etat`
+(partage avec un autre reçu de l'État, sans écrire). L'écriture de base `verser_dans` (aides des
+essais des étapes 2 et 3) passe désormais par `versements::enregistrer_dans` (reçu avant GESCO,
+sans session ni permission). Aide `Application::prise_en_charge_essai` : noms
+`versements_etat_lister`, `versement_etat_lire`, `versement_etat_repartition_proposee`,
+`versement_etat_apercu`, `versement_etat_enregistrer`, `versement_etat_repartir`,
+`versement_etat_annuler`. Textes d'erreur `versement_etat.*` dans `fr-ML.ts`. Essais écrits, non
+lancés : `gesco-services/tests/prise_en_charge_versements.rs` (essai 1 : cocher, modifier,
+abandonner, décocher, recocher, reçu avant GESCO et sa répartition laissent identique la
+photographie de l'argent de l'essai « caisse intacte » de la reprise ; virement : seuls le livre
+et le solde du compte de banque, le journal du mois (« Versements de l'État ») et le réalisé du
+budget changent ; sa nouvelle répartition ne change rien ; espèces : une entrée de session, puis
+sa sortie à l'annulation ; essai 6 : 2 400 000 F pour vingt élèves, 2 500 000 F refusés,
+1 800 000 F et 600 000 F non répartis, 130 000 F pour 120 000 F dus et l'attendu porté,
+fraîcheur, répartition identique sans écriture, annulation, audits et événements, versement sans
+élève ; refus de la répartition ; essai 7, partie versement ; annulation par la trésorerie, en
+virement et en espèces ; essai 9, partie versement, avec un rôle de l'école qui a la trésorerie
+sans la remise) ; `photo_de_l_argent_de` (`tests/reprises.rs`) sert les deux essais « caisse
+intacte ». Vérifiés : fmt, clippy (`-j 4`, noyau, base, services, toutes cibles), tsc, ESLint.
+
+Écarts à la spécification (étape 4) :
+- Les commandes ne sont pas déclarées (étape 5) : les essais passent par
+  `Application::prise_en_charge_essai`. Noms prévus : `versements_etat_lister`,
+  `versement_etat_lire`, `versement_etat_repartition_proposee` (`treasury:read`),
+  `versement_etat_apercu`, `versement_etat_enregistrer`, `versement_etat_repartir`,
+  `versement_etat_annuler` (`treasury:manage`). La spécification ne nomme que la liste,
+  l'enregistrement, la répartition et l'annulation : la lecture d'un versement, la liste
+  proposée et l'aperçu sont en plus.
+- Le refus `versement_etat.reparti_superieur` ne porte pas le montant possible (les erreurs de
+  règle n'ont pas de paramètre) : l'aperçu rend le reçu, le réparti et le dépassement.
+- « Porter l'attendu à la somme reçue » n'est pas un geste du versement : l'avertissement rend
+  `attendu_porte`, que l'écran envoie à `prise_en_charge_regler` (geste `modifier`, qui demande
+  `invoices:discount`).
+- Une part va à toute inscription de l'année qui a une version de prise en charge, cochée ou
+  décochée : l'État paie souvent un élève décoché ensuite (essai 4), et une répartition modifiée
+  garde ses élèves. La liste proposée ne montre que les élèves cochés et ceux qui ont déjà une
+  part du versement.
+- Le mode reste libre parmi ceux qu'accepte le compte (mobile money compris), comme pour toute
+  recette ; le compte absent prend le compte du mode, à défaut le premier compte actif de sa
+  nature. La date de réception peut être future, comme pour une recette.
+- Un versement reçu avant GESCO garde en base la date d'arrêt du jour de sa saisie ; la date
+  affichée est l'arrêt recalculé à chaque lecture.
+- Annuler ou répartir un versement reçu avant GESCO ne demande que `treasury:manage`, comme le
+  tableau des droits ; seul son enregistrement demande en plus `invoices:discount`.
+- La liste des recettes reçoit l'identifiant du versement ; le bouton « Répartition » vient avec
+  les écrans (étape 5).
 
 Repère : prochaine migration **0067**.
 

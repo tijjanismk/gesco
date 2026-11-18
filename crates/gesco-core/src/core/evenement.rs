@@ -103,6 +103,12 @@ pub enum TypeEvenement {
     PriseEnChargeEtatModifiee,
     /// La case « Pris en charge par l'État » est décochée, avec son motif.
     PriseEnChargeEtatDecochee,
+    /// Un versement de l'État est enregistré (avec sa recette, ou reçu avant GESCO).
+    VersementEtatEnregistre,
+    /// La répartition d'un versement de l'État sur les élèves est modifiée ou complétée.
+    VersementEtatReparti,
+    /// Un versement de l'État est annulé, avec son motif.
+    VersementEtatAnnule,
     /// Un classeur de reprises avant GESCO est importé.
     ImportReprisesApplique,
     /// Un frais facultatif oublié est ajouté à une facture validée.
@@ -395,6 +401,9 @@ impl TypeEvenement {
         Self::PriseEnChargeEtatCochee,
         Self::PriseEnChargeEtatModifiee,
         Self::PriseEnChargeEtatDecochee,
+        Self::VersementEtatEnregistre,
+        Self::VersementEtatReparti,
+        Self::VersementEtatAnnule,
         Self::ImportReprisesApplique,
         Self::FraisAjoute,
         Self::RemiseProposee,
@@ -564,6 +573,9 @@ impl TypeEvenement {
             Self::PriseEnChargeEtatCochee => "PriseEnChargeEtatCochee",
             Self::PriseEnChargeEtatModifiee => "PriseEnChargeEtatModifiee",
             Self::PriseEnChargeEtatDecochee => "PriseEnChargeEtatDecochee",
+            Self::VersementEtatEnregistre => "VersementEtatEnregistre",
+            Self::VersementEtatReparti => "VersementEtatReparti",
+            Self::VersementEtatAnnule => "VersementEtatAnnule",
             Self::ImportReprisesApplique => "ImportReprisesApplique",
             Self::FraisAjoute => "FraisAjoute",
             Self::RemiseProposee => "RemiseProposee",
@@ -735,6 +747,9 @@ impl TypeEvenement {
             | Self::PriseEnChargeEtatCochee
             | Self::PriseEnChargeEtatModifiee
             | Self::PriseEnChargeEtatDecochee
+            | Self::VersementEtatEnregistre
+            | Self::VersementEtatReparti
+            | Self::VersementEtatAnnule
             | Self::ImportReprisesApplique
             | Self::FraisAjoute
             | Self::RemiseProposee

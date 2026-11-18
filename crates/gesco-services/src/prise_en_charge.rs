@@ -4,8 +4,7 @@
 //! recalcule la facture, dans une seule transaction en durabilité critique, avec audit avant et
 //! après et événement. Le partage de chaque facture entre l'État et le parent se calcule à la
 //! lecture, dans `facturation::etat_facture` ; rien ne réécrit une facture, une ligne, une
-//! échéance ni une imputation (R-20). Les versements de l'État viennent avec leur service ; ce
-//! module porte en attendant leurs aides des essais, qu'aucune commande n'atteint.
+//! échéance ni une imputation (R-20). Les versements de l'État (§7) : `versements`.
 
 use std::collections::{HashMap, HashSet};
 
@@ -15,9 +14,8 @@ use gesco_core::core::{
 };
 use gesco_core::finance::facture::lignes_applicables;
 use gesco_core::finance::prise_en_charge::{
-    EntreePartage, MontantEtat, NatureEcheance, OriginePartEtat, PAYEUR_PAR_DEFAUT, Partage,
-    PriseEnChargeEtat, StatutPriseEnCharge, StatutVersementEtat, VersementEtat, VersionCourante,
-    partager, verifier_reference,
+    EntreePartage, MontantEtat, NatureEcheance, Partage, PriseEnChargeEtat, StatutPriseEnCharge,
+    VersementEtat, VersionCourante, partager, verifier_reference,
 };
 use gesco_core::finance::{Facture, StatutFacture, TypeFrais};
 use gesco_core::scolarite::{Classe, Cycle, Eleve, Inscription, Niveau, Serie};
@@ -35,6 +33,17 @@ use crate::facturation::{EcheanceAffichee, etat_facture, partage_simule, recalcu
 use crate::inscriptions::jour;
 use crate::noyau::Noyau;
 use crate::session::Session;
+
+mod versements;
+
+pub(crate) use versements::annuler_versement_de_la_recette_dans;
+pub use versements::{
+    ApercuVersementEtat, AvertissementPartEtat, DemandeAnnulationVersementEtat,
+    DemandeApercuVersementEtat, DemandeRepartitionProposee, DemandeRepartitionVersementEtat,
+    DemandeVersementEtat, DemandeVersementEtatId, DemandeVersementsEtat, DetailVersementEtat,
+    EleveARepartir, LIBELLE_VERSEMENT_PAR_DEFAUT, ListeVersementsEtat, PartAffichee, PartSaisie,
+    REFERENCE_VERSEMENT_MAX, RepartitionProposee, ReponseVersementEtat, VersementEtatAffiche,
+};
 
 fn regle(cle: &'static str) -> ErreurService {
     ErreurService::Regle { cle }
@@ -1064,7 +1073,8 @@ pub(crate) async fn ecrire_version_dans(
 }
 
 /// Enregistre un versement de l'État reçu avant GESCO (sans recette), entièrement attribué à
-/// une inscription, et recalcule sa facture, dans l'unité.
+/// une inscription, par le geste du service (`versements::enregistrer_dans`, sans session ni
+/// permission), dans l'unité : réservé aux aides des essais.
 pub(crate) async fn verser_dans(
     unite: &mut UniteDeTravail<Effet>,
     contexte: &Contexte,
@@ -1072,36 +1082,27 @@ pub(crate) async fn verser_dans(
     montant: Montant,
 ) -> Resultat<VersementEtat> {
     let inscription = inscriptions::lire(unite.connexion(), inscription_id, contexte).await?;
-    let versement = VersementEtat {
-        id: nouvel_id(),
-        etablissement_id: contexte.etablissement_id,
-        annee_id: inscription.annee_id,
-        date: jour(contexte.maintenant)?,
-        montant,
-        reference: String::new(),
-        libelle: "Scolarité des élèves orientés".to_owned(),
-        payeur: PAYEUR_PAR_DEFAUT.to_owned(),
-        recette_id: None,
-        avant_gesco: true,
-        statut: StatutVersementEtat::Valide,
-        motif_annulation: String::new(),
-        cree_le: contexte.maintenant,
-        cree_par: contexte.utilisateur_id,
-        mis_a_jour_le: contexte.maintenant,
-        mis_a_jour_par: contexte.utilisateur_id,
-    };
-    prise_en_charge::inserer_versement(unite.connexion(), &versement, contexte).await?;
-    prise_en_charge::inserer_part(
-        unite.connexion(),
-        versement.id,
-        inscription_id,
-        montant,
-        OriginePartEtat::Ecran,
+    versements::enregistrer_dans(
+        unite,
         contexte,
+        None,
+        &DemandeVersementEtat {
+            annee_id: Some(inscription.annee_id),
+            date: String::new(),
+            montant,
+            mode: None,
+            compte_id: None,
+            reference: String::new(),
+            libelle: String::new(),
+            payeur: String::new(),
+            avant_gesco: true,
+            parts: vec![PartSaisie {
+                inscription_id,
+                montant,
+            }],
+        },
     )
-    .await?;
-    crate::reprises::recalculer_inscription_dans(unite, contexte, inscription_id).await?;
-    Ok(versement)
+    .await
 }
 
 // ---------------------------------------------------------------------------------------------

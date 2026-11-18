@@ -183,6 +183,19 @@ pub(crate) async fn partage_simule(
     partager(&lue.entree).map_err(|_| regle("facture.calcul_impossible"))
 }
 
+/// Partage qu'aurait la facture si l'État avait payé `paye_etat` pour l'inscription, sans rien
+/// écrire : l'aperçu d'une répartition d'un versement de l'État (SPEC_PRISE_EN_CHARGE_ETAT §7.2).
+pub(crate) async fn partage_avec_paye_etat(
+    cnx: &mut gesco_db::Connexion,
+    facture_id: Id<Facture>,
+    paye_etat: Montant,
+    contexte: &Contexte,
+) -> Resultat<Partage> {
+    let mut lue = lire_facture(cnx, facture_id, contexte).await?;
+    lue.entree.paye_etat = paye_etat;
+    partager(&lue.entree).map_err(|_| regle("facture.calcul_impossible"))
+}
+
 /// Ce que le partage lit d'une facture : ses échéances dues avec remise, baisse et net, l'entrée
 /// du calcul et la version courante de la prise en charge.
 struct FactureLue {

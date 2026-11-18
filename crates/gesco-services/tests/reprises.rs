@@ -1137,39 +1137,45 @@ async fn situation_de(e: &Ecole, inscription: &Value) -> Value {
 /// Tout ce que la caisse et les comptes montrent, et ce que la base compte de versements, de
 /// reçus et de mouvements : rien de cela ne doit bouger avec une reprise.
 async fn photo_de_l_argent(e: &Ecole) -> Value {
-    let courante =
-        e.p.ok("caisse_session_courante", Some(&e.admin), Value::Null)
-            .await;
-    let sessions =
-        e.p.ok("caisse_sessions_lister", Some(&e.admin), Value::Null)
-            .await;
-    let journal =
-        e.p.ok(
+    photo_de_l_argent_de(&e.p, &e.admin).await
+}
+
+/// La même photographie pour n'importe quel poste : la prise en charge par l'État étend cet essai
+/// à ses gestes (SPEC_PRISE_EN_CHARGE_ETAT §12, essai 1).
+pub async fn photo_de_l_argent_de(p: &Poste_, admin: &Jeton) -> Value {
+    let courante = p
+        .ok("caisse_session_courante", Some(admin), Value::Null)
+        .await;
+    let sessions = p
+        .ok("caisse_sessions_lister", Some(admin), Value::Null)
+        .await;
+    let journal = p
+        .ok(
             "encaissements_lister",
-            Some(&e.admin),
+            Some(admin),
             json!({ "du": "2026-09-01", "au": "2026-12-31", "caissier_id": null, "mode": null }),
         )
         .await;
-    let tresorerie =
-        e.p.ok(
+    let tresorerie = p
+        .ok(
             "journal_tresorerie_lire",
-            Some(&e.admin),
+            Some(admin),
             json!({ "mois": "2026-10" }),
         )
         .await;
-    let comptes = e.p.ok("tresorerie_lire", Some(&e.admin), Value::Null).await["comptes"].clone();
+    let comptes = p.ok("tresorerie_lire", Some(admin), Value::Null).await["comptes"].clone();
     let mut livres = Vec::new();
     for compte in comptes.as_array().unwrap() {
         livres.push(
-            e.p.ok(
+            p.ok(
                 "livre_compte_lire",
-                Some(&e.admin),
+                Some(admin),
                 json!({ "compte_id": compte["id"], "mois": "2026-10" }),
             )
             .await,
         );
     }
-    let mut cnx = base_brute(&e.p.racine, e.p.trousseau.clone()).await;
+    let mut cnx = base_brute(&p.racine, p.trousseau.clone()).await;
     let mut compter = Vec::new();
     for requete in [
         "SELECT COUNT(*) FROM versement",

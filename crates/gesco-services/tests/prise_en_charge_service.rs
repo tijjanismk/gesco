@@ -18,23 +18,23 @@ use gesco_services::frontiere::ErreurCommande;
 use gesco_services::session::Jeton;
 use serde_json::{Value, json};
 
-struct Lycee {
-    p: Poste_,
-    admin: Jeton,
-    annee: Value,
-    dixieme: Value,
-    onzieme_s: Value,
-    septieme: Value,
-    cantine: Value,
-    niveau_10: Value,
-    niveau_11: Value,
-    serie_s: Value,
+pub struct Lycee {
+    pub p: Poste_,
+    pub admin: Jeton,
+    pub annee: Value,
+    pub dixieme: Value,
+    pub onzieme_s: Value,
+    pub septieme: Value,
+    pub cantine: Value,
+    pub niveau_10: Value,
+    pub niveau_11: Value,
+    pub serie_s: Value,
 }
 
 /// Année 2026-2027 ouverte ; 10e A : inscription 15 000 F, scolarité 120 000 F selon le plan,
 /// cantine facultative 30 000 F ; 11e S : inscription 15 000 F, scolarité 110 000 F ; 7e A
 /// (second cycle) : inscription 15 000 F, scolarité 100 000 F. Une caisse ouverte.
-async fn lycee(dossier: &std::path::Path) -> Lycee {
+pub async fn lycee(dossier: &std::path::Path) -> Lycee {
     let p = poste_vierge(dossier).await;
     p.installer().await;
     let admin = p.connecter("admin", MOT_DE_PASSE).await;
@@ -152,7 +152,7 @@ async fn lycee(dossier: &std::path::Path) -> Lycee {
 }
 
 /// Élève avec un responsable payeur, en brouillon dans la classe.
-async fn brouillon(e: &Lycee, prenoms: &str, classe: &Value) -> (Value, Value) {
+pub async fn brouillon(e: &Lycee, prenoms: &str, classe: &Value) -> (Value, Value) {
     let fiche = e
         .p
         .ok(
@@ -190,7 +190,7 @@ async fn brouillon(e: &Lycee, prenoms: &str, classe: &Value) -> (Value, Value) {
 }
 
 /// Élève inscrit et validé dans la classe (plan par défaut, sans cantine).
-async fn inscrit(e: &Lycee, prenoms: &str, classe: &Value) -> (Value, Value) {
+pub async fn inscrit(e: &Lycee, prenoms: &str, classe: &Value) -> (Value, Value) {
     let (fiche, inscription) = brouillon(e, prenoms, classe).await;
     e.p.ok(
         "inscription_valider",
@@ -201,7 +201,7 @@ async fn inscrit(e: &Lycee, prenoms: &str, classe: &Value) -> (Value, Value) {
     (fiche, inscription)
 }
 
-async fn situation(e: &Lycee, fiche: &Value) -> Value {
+pub async fn situation(e: &Lycee, fiche: &Value) -> Value {
     e.p.ok(
         "situation_financiere",
         Some(&e.admin),
@@ -212,7 +212,7 @@ async fn situation(e: &Lycee, fiche: &Value) -> Value {
 }
 
 /// Appel du service, comme la commande du même nom.
-async fn appeler(
+pub async fn appeler(
     e: &Lycee,
     nom: &str,
     jeton: &Jeton,
@@ -223,17 +223,17 @@ async fn appeler(
         .await
 }
 
-async fn ok(e: &Lycee, nom: &str, jeton: &Jeton, entree: Value) -> Value {
+pub async fn ok(e: &Lycee, nom: &str, jeton: &Jeton, entree: Value) -> Value {
     appeler(e, nom, jeton, entree)
         .await
         .unwrap_or_else(|err| panic!("{nom} : {err:?}"))
 }
 
-async fn refus(e: &Lycee, nom: &str, jeton: &Jeton, entree: Value) -> String {
+pub async fn refus(e: &Lycee, nom: &str, jeton: &Jeton, entree: Value) -> String {
     appeler(e, nom, jeton, entree).await.expect_err(nom).cle
 }
 
-fn cibles(inscriptions: &[&Value]) -> Value {
+pub fn cibles(inscriptions: &[&Value]) -> Value {
     Value::Array(
         inscriptions
             .iter()
@@ -242,16 +242,16 @@ fn cibles(inscriptions: &[&Value]) -> Value {
     )
 }
 
-fn cocher(inscriptions: &[&Value], attendu: Option<i64>) -> Value {
+pub fn cocher(inscriptions: &[&Value], attendu: Option<i64>) -> Value {
     json!({ "cibles": cibles(inscriptions), "geste": "cocher", "montant_attendu": attendu })
 }
 
-fn n(v: &Value) -> i64 {
+pub fn n(v: &Value) -> i64 {
     v.as_i64().unwrap()
 }
 
 /// Ligne de la liste d'une inscription.
-fn ligne<'a>(liste: &'a Value, inscription: &Value) -> &'a Value {
+pub fn ligne<'a>(liste: &'a Value, inscription: &Value) -> &'a Value {
     liste["lignes"]
         .as_array()
         .unwrap()
@@ -260,7 +260,7 @@ fn ligne<'a>(liste: &'a Value, inscription: &Value) -> &'a Value {
         .unwrap()
 }
 
-async fn lister(e: &Lycee) -> Value {
+pub async fn lister(e: &Lycee) -> Value {
     ok(
         e,
         "prises_en_charge_lister",
@@ -270,7 +270,7 @@ async fn lister(e: &Lycee) -> Value {
     .await
 }
 
-async fn compter(e: &Lycee, requete: &str) -> i64 {
+pub async fn compter(e: &Lycee, requete: &str) -> i64 {
     let mut cnx = base_brute(&e.p.racine, e.p.trousseau.clone()).await;
     sqlx::query_scalar(sqlx::AssertSqlSafe(requete.to_owned()))
         .fetch_one(&mut cnx)
@@ -278,7 +278,7 @@ async fn compter(e: &Lycee, requete: &str) -> i64 {
         .unwrap()
 }
 
-async fn compte(e: &Lycee, identifiant: &str, role: &str) -> Jeton {
+pub async fn compte(e: &Lycee, identifiant: &str, role: &str) -> Jeton {
     let mot_de_passe = format!("lycee-2026-{}", identifiant.len() * 7919);
     e.p.ok(
         "utilisateur_creer",

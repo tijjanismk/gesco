@@ -4,16 +4,18 @@
 
 use gesco_core::commun::{DateCivile, Id, Montant};
 use gesco_core::core::{Operation, TypeEvenement};
+use gesco_core::finance::prise_en_charge::VersementEtat;
 use gesco_core::finance::{ModePaiement, MouvementCaisse, NatureMouvement};
 use gesco_core::rh::Mois;
 use gesco_core::tresorerie::depense::verifier_paiement_depense;
 use gesco_core::tresorerie::recette::{Recette, verifier_recette};
 use gesco_core::tresorerie::{CategorieTresorerie, CompteTresorerie, NatureCompte, Sens};
-use gesco_db::depots::{caisse, recettes, tresorerie};
-use gesco_db::nouvel_id;
+use gesco_db::depots::{caisse, prise_en_charge, recettes, tresorerie};
 use gesco_db::unite::Durabilite;
+use gesco_db::{Contexte, UniteDeTravail, nouvel_id};
 use serde::{Deserialize, Serialize};
 
+use crate::effets::Effet;
 use crate::erreur::{ErreurService, Resultat};
 use crate::noyau::Noyau;
 use crate::session::Session;
@@ -42,6 +44,9 @@ pub struct RecetteAffichee {
     pub categorie: String,
     /// Compte où l'argent est entré.
     pub compte: String,
+    /// Versement de l'État que porte la recette, s'il y en a un : le bouton « Répartition »
+    /// l'ouvre.
+    pub versement_etat_id: Option<Id<VersementEtat>>,
 }
 
 /// Les autres recettes d'un mois.
@@ -128,6 +133,7 @@ impl<'n> ServiceRecettes<'n> {
         };
         let categories = tresorerie::categories(&mut cnx, &contexte).await?;
         let comptes = tresorerie::comptes(&mut cnx, &contexte).await?;
+        let versements_etat = prise_en_charge::versements_des_recettes(&mut cnx, &contexte).await?;
         let mut du_mois: Vec<RecetteAffichee> = recettes::recettes(&mut cnx, &contexte)
             .await?
             .into_iter()
@@ -143,6 +149,10 @@ impl<'n> ServiceRecettes<'n> {
                     .find(|c| c.id == r.compte_id)
                     .map(|c| c.libelle.clone())
                     .unwrap_or_default(),
+                versement_etat_id: versements_etat
+                    .iter()
+                    .find(|(recette, _)| *recette == r.id)
+                    .map(|(_, v)| *v),
                 recette: r,
             })
             .collect();
@@ -188,137 +198,211 @@ impl<'n> ServiceRecettes<'n> {
             .into_iter()
             .find(|c| c.id == demande.categorie_id && accepte(c))
             .ok_or(regle("recette.categorie_invalide"))?;
-        let compte = tresorerie::comptes(unite.connexion(), &contexte)
-            .await?
-            .into_iter()
-            .find(|c| c.id == demande.compte_id)
-            .ok_or(regle("tresorerie.compte_inconnu"))?;
-        verifier_paiement_depense(&compte, demande.mode, &demande.reference).map_err(regle)?;
-        let session_id = if compte.nature == NatureCompte::Caisse {
-            Some(
-                caisse::ouverte_de(unite.connexion(), session.utilisateur_id, &contexte)
-                    .await?
-                    .ok_or(regle("recette.caisse_fermee"))?
-                    .id,
-            )
-        } else {
-            None
-        };
-        let recette = Recette {
-            id: nouvel_id(),
-            etablissement_id: session.etablissement_id,
-            date,
-            categorie_id: categorie.id,
-            libelle: demande.libelle.trim().to_owned(),
-            payeur: demande.payeur.trim().to_owned(),
-            montant: demande.montant,
-            compte_id: compte.id,
-            mode: demande.mode,
-            reference: demande.reference.trim().to_owned(),
-            session_id,
-            saisie_par: session.utilisateur_id,
-            annulee: false,
-            motif_annulation: String::new(),
-        };
-        recettes::inserer(unite.connexion(), &recette, &contexte).await?;
-        if let Some(session_id) = session_id {
-            let entree = MouvementCaisse {
-                id: nouvel_id(),
-                etablissement_id: recette.etablissement_id,
-                session_id,
-                montant: recette.montant,
-                mode: ModePaiement::Especes,
-                motif: format!("{} · {}", recette.libelle, recette.payeur),
-                versement_id: None,
-                le: contexte.maintenant,
-                par: session.utilisateur_id,
-                nature: NatureMouvement::EntreeRecette,
-                paiement_id: None,
-                depense_id: None,
-                transfert_id: None,
-                recette_id: Some(recette.id),
-            };
-            caisse::inserer_mouvement(unite.connexion(), &entree, &contexte).await?;
-        }
-        let id = recette.id.vers_chaine();
-        unite.auditer(
-            "recette_tresorerie",
-            &id,
-            Operation::Creation,
-            None,
-            Some(serde_json::to_value(&recette)?),
-            "recettes.saisir",
-        );
-        unite.emettre(
-            TypeEvenement::RecetteEnregistree,
-            "recette_tresorerie",
-            &id,
-            serde_json::json!({ "montant": recette.montant, "categorie": categorie.libelle,
-                "compte_id": compte.id, "mode": recette.mode }),
-        );
+        inserer_dans(
+            &mut unite,
+            &contexte,
+            session,
+            &NouvelleRecette {
+                date,
+                categorie: &categorie,
+                libelle: &demande.libelle,
+                payeur: &demande.payeur,
+                montant: demande.montant,
+                compte_id: demande.compte_id,
+                mode: demande.mode,
+                reference: &demande.reference,
+            },
+        )
+        .await?;
         self.noyau.terminer(unite).await?;
         self.lire(session, Mois::de(date)).await
     }
 
     /// Annule une recette avec un motif ; reçue en espèces, elle ressort par une régularisation
-    /// dans la session ouverte de qui annule.
+    /// dans la session ouverte de qui annule. Une recette qui porte un versement de l'État annule
+    /// ce versement de la même façon (SPEC_PRISE_EN_CHARGE_ETAT §7.3) : ses parts tombent et les
+    /// factures des élèves se recalculent, dans la même transaction.
     pub async fn annuler(
         &self,
         session: &Session,
         demande: &DemandeAnnulationRecette,
     ) -> Resultat<RecettesDuMois> {
-        let motif = demande.motif.trim();
-        if motif.is_empty() {
-            return Err(regle("recette.motif_obligatoire"));
-        }
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
         let mut unite = self
             .noyau
             .commencer(contexte.clone(), Durabilite::Critique)
             .await?;
-        let recette = recettes::recette(unite.connexion(), demande.id, &contexte).await?;
-        if recette.annulee {
-            return Err(regle("recette.deja_annulee"));
-        }
-        if recette.session_id.is_some() {
-            let ouverte = caisse::ouverte_de(unite.connexion(), session.utilisateur_id, &contexte)
-                .await?
-                .ok_or(regle("recette.caisse_fermee_annulation"))?;
-            let sortie = MouvementCaisse {
-                id: nouvel_id(),
-                etablissement_id: recette.etablissement_id,
-                session_id: ouverte.id,
-                montant: recette.montant,
-                mode: ModePaiement::Especes,
-                motif: format!("Recette annulée : {motif}"),
-                versement_id: None,
-                le: contexte.maintenant,
-                par: session.utilisateur_id,
-                nature: NatureMouvement::SortieRegularisation,
-                paiement_id: None,
-                depense_id: None,
-                transfert_id: None,
-                recette_id: Some(recette.id),
-            };
-            caisse::inserer_mouvement(unite.connexion(), &sortie, &contexte).await?;
-        }
-        recettes::annuler(unite.connexion(), recette.id, motif, &contexte).await?;
-        let id = recette.id.vers_chaine();
-        unite.auditer(
-            "recette_tresorerie",
-            &id,
-            Operation::Modification,
-            Some(serde_json::json!({ "annulee": false })),
-            Some(serde_json::json!({ "annulee": true, "motif": motif })),
-            "recettes.annuler",
-        );
-        unite.emettre(
-            TypeEvenement::RecetteAnnulee,
-            "recette_tresorerie",
-            &id,
-            serde_json::json!({ "montant": recette.montant, "motif": motif }),
-        );
+        let recette =
+            annuler_dans(&mut unite, &contexte, session, demande.id, &demande.motif).await?;
+        crate::prise_en_charge::annuler_versement_de_la_recette_dans(
+            &mut unite,
+            &contexte,
+            recette.id,
+            &demande.motif,
+        )
+        .await?;
         self.noyau.terminer(unite).await?;
         self.lire(session, Mois::de(recette.date)).await
     }
+}
+
+/// Une recette à enregistrer, sa catégorie déjà choisie.
+pub(crate) struct NouvelleRecette<'a> {
+    /// Jour de réception.
+    pub(crate) date: DateCivile,
+    /// Catégorie.
+    pub(crate) categorie: &'a CategorieTresorerie,
+    /// Ce qui est reçu.
+    pub(crate) libelle: &'a str,
+    /// Qui paie.
+    pub(crate) payeur: &'a str,
+    /// Montant.
+    pub(crate) montant: Montant,
+    /// Compte où l'argent entre.
+    pub(crate) compte_id: Id<CompteTresorerie>,
+    /// Mode.
+    pub(crate) mode: ModePaiement,
+    /// Référence, exigée hors espèces.
+    pub(crate) reference: &'a str,
+}
+
+/// Enregistre une recette dans l'unité ouverte : le geste de `recette_saisir`, seul code qui crée
+/// une recette (autres recettes et versements de l'État). Le compte doit accepter le mode, la
+/// référence est exigée hors espèces ; dans un compte de caisse, la recette entre dans la session
+/// ouverte de qui l'enregistre (refusée sans session) ; audit et événement.
+pub(crate) async fn inserer_dans(
+    unite: &mut UniteDeTravail<Effet>,
+    contexte: &Contexte,
+    session: &Session,
+    nouvelle: &NouvelleRecette<'_>,
+) -> Resultat<Recette> {
+    verifier_recette(nouvelle.libelle, nouvelle.payeur, nouvelle.montant).map_err(regle)?;
+    let compte = tresorerie::comptes(unite.connexion(), contexte)
+        .await?
+        .into_iter()
+        .find(|c| c.id == nouvelle.compte_id)
+        .ok_or(regle("tresorerie.compte_inconnu"))?;
+    verifier_paiement_depense(&compte, nouvelle.mode, nouvelle.reference).map_err(regle)?;
+    let session_id = if compte.nature == NatureCompte::Caisse {
+        Some(
+            caisse::ouverte_de(unite.connexion(), session.utilisateur_id, contexte)
+                .await?
+                .ok_or(regle("recette.caisse_fermee"))?
+                .id,
+        )
+    } else {
+        None
+    };
+    let recette = Recette {
+        id: nouvel_id(),
+        etablissement_id: session.etablissement_id,
+        date: nouvelle.date,
+        categorie_id: nouvelle.categorie.id,
+        libelle: nouvelle.libelle.trim().to_owned(),
+        payeur: nouvelle.payeur.trim().to_owned(),
+        montant: nouvelle.montant,
+        compte_id: compte.id,
+        mode: nouvelle.mode,
+        reference: nouvelle.reference.trim().to_owned(),
+        session_id,
+        saisie_par: session.utilisateur_id,
+        annulee: false,
+        motif_annulation: String::new(),
+    };
+    recettes::inserer(unite.connexion(), &recette, contexte).await?;
+    if let Some(session_id) = session_id {
+        let entree = MouvementCaisse {
+            id: nouvel_id(),
+            etablissement_id: recette.etablissement_id,
+            session_id,
+            montant: recette.montant,
+            mode: ModePaiement::Especes,
+            motif: format!("{} · {}", recette.libelle, recette.payeur),
+            versement_id: None,
+            le: contexte.maintenant,
+            par: session.utilisateur_id,
+            nature: NatureMouvement::EntreeRecette,
+            paiement_id: None,
+            depense_id: None,
+            transfert_id: None,
+            recette_id: Some(recette.id),
+        };
+        caisse::inserer_mouvement(unite.connexion(), &entree, contexte).await?;
+    }
+    let id = recette.id.vers_chaine();
+    unite.auditer(
+        "recette_tresorerie",
+        &id,
+        Operation::Creation,
+        None,
+        Some(serde_json::to_value(&recette)?),
+        "recettes.saisir",
+    );
+    unite.emettre(
+        TypeEvenement::RecetteEnregistree,
+        "recette_tresorerie",
+        &id,
+        serde_json::json!({ "montant": recette.montant, "categorie": nouvelle.categorie.libelle,
+            "compte_id": compte.id, "mode": recette.mode }),
+    );
+    Ok(recette)
+}
+
+/// Annule une recette dans l'unité ouverte, avec son motif (obligatoire) : le geste de
+/// `recette_annuler`. Reçue en espèces, elle ressort par une régularisation dans la session
+/// ouverte de qui annule (refusée sans session). Rend la recette telle qu'elle était lue.
+pub(crate) async fn annuler_dans(
+    unite: &mut UniteDeTravail<Effet>,
+    contexte: &Contexte,
+    session: &Session,
+    recette_id: Id<Recette>,
+    motif: &str,
+) -> Resultat<Recette> {
+    let motif = motif.trim();
+    if motif.is_empty() {
+        return Err(regle("recette.motif_obligatoire"));
+    }
+    let recette = recettes::recette(unite.connexion(), recette_id, contexte).await?;
+    if recette.annulee {
+        return Err(regle("recette.deja_annulee"));
+    }
+    if recette.session_id.is_some() {
+        let ouverte = caisse::ouverte_de(unite.connexion(), session.utilisateur_id, contexte)
+            .await?
+            .ok_or(regle("recette.caisse_fermee_annulation"))?;
+        let sortie = MouvementCaisse {
+            id: nouvel_id(),
+            etablissement_id: recette.etablissement_id,
+            session_id: ouverte.id,
+            montant: recette.montant,
+            mode: ModePaiement::Especes,
+            motif: format!("Recette annulée : {motif}"),
+            versement_id: None,
+            le: contexte.maintenant,
+            par: session.utilisateur_id,
+            nature: NatureMouvement::SortieRegularisation,
+            paiement_id: None,
+            depense_id: None,
+            transfert_id: None,
+            recette_id: Some(recette.id),
+        };
+        caisse::inserer_mouvement(unite.connexion(), &sortie, contexte).await?;
+    }
+    recettes::annuler(unite.connexion(), recette.id, motif, contexte).await?;
+    let id = recette.id.vers_chaine();
+    unite.auditer(
+        "recette_tresorerie",
+        &id,
+        Operation::Modification,
+        Some(serde_json::json!({ "annulee": false })),
+        Some(serde_json::json!({ "annulee": true, "motif": motif })),
+        "recettes.annuler",
+    );
+    unite.emettre(
+        TypeEvenement::RecetteAnnulee,
+        "recette_tresorerie",
+        &id,
+        serde_json::json!({ "montant": recette.montant, "motif": motif }),
+    );
+    Ok(recette)
 }

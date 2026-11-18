@@ -1842,7 +1842,10 @@ impl Application {
     /// Appelle le service de la prise en charge par l'État avec la session du jeton, comme le
     /// feront les commandes du même nom (`prise_en_charge_regler`, `prise_en_charge_abandonner`,
     /// `prise_en_charge_apercu`, `prises_en_charge_lister`, `prise_en_charge_historique`,
-    /// `montants_etat_lire`, `montants_etat_regler`) : réservé aux essais tant que ces commandes
+    /// `montants_etat_lire`, `montants_etat_regler`, `versements_etat_lister`,
+    /// `versement_etat_lire`, `versement_etat_repartition_proposee`, `versement_etat_apercu`,
+    /// `versement_etat_enregistrer`, `versement_etat_repartir`, `versement_etat_annuler`) :
+    /// réservé aux essais tant que ces commandes
     /// n'existent pas. Les permissions sont vérifiées par le service.
     #[doc(hidden)]
     pub async fn prise_en_charge_essai(
@@ -1889,6 +1892,36 @@ impl Application {
             }
             "montants_etat_regler" => {
                 serde_json::to_value(service.montants_regler(&session, &lire(entree)?).await?)
+            }
+            "versements_etat_lister" => {
+                serde_json::to_value(service.versements_lister(&session, &lire(entree)?).await?)
+            }
+            "versement_etat_lire" => {
+                let demande: crate::prise_en_charge::DemandeVersementEtatId = lire(entree)?;
+                serde_json::to_value(
+                    service
+                        .versement_lire(&session, demande.versement_id)
+                        .await?,
+                )
+            }
+            "versement_etat_repartition_proposee" => serde_json::to_value(
+                service
+                    .versement_repartition_proposee(&session, &lire(entree)?)
+                    .await?,
+            ),
+            "versement_etat_apercu" => {
+                serde_json::to_value(service.versement_apercu(&session, &lire(entree)?).await?)
+            }
+            "versement_etat_enregistrer" => serde_json::to_value(
+                service
+                    .versement_enregistrer(&session, &lire(entree)?)
+                    .await?,
+            ),
+            "versement_etat_repartir" => {
+                serde_json::to_value(service.versement_repartir(&session, &lire(entree)?).await?)
+            }
+            "versement_etat_annuler" => {
+                serde_json::to_value(service.versement_annuler(&session, &lire(entree)?).await?)
             }
             _ => {
                 return Err(ErreurService::Regle {

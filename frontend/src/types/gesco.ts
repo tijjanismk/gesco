@@ -10751,6 +10751,11 @@ export type RecetteAffichee = {
 	categorie: string,
 	/**  Compte où l'argent est entré. */
 	compte: string,
+	/**
+	 *  Versement de l'État que porte la recette, s'il y en a un : le bouton « Répartition »
+	 *  l'ouvre.
+	 */
+	versement_etat_id: string | null,
 };
 
 /**  Les autres recettes d'un mois. */

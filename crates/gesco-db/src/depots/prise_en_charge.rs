@@ -481,6 +481,30 @@ pub async fn versement_de_la_recette(
     .transpose()
 }
 
+/// Recettes qui portent un versement de l'État, avec ce versement (liste des recettes : le
+/// bouton « Répartition »).
+pub async fn versements_des_recettes(
+    cnx: &mut Connexion,
+    contexte: &Contexte,
+) -> Resultat<Vec<(Id<Recette>, Id<VersementEtat>)>> {
+    let lignes: Vec<(String, String)> = sqlx::query_as(
+        "SELECT recette_id, id FROM versement_etat
+         WHERE etablissement_id = ?1 AND recette_id IS NOT NULL",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .fetch_all(cnx)
+    .await?;
+    lignes
+        .into_iter()
+        .map(|(r, v)| {
+            Ok((
+                lire_id("versement_etat", "recette_id", &r)?,
+                lire_id("versement_etat", "id", &v)?,
+            ))
+        })
+        .collect()
+}
+
 /// Versements de l'État d'une année, valides et annulés, par date de réception.
 pub async fn versements_de_l_annee(
     cnx: &mut Connexion,
