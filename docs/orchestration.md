@@ -936,3 +936,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   aux parents, tableau d'honneur (félicitations, encouragements), liste de classe et liste d'appel,
   registre matricule, procès-verbal du conseil de classe, et pour le personnel attestation de
   travail, certificat de travail et attestation de salaire. Existants dans `crates/gesco-docs/modeles/`.
+- 2026-11-20 : `SPEC_DOCUMENTS_ECOLE.md` v1.1 validée par le porteur (T-172 à T-186 sur
+  recommandations), ADR des actes délivrés accepté (`2496b70`). Code après la phase 12. Quiz et
+  devoirs en cours dans `local_f7bd6ce9-cd57-41b8-8060-31ebc011f382` (relais, Opus moyen).
