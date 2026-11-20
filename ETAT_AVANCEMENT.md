@@ -2,6 +2,77 @@
 
 Phase courante : **11, lot A — plusieurs postes sur le réseau de l'école** (`SPEC_PHASE_11_A.md` v1.7), engagée le 10 novembre 2026 sur la branche `developpement` après les réponses du porteur du projet à T-80 à T-86 et son accord sur cinq ADR ; étape 1 validée par le porteur du projet le 11 novembre 2026, étape 2 validée le 11 novembre 2026, étape 3 (le poste relié) réalisée, vérifiée et présentée le 11 novembre 2026, étape 4 (travailler à plusieurs) réalisée en deux parties, vérifiée et présentée le 11 novembre 2026, validée par le porteur du projet le 12 novembre 2026, étape 5 (saisie des notes par les maîtres) réalisée et vérifiée le 12 novembre 2026, à valider par le porteur du projet, étape 6 à faire. Version visée : 2.0.0. La phase 9 (rapports et statistiques de l'école), laissée de côté le 10 novembre 2026, entre dans la version 2.0 après le lot A (décision du 11 novembre 2026, voir « Phase 9 » plus bas) ; la 1.2.7 est étiquetée `v1.2.7` sur `1.2.x` et ne reçoit rien de la phase 11. Phase 9 engagée le 14 novembre 2026 : ses huit étapes sont faites, les essais globaux passés le 15 novembre 2026 ; à valider par le porteur du projet.
 
+## Essais de la 2.0.0 et installeur pour l'école de test (18 novembre 2026)
+
+**État : tous les essais passés une fois, défauts corrigés, installeur 2.0.0 construit pour l'école
+de test du porteur du projet.** Couvre ce qui avait été codé sans essai : lot 4 de la phase 12
+(portail des élèves), reprise avant GESCO, prise en charge par l'État. Les lots 3 (quiz) et 5
+(devoirs) ne sont pas codés : ils viennent à partir du 20 novembre 2026.
+
+**Lancés** : suite Rust complète (`cargo test -j 4 --workspace --exclude gesco-app --exclude
+gesco-remplir --no-fail-fast`) : 26 échecs dans `gesco-db` (1) et `gesco-services` (25), tout le
+reste vert (`gesco-core` 431 unitaires) ; après corrections, les groupes en échec repassés en
+entier (`portail`, `reprises`, `prise_en_charge`, `import_eleves`, `tresorerie`, les deux essais du
+portail dans `bibliotheque`, `matrice_permissions`, `types_typescript`), `gesco-db` et `gesco-docs`
+repassés : verts. Clippy sur tout le dépôt sans avertissement, fmt, vitest (240), knip, tsc, ESLint.
+Playwright, tous les scénarios : lot 2 (7), postes (11), premiers écrans (99 : deux réservés à
+l'école d'essai, passés en la construisant ; celui du 2e trimestre du jardin, que l'école d'essai
+saute, passé au passage ordinaire), portail (8).
+
+**Défauts du code corrigés** : (1) **reprise modifiée** : l'ancienne reprise désignait la nouvelle
+(`remplacee_par`, clé étrangère) avant que celle-ci n'existe ; toute modification d'un montant
+« Payé avant GESCO » et l'import qui remplace échouaient ; l'ancienne s'annule, la nouvelle entre,
+puis le lien se pose (`depots::reprises::lier_remplacante`) ; (2) **billets du portail** : le modèle
+ne déclarait pas `par_page` ni `qr`, et un `if` placé derrière un `+` empêchait Typst de le composer :
+aucun billet ne s'imprimait ; modèle réécrit, même rendu ; (3) écran Rôles : le domaine `portal`
+n'était rangé dans aucun groupe (la permission des codes ne pouvait ni s'accorder ni se retirer) ;
+il va avec la bibliothèque ; (4) clé `portail.eteint` ajoutée au catalogue ; contextes d'audit du
+portail et de la prise en charge nommés en constantes (étiquettes internes, jamais affichées) ;
+(5) écran des frais : le bouton de la section des montants de l'État dit « Enregistrer les montants
+de l'État », distinct de celui de la grille ; (6) knip : types des écrans de l'élève exportés pour
+rien.
+
+**Essais corrigés, sans en affaiblir aucun** : migration 0063 essayée seule (elle migrait jusqu'à la
+dernière) ; deux catégories livrées de plus (« Versements de l'État », « Remboursements aux
+parents ») ; élèves d'essai complets (lieu de naissance, parent joignable, matricule national en
+9e, saisie manuelle des matricules) ; grille de frais posée ; clés d'idempotence de 8 caractères ;
+reconnexion après une horloge avancée d'un jour ou plus ; horloge avancée d'une seconde avant une
+modification concurrente ; champ `categorie` du journal ; vérification que les lignes du portail
+au journal ne portent aucun code ; vitest du catalogue : 30 s de délai (il lit tout le Rust). Types
+(`gesco.ts`, `acces.ts`) et `docs/matrice-permissions.md` (composition v18) régénérés.
+
+**Playwright** : scénarios nouveaux « Payé avant GESCO » (saisie au clavier, excédent, modèle et
+import du classeur, section Frais, Rembourser, Ajouter un frais ; captures 420 à 423) et « prise en
+charge par l'État » (cocher le CAP 1, virement réparti, état imprimé et exporté, fiche ; 430 à 433) ;
+passage réservé à l'école d'essai : réseau et portail allumés, billets de la 7e A (440, 441).
+Portail : la case suit GESCO (attendue cochée après le réglage) ; les calculs de 9e sont en
+caractères ordinaires (pas de KaTeX : c'est le contenu) ; le son est en `preload="none"` à dessein,
+l'essai demande lui-même son en-tête. Captures 400 à 407 du lot 4 refaites.
+
+**Son d'essai** : `frontend/e2e/son-essai.mp3` remplacé par une voix française de dix secondes
+(« Bonjour. Écoute bien la consigne. Lis la leçon jusqu'au bout, puis réponds aux trois questions
+dans ton cahier. »), voix Hortense de la synthèse de Windows (System.Speech) sur ce poste, volume
+normalisé, MP3 mono 64 kb/s (79 Ko) ; les deux scénarios attendent 10 s.
+
+**École d'essai** refaite (`Documents\gesco-ecole-essai`, ancienne copie à la Corbeille) : en plus,
+le portail allumé et les billets de la 7e A, « Payé avant GESCO » en 7e B (dont un excédent à
+rembourser) avec le modèle et le cahier importé, les deux apprentis du CAP 1 pris en charge par
+l'État avec un virement réparti et l'état exporté ; LISEZ-MOI complété.
+
+**Installeur** : `GESCO_2.0.0_x64-setup.exe` (312 Mo, SHA-256
+`793D306D624E8707F2D78AFBD15CED4E27875ED26304FCB0AF881B5DF7AC2D95`), construit le 20 novembre 2026
+avec le paquet `bibliotheque-mali-2026.11.1.gbib` et les écrans des élèves ; copié avec un court
+`LISEZ-MOI.txt` (installer GESCO dans une école déjà au deuxième mois, avec la reprise avant
+GESCO, dans l'ordre du manuel) dans `Documents\GESCO-2.0.0-ecole-test`. Une coupure du réseau
+a fait échouer un premier assemblage (Tauri télécharge un outil) ; le second a réussi. Le disque
+est resté au-dessus de 8 Go (33 Go libres) : pas de `cargo clean --release`. Le mode développement
+de `target` a été vidé avant, en gardant `target\debug\gesco-app.exe` pour le lanceur de l'école
+d'essai.
+
+**Reste** : la mesure de charge du portail (`cargo test -p gesco-reseau --release --test reseau
+soixante_eleves -- --ignored --nocapture`) n'est pas lancée ; l'essai du portail sur un vrai
+téléphone (dix minutes, §13 étape 1 du lot 4) revient au porteur du projet.
+
 ## Sauvegarde hors de l'école
 
 Spécification `SPEC_SAUVEGARDE_HORS_ECOLE.md` v1.0, ADR `docs/adr/2026-11-15-copie-hors-ecole.md`. Questions T-130 à T-133 prises sur leurs recommandations : une ligne dans le bandeau seulement quand une copie choisie n'arrive pas ; « à la demande » à la livraison ; 4 semaines et 12 mois de copies, soit 16 au plus ; le guide présente Google Drive, puis OneDrive, puis Dropbox. Décisions du porteur du projet : n'y part que l'archive déjà chiffrée, jamais la base en clair, jamais la clé ; GESCO vérifie, sans bloquer, que la dernière copie est arrivée. Règle des essais : écrits à chaque étape avec le code, lancés tous ensemble à l'étape 4 ; par étape, fmt, clippy, tsc et ESLint.
@@ -36,6 +107,8 @@ Validés par le porteur du projet le 16 novembre 2026 (étape 3, choix pris au p
 Repère : prochaine migration **0063**.
 
 ## Prise en charge par l'État
+
+**Essais passés (18 au 20 novembre 2026)** : voir « Essais de la 2.0.0 et installeur pour l'école de test » en tête.
 
 **État (18 novembre 2026) : prise en charge par l'État codée, essais écrits non lancés.** Les huit
 étapes sont faites ; les essais passent avec ceux de la 2.0.0, dans la session des essais
@@ -761,6 +834,8 @@ Repère : prochaine migration **0067**.
 
 ## Reprise avant GESCO — installer GESCO en cours d'année
 
+**Essais passés (18 au 20 novembre 2026)** : voir « Essais de la 2.0.0 et installeur pour l'école de test » en tête.
+
 **État (18 novembre 2026) : reprise avant GESCO codée, essais écrits non lancés.** Les huit étapes sont faites ; les essais Rust (1 à 12), vitest et Playwright du §11 passent avec ceux de la 2.0.0, dans la session des essais.
 Spécification `SPEC_REPRISE_AVANT_GESCO.md` v1.2 (acceptée le 17 novembre 2026), ADR
 `docs/adr/2026-11-17-reprise-avant-gesco.md` accepté (complément à l'acceptation : colonne
@@ -859,6 +934,8 @@ passent tous ensemble dans la session des essais de la 2.0.0.
 (`types_typescript`) pour vérifier ce qui a été écrit à la main.
 
 ## Phase 12, lot 4 — le portail de l'élève sur le Wi-Fi de l'école
+
+**Essais passés (18 au 20 novembre 2026)** : voir « Essais de la 2.0.0 et installeur pour l'école de test » en tête.
 
 **État (18 novembre 2026) : lot 4 codé, essais écrits non lancés.** Les sept étapes sont faites ; les essais Rust, vitest, knip et le Playwright d'ensemble passent avec ceux des lots 3 et 5, dans la session des essais (voir « Étape 7 » plus bas). Ensuite : le code de la reprise avant GESCO, puis les lots 3 et 5.
 
