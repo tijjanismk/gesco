@@ -939,3 +939,26 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-20 : `SPEC_DOCUMENTS_ECOLE.md` v1.1 validée par le porteur (T-172 à T-186 sur
   recommandations), ADR des actes délivrés accepté (`2496b70`). Code après la phase 12. Quiz et
   devoirs en cours dans `local_f7bd6ce9-cd57-41b8-8060-31ebc011f382` (relais, Opus moyen).
+
+## Passage de relais du 20 novembre 2026 (à lire en premier par l'orchestrateur neuf)
+
+- **Fait pour la 2.0.0** (branche `developpement`) : phases 11 et 9 ; sauvegarde hors de l'école ;
+  phase 12 lots 1, 2, 4 et 3 (quiz) ; reprise avant GESCO ; prise en charge par l'État. Essais
+  globaux verts le 20 novembre (avant les quiz et les devoirs) ; installeur de l'école de test dans
+  `Documents\GESCO-2.0.0-ecole-test`.
+- **En cours** : lot 5 (devoirs), relais autonomes (dernier : `local_82049e05-5964-40b8-a5e2-02c3c869ff6e`).
+  À la fin du lot 5, la session passe tous les essais, refait l'école d'essai, reconstruit
+  l'installeur de l'école de test, pousse et montre les captures, sans approbation du porteur.
+- **Façon de travailler** : sessions de code en Opus 5.5, effort moyen ; plusieurs étapes par
+  session, commit et push après chacune, aucun essai par étape (fmt, clippy, tsc, ESLint) ; essais
+  globaux en une fois à la fin ; relais au-delà d'environ 150 000 jetons. Une seule session qui
+  compile. L'orchestrateur lance une session seulement dans le tour qui suit un message du porteur ;
+  sinon carte. Archivage avec l'accord du porteur (« archive les sessions terminées » vaut accord).
+- **Ensuite, dans l'ordre** : (1) documents de l'école (`SPEC_DOCUMENTS_ECOLE.md` v1.1 validée) ;
+  (2) intégration des cours de la bibliothèque (plus aucune rédaction ; 51 images libres trouvées ;
+  crédit des auteurs selon l'ADR 8) ; (3) lots C et D (`SPEC_LOTS_C_D.md`, T-150 à T-160 sans
+  réponse, préalables du §15 : juriste, hébergeur, tarif, domaine, école pilote) ; (4) installeur
+  officiel, guide, essais à la main (dont G-1 à G-12 de la sauvegarde), essai sur deux machines.
+- **Orchestrateur principal** `local_4dff60fa` (« Orchestrateur GESCO ») reçoit aussi le porteur et
+  enchaîne parfois les sessions : se coordonner par message pour éviter les doublons.
+- **Disque** : 25 Go libres le 20 novembre.
