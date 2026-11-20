@@ -926,3 +926,13 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
 - 2026-11-20, porteur : « mets les enfants en Opus moyen ». Les sessions de code tournent désormais
   en Opus 5.5, effort moyen (au lieu d'élevé), relais compris. Appliqué aux sessions
   `local_83061997` (quiz et devoirs) et `local_1357f7c8` (installeur).
+- 2026-11-20 : essais globaux verts, école d'essai refaite, installeur 2.0.0 pour l'école de test
+  dans `Documents\GESCO-2.0.0-ecole-test` avec `LISEZ-MOI.txt` (dernier `e41c62a`). Mesure de charge
+  du portail non lancée.
+- 2026-11-20, porteur, sur les documents de l'école : « tous, mais pas dans cette phase ». À
+  spécifier et coder **après la phase 12** (lots 3 et 5 en cours), comme phase à part : certificat de
+  scolarité ou de fréquentation, attestation d'inscription, carte d'élève (photo, QR), exeat ou
+  certificat de radiation, attestation de réussite ou de passage, lettre d'avertissement ou de blâme
+  aux parents, tableau d'honneur (félicitations, encouragements), liste de classe et liste d'appel,
+  registre matricule, procès-verbal du conseil de classe, et pour le personnel attestation de
+  travail, certificat de travail et attestation de salaire. Existants dans `crates/gesco-docs/modeles/`.
