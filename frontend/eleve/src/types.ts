@@ -21,7 +21,7 @@ export type Accueil = {
   pdf: boolean;
 };
 
-type Nature = "lecon" | "sujet" | "corrige" | "document";
+type Nature = "lecon" | "sujet" | "corrige" | "document" | "quiz";
 
 export type EntreeEleve = {
   id: string;

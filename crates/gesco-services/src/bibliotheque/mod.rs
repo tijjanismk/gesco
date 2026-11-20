@@ -561,7 +561,7 @@ impl<'a> ServiceBibliotheque<'a> {
                 match c.nature {
                     NatureContenu::Lecon => lecons += 1,
                     NatureContenu::Sujet => sujets += 1,
-                    NatureContenu::Corrige | NatureContenu::Document => {}
+                    NatureContenu::Corrige | NatureContenu::Document | NatureContenu::Quiz => {}
                 }
             }
             let version_plus_recente = installes

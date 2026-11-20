@@ -3,5 +3,6 @@
 
 mod chiffrement;
 mod reconstruction_0063;
+mod reconstruction_0067;
 mod reprise_0065;
 mod socle;

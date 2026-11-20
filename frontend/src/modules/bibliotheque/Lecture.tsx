@@ -48,6 +48,8 @@ export function libelleNature(nature: NatureContenu, examen: ExamenSujet | null,
       return t("bibliotheque.nature.corrige");
     case "document":
       return t("bibliotheque.nature.document");
+    case "quiz":
+      return t("bibliotheque.nature.quiz");
   }
 }
 

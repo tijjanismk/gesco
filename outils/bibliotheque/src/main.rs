@@ -890,7 +890,7 @@ fn tableau_de_couverture(manifeste: &ManifestePaquet, lus: &[Lu]) -> (String, St
         let colonne = match contenu.nature {
             NatureContenu::Lecon => 1,
             NatureContenu::Sujet => 2,
-            NatureContenu::Corrige | NatureContenu::Document => 3,
+            NatureContenu::Corrige | NatureContenu::Document | NatureContenu::Quiz => 3,
         };
         if let Some(n) = ligne.get_mut(colonne) {
             *n += 1;

@@ -4043,6 +4043,7 @@ export const catalogue = {
   "bibliotheque.nature.sujet_sans_session": "Sujet du {examen}",
   "bibliotheque.nature.corrige": "Corrigé",
   "bibliotheque.nature.document": "Document",
+  "bibliotheque.nature.quiz": "Quiz",
   "bibliotheque.marque.version_ecole": "Version de l'école",
   "bibliotheque.marque.en_attente": "En attente",
   "bibliotheque.vue.visible": "Version visible",

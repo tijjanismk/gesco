@@ -54,6 +54,8 @@ export function nature(c: Pick<EntreeEleve, "nature" | "examen" | "session">): s
       return "Leçon";
     case "document":
       return "Document";
+    case "quiz":
+      return "Quiz";
     case "sujet":
       return examen === null ? "Sujet" : `Sujet du ${examen}${session}`;
     case "corrige":

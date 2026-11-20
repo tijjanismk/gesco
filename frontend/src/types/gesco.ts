@@ -10346,7 +10346,9 @@ export type NatureContenu =
 /**  Corrigé d'un sujet. */
 "corrige" | 
 /**  Document (PDF, images) ajouté par l'école. */
-"document";
+"document" | 
+/**  Quiz d'un chapitre écrit par l'école : tout son texte suit la convention des quiz. */
+"quiz";
 
 /**  Nature d'un élément de paie. */
 export type NatureElement = 

@@ -172,7 +172,7 @@ impl ServiceBibliotheque<'_> {
                     NatureContenu::Lecon => apercu.lecons += 1,
                     NatureContenu::Sujet => apercu.sujets += 1,
                     NatureContenu::Corrige => apercu.corriges += 1,
-                    NatureContenu::Document => apercu.documents += 1,
+                    NatureContenu::Document | NatureContenu::Quiz => apercu.documents += 1,
                 }
             }
         }

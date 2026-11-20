@@ -55,6 +55,8 @@ pub enum NatureContenu {
     Corrige,
     /// Document (PDF, images) ajouté par l'école.
     Document,
+    /// Quiz d'un chapitre écrit par l'école : tout son texte suit la convention des quiz.
+    Quiz,
 }
 
 impl NatureContenu {
@@ -65,6 +67,7 @@ impl NatureContenu {
             Self::Sujet => "sujet",
             Self::Corrige => "corrige",
             Self::Document => "document",
+            Self::Quiz => "quiz",
         }
     }
 
@@ -75,6 +78,7 @@ impl NatureContenu {
             "sujet" => Self::Sujet,
             "corrige" => Self::Corrige,
             "document" => Self::Document,
+            "quiz" => Self::Quiz,
             _ => return None,
         })
     }
