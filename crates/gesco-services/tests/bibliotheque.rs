@@ -4777,4 +4777,25 @@ async fn l_eleve_passe_le_quiz_et_seule_sa_tentative_corrigee_s_ecrit() {
         vec![(1, "B".to_owned(), 0), (2, "3.5".to_owned(), 1)]
     );
     cnx.close().await.unwrap();
+
+    // Étape 5 : le quiz sur papier, pour la leçon et pour le chapitre.
+    let sortie = tempfile::tempdir().unwrap();
+    for forme in ["quiz_seul", "reponses_quiz"] {
+        let lecon = sortie.path().join(format!("{forme}.pdf"));
+        p.ok(
+            "bibliotheque_imprimer",
+            Some(&admin),
+            json!({ "contenu_id": racine, "brouillon": false, "forme": forme, "chemin": lecon }),
+        )
+        .await;
+        assert!(std::fs::read(&lecon).unwrap().starts_with(b"%PDF-"));
+        let tout = sortie.path().join(format!("chapitre-{forme}.pdf"));
+        p.ok(
+            "bibliotheque_chapitre_imprimer",
+            Some(&admin),
+            json!({ "chapitre_id": chapitre.id, "forme": forme, "chemin": tout }),
+        )
+        .await;
+        assert!(std::fs::read(&tout).unwrap().starts_with(b"%PDF-"));
+    }
 }

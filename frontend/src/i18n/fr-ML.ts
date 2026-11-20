@@ -4209,6 +4209,8 @@ export const catalogue = {
   "quiz.montrer_reponse": "Montrer la réponse",
   "quiz.voir_score": "Voir le score",
   "quiz.verifier": "Vérifier",
+  "bibliotheque.imprimer.quiz_seul": "Quiz seul",
+  "bibliotheque.imprimer.reponses_quiz": "Réponses du quiz",
   "quiz.reviser": "Réviser le chapitre",
   "quiz.s_entrainer": "S'entraîner",
   "quiz.quiz_en_classe": "Le quiz",

@@ -56,10 +56,16 @@ export function Imprimer({ contenu, place }: { contenu: LectureContenu; place: P
     <div role="group" aria-label={t("bibliotheque.imprimer")} className="flex w-full flex-col gap-2 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">
       <fieldset className="flex flex-wrap gap-3">
         <legend className="sr-only">{t("bibliotheque.imprimer.forme")}</legend>
-        {(["complete", "sans_corriges"] as const).map((f) => (
+        {(contenu.quiz.length > 0 ? (["complete", "sans_corriges", "quiz_seul", "reponses_quiz"] as const) : (["complete", "sans_corriges"] as const)).map((f) => (
           <label key={f} className="flex items-center gap-1">
             <input type="radio" name="forme-impression" checked={forme === f} onChange={() => setForme(f)} />
-            {f === "complete" ? t("bibliotheque.imprimer.complete") : t("bibliotheque.imprimer.sans_corriges")}
+            {f === "complete"
+              ? t("bibliotheque.imprimer.complete")
+              : f === "sans_corriges"
+                ? t("bibliotheque.imprimer.sans_corriges")
+                : f === "quiz_seul"
+                  ? t("bibliotheque.imprimer.quiz_seul")
+                  : t("bibliotheque.imprimer.reponses_quiz")}
           </label>
         ))}
         {aBrouillon ? (

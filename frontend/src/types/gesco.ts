@@ -8294,7 +8294,11 @@ export type FormeImpression =
 /**  La leçon entière. */
 "complete" | 
 /**  Sans la section des corrigés ni les réponses du quiz. */
-"sans_corriges";
+"sans_corriges" |
+/**  Les questions du quiz seules, sans aucune réponse, avec « Nom : ……… ». */
+"quiz_seul" |
+/**  Pour le maître : la bonne réponse et l'explication de chaque question. */
+"reponses_quiz";
 
 /**  Formule de la moyenne d'une matière sur une période (T-28). */
 export type FormuleMatiere = 

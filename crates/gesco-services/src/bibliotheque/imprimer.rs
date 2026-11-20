@@ -36,6 +36,10 @@ pub enum FormeImpression {
     Complete,
     /// Sans la section des corrigés ni les réponses du quiz.
     SansCorriges,
+    /// Les questions du quiz seules, sans aucune réponse, avec « Nom : ……… ».
+    QuizSeul,
+    /// Pour le maître : la bonne réponse et l'explication de chaque question.
+    ReponsesQuiz,
 }
 
 /// Imprimer un contenu, ou ses faits à vérifier.
@@ -494,10 +498,26 @@ impl ServiceBibliotheque<'_> {
         forme: FormeImpression,
     ) -> ContenuImprime {
         let mut lecon = lecture.lecon.pour_les_eleves();
-        if forme == FormeImpression::SansCorriges {
-            lecon = lecon.sans_les_corriges();
+        let mut sous_titre = sous_titre(&lecture);
+        match forme {
+            FormeImpression::Complete => {}
+            FormeImpression::SansCorriges => lecon = lecon.sans_les_corriges(),
+            FormeImpression::QuizSeul | FormeImpression::ReponsesQuiz => {
+                let reponses = forme == FormeImpression::ReponsesQuiz;
+                lecon = super::papier_quiz::lecon_du_quiz(
+                    &lecon,
+                    lecture.nature == NatureContenu::Quiz,
+                    &lecture.quiz,
+                    reponses,
+                )
+                .unwrap_or_default();
+                sous_titre = if reponses {
+                    "Réponses du quiz".to_owned()
+                } else {
+                    "Quiz".to_owned()
+                };
+            }
         }
-        let sous_titre = sous_titre(&lecture);
         let images = lecture
             .images
             .into_iter()
@@ -621,9 +641,14 @@ impl ServiceBibliotheque<'_> {
             trouve.ok_or(regle("bibliotheque.chapitre_introuvable"))?;
         let mut contenus = Vec::new();
         for c in &chapitre.contenus {
+            let forme_quiz = matches!(
+                demande.forme,
+                FormeImpression::QuizSeul | FormeImpression::ReponsesQuiz
+            );
             if c.nature == NatureContenu::Document
                 || (demande.forme == FormeImpression::SansCorriges
                     && c.nature == NatureContenu::Corrige)
+                || (forme_quiz && !matches!(c.nature, NatureContenu::Lecon | NatureContenu::Quiz))
             {
                 continue;
             }
@@ -639,7 +664,12 @@ impl ServiceBibliotheque<'_> {
             if lecture.lecon.blocs.is_empty() {
                 continue;
             }
-            contenus.push(Self::imprime(lecture, &niveau, &matiere, demande.forme));
+            let imprime = Self::imprime(lecture, &niveau, &matiere, demande.forme);
+            // Un contenu sans quiz ne paraît pas dans les formes du quiz.
+            if imprime.lecon.blocs.is_empty() {
+                continue;
+            }
+            contenus.push(imprime);
         }
         Ok(Impression {
             titre: chapitre.titre,

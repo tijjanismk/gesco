@@ -36,6 +36,7 @@ mod ecrire;
 mod fichiers;
 mod imprimer;
 mod lire;
+mod papier_quiz;
 mod publier;
 mod quiz;
 mod retirer;
