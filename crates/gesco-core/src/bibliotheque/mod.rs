@@ -10,6 +10,7 @@ pub mod lecon;
 pub mod lecture;
 pub mod paquet;
 pub mod portail;
+pub mod quiz;
 pub mod reglages;
 pub mod word;
 
@@ -41,5 +42,10 @@ pub use lecture::{
 pub use paquet::{
     ChapitrePaquet, ContenuPaquet, DisciplinePaquet, ErreurPaquet, ExamenSujet, ManifestePaquet,
     NatureContenu, PaquetLu, comparer_versions, lire_paquet, marques_interdites,
+};
+pub use quiz::{
+    CHOIX_MAX, ChoixQuestion, QUESTIONS_REVISION, QuestionEcartee, QuestionQuiz, Quiz,
+    SorteQuestion, ajouter_question, analyser_quiz, corriger, gabarit_question, normaliser_reponse,
+    score,
 };
 pub use word::{ErreurWord, ImageWord, LeconWord, NoteWord, TAILLE_WORD_MAX, convertir_docx};

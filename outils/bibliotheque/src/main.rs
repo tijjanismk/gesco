@@ -226,7 +226,18 @@ fn fabriquer(arguments: &[String]) -> Result<String, String> {
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_default()
     ));
-    std::fs::write(&couverture, tableau_de_couverture(&manifeste)).map_err(|e| e.to_string())?;
+    let (tableau, a_reprendre) = tableau_de_couverture(&manifeste, &lus);
+    std::fs::write(&couverture, tableau).map_err(|e| e.to_string())?;
+    let quiz_a_reprendre = couverture.with_file_name(
+        couverture
+            .file_name()
+            .map(|n| {
+                n.to_string_lossy()
+                    .replace("-couverture.csv", "-quiz-a-reprendre.txt")
+            })
+            .unwrap_or_default(),
+    );
+    std::fs::write(&quiz_a_reprendre, a_reprendre).map_err(|e| e.to_string())?;
     let compter = |n: NatureContenu| manifeste.contenus.iter().filter(|c| c.nature == n).count();
     Ok(format!(
         "Paquet {} {} écrit dans {} ({} octets) : {} chapitres, {} leçons, {} sujets, {} corrigés.\n\
@@ -846,9 +857,16 @@ fn ranger(
     ))
 }
 
-/// Tableau de couverture (E-14), pour l'éditeur : par niveau, séries et matière.
-fn tableau_de_couverture(manifeste: &ManifestePaquet) -> String {
-    let mut lignes: BTreeMap<(String, String, String), [usize; 4]> = BTreeMap::new();
+/// Tableau de couverture (E-14), pour l'éditeur : par niveau, séries et matière ; avec les
+/// questions de quiz reconnues et écartées (lot 3). Rend aussi la liste des leçons dont une
+/// question n'est pas reconnue, pour l'intégration des cours.
+fn tableau_de_couverture(manifeste: &ManifestePaquet, lus: &[Lu]) -> (String, String) {
+    let mut lignes: BTreeMap<(String, String, String), [usize; 6]> = BTreeMap::new();
+    let textes: HashMap<&str, &str> = lus
+        .iter()
+        .map(|l| (l.cle.as_str(), l.texte.as_str()))
+        .collect();
+    let mut a_reprendre = String::new();
     let chapitres: HashMap<&str, &ChapitrePaquet> = manifeste
         .chapitres
         .iter()
@@ -877,12 +895,31 @@ fn tableau_de_couverture(manifeste: &ManifestePaquet) -> String {
         if let Some(n) = ligne.get_mut(colonne) {
             *n += 1;
         }
+        if contenu.nature == NatureContenu::Lecon
+            && let Some(texte) = textes.get(contenu.cle.as_str())
+        {
+            let quiz = gesco_core::bibliotheque::analyser_quiz(texte, false);
+            if let Some(n) = ligne.get_mut(4) {
+                *n += quiz.questions.len();
+            }
+            if let Some(n) = ligne.get_mut(5) {
+                *n += quiz.ecartees.len();
+            }
+            for e in &quiz.ecartees {
+                a_reprendre.push_str(&format!(
+                    "{} : question {} : {}\n",
+                    contenu.cle, e.numero, e.raison
+                ));
+            }
+        }
     }
-    let mut csv = String::from("niveau;series;discipline;chapitres;lecons;sujets;corriges\n");
-    for ((niveau, series, discipline), [ch, le, su, co]) in lignes {
+    let mut csv = String::from(
+        "niveau;series;discipline;chapitres;lecons;sujets;corriges;questions_reconnues;questions_ecartees\n",
+    );
+    for ((niveau, series, discipline), [ch, le, su, co, qr, qe]) in lignes {
         csv.push_str(&format!(
-            "{niveau};{series};{discipline};{ch};{le};{su};{co}\n"
+            "{niveau};{series};{discipline};{ch};{le};{su};{co};{qr};{qe}\n"
         ));
     }
-    csv
+    (csv, a_reprendre)
 }
