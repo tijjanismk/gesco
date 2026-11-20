@@ -917,3 +917,9 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   école d'essai refaite (son d'essai audible) et installeur 2.0.0 pour l'école de test
   (`Documents\GESCO-2.0.0-ecole-test`) lancés sans approbation, comme décidé, dans
   `local_1357f7c8-3a49-4919-a973-ddb66d320d2f`. Orchestrateur principal prévenu. 22 Go libres.
+- 2026-11-20 : essais globaux passés (`0f89f69`, `ba58ec4`) ; la session de l'installeur
+  (`local_1357f7c8`), coupée par le réseau le 18, a été relancée et construit l'installeur de
+  l'école de test. Lots 3 (quiz) puis 5 (devoirs) lancés dans
+  `local_83061997-dfad-46d2-a6ac-24d53ebb02f8`. La session attend sans compiler la fin de
+  l'installeur, puis code sans essais par étape ; à la fin, tous les essais, l'école d'essai et
+  l'installeur refaits sans approbation, avec push.
