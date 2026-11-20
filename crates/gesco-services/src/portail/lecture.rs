@@ -865,6 +865,17 @@ impl LecturePortail {
         Some((q, lu.eleve.version.as_str(), lu.chapitre_id.as_str()))
     }
 
+    /// Les questions d'un contenu dans sa version visible, sa version et sa nature (pour le
+    /// suivi des maîtres, qui borne déjà aux contenus que la classe voit).
+    pub fn questions_de(&self, contenu_id: &str) -> Option<(&[QuestionQuiz], &str, NatureContenu)> {
+        let lu = self.contenus.get(contenu_id)?;
+        Some((
+            lu.quiz.as_slice(),
+            lu.eleve.version.as_str(),
+            lu.eleve.nature,
+        ))
+    }
+
     /// Un contenu visible pour cette session ; son lien seulement s'il est visible aussi.
     pub fn contenu(&self, contenu_id: &str, session: &SessionEleve) -> Option<ContenuEleve> {
         if !self.visible(contenu_id, session) {

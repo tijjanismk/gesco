@@ -2319,19 +2319,40 @@ impl Application {
                 .acquire()
                 .await
                 .map_err(gesco_db::ErreurBase::from)?;
-            gesco_db::depots::portail::avancement_de_l_eleve(&mut cnx, &eleve, &annee, &contexte)
-                .await
+            let lignes = gesco_db::depots::portail::avancement_de_l_eleve(
+                &mut cnx, &eleve, &annee, &contexte,
+            )
+            .await?;
+            let tentatives = gesco_db::depots::portail::tentatives_de_l_eleve(
+                &mut cnx,
+                &eleve,
+                &annee,
+                u32::try_from(crate::portail::suivi::SCORES_MAX.saturating_mul(4))
+                    .unwrap_or(u32::MAX),
+                &contexte,
+            )
+            .await?;
+            Ok::<_, gesco_db::ErreurBase>((lignes, tentatives))
         })
         .await
         .map_err(ErreurService::from)?;
+        let (ecrites, mut tentatives) = ecrites;
         let attente = self
             .portail
             .avancement
             .en_attente(&annee, &|e: &str| e == eleve);
         let lignes = crate::portail::suivi::fondre(ecrites, attente);
+        tentatives.extend(
+            self.portail
+                .tentatives
+                .en_attente(&annee, &|e: &str| e == eleve)
+                .0,
+        );
         let catalogue = l.lecture.catalogue(&l.session);
         Ok(ReponseLecture::Lu(crate::portail::suivi::mon_avancement(
-            &catalogue, &lignes,
+            &catalogue,
+            &lignes,
+            &tentatives,
         )))
     }
 
@@ -6787,7 +6808,7 @@ impl Application {
         Ok(crate::portail::suivi::lire(
             &ouverte.noyau,
             &lecture,
-            &self.portail.avancement,
+            (&self.portail.avancement, &self.portail.tentatives),
             session,
             &entree,
         )
@@ -6808,7 +6829,7 @@ impl Application {
         let lu = crate::portail::suivi::lire(
             &ouverte.noyau,
             &lecture,
-            &self.portail.avancement,
+            (&self.portail.avancement, &self.portail.tentatives),
             session,
             &entree,
         )

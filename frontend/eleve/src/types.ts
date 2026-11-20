@@ -72,8 +72,16 @@ export type QuizEleve = {
 /** Avancement d'un élève entré avec son code, quand le suivi est allumé. */
 type MatiereAvancement = { cle: string; libelle: string; finies: number; visibles: number };
 type LeconRecente = { id: string; titre: string; matiere: string };
+export type ScoreRecent = {
+  titre: string;
+  score: number;
+  sur: number;
+  finie_le: number;
+};
+
 export type MonAvancement = {
   matieres: MatiereAvancement[];
   recentes: LeconRecente[];
   finies: string[];
+  scores: ScoreRecent[];
 };

@@ -1,6 +1,6 @@
 {
   "id": "suivi_eleves",
-  "version": 1,
+  "version": 2,
   "libelle": "Suivi des élèves dans les leçons d'une matière",
   "variables": [
     { "nom": "classe", "requise": true },
@@ -9,6 +9,7 @@
     { "nom": "eleves", "requise": true },
     { "nom": "par_eleve", "requise": true },
     { "nom": "lecons", "requise": true },
-    { "nom": "liste", "requise": true }
+    { "nom": "liste", "requise": true },
+    { "nom": "quiz", "requise": false }
   ]
 }

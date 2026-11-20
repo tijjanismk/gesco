@@ -4776,7 +4776,134 @@ async fn l_eleve_passe_le_quiz_et_seule_sa_tentative_corrigee_s_ecrit() {
         reponses,
         vec![(1, "B".to_owned(), 0), (2, "3.5".to_owned(), 1)]
     );
+    let notes_avant: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM note")
+        .fetch_one(&mut cnx)
+        .await
+        .unwrap();
     cnx.close().await.unwrap();
+
+    // Étape 6 : le suivi du maître montre le quiz ; « Mon avancement », le dernier score.
+    let quiz_de_la_racine = |suivi: &Value| {
+        suivi["quiz"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|q| q["titre"] == "La racine carrée")
+            .cloned()
+    };
+    let suivi = p
+        .ok(
+            "bibliotheque_suivi_lire",
+            Some(&admin),
+            json!({ "classe_id": neuf_a }),
+        )
+        .await;
+    let q = quiz_de_la_racine(&suivi).expect("le quiz paraît au suivi");
+    assert_eq!(q["eleves"], 1);
+    assert_eq!(q["questions"], 2);
+    assert_eq!(q["moyenne_premier"], 50);
+    let manquee = &q["manquees"][0];
+    assert_eq!(
+        (manquee["numero"].clone(), manquee["ancienne"].clone()),
+        (json!(1), json!(false))
+    );
+    assert!(!manquee["enonce"].as_str().unwrap().is_empty());
+    let d_adama = q["par_eleve"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["eleve_id"] == json!(adama))
+        .unwrap()
+        .clone();
+    assert_eq!(d_adama["premier"], json!({ "score": 1, "sur": 2 }));
+    assert_eq!(d_adama["essais"], 1);
+    let ReponseLecture::Lu(mon) = p
+        .application
+        .portail_mon_avancement(Some(&a))
+        .await
+        .unwrap()
+    else {
+        panic!("mon avancement se lit");
+    };
+    assert_eq!(
+        mon.scores
+            .iter()
+            .map(|s| (s.titre.as_str(), s.score, s.sur))
+            .collect::<Vec<_>>(),
+        vec![("La racine carrée", 1, 2)]
+    );
+    // Un deuxième essai, encore dans la file : déjà compté, le meilleur monte.
+    p.application
+        .portail_tentative(Some(&a), &tentative(["A", "3,5"], &version))
+        .await
+        .unwrap();
+    let suivi = p
+        .ok(
+            "bibliotheque_suivi_lire",
+            Some(&admin),
+            json!({ "classe_id": neuf_a }),
+        )
+        .await;
+    let q = quiz_de_la_racine(&suivi).unwrap();
+    let d_adama = q["par_eleve"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["eleve_id"] == json!(adama))
+        .unwrap()
+        .clone();
+    assert_eq!(d_adama["premier"], json!({ "score": 1, "sur": 2 }));
+    assert_eq!(d_adama["meilleur"], json!({ "score": 2, "sur": 2 }));
+    assert_eq!(q["moyenne_premier"], 50, "seul le premier essai compte");
+    assert_eq!(p.application.portail_avancement_ecrire().await, 1);
+    let imprime = p
+        .ok(
+            "bibliotheque_suivi_imprimer",
+            Some(&admin),
+            json!({ "classe_id": neuf_a }),
+        )
+        .await;
+    assert!(!imprime["pdf"].as_str().unwrap().is_empty());
+    // Rien au bulletin : aucune note n'est née d'un quiz.
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    let notes: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM note")
+        .fetch_one(&mut cnx)
+        .await
+        .unwrap();
+    assert_eq!(notes, notes_avant, "un quiz ne donne aucune note");
+    cnx.close().await.unwrap();
+
+    // Le module éteint coupe les quiz ; les tentatives restent et se relisent rallumé.
+    let non = json!({ "type": "booleen", "valeur": false });
+    let oui = json!({ "type": "booleen", "valeur": true });
+    regler(&p, &admin, "module.bibliotheque", non).await;
+    let eteint = p
+        .ok(
+            "bibliotheque_suivi_lire",
+            Some(&admin),
+            json!({ "classe_id": neuf_a }),
+        )
+        .await;
+    assert_eq!(eteint["actif"], false);
+    assert!(eteint["quiz"].as_array().unwrap().is_empty());
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    let gardees: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tentative_quiz")
+        .fetch_one(&mut cnx)
+        .await
+        .unwrap();
+    assert_eq!(gardees, 2, "module éteint, les tentatives sont gardées");
+    cnx.close().await.unwrap();
+    regler(&p, &admin, "module.bibliotheque", oui).await;
+    let rallume = p
+        .ok(
+            "bibliotheque_suivi_lire",
+            Some(&admin),
+            json!({ "classe_id": neuf_a }),
+        )
+        .await;
+    let q = quiz_de_la_racine(&rallume).expect("rallumé, le quiz revient au suivi");
+    assert_eq!(q["eleves"], 1);
+    assert!(!q["par_eleve"].as_array().unwrap().is_empty());
 
     // Étape 5 : le quiz sur papier, pour la leçon et pour le chapitre.
     let sortie = tempfile::tempdir().unwrap();

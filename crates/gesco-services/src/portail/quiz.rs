@@ -11,7 +11,9 @@ use std::sync::Mutex;
 
 use gesco_core::bibliotheque::paquet::empreinte;
 use gesco_core::bibliotheque::{QUESTIONS_REVISION, QuestionQuiz, corriger};
-use gesco_db::depots::portail::{ReponseQuizAEcrire, TentativeQuizAEcrire};
+use gesco_db::depots::portail::{
+    LigneReponse, LigneTentative, ReponseQuizAEcrire, TentativeQuizAEcrire,
+};
 use gesco_db::nouvel_id;
 use serde::{Deserialize, Serialize};
 
@@ -207,17 +209,41 @@ impl FileTentatives {
         }
     }
 
-    /// Tentatives en attente d'une année (pour les compter déjà dans le suivi).
-    pub fn en_attente(&self, annee_id: &str) -> Vec<TentativeQuizAEcrire> {
-        self.tentatives
-            .lock()
-            .map(|f| {
-                f.iter()
-                    .filter(|t| t.annee_id == annee_id)
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default()
+    /// Tentatives en attente d'une année, comme des lignes lues dans la base (pour les compter
+    /// déjà au suivi et dans « Mon avancement ») ; `eleves` borne aux élèves voulus.
+    pub fn en_attente(
+        &self,
+        annee_id: &str,
+        eleves: &dyn Fn(&str) -> bool,
+    ) -> (Vec<LigneTentative>, Vec<LigneReponse>) {
+        let Ok(file) = self.tentatives.lock() else {
+            return (Vec::new(), Vec::new());
+        };
+        let mut tentatives = Vec::new();
+        let mut reponses = Vec::new();
+        for t in file
+            .iter()
+            .filter(|t| t.annee_id == annee_id && eleves(&t.eleve_id))
+        {
+            tentatives.push(LigneTentative {
+                id: t.id.clone(),
+                eleve_id: t.eleve_id.clone(),
+                contenu_id: t.contenu_id.clone(),
+                chapitre_id: t.chapitre_id.clone(),
+                empreinte_version: t.version.clone(),
+                finie_le: t.finie_le,
+                score: i64::from(t.score),
+                sur: i64::from(t.sur),
+            });
+            reponses.extend(t.reponses.iter().map(|r| LigneReponse {
+                tentative_id: t.id.clone(),
+                contenu_id: r.contenu_id.clone(),
+                empreinte_version: r.version.clone(),
+                numero: i64::from(r.numero),
+                juste: r.juste,
+            }));
+        }
+        (tentatives, reponses)
     }
 
     /// Nombre de tentatives en attente.
@@ -302,6 +328,11 @@ mod tests {
             1,
             "une tentative sans réponse ne s'écrit pas"
         );
+        let (attente, reponses) = file.en_attente("a", &|e| e == "e");
+        assert_eq!((attente.len(), reponses.len()), (1, 2));
+        assert_eq!((attente[0].score, attente[0].sur), (1, 2));
+        assert!(file.en_attente("a", &|e| e == "autre").0.is_empty());
+        assert!(file.en_attente("b", &|_| true).0.is_empty());
         let prises = file.prendre();
         assert_eq!((prises[0].score, prises[0].sur), (1, 2));
         assert_eq!(

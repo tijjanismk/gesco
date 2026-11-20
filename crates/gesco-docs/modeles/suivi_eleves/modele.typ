@@ -1,6 +1,7 @@
 // Suivi des élèves (SPEC_PHASE_12_LOT_4 §6) : pour une classe et une matière, combien d'élèves
 // ont ouvert et fini chaque leçon, puis, quand la direction le permet, les leçons de chaque élève
-// dans l'ordre alphabétique. Aucun classement, aucune note.
+// dans l'ordre alphabétique ; pour chaque quiz, combien d'élèves l'ont fait, la moyenne du premier
+// essai et les questions les plus manquées. Aucun classement, aucune note.
 #import "/commun/entete.typ": page-standard
 
 #let d = json("/donnees.json")
@@ -32,8 +33,32 @@
       stroke: 0.4pt,
       inset: 4pt,
       align: (left, right, right, left),
-      table.header[*Élève*][*Leçons ouvertes*][*Leçons finies*][*Dernière visite*],
-      ..d.liste.map(e => ([#e.nom], [#e.ouvertes], [#e.finies], [#e.visite])).flatten(),
+      table.header[*Élève*][*Leçons ouvertes*][*Leçons finies*][*Quiz faits*][*Dernière visite*],
+      ..d.liste.map(e => ([#e.nom], [#e.ouvertes], [#e.finies], [#e.at("quiz", default: 0)], [#e.visite])).flatten(),
+    )
+  ]
+
+  #let quiz = d.at("quiz", default: ())
+  #if quiz.len() > 0 [
+    #v(4mm)
+    #text(size: 11pt, weight: "bold")[Quiz]
+    #table(
+      columns: (1fr, 1.4fr, auto, auto, 2fr),
+      stroke: 0.4pt,
+      inset: 4pt,
+      align: (left, left, right, right, left),
+      table.header[*Chapitre*][*Quiz*][*Fait par*][*Premier essai*][*Questions les plus manquées*],
+      ..quiz.map(q => (
+        [#q.chapitre],
+        [#q.titre],
+        [#q.eleves],
+        [#q.moyenne],
+        [#for m in q.manquees [
+          Question #m.numero#if m.ancienne [ (version précédente)] : #m.fautes sur #m.reponses
+          #if m.enonce != "" [ — #m.enonce]
+          #linebreak()
+        ]],
+      )).flatten(),
     )
   ]
 ]

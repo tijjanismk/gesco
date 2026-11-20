@@ -7173,6 +7173,8 @@ export type EleveSuivi = {
 	finies: number,
 	/**  Dernière visite au portail (millisecondes), toutes matières. */
 	derniere_visite: number | null,
+	/**  Quiz de la matière faits au moins une fois. */
+	quiz_faits: number,
 };
 
 /**  Ligne d'une liste d'élèves : le nécessaire pour reconnaître l'élève (R-24). */
@@ -13280,6 +13282,65 @@ export type SuiviClasse = {
 	lecons: LeconSuivie[],
 	/**  Élèves, dans l'ordre alphabétique ; vide au grain « par classe ». */
 	par_eleve: EleveSuivi[],
+	/**  Quiz de la matière (leçons qui en ont un et quiz de chapitre), dans l'ordre du programme. */
+	quiz: QuizSuivi[],
+};
+
+/**  Un score à un quiz : réponses justes sur questions posées. */
+export type ScoreQuiz = {
+	/**  Réponses justes. */
+	score: number,
+	/**  Questions posées. */
+	sur: number,
+};
+
+/**  Une question souvent manquée, dans la version où elle a été posée. */
+export type QuestionManquee = {
+	/**  Numéro de la question. */
+	numero: number,
+	/**  Énoncé, tel qu'il a été posé (vide s'il n'a pas pu être relu). */
+	enonce: string,
+	/**  Posée dans une version remplacée depuis. */
+	ancienne: boolean,
+	/**  Réponses fausses. */
+	fautes: number,
+	/**  Réponses données. */
+	reponses: number,
+};
+
+/**  Les scores d'un élève à un quiz (grain « par élève » seulement). */
+export type ScoreEleveQuiz = {
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  Premier essai. */
+	premier: ScoreQuiz | null,
+	/**  Meilleur essai. */
+	meilleur: ScoreQuiz | null,
+	/**  Essais. */
+	essais: number,
+};
+
+/**  Un quiz dans le suivi : combien d'élèves l'ont fait, la moyenne du premier essai, les
+ *  questions les plus manquées et, par élève, le premier essai et le meilleur. */
+export type QuizSuivi = {
+	/**  Contenu. */
+	id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Titre de son chapitre. */
+	chapitre: string,
+	/**  Questions dans la version visible. */
+	questions: number,
+	/**  Élèves qui l'ont fait. */
+	eleves: number,
+	/**  Moyenne du premier essai, en bonnes réponses pour cent. */
+	moyenne_premier: number | null,
+	/**  Questions les plus manquées, la plus manquée d'abord. */
+	manquees: QuestionManquee[],
+	/**  Élèves, dans l'ordre alphabétique ; vide au grain « par classe ». */
+	par_eleve: ScoreEleveQuiz[],
 };
 
 /**  Tableau de bord : chaque bloc n'est rempli que si le compte a le droit d'en voir le détail. */

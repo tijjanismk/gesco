@@ -2,8 +2,8 @@ import { Chargement, Retour } from "./communs";
 import { useSuivi } from "./suivi";
 import { finiesSur, T } from "./textes";
 
-/** Mon avancement : par matière, leçons finies sur leçons visibles ; dernières leçons ouvertes.
- *  Rien ne classe ni ne compare les élèves. */
+/** Mon avancement : par matière, leçons finies sur leçons visibles ; dernières leçons ouvertes ;
+ *  derniers scores aux quiz. Rien ne classe ni ne compare les élèves. */
 export function Avancement() {
   const suivi = useSuivi();
   if (!suivi.actif) {
@@ -16,6 +16,7 @@ export function Avancement() {
   }
   if (suivi.avancement === null) return <Chargement />;
   const { matieres, recentes } = suivi.avancement;
+  const scores = suivi.avancement.scores ?? [];
   return (
     <>
       <Retour vers="#/" texte={T.mesMatieres} />
@@ -44,6 +45,19 @@ export function Avancement() {
                   <span className="block font-bold">{l.titre}</span>
                   <span className="block text-sm text-muet">{l.matiere}</span>
                 </a>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {scores.length > 0 && (
+        <>
+          <h2 className="mt-6 mb-2 text-xl font-bold">{T.derniersQuiz}</h2>
+          <ul className="flex flex-col gap-2">
+            {scores.map((s) => (
+              <li key={`${s.finie_le}-${s.titre}`} className="rounded bg-surface px-4 py-2 shadow">
+                <span className="block font-bold">{s.titre}</span>
+                <span className="block text-muet">{T.surTotal(s.score, s.sur)}</span>
               </li>
             ))}
           </ul>

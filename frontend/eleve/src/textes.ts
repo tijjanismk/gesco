@@ -46,6 +46,7 @@ export const T = {
   finie: "Finie",
   ouvrir: "Ouvrir",
   leconsRecentes: "Dernières leçons ouvertes",
+  derniersQuiz: "Mes derniers quiz",
   chargement: "Un instant…",
   introuvable: "Cette leçon n'est plus là. Reviens à tes matières.",
 } as const;

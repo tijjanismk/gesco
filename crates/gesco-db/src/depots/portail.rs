@@ -601,3 +601,120 @@ pub async fn affectations_du_compte(
     .fetch_all(cnx)
     .await?)
 }
+
+/// Une tentative de quiz, telle que le suivi la lit.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct LigneTentative {
+    /// Identifiant.
+    pub id: String,
+    /// Élève.
+    pub eleve_id: String,
+    /// Quiz d'un contenu…
+    pub contenu_id: Option<String>,
+    /// … ou révision d'un chapitre.
+    pub chapitre_id: Option<String>,
+    /// Empreinte de la version.
+    pub empreinte_version: String,
+    /// Finie le (millisecondes).
+    pub finie_le: i64,
+    /// Réponses justes.
+    pub score: i64,
+    /// Questions posées.
+    pub sur: i64,
+}
+
+/// Une réponse d'une tentative, telle que le suivi la lit.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct LigneReponse {
+    /// Tentative.
+    pub tentative_id: String,
+    /// Contenu de la question.
+    pub contenu_id: String,
+    /// Version de la question telle qu'elle a été posée.
+    pub empreinte_version: String,
+    /// Numéro de la question.
+    pub numero: i64,
+    /// Juste.
+    pub juste: bool,
+}
+
+/// Tentatives de quiz, dans l'année de la classe, des élèves inscrits (inscription validée)
+/// dans cette classe, et leurs réponses.
+pub async fn tentatives_de_la_classe(
+    cnx: &mut Connexion,
+    classe_id: &str,
+    annee_id: &str,
+    contexte: &Contexte,
+) -> Resultat<(Vec<LigneTentative>, Vec<LigneReponse>)> {
+    let tentatives = sqlx::query_as::<_, LigneTentative>(
+        "SELECT t.id, t.eleve_id, t.contenu_id, t.chapitre_id, t.empreinte_version, t.finie_le,
+            t.score, t.sur
+         FROM tentative_quiz t
+         WHERE t.etablissement_id = ?1 AND t.annee_id = ?3
+           AND EXISTS (SELECT 1 FROM inscription i
+                       WHERE i.eleve_id = t.eleve_id AND i.classe_id = ?2
+                         AND i.statut = 'validee')
+         ORDER BY t.finie_le, t.id",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(classe_id)
+    .bind(annee_id)
+    .fetch_all(&mut *cnx)
+    .await?;
+    let reponses = sqlx::query_as::<_, LigneReponse>(
+        "SELECT r.tentative_id, r.contenu_id, r.empreinte_version, r.numero, r.juste
+         FROM reponse_quiz r
+         JOIN tentative_quiz t ON t.id = r.tentative_id
+         WHERE t.etablissement_id = ?1 AND t.annee_id = ?3
+           AND EXISTS (SELECT 1 FROM inscription i
+                       WHERE i.eleve_id = t.eleve_id AND i.classe_id = ?2
+                         AND i.statut = 'validee')",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(classe_id)
+    .bind(annee_id)
+    .fetch_all(&mut *cnx)
+    .await?;
+    Ok((tentatives, reponses))
+}
+
+/// Dernières tentatives d'un élève dans l'année, la plus récente d'abord.
+pub async fn tentatives_de_l_eleve(
+    cnx: &mut Connexion,
+    eleve_id: &str,
+    annee_id: &str,
+    limite: u32,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneTentative>> {
+    Ok(sqlx::query_as::<_, LigneTentative>(
+        "SELECT id, eleve_id, contenu_id, chapitre_id, empreinte_version, finie_le, score, sur
+         FROM tentative_quiz
+         WHERE etablissement_id = ?1 AND eleve_id = ?2 AND annee_id = ?3
+         ORDER BY finie_le DESC, id DESC
+         LIMIT ?4",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(eleve_id)
+    .bind(annee_id)
+    .bind(i64::from(limite))
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Texte d'une version de l'école d'un contenu, retrouvée par son empreinte (pour l'énoncé
+/// d'une question telle qu'elle a été posée dans une version remplacée depuis).
+pub async fn texte_de_version(
+    cnx: &mut Connexion,
+    contenu_id: &str,
+    empreinte_sha256: &str,
+) -> Resultat<Option<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT texte FROM version_contenu
+         WHERE contenu_id = ?1 AND empreinte_sha256 = ?2 AND texte <> ''
+         ORDER BY numero DESC LIMIT 1",
+    )
+    .bind(contenu_id)
+    .bind(empreinte_sha256)
+    .fetch_optional(cnx)
+    .await?)
+}
