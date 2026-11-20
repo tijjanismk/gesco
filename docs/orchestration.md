@@ -923,3 +923,6 @@ vite. Une session par matière, en parallèle ; chaque matière de 8e a son `ETA
   `local_83061997-dfad-46d2-a6ac-24d53ebb02f8`. La session attend sans compiler la fin de
   l'installeur, puis code sans essais par étape ; à la fin, tous les essais, l'école d'essai et
   l'installeur refaits sans approbation, avec push.
+- 2026-11-20, porteur : « mets les enfants en Opus moyen ». Les sessions de code tournent désormais
+  en Opus 5.5, effort moyen (au lieu d'élevé), relais compris. Appliqué aux sessions
+  `local_83061997` (quiz et devoirs) et `local_1357f7c8` (installeur).
