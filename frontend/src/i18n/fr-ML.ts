@@ -2622,6 +2622,7 @@ export const catalogue = {
   "library:manage": "Retirer et remettre des cours, installer une mise à jour de la bibliothèque et la régler",
   "portal:codes": "Imprimer les billets des élèves pour les cours sur leurs appareils et leur remettre un code",
   "library:follow": "Voir quelles leçons les élèves ont ouvertes et finies (un maître : dans ses classes)",
+  "homework:manage": "Donner des devoirs à rendre et les corriger (un maître : dans ses classes et ses matières)",
   "school_reports:manage": "Rédiger, arrêter et rouvrir les rapports de l'école",
   "nav.rapports": "Rapports",
   "rapports.titre": "Rapports de l'école",

@@ -98,4 +98,5 @@ Fichier généré par `cargo test -p gesco-services --test services matrice_perm
 | `library:manage` | x | x | | | | | | | | |
 | `portal:codes` | x | x | x | x | | | | | | |
 | `library:follow` | x | x | x | | | | x | | | |
-| **Total** | 92 | 63 | 19 | 28 | 9 | 17 | 7 | 12 | 9 | 7 |
+| `homework:manage` | x | x | x | | | | x | | | |
+| **Total** | 93 | 64 | 20 | 28 | 9 | 17 | 8 | 12 | 9 | 7 |

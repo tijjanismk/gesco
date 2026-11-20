@@ -144,6 +144,7 @@ catalogue! {
     LIBRARY_MANAGE = "library:manage",
     PORTAL_CODES = "portal:codes",
     LIBRARY_FOLLOW = "library:follow",
+    HOMEWORK_MANAGE = "homework:manage",
 }
 
 /// Version de la composition des rôles livrés. Une phase qui ajoute des permissions à
@@ -206,7 +207,10 @@ catalogue! {
 /// des élèves), pour le Directeur, le Directeur des études et le Secrétaire ; `library:follow`,
 /// nouvelle (suivi des élèves, dans ses classes pour un maître), pour le Directeur, le Directeur
 /// des études et l'Enseignant.
-pub const COMPOSITION_ROLES_LIVRES: i64 = 18;
+/// Version 19 (devoirs à rendre, phase 12, lot 5) : `homework:manage`, nouvelle (écrire, donner,
+/// corriger un devoir, noter un rendu sur papier, rendre les copies ; dans ses classes et ses
+/// matières pour un maître), pour le Directeur, le Directeur des études et l'Enseignant.
+pub const COMPOSITION_ROLES_LIVRES: i64 = 19;
 
 /// Rôles livrés avec le produit (§11.4), composés selon SPEC_PHASE_1 §5.2 (Q-44).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
@@ -351,6 +355,7 @@ impl RoleSysteme {
                 P::LIBRARY_MANAGE,
                 P::PORTAL_CODES,
                 P::LIBRARY_FOLLOW,
+                P::HOMEWORK_MANAGE,
             ],
             Self::DirecteurDesEtudes => vec![
                 P::STUDENTS_READ,
@@ -372,6 +377,7 @@ impl RoleSysteme {
                 P::LIBRARY_PUBLISH,
                 P::PORTAL_CODES,
                 P::LIBRARY_FOLLOW,
+                P::HOMEWORK_MANAGE,
             ],
             Self::Secretaire => vec![
                 P::STUDENTS_CREATE,
@@ -441,6 +447,7 @@ impl RoleSysteme {
                 P::LIBRARY_READ,
                 P::LIBRARY_EDIT,
                 P::LIBRARY_FOLLOW,
+                P::HOMEWORK_MANAGE,
             ],
             Self::Surveillant => vec![
                 P::STUDENTS_READ,
