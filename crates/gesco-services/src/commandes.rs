@@ -448,6 +448,8 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "devoir_rendu_papier",
     "devoir_copies_rendre",
     "devoir_notes_imprimer",
+    "devoir_report",
+    "devoir_reporter",
 ];
 
 /// Commandes de la liste du maître qui relèvent de la saisie (notes, appréciations, absences,
@@ -471,6 +473,7 @@ pub const COMMANDES_DE_LA_SAISIE: &[&str] = &[
     "absences_periode_lire",
     "absences_seances_lire",
     "absences_seances_enregistrer",
+    "devoir_reporter",
 ];
 
 /// Commandes publiques, énumérées une seule fois : le test d'exhaustivité refuse toute commande
@@ -789,6 +792,8 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("devoir_noter", Permission::HOMEWORK_MANAGE),
     Commande::permise("devoir_rendu_papier", Permission::HOMEWORK_MANAGE),
     Commande::permise("devoir_copies_rendre", Permission::HOMEWORK_MANAGE),
+    Commande::permise("devoir_report", Permission::LIBRARY_FOLLOW),
+    Commande::permise("devoir_reporter", Permission::GRADES_CREATE),
     // Résultats aux examens (SPEC_PHASE_9 §8.5) : tenus avec la fiche de l'établissement.
     Commande::permise("examens_lire", Permission::SCHOOL_PROFILE_MANAGE),
     Commande::permise("resultat_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),

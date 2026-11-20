@@ -35,7 +35,7 @@ function texteNote(note: NoteEleve | null): string {
 }
 
 /** Notes (SPEC_PHASE_4 §4, UC-03) : évaluations d'une classe, grille de saisie au clavier. */
-export function Notes() {
+export function Notes({ surOuvrirDevoir }: { surOuvrirDevoir?: (id: string) => void } = {}) {
   const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
   const annees = useQuery({ queryKey: ["annees"], queryFn: () => appeler("annees_lister", null) });
   const anneeId = annees.data?.find((a) => a.est_courante)?.id ?? null;
@@ -66,7 +66,7 @@ export function Notes() {
   );
   const matieres = programme.map((l) => pedagogie.data?.matieres.find((m) => m.id === l.matiere_id)).filter((m) => m !== undefined);
   const matiere = matieres.find((m) => m.id === matiereChoisie) ?? matieres[0];
-  if (ouverte !== null) return <Grille evaluationId={ouverte} permissions={permissions} surFermer={() => setOuverte(null)} />;
+  if (ouverte !== null) return <Grille evaluationId={ouverte} permissions={permissions} surFermer={() => setOuverte(null)} surOuvrirDevoir={surOuvrirDevoir} />;
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-encre">{t(duJardin ? "observations.titre" : "notes.titre")}</h1>
@@ -91,6 +91,7 @@ export function Notes() {
               cycle={pedagogie.data?.niveaux.find((n) => n.id === classe.classe.niveau_id)?.cycle ?? null}
               regles={pedagogie.data?.regles ?? []}
               surOuvrir={setOuverte}
+              surOuvrirDevoir={surOuvrirDevoir}
             />
           )}
         </>
@@ -106,6 +107,7 @@ function Evaluations({
   cycle,
   regles,
   surOuvrir,
+  surOuvrirDevoir,
 }: {
   classeId: string;
   periodeId: string;
@@ -113,6 +115,7 @@ function Evaluations({
   cycle: string | null;
   regles: readonly { cycle: string; contenu: { types: readonly { type_evaluation: TypeEvaluation; bareme: number }[] } }[];
   surOuvrir: (id: string) => void;
+  surOuvrirDevoir?: (id: string) => void;
 }) {
   const client = useQueryClient();
   const liste = useQuery({ queryKey: ["evaluations", classeId, periodeId], queryFn: () => appeler("evaluations_lister", { classe_id: classeId, periode_id: periodeId }) });
@@ -160,6 +163,7 @@ function Evaluations({
                   statut: t(e.evaluation.statut === "validee" ? "notes.statut.validee" : "notes.statut.en_saisie"),
                 })}
               </button>
+              {e.devoir_id === null ? null : <MarqueDevoir devoirId={e.devoir_id} surOuvrirDevoir={surOuvrirDevoir} />}
             </li>
           ))}
         </ul>
@@ -180,7 +184,34 @@ function Evaluations({
   );
 }
 
-function Grille({ evaluationId, permissions, surFermer }: { evaluationId: string; permissions: readonly string[]; surFermer: () => void }) {
+/** Marque discrète d'une évaluation née du report d'un devoir, avec le lien vers le devoir. */
+function MarqueDevoir({ devoirId, surOuvrirDevoir }: { devoirId: string; surOuvrirDevoir?: (id: string) => void }) {
+  return (
+    <span className="ml-2 text-xs text-muet">
+      {t("notes.devoir_rendu")}
+      {surOuvrirDevoir === undefined ? null : (
+        <>
+          {" · "}
+          <button type="button" className="text-primaire underline" onClick={() => surOuvrirDevoir(devoirId)}>
+            {t("notes.voir_devoir")}
+          </button>
+        </>
+      )}
+    </span>
+  );
+}
+
+function Grille({
+  evaluationId,
+  permissions,
+  surFermer,
+  surOuvrirDevoir,
+}: {
+  evaluationId: string;
+  permissions: readonly string[];
+  surFermer: () => void;
+  surOuvrirDevoir?: (id: string) => void;
+}) {
   const client = useQueryClient();
   const grille = useQuery({ queryKey: ["grille", evaluationId], queryFn: () => appeler("notes_grille", { id: evaluationId }) });
   const [textes, setTextes] = useState<Record<string, string>>({});
@@ -245,6 +276,7 @@ function Grille({ evaluationId, permissions, surFermer }: { evaluationId: string
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold text-encre">{`${g.classe} · ${g.matiere} · ${g.evaluation.libelle}`}</h1>
         <Bouton variante="secondaire" onClick={surFermer}>{t("notes.retour")}</Bouton>
+        {g.devoir_id === null ? null : <MarqueDevoir devoirId={g.devoir_id} surOuvrirDevoir={surOuvrirDevoir} />}
       </div>
       <p className="text-sm text-muet">{t("notes.aide_saisie", { bareme: points(g.evaluation.bareme) })}</p>
       {g.modifiable ? null : <p className="text-sm text-ocre">{t("notes.validee")}</p>}

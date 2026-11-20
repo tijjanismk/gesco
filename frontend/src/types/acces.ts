@@ -204,6 +204,8 @@ export const ACCES = {
   devoir_noter: { type: "permission", permission: "homework:manage" },
   devoir_rendu_papier: { type: "permission", permission: "homework:manage" },
   devoir_copies_rendre: { type: "permission", permission: "homework:manage" },
+  devoir_report: { type: "permission", permission: "library:follow" },
+  devoir_reporter: { type: "permission", permission: "grades:create" },
   examens_lire: { type: "permission", permission: "school_profile:manage" },
   resultat_examen_regler: { type: "permission", permission: "school_profile:manage" },
   total_examen_regler: { type: "permission", permission: "school_profile:manage" },
@@ -639,6 +641,8 @@ export const COMMANDES_DU_MAITRE: readonly NomCommande[] = [
   "devoir_rendu_papier",
   "devoir_copies_rendre",
   "devoir_notes_imprimer",
+  "devoir_report",
+  "devoir_reporter",
 ];
 
 /** Commandes de la saisie des maîtres : ouvertes seulement quand l'école a ouvert la saisie des notes. */

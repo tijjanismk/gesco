@@ -5698,3 +5698,205 @@ async fn le_maitre_corrige_et_rend_les_copies() {
     assert_eq!(audits, 4);
     cnx.close().await.unwrap();
 }
+
+/// Phase 12, lot 5, étape 5 (SPEC_PHASE_12_LOT_5 §0.3 critères 7 à 9, §6 ; ADR « report d'une
+/// note de devoir au bulletin ») : sans le geste, aucune évaluation ni note ; avec lui, une
+/// évaluation « devoir » en saisie, de même barème, marquée et liée au devoir, porte les notes ;
+/// un élève sans note reste sans note ; une note changée est signalée ; « Reporter de nouveau »
+/// met à jour l'évaluation sans effacer ce que le maître y a complété ; validée, elle ne bouge
+/// plus.
+#[tokio::test]
+async fn le_devoir_corrige_se_reporte_au_bulletin_d_un_geste() {
+    use sqlx::Connection as _;
+
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let maitres = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let sekou = &maitres[0];
+    let (annee, math, _, neuf_a, _) = annee_des_devoirs(&p, &admin).await;
+    crate::commun::poser_grille(&p, &admin, &annee).await;
+    let adama = eleve_dans(&p, &admin, &neuf_a, "Adama", "E-951").await;
+    let awa = eleve_dans(&p, &admin, &neuf_a, "Awa", "E-952").await;
+    eleve_dans(&p, &admin, &neuf_a, "Fanta", "E-953").await;
+    let mut ecrit = devoir_ecrit(&neuf_a, &math, "Racines carrées");
+    ecrit["date_limite"] = json!(crate::commun::DEBUT + 3_600_000);
+    let devoir = p.ok("devoir_creer", Some(sekou), ecrit).await;
+    let id = devoir["id"].as_str().unwrap().to_owned();
+    p.ok("devoir_donner", Some(sekou), json!({ "id": id }))
+        .await;
+    for (eleve, note) in [(&adama, "13,5"), (&awa, "15")] {
+        p.ok(
+            "devoir_rendu_papier",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": eleve }),
+        )
+        .await;
+        p.ok(
+            "devoir_noter",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": eleve, "note": note, "commentaire": "" }),
+        )
+        .await;
+    }
+    p.ok("devoir_copies_rendre", Some(sekou), json!({ "id": id }))
+        .await;
+
+    // Sans le geste, aucune évaluation ni note n'est créée.
+    let compter = |sql: &'static str| {
+        let dossier = dossier.path().to_owned();
+        let trousseau = p.trousseau.clone();
+        async move {
+            let mut cnx = crate::commun::base_brute(&dossier, trousseau).await;
+            let n: i64 = sqlx::query_scalar(sql).fetch_one(&mut cnx).await.unwrap();
+            cnx.close().await.unwrap();
+            n
+        }
+    };
+    assert_eq!(compter("SELECT COUNT(*) FROM evaluation").await, 0);
+    assert_eq!(compter("SELECT COUNT(*) FROM note").await, 0);
+
+    // La confirmation : période de la date limite, sur 20, pondération 1, deux notes.
+    let report = p
+        .ok("devoir_report", Some(&admin), json!({ "id": id }))
+        .await;
+    assert_eq!(report["peut_reporter"], true);
+    assert_eq!(report["bareme"], 2000);
+    assert_eq!(report["ponderation"], 1);
+    assert_eq!(report["notes"], 2);
+    assert!(report["evaluation"].is_null());
+    let periode = report["periode_id"].clone();
+    assert!(periode.is_string());
+
+    // Le geste : une évaluation « devoir » en saisie, liée, avec les deux notes.
+    let report = p
+        .ok(
+            "devoir_reporter",
+            Some(&admin),
+            json!({ "id": id, "periode_id": periode, "ponderation": 2 }),
+        )
+        .await;
+    assert_eq!(report["evaluation"]["validee"], false);
+    assert_eq!(report["evaluation"]["ponderation"], 2);
+    assert_eq!(report["notes_changees"], false);
+    let evaluation = report["evaluation"]["id"].clone();
+    assert_eq!(
+        compter(
+            "SELECT COUNT(*) FROM evaluation WHERE origine = 'devoir_en_ligne'
+             AND type_evaluation = 'devoir' AND statut = 'en_saisie' AND bareme = 2000"
+        )
+        .await,
+        1
+    );
+    let grille = p
+        .ok("notes_grille", Some(&admin), json!({ "id": evaluation }))
+        .await;
+    assert_eq!(grille["devoir_id"], id.as_str());
+    assert_eq!(grille["evaluation"]["libelle"], "Racines carrées");
+    let lignes = grille["lignes"].as_array().unwrap().clone();
+    let ligne = |nom: &str| {
+        lignes
+            .iter()
+            .find(|l| l["eleve"].as_str().unwrap().contains(nom))
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(ligne("Adama")["note"]["valeur"], 1350);
+    assert_eq!(ligne("Awa")["note"]["valeur"], 1500);
+    assert!(ligne("Fanta")["note"].is_null(), "pas rendu : pas de note");
+    let liste = p
+        .ok(
+            "evaluations_lister",
+            Some(&admin),
+            json!({ "classe_id": neuf_a, "periode_id": periode }),
+        )
+        .await;
+    assert_eq!(liste[0]["devoir_id"], id.as_str());
+
+    // La direction complète Fanta (absente) ; Adama passe à 14 : le devoir le signale.
+    p.ok(
+        "note_saisir",
+        Some(&admin),
+        json!({ "evaluation_id": evaluation, "inscription_id": ligne("Fanta")["inscription_id"],
+            "saisie": "a" }),
+    )
+    .await;
+    p.horloge.avancer(60_000);
+    p.ok(
+        "devoir_noter",
+        Some(sekou),
+        json!({ "devoir_id": id, "eleve_id": adama, "note": "14", "commentaire": "" }),
+    )
+    .await;
+    let report = p
+        .ok("devoir_report", Some(&admin), json!({ "id": id }))
+        .await;
+    assert_eq!(report["notes_changees"], true);
+    assert_eq!(report["ponderation"], 2);
+
+    // « Reporter de nouveau » met l'évaluation à jour ; l'absence de Fanta reste.
+    let report = p
+        .ok(
+            "devoir_reporter",
+            Some(&admin),
+            json!({ "id": id, "periode_id": periode, "ponderation": 2 }),
+        )
+        .await;
+    assert_eq!(report["notes_changees"], false);
+    assert_eq!(report["evaluation"]["id"], evaluation);
+    let grille = p
+        .ok("notes_grille", Some(&admin), json!({ "id": evaluation }))
+        .await;
+    let fanta = grille["lignes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["eleve"].as_str().unwrap().contains("Fanta"))
+        .unwrap()
+        .clone();
+    assert_eq!(fanta["note"]["absent"], true);
+    let adama_note = grille["lignes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["eleve"].as_str().unwrap().contains("Adama"))
+        .unwrap()["note"]["valeur"]
+        .clone();
+    assert_eq!(adama_note, 1400);
+    assert_eq!(
+        compter("SELECT COUNT(*) FROM evaluation WHERE devoir_id IS NOT NULL").await,
+        1,
+        "un devoir, une évaluation"
+    );
+
+    // Validée, l'évaluation ne bouge plus : l'écran renvoie au déverrouillage.
+    p.ok(
+        "evaluation_valider",
+        Some(&admin),
+        json!({ "id": evaluation }),
+    )
+    .await;
+    let report = p
+        .ok("devoir_report", Some(&admin), json!({ "id": id }))
+        .await;
+    assert_eq!(report["evaluation"]["validee"], true);
+    let refus = p
+        .refus(
+            "devoir_reporter",
+            Some(&admin),
+            json!({ "id": id, "periode_id": periode, "ponderation": 2 }),
+        )
+        .await;
+    assert_eq!(refus.cle, "devoir.evaluation_validee");
+
+    // Le report est au journal, avec le nombre de notes.
+    assert_eq!(
+        compter(
+            "SELECT COUNT(*) FROM journal_audit WHERE entite = 'devoir'
+             AND json_extract(apres, '$.notes') = 2"
+        )
+        .await,
+        2
+    );
+}

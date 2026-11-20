@@ -47,6 +47,8 @@ pub struct EvaluationAffichee {
     pub saisies: u32,
     /// Élèves de la classe.
     pub effectif: u32,
+    /// Devoir rendu par les élèves dont elle est le report, s'il y en a un.
+    pub devoir_id: Option<String>,
 }
 
 /// Création d'une évaluation.
@@ -111,6 +113,8 @@ pub struct GrilleNotes {
     pub modifiable: bool,
     /// Moyenne des notes saisies, en centièmes du barème de l'évaluation, tronquée.
     pub moyenne: Option<i32>,
+    /// Devoir rendu par les élèves dont elle est le report, s'il y en a un.
+    pub devoir_id: Option<String>,
 }
 
 /// Saisie d'une case de la grille.
@@ -249,6 +253,29 @@ impl<'n> ServiceEvaluations<'n> {
             .collect())
     }
 
+    /// Élèves validés d'une classe déjà inscrits un jour donné, avec leur identifiant d'élève :
+    /// ceux qui reçoivent une note au report d'un devoir (mêmes élèves que la grille).
+    pub(crate) async fn inscrits_au(
+        &self,
+        session: &Session,
+        classe: &Classe,
+        au: DateCivile,
+    ) -> Resultat<Vec<(Id<Inscription>, Id<gesco_core::scolarite::Eleve>)>> {
+        let dates = self.eleves_dates(session, classe).await?;
+        let eleves: Vec<(Id<Inscription>, Id<gesco_core::scolarite::Eleve>)> =
+            ServiceInscriptions::nouveau(self.noyau)
+                .de_la_classe(session, classe)
+                .await?
+                .into_iter()
+                .map(|l| (l.inscription.id, l.inscription.eleve_id))
+                .collect();
+        Ok(dates
+            .into_iter()
+            .filter(|(_, _, _, inscrit_le)| *inscrit_le <= au)
+            .filter_map(|(i, _, _, _)| eleves.iter().find(|(x, _)| *x == i).copied())
+            .collect())
+    }
+
     /// Élèves validés d'une classe déjà inscrits le jour d'une évaluation (§4.2) : un élève
     /// arrivé ensuite n'a pas de note à cette évaluation (Q-27). (inscription, élève, matricule).
     async fn eleves(
@@ -267,7 +294,7 @@ impl<'n> ServiceEvaluations<'n> {
     }
 
     /// Période d'une classe, et la règle de son cycle.
-    async fn periode_et_regle(
+    pub(crate) async fn periode_et_regle(
         &self,
         session: &Session,
         classe: &Classe,
@@ -297,16 +324,23 @@ impl<'n> ServiceEvaluations<'n> {
     ) -> Resultat<Vec<EvaluationAffichee>> {
         let portee = self.portee(session).await?;
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
-        let (classe, liste, matieres) = {
+        let (classe, liste, matieres, reportees) = {
             let mut cnx = self.connexion().await?;
             let classe = academique::classe(&mut cnx, demande.classe_id, &contexte).await?;
             let liste =
                 evaluations::de_la_classe(&mut cnx, classe.id, demande.periode_id, &contexte)
                     .await?;
+            let reportees = gesco_db::depots::devoirs::evaluations_reportees(
+                &mut cnx,
+                &classe.id.vers_chaine(),
+                &contexte,
+            )
+            .await?;
             (
                 classe,
                 liste,
                 pedagogie::matieres(&mut cnx, &contexte).await?,
+                reportees,
             )
         };
         let tous = self.eleves_dates(session, &classe).await?;
@@ -338,6 +372,10 @@ impl<'n> ServiceEvaluations<'n> {
                 )
                 .unwrap_or(u32::MAX),
                 effectif: u32::try_from(effectif.len()).unwrap_or(u32::MAX),
+                devoir_id: reportees
+                    .iter()
+                    .find(|(ev, _)| *ev == e.id.vers_chaine())
+                    .map(|(_, d)| d.clone()),
                 evaluation: e,
             });
         }
@@ -451,16 +489,25 @@ impl<'n> ServiceEvaluations<'n> {
         let (e, classe) = self.evaluation_et_classe(session, id).await?;
         Self::verifier_portee(&self.portee(session).await?, e.classe_id, e.matiere_id)?;
         let contexte = self.noyau.contexte(session.etablissement_id, Some(session));
-        let (notes, matiere) = {
+        let (notes, matiere, devoir_id) = {
             let mut cnx = self.connexion().await?;
             let notes = evaluations::notes(&mut cnx, e.id, &contexte).await?;
+            let devoir_id = gesco_db::depots::devoirs::evaluations_reportees(
+                &mut cnx,
+                &e.classe_id.vers_chaine(),
+                &contexte,
+            )
+            .await?
+            .into_iter()
+            .find(|(ev, _)| *ev == e.id.vers_chaine())
+            .map(|(_, d)| d);
             let matiere = pedagogie::matieres(&mut cnx, &contexte)
                 .await?
                 .into_iter()
                 .find(|m| m.id == e.matiere_id)
                 .map(|m| m.libelle)
                 .unwrap_or_default();
-            (notes, matiere)
+            (notes, matiere, devoir_id)
         };
         let lignes: Vec<LigneGrille> = self
             .eleves(session, &classe, e.date)
@@ -493,6 +540,7 @@ impl<'n> ServiceEvaluations<'n> {
             classe: classe.libelle,
             lignes,
             moyenne,
+            devoir_id,
             evaluation: e,
         })
     }

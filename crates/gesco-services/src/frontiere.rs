@@ -1385,6 +1385,8 @@ contrat! {
     devoir_rendu_papier(crate::devoirs::DemandeCopie) -> crate::devoirs::CopiesDevoir;
     devoir_copies_rendre(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::DevoirAffiche;
     devoir_notes_imprimer(crate::devoirs::DemandeIdDevoir) -> PdfRapport;
+    devoir_report(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::ReportDevoir;
+    devoir_reporter(crate::devoirs::DemandeReportDevoir) -> crate::devoirs::ReportDevoir;
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -7441,6 +7443,26 @@ impl Application {
         }))
         .await?;
         Ok(PdfRapport { pdf: base64(&pdf) })
+    }
+
+    async fn devoir_report(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeIdDevoir,
+    ) -> Resultat<crate::devoirs::ReportDevoir> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .report(appel.session()?, &entree.id)
+            .await
+    }
+
+    async fn devoir_reporter(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeReportDevoir,
+    ) -> Resultat<crate::devoirs::ReportDevoir> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .reporter(appel.session()?, &entree)
+            .await
     }
 
     async fn personnel_referentiel_lire(

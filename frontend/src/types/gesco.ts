@@ -2780,6 +2780,10 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	devoir_notes_imprimer: Signature<DemandeIdDevoir, PdfRapport>,
 	/**  Signature de la commande du même nom. */
+	devoir_report: Signature<DemandeIdDevoir, ReportDevoir>,
+	/**  Signature de la commande du même nom. */
+	devoir_reporter: Signature<DemandeReportDevoir, ReportDevoir>,
+	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
 	categorie_personnel_enregistrer: Signature<DemandeCategoriePersonnel, CategoriePersonnel>,
@@ -7800,6 +7804,8 @@ export type EvaluationAffichee = {
 	saisies: number,
 	/**  Élèves de la classe. */
 	effectif: number,
+	/**  Devoir rendu par les élèves dont elle est le report, s'il y en a un. */
+	devoir_id: string | null,
 };
 
 /**  Examen dont l'école note les résultats. */
@@ -8503,6 +8509,8 @@ export type GrilleNotes = {
 	modifiable: boolean,
 	/**  Moyenne des notes saisies, en centièmes du barème de l'évaluation, tronquée. */
 	moyenne: number | null,
+	/**  Devoir rendu par les élèves dont elle est le report, s'il y en a un. */
+	devoir_id: string | null,
 };
 
 /**  Grille de saisie des observations d'une classe du jardin pour une période. */
@@ -14462,6 +14470,56 @@ export type DemandeNoteCopie = {
 	note: string,
 	/**  Commentaire. */
 	commentaire: string,
+};
+
+/**  Une période où reporter. */
+export type PeriodeReport = {
+	/**  Identifiant. */
+	id: string,
+	/**  « 1er trimestre ». */
+	libelle: string,
+};
+
+/**  L'évaluation née d'un report. */
+export type EvaluationReportee = {
+	/**  Identifiant. */
+	id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Validée par la direction : elle ne bouge plus sans déverrouillage. */
+	validee: boolean,
+	/**  Pondération. */
+	ponderation: number,
+};
+
+/**  Ce que la confirmation du report dit, et où en est le report. */
+export type ReportDevoir = {
+	/**  Le compte peut reporter (création des évaluations de cette classe et de cette matière). */
+	peut_reporter: boolean,
+	/**  Périodes de la classe. */
+	periodes: PeriodeReport[],
+	/**  Période proposée : celle de l'évaluation déjà reportée, sinon celle de la date limite. */
+	periode_id: string | null,
+	/**  Barème en centièmes (celui du devoir). */
+	bareme: number,
+	/**  Pondération proposée. */
+	ponderation: number,
+	/**  Notes qui entreront. */
+	notes: number,
+	/**  L'évaluation déjà reportée. */
+	evaluation: EvaluationReportee | null,
+	/**  Une note a changé dans le devoir depuis le dernier report. */
+	notes_changees: boolean,
+};
+
+/**  Reporter (ou reporter de nouveau) un devoir. */
+export type DemandeReportDevoir = {
+	/**  Devoir. */
+	id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Pondération (1 à 10). */
+	ponderation: number,
 };
 
 /**  Un devoir désigné. */

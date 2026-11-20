@@ -479,3 +479,117 @@ pub async fn marquer_copies_rendues(
     .await?;
     Ok(())
 }
+
+/// Évaluations nées du report d'un devoir, pour une classe : (évaluation, devoir).
+pub async fn evaluations_reportees(
+    cnx: &mut Connexion,
+    classe_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<(String, String)>> {
+    Ok(sqlx::query_as(
+        "SELECT id, devoir_id FROM evaluation
+         WHERE etablissement_id = ?1 AND classe_id = ?2 AND devoir_id IS NOT NULL",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(classe_id)
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// L'évaluation née du report d'un devoir, s'il a été reporté.
+pub async fn evaluation_du_devoir(
+    cnx: &mut Connexion,
+    devoir_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Option<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT id FROM evaluation WHERE etablissement_id = ?1 AND devoir_id = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(devoir_id)
+    .fetch_optional(cnx)
+    .await?)
+}
+
+/// Marque une évaluation comme le report d'un devoir (`origine` « devoir en ligne »).
+pub async fn lier_evaluation(
+    cnx: &mut Connexion,
+    evaluation_id: &str,
+    devoir_id: &str,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE evaluation SET origine = 'devoir_en_ligne', devoir_id = ?3
+         WHERE etablissement_id = ?1 AND id = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(evaluation_id)
+    .bind(devoir_id)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}
+
+/// Ce qu'un nouveau report récrit d'une évaluation en saisie : période, jour, libellé, barème,
+/// pondération.
+pub struct EvaluationRecrite<'a> {
+    /// Évaluation.
+    pub id: &'a str,
+    /// Période.
+    pub periode_id: &'a str,
+    /// Jour (AAAA-MM-JJ).
+    pub date: String,
+    /// Libellé.
+    pub libelle: &'a str,
+    /// Barème en centièmes.
+    pub bareme: i32,
+    /// Pondération.
+    pub ponderation: i32,
+}
+
+/// Récrit une évaluation née d'un report, encore en saisie.
+pub async fn recrire_evaluation_reportee(
+    cnx: &mut Connexion,
+    e: &EvaluationRecrite<'_>,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE evaluation SET periode_id = ?3, date = ?4, libelle = ?5, bareme = ?6,
+            ponderation = ?7, mis_a_jour_le = ?8, mis_a_jour_par = ?9, identifiant_poste = ?10
+         WHERE etablissement_id = ?1 AND id = ?2 AND statut = 'en_saisie'",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(e.id)
+    .bind(e.periode_id)
+    .bind(&e.date)
+    .bind(e.libelle)
+    .bind(e.bareme)
+    .bind(e.ponderation)
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}
+
+/// Note l'instant du dernier report au bulletin.
+pub async fn marquer_reporte(
+    cnx: &mut Connexion,
+    devoir_id: &str,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE devoir SET reporte_le = ?3, mis_a_jour_le = ?3, mis_a_jour_par = ?4,
+            identifiant_poste = ?5
+         WHERE etablissement_id = ?1 AND id = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(devoir_id)
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}

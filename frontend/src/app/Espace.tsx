@@ -101,6 +101,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
   const [section, setSection] = useState<IdSection>("accueil");
   const [deplies, setDeplies] = useState<readonly string[]>([]);
   const [eleveOuvert, setEleveOuvert] = useState<string | null>(null);
+  const [devoirOuvert, setDevoirOuvert] = useState<string | null>(null);
   // Chaque clic du menu rouvre l'écran à son début, même s'il est déjà affiché (une grille de
   // notes ouverte revient à la liste des évaluations).
   const [visite, setVisite] = useState(0);
@@ -174,6 +175,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
                   onClick={() => {
                     setSection(s.id);
                     setEleveOuvert(null);
+                    setDevoirOuvert(null);
                     setVisite((v) => v + 1);
                   }}
                   className={`rounded px-2 py-1 text-left text-sm ${section === s.id ? "bg-sur-marine/15 font-medium" : "hover:bg-sur-marine/10"}`}
@@ -255,7 +257,15 @@ export function Espace({ etablissement }: { etablissement: string }) {
                 setEleveOuvert(id);
                 setSection("eleves");
               }}
-              surAller={setSection}
+              devoirOuvert={devoirOuvert}
+              surOuvrirDevoir={(id) => {
+                setDevoirOuvert(id);
+                setSection("devoirs");
+              }}
+              surAller={(s) => {
+                setDevoirOuvert(null);
+                setSection(s);
+              }}
             />
           )}
         </main>
@@ -281,6 +291,8 @@ function Contenu({
   aValider,
   eleveOuvert,
   surOuvrirEleve,
+  devoirOuvert,
+  surOuvrirDevoir,
   surAller,
 }: {
   section: IdSection;
@@ -288,6 +300,8 @@ function Contenu({
   aValider: number;
   eleveOuvert: string | null;
   surOuvrirEleve: (id: string) => void;
+  devoirOuvert: string | null;
+  surOuvrirDevoir: (id: string) => void;
   surAller: (section: IdSection) => void;
 }) {
   switch (section) {
@@ -326,7 +340,7 @@ function Contenu({
     case "paie":
       return <Paie />;
     case "notes":
-      return <Notes />;
+      return <Notes surOuvrirDevoir={surOuvrirDevoir} />;
     case "absences":
       return <Absences />;
     case "bulletins":
@@ -338,7 +352,7 @@ function Contenu({
     case "bibliotheque":
       return <Bibliotheque />;
     case "devoirs":
-      return <Devoirs />;
+      return <Devoirs ouvertAuDebut={devoirOuvert} surNotes={() => surAller("notes")} />;
     case "discipline":
       return <Discipline />;
     case "conduite":

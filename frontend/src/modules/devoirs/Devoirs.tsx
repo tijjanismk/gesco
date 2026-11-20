@@ -11,6 +11,7 @@ import { type Cle, dateHeure, t } from "../../i18n";
 import type { ClasseDevoir, DemandeDevoir, DevoirAffiche, DevoirResume, EtatDevoir, FormeRendu } from "../../types/gesco";
 import { imagesParCle, RenduLecon } from "../bibliotheque/RenduLecon";
 import { Copies } from "./Copies";
+import { Report } from "./Report";
 
 const CHAMP = "rounded border border-muet bg-surface px-2 py-1.5 text-primaire focus:outline-2 focus:outline-primaire";
 
@@ -284,7 +285,19 @@ function DonnerAussi({ devoir, surFini }: { devoir: DevoirAffiche; surFini: (d: 
 }
 
 /** Un devoir ouvert : consignes, état, gestes du maître, feuille à imprimer. */
-export function DevoirOuvert({ id, classes, surRetour, surOuvrir }: { id: string; classes: readonly ClasseDevoir[]; surRetour: () => void; surOuvrir: (id: string) => void }) {
+export function DevoirOuvert({
+  id,
+  classes,
+  surRetour,
+  surOuvrir,
+  surNotes,
+}: {
+  id: string;
+  classes: readonly ClasseDevoir[];
+  surRetour: () => void;
+  surOuvrir: (id: string) => void;
+  surNotes?: () => void;
+}) {
   const client = useQueryClient();
   const lu = useQuery({ queryKey: ["devoirs", "devoir", id], queryFn: () => appeler("devoir_lire", { id }) });
   const [ecrire, setEcrire] = useState(false);
@@ -378,6 +391,7 @@ export function DevoirOuvert({ id, classes, surRetour, surOuvrir }: { id: string
         </Section>
       )}
       {d.etat === "brouillon" ? null : <Copies devoir={d} surDevoir={relire} />}
+      {d.etat === "brouillon" ? null : <Report devoir={d} surNotes={surNotes} />}
     </article>
   );
 }
@@ -400,10 +414,10 @@ function LigneDevoir({ devoir, surOuvrir }: { devoir: DevoirResume; surOuvrir: (
 }
 
 /** Devoirs à rendre (SPEC_PHASE_12_LOT_5 §3, §11) : la liste par classe et matière, « Donner un devoir ». */
-export function Devoirs() {
+export function Devoirs({ ouvertAuDebut = null, surNotes }: { ouvertAuDebut?: string | null; surNotes?: () => void }) {
   const [classeId, setClasseId] = useState("");
   const [matiereId, setMatiereId] = useState("");
-  const [ouvert, setOuvert] = useState<string | null>(null);
+  const [ouvert, setOuvert] = useState<string | null>(ouvertAuDebut);
   const [nouveau, setNouveau] = useState(false);
   const liste = useQuery({
     queryKey: ["devoirs", "liste", classeId, matiereId],
@@ -419,7 +433,7 @@ export function Devoirs() {
     return [...toutes].map(([id, libelle]) => ({ id, libelle })).sort((a, b) => a.libelle.localeCompare(b.libelle));
   }, [donnees?.classes, classeId]);
   if (ouvert !== null && donnees !== undefined) {
-    return <DevoirOuvert id={ouvert} classes={donnees.classes} surRetour={() => setOuvert(null)} surOuvrir={setOuvert} />;
+    return <DevoirOuvert id={ouvert} classes={donnees.classes} surRetour={() => setOuvert(null)} surOuvrir={setOuvert} surNotes={surNotes} />;
   }
   return (
     <div className="flex flex-col gap-4">
