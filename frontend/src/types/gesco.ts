@@ -385,6 +385,14 @@ export type ApercuAjustement = {
 	montant_etat_propose: Montant | null,
 };
 
+/**  Consignes rendues comme une leçon. */
+export type ApercuDevoir = {
+	/**  Le texte en arbre de blocs. */
+	lecon: Lecon,
+	/**  Images appelées. */
+	images: ImageLecon[],
+};
+
 /**  Ce qu'un geste changerait pour un élève. */
 export type ApercuEleve = {
 	/**  Inscription. */
@@ -1499,6 +1507,14 @@ export type ChoixFrais = {
 	arrivee?: ArriveeEnCours | null,
 };
 
+/**  Un choix d'une question (« A) … » ou, pour un appariement, « 1) … »). */
+export type ChoixQuestion = {
+	/**  Repère : « A » à « F », ou « 1 », « 2 »… */
+	repere: string,
+	/**  Texte du choix. */
+	texte: Enligne[],
+};
+
 /**
  *  Une inscription visée par un geste, avec l'instant de lecture de sa ligne (modification
  *  simultanée).
@@ -1547,6 +1563,16 @@ export type ClasseConduite = {
 	libelle: string,
 	/**  Périodes de son niveau, dans l'ordre. */
 	periodes: PeriodeConduite[],
+};
+
+/**  Une classe où donner un devoir, et ses matières permises. */
+export type ClasseDevoir = {
+	/**  Identifiant. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Matières permises dans cette classe. */
+	matieres: MatiereDevoir[],
 };
 
 /**  Une classe de l'état, avec son sous-total. */
@@ -3155,6 +3181,30 @@ export type Convocations = {
 	droits: DroitsConvocations,
 };
 
+/**  La copie d'un élève : ses rendus, du premier au dernier. */
+export type CopieEleve = {
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  Rendus, du premier au dernier ; le dernier compte. */
+	rendus: RenduAffiche[],
+};
+
+/**  Les copies d'un devoir : un élève par ligne, par ordre alphabétique. */
+export type CopiesDevoir = {
+	/**  Devoir. */
+	devoir_id: string,
+	/**  Barème en centièmes. */
+	bareme: number,
+	/**  Le compte peut noter, marquer un rendu sur papier, rendre les copies. */
+	peut_corriger: boolean,
+	/**  Copies corrigées rendues aux élèves le. */
+	copies_rendues_le: number | null,
+	/**  Élèves de la classe. */
+	lignes: LigneCopie[],
+};
+
 /**  Une discipline de la bibliothèque dans un niveau, et la matière de l'école qui la reçoit. */
 export type CorrespondanceAffichee = {
 	/**  Code de la discipline (`SVT`…). */
@@ -3550,6 +3600,12 @@ export type DemandeApercuAjustement = {
 	inscription_id: string,
 	/**  Classe visée ; absente : la classe actuelle. */
 	classe_id?: string | null,
+};
+
+/**  Aperçu des consignes. */
+export type DemandeApercuDevoir = {
+	/**  Texte tapé. */
+	texte: string,
 };
 
 /**  Aperçu d'un texte dans l'éditeur. */
@@ -4075,12 +4131,36 @@ export type DemandeConvocations = {
 	en_cours: boolean,
 };
 
+/**  Un élève d'un devoir. */
+export type DemandeCopie = {
+	/**  Devoir. */
+	devoir_id: string,
+	/**  Élève. */
+	eleve_id: string,
+};
+
+/**  Donner aussi le devoir à une autre classe. */
+export type DemandeCopieDevoir = {
+	/**  Devoir copié. */
+	id: string,
+	/**  Autre classe. */
+	classe_id: string,
+};
+
 /**  Correction d'un bulletin publié. */
 export type DemandeCorrection = {
 	/**  Bulletin publié. */
 	id: string,
 	/**  Motif, obligatoire. */
 	motif: string,
+};
+
+/**  Corriger une réponse pendant un essai, sur un poste (rien n'est écrit). */
+export type DemandeCorrectionQuiz = {
+	/**  La question telle qu'elle est posée. */
+	question: QuestionQuiz,
+	/**  Réponse donnée (« B », « A,C », « A-2,B-1 » ou la réponse écrite). */
+	reponse: string,
 };
 
 /**  Régler la correspondance d'une discipline dans un niveau. */
@@ -4266,6 +4346,44 @@ export type DemandeDeverrouillageMotDePasse = {
 	jeton: Jeton,
 	/**  Mot de passe de son utilisateur. */
 	mot_de_passe: string,
+};
+
+/**  Ce que le maître écrit d'un devoir. */
+export type DemandeDevoir = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Matière. */
+	matiere_id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Consignes, au format des leçons. */
+	consignes: string,
+	/**  Leçon liée. */
+	contenu_id: string | null,
+	/**  Date et heure limites (millisecondes). */
+	date_limite: number,
+	/**  Barème en centièmes (de 1 000 à 10 000). */
+	bareme: number,
+	/**  Façon de rendre. */
+	forme_rendu: FormeRendu,
+};
+
+/**  Modifier un devoir : l'instant lu avec lui protège ce qu'un autre a écrit entre-temps. */
+export type DemandeDevoirModifie = {
+	/**  Devoir. */
+	id: string,
+	/**  Instant de dernière modification lu avec le devoir. */
+	lue_le: number,
+	/**  Ce qui est écrit. */
+	devoir: DemandeDevoir,
+};
+
+/**  Devoirs d'une classe et d'une matière, ou tous ceux qu'on peut voir. */
+export type DemandeDevoirs = {
+	/**  Classe ; absente : toutes. */
+	classe_id: string | null,
+	/**  Matière ; absente : toutes. */
+	matiere_id: string | null,
 };
 
 /**  Une difficulté saisie. */
@@ -4809,6 +4927,12 @@ export type DemandeIdConge = {
 	id: string,
 };
 
+/**  Un devoir désigné. */
+export type DemandeIdDevoir = {
+	/**  Identifiant. */
+	id: string,
+};
+
 /**  Engagement désigné. */
 export type DemandeIdEngagement = {
 	/**  Engagement. */
@@ -4893,6 +5017,16 @@ export type DemandeImportProgramme = {
 export type DemandeImportPublier = {
 	/**  Identifiant de l'import. */
 	import_id: string,
+};
+
+/**  Importer des questions depuis un classeur, dans le texte de l'éditeur. */
+export type DemandeImportQuiz = {
+	/**  Contenu écrit. */
+	contenu_id: string,
+	/**  Classeur choisi. */
+	chemin: string,
+	/**  Texte tapé, auquel les questions s'ajoutent. */
+	texte: string,
 };
 
 /**  Fichier à lire. */
@@ -5067,6 +5201,12 @@ export type DemandeLevee = {
 	motif: string,
 };
 
+/**  Une année désignée. */
+export type DemandeLibererPhotos = {
+	/**  Année. */
+	annee_id: string,
+};
+
 /**  Fichier de licence importé. */
 export type DemandeLicence = {
 	/**  Contenu du fichier, tel qu'émis par l'éditeur. */
@@ -5208,6 +5348,12 @@ export type DemandeModelePersonnel = {
 
 /**  Modèle à écrire. */
 export type DemandeModeleProgramme = {
+	/**  Chemin du classeur à écrire. */
+	chemin: string,
+};
+
+/**  Écrire le modèle d'import. */
+export type DemandeModeleQuiz = {
 	/**  Chemin du classeur à écrire. */
 	chemin: string,
 };
@@ -5454,6 +5600,18 @@ export type DemandeNoteConduite = {
 	motif: string,
 };
 
+/**  La note et le commentaire du maître pour un élève. */
+export type DemandeNoteCopie = {
+	/**  Devoir. */
+	devoir_id: string,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Note tapée (« 13,5 ») ; vide : pas de note. */
+	note: string,
+	/**  Commentaire. */
+	commentaire: string,
+};
+
 /**  Saisie d'une case : le niveau d'une compétence pour un enfant. */
 export type DemandeObservation = {
 	/**  Classe du jardin. */
@@ -5520,6 +5678,16 @@ export type DemandePhoto = {
 	id: string,
 	/**  Image PNG ou JPEG en base64 ; absente pour retirer la photo. */
 	contenu_base64: string | null,
+};
+
+/**  Une photo d'une copie demandée par le maître. */
+export type DemandePhotoCopie = {
+	/**  Devoir. */
+	devoir_id: string,
+	/**  Rendu. */
+	rendu_id: string,
+	/**  Ordre dans le rendu. */
+	ordre: number,
 };
 
 /**  Saisie de la phrase de secours. */
@@ -5697,6 +5865,14 @@ export type DemandeProgramme = {
 	serie_id: string | null,
 	/**  Matières au programme, dans l'ordre du bulletin. */
 	lignes: SaisieProgramme[],
+};
+
+/**  Ajouter une question au texte de l'éditeur. */
+export type DemandeQuestionQuiz = {
+	/**  Contenu écrit (sa nature dit où va la question). */
+	contenu_id: string,
+	/**  Texte tapé. */
+	texte: string,
 };
 
 /**  Désigne un rapport. */
@@ -5990,6 +6166,16 @@ export type DemandeReport = {
 	heure: string,
 };
 
+/**  Reporter (ou reporter de nouveau) un devoir. */
+export type DemandeReportDevoir = {
+	/**  Devoir. */
+	id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Pondération (1 à 10). */
+	ponderation: number,
+};
+
 /**  Moyenne reprise saisie depuis le relevé d'une autre école. */
 export type DemandeReprise = {
 	/**  Classe de l'élève. */
@@ -6108,6 +6294,12 @@ export type DemandeRetraitFichierDocument = {
 export type DemandeRetraitSeance = {
 	/**  Séance. */
 	id: string,
+};
+
+/**  Réviser un chapitre sur un poste. */
+export type DemandeRevisionChapitre = {
+	/**  Chapitre de la bibliothèque. */
+	chapitre_id: string,
 };
 
 /**  Rôle désigné par son code. */
@@ -6583,6 +6775,78 @@ export type DetailVersementEtat = {
 	annee_close: boolean,
 	/**  Parts actives, dans l'ordre de leur saisie. */
 	parts: PartAffichee[],
+};
+
+/**  Un devoir ouvert. */
+export type DevoirAffiche = {
+	/**  Identifiant. */
+	id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Consignes, telles qu'écrites. */
+	consignes: string,
+	/**  Classe. */
+	classe_id: string,
+	/**  Libellé de la classe. */
+	classe: string,
+	/**  Matière. */
+	matiere_id: string,
+	/**  Libellé de la matière. */
+	matiere: string,
+	/**  Leçon liée. */
+	contenu_id: string | null,
+	/**  Titre de la leçon liée. */
+	lecon_liee: string | null,
+	/**  Date et heure limites (millisecondes). */
+	date_limite: number,
+	/**  Barème en centièmes. */
+	bareme: number,
+	/**  Façon de rendre. */
+	forme_rendu: FormeRendu,
+	/**  État. */
+	etat: EtatDevoir,
+	/**  Donné le. */
+	donne_le: number | null,
+	/**  Clos le. */
+	clos_le: number | null,
+	/**  Copies corrigées rendues aux élèves le. */
+	copies_rendues_le: number | null,
+	/**  Devoir dont celui-ci est la copie. */
+	copie_de: string | null,
+	/**  Consignes en arbre de blocs. */
+	lecon: Lecon,
+	/**  Images des consignes. */
+	images: ImageLecon[],
+	/**  Instant de dernière modification, à renvoyer avec une modification. */
+	modifie_le: number,
+	/**  Le compte peut l'écrire, le donner, le clore. */
+	peut_modifier: boolean,
+	/**  Autres classes où ce compte peut donner le même devoir (même matière). */
+	autres_classes: MatiereDevoir[],
+};
+
+/**  Un devoir dans la liste. */
+export type DevoirResume = {
+	/**  Identifiant. */
+	id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Classe. */
+	classe_id: string,
+	/**  Libellé de la classe. */
+	classe: string,
+	/**  Matière. */
+	matiere_id: string,
+	/**  Libellé de la matière. */
+	matiere: string,
+	/**  État. */
+	etat: EtatDevoir,
+	/**  Date et heure limites (millisecondes). */
+	date_limite: number,
+	/**  Façon de rendre. */
+	forme_rendu: FormeRendu,
+	/**  Élèves qui ont rendu. */
+	rendus: number,
 };
 
 /**
@@ -7555,6 +7819,17 @@ export type EtatComptes = {
 	salaires_sans_compte: number,
 };
 
+/**  Où en est un élève pour un devoir. */
+export type EtatCopie = 
+/**  Rendu par le portail avant la date limite. */
+"rendu" | 
+/**  Rendu par le portail après la date limite. */
+"en_retard" | 
+/**  Rendu sur papier, marqué par le maître. */
+"sur_papier" | 
+/**  Rien n'est rendu. */
+"pas_rendu";
+
 /**  État de démarrage. */
 export type EtatDemarrage = {
 	/**  Étape. */
@@ -7564,6 +7839,15 @@ export type EtatDemarrage = {
 	/**  Version de l'application. */
 	version_applicative: string,
 };
+
+/**  État d'un devoir. */
+export type EtatDevoir = 
+/**  Le maître l'écrit ; les élèves ne le voient pas. */
+"brouillon" | 
+/**  Visible des élèves de la classe ; on peut rendre. */
+"donne" | 
+/**  Plus de rendu. */
+"clos";
 
 /**
  *  État d'une copie hors de l'école. Les noms ne parlent pas de dossier : un serveur de
@@ -7810,6 +8094,18 @@ export type EvaluationAffichee = {
 	effectif: number,
 	/**  Devoir rendu par les élèves dont elle est le report, s'il y en a un. */
 	devoir_id: string | null,
+};
+
+/**  L'évaluation née d'un report. */
+export type EvaluationReportee = {
+	/**  Identifiant. */
+	id: string,
+	/**  Période. */
+	periode_id: string,
+	/**  Validée par la direction : elle ne bouge plus sans déverrouillage. */
+	validee: boolean,
+	/**  Pondération. */
+	ponderation: number,
 };
 
 /**  Examen dont l'école note les résultats. */
@@ -8340,11 +8636,22 @@ export type FormeImpression =
 /**  La leçon entière. */
 "complete" | 
 /**  Sans la section des corrigés ni les réponses du quiz. */
-"sans_corriges" |
+"sans_corriges" | 
 /**  Les questions du quiz seules, sans aucune réponse, avec « Nom : ……… ». */
-"quiz_seul" |
+"quiz_seul" | 
 /**  Pour le maître : la bonne réponse et l'explication de chaque question. */
 "reponses_quiz";
+
+/**  Façon dont les élèves rendent le devoir. */
+export type FormeRendu = 
+/**  Un texte tapé. */
+"texte" | 
+/**  Des photos de la copie. */
+"photos" | 
+/**  Un texte ou des photos (par défaut). */
+"texte_ou_photos" | 
+/**  Sur papier seulement : le maître note dans l'écran du devoir. */
+"papier";
 
 /**  Formule de la moyenne d'une matière sur une période (T-28). */
 export type FormuleMatiere = 
@@ -8677,6 +8984,16 @@ export type ImportFait = {
 	chapitres: number,
 	/**  Imports de l'école, les plus récents d'abord. */
 	imports: ImportAffiche[],
+};
+
+/**  Le texte après l'import, à enregistrer dans le brouillon. */
+export type ImportQuiz = {
+	/**  Texte complet, questions ajoutées. */
+	texte: string,
+	/**  Questions écrites. */
+	ecrites: number,
+	/**  Lignes non écrites. */
+	refusees: LigneQuizRefusee[],
 };
 
 /**  Le cours après l'import, et ce que l'auteur lit sous l'aperçu. */
@@ -9150,6 +9467,26 @@ export type LigneConduite = {
 	note: number | null,
 };
 
+/**  Un élève de la classe, dans la liste des copies. */
+export type LigneCopie = {
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  État de son dernier rendu. */
+	etat: EtatCopie,
+	/**  Dernier rendu le. */
+	rendu_le: number | null,
+	/**  Nombre de rendus (le dernier compte). */
+	rendus: number,
+	/**  Note du dernier rendu, en centièmes. */
+	note: number | null,
+	/**  Commentaire du dernier rendu. */
+	commentaire: string,
+	/**  Rendu et pas encore noté. */
+	a_corriger: boolean,
+};
+
 /**  Ligne lue d'un relevé. */
 export type LigneDeReleve = {
 	/**  Jour. */
@@ -9595,6 +9932,14 @@ export type LigneProgramme = {
 	ordre: number,
 };
 
+/**  Une ligne du classeur qui n'est pas écrite, et pourquoi. */
+export type LigneQuizRefusee = {
+	/**  Numéro de la ligne dans le classeur. */
+	ligne: number,
+	/**  Raison, en une phrase. */
+	raison: string,
+};
+
 /**  Inscription validée sans facture, et ce que le rattrapage lui facturerait. */
 export type LigneRattrapage = {
 	/**  Inscription. */
@@ -9734,6 +10079,20 @@ export type LigneTarifaire = {
 	obligatoire: boolean,
 	/**  Quand le frais est dû. */
 	exigibilite: Exigibilite,
+};
+
+/**  Les devoirs qu'on peut voir. */
+export type ListeDevoirs = {
+	/**  La bibliothèque est allumée : sinon les devoirs sont coupés (données gardées). */
+	actif: boolean,
+	/**  Le compte peut écrire, donner, clore, corriger. */
+	peut_donner: boolean,
+	/**  Le compte peut voir la place des photos des copies et la libérer (direction). */
+	peut_liberer: boolean,
+	/**  Classes et matières où ce compte peut donner un devoir. */
+	classes: ClasseDevoir[],
+	/**  Devoirs, du plus récent au plus ancien (date limite). */
+	devoirs: DevoirResume[],
 };
 
 /**  Impayés de l'année en cours à la date du jour. */
@@ -9960,6 +10319,14 @@ export type MatiereDeClasse = {
 	minutes_prevues: number | null,
 	/**  Minutes placées. */
 	minutes_placees: number,
+};
+
+/**  Une matière où donner un devoir. */
+export type MatiereDevoir = {
+	/**  Identifiant. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
 };
 
 /**  Une matière de la classe que ce compte peut suivre. */
@@ -11059,6 +11426,14 @@ export type PeriodeConseil = {
 	libelle: string,
 };
 
+/**  Une période où reporter. */
+export type PeriodeReport = {
+	/**  Identifiant. */
+	id: string,
+	/**  « 1er trimestre ». */
+	libelle: string,
+};
+
 /**  Socle commun à l'élève et au responsable. */
 export type Personne = {
 	/**  Identifiant technique. */
@@ -11093,6 +11468,24 @@ export type PhaseDemarrage =
 "premier_demarrage" | 
 /**  Écran de connexion. */
 "pret";
+
+/**  Une photo d'un rendu, désignée. */
+export type PhotoCopie = {
+	/**  Rendu. */
+	rendu_id: string,
+	/**  Ordre dans le rendu (1 à 5). */
+	ordre: number,
+	/**  Place libérée : la photo n'est plus là. */
+	retiree: boolean,
+};
+
+/**  Une photo servie : absente quand la place a été libérée. */
+export type PhotoCopieServie = {
+	/**  Type MIME. */
+	type_mime: string,
+	/**  Contenu en base64 ; `None` : photo retirée pour libérer de la place. */
+	donnees: string | null,
+};
 
 /**  Phrase de secours affichée une seule fois, avec son certificat à imprimer. */
 export type PhraseAffichee = {
@@ -11130,12 +11523,34 @@ export type PieceJointe = {
 	nom_fichier: string,
 };
 
+/**  La place des photos d'une année. */
+export type PlaceAnnee = {
+	/**  Année. */
+	annee_id: string,
+	/**  « 2025-2026 ». */
+	libelle: string,
+	/**  L'année est close : sa place peut être libérée. */
+	close: boolean,
+	/**  Photos gardées. */
+	photos: number,
+	/**  Octets pris par les photos gardées. */
+	octets: number,
+	/**  Photos déjà retirées. */
+	retirees: number,
+};
+
 /**  Une matière d'un niveau où l'utilisateur écrit. */
 export type PlaceEcriture = {
 	/**  Matière de l'école. */
 	matiere_id: string,
 	/**  Code du niveau. */
 	niveau_code: string,
+};
+
+/**  La place des photos, année par année (de la plus récente à la plus ancienne). */
+export type PlacePhotos = {
+	/**  Années qui ont des photos de copies. */
+	annees: PlaceAnnee[],
 };
 
 /**  Plage horaire, en minutes depuis minuit. */
@@ -11378,6 +11793,77 @@ export type QuantitesInventaire = {
 	cabines_garcons: number | null,
 	/**  Cabines des enseignants. */
 	cabines_enseignants: number | null,
+};
+
+/**  Une question qui ne sera pas proposée en quiz, et pourquoi (pour l'auteur seul). */
+export type QuestionEcartee = {
+	/**  Numéro écrit dans le texte. */
+	numero: number,
+	/**  Raison, en une phrase. */
+	raison: string,
+};
+
+/**  Une question souvent manquée, dans la version où elle a été posée. */
+export type QuestionManquee = {
+	/**  Numéro de la question. */
+	numero: number,
+	/**  Énoncé, tel qu'il a été posé (vide s'il n'a pas pu être relu). */
+	enonce: string,
+	/**  Posée dans une version remplacée depuis. */
+	ancienne: boolean,
+	/**  Réponses fausses. */
+	fautes: number,
+	/**  Réponses données. */
+	reponses: number,
+};
+
+/**  Une question reconnue. */
+export type QuestionQuiz = {
+	/**  Numéro écrit dans le texte. */
+	numero: number,
+	/**  Sorte. */
+	sorte: SorteQuestion,
+	/**  Énoncé (formules et images comprises). */
+	enonce: Bloc[],
+	/**  Choix « A) … ». */
+	choix: ChoixQuestion[],
+	/**  Éléments « 1) … » d'un appariement. */
+	elements: ChoixQuestion[],
+	/**  Bonnes réponses : lettres (« B »), paires (« A-2 ») ou réponses écrites admises. */
+	bonnes: string[],
+	/**  Explication de la réponse. */
+	explication: Bloc[],
+};
+
+/**  Le quiz d'un contenu. */
+export type Quiz = {
+	/**  Questions reconnues, dans l'ordre du texte. */
+	questions: QuestionQuiz[],
+	/**  Questions écrites mais pas reconnues. */
+	ecartees: QuestionEcartee[],
+};
+
+/**
+ *  Un quiz dans le suivi : combien d'élèves l'ont fait, la moyenne du premier essai, les
+ *  questions les plus manquées et, par élève, le premier essai et le meilleur.
+ */
+export type QuizSuivi = {
+	/**  Contenu. */
+	id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Titre de son chapitre. */
+	chapitre: string,
+	/**  Questions dans la version visible. */
+	questions: number,
+	/**  Élèves qui l'ont fait. */
+	eleves: number,
+	/**  Moyenne du premier essai, en bonnes réponses pour cent. */
+	moyenne_premier: number | null,
+	/**  Questions les plus manquées, la plus manquée d'abord. */
+	manquees: QuestionManquee[],
+	/**  Élèves, dans l'ordre alphabétique ; vide au grain « par classe ». */
+	par_eleve: ScoreEleveQuiz[],
 };
 
 /**  Raison d'un arrêt de la file. */
@@ -11912,6 +12398,28 @@ minutes_par_semaine: number } |
  */
 { type: "masquee" };
 
+/**  Un rendu d'un élève, pour le maître. */
+export type RenduAffiche = {
+	/**  Identifiant. */
+	id: string,
+	/**  Numéro (le plus grand compte). */
+	numero: number,
+	/**  Rendu sur papier, marqué par le maître. */
+	sur_papier: boolean,
+	/**  Texte rendu. */
+	texte: string,
+	/**  Rendu le. */
+	rendu_le: number,
+	/**  Après la date limite. */
+	en_retard: boolean,
+	/**  Note en centièmes. */
+	note: number | null,
+	/**  Commentaire. */
+	commentaire: string,
+	/**  Photos, dans l'ordre. */
+	photos: PhotoCopie[],
+};
+
 /**  Le renvoi d'une version par la direction. */
 export type RenvoiVersion = {
 	/**  Commentaire. */
@@ -11962,6 +12470,26 @@ export type ReponseVersementEtat = {
 	detail: DetailVersementEtat,
 	/**  Élèves qui ont reçu plus que ce que l'État leur doit. */
 	avertissements: AvertissementPartEtat[],
+};
+
+/**  Ce que la confirmation du report dit, et où en est le report. */
+export type ReportDevoir = {
+	/**  Le compte peut reporter (création des évaluations de cette classe et de cette matière). */
+	peut_reporter: boolean,
+	/**  Périodes de la classe. */
+	periodes: PeriodeReport[],
+	/**  Période proposée : celle de l'évaluation déjà reportée, sinon celle de la date limite. */
+	periode_id: string | null,
+	/**  Barème en centièmes (celui du devoir). */
+	bareme: number,
+	/**  Pondération proposée. */
+	ponderation: number,
+	/**  Notes qui entreront. */
+	notes: number,
+	/**  L'évaluation déjà reportée. */
+	evaluation: EvaluationReportee | null,
+	/**  Une note a changé dans le devoir depuis le dernier report. */
+	notes_changees: boolean,
 };
 
 /**  Ce qu'un parent avait payé avant GESCO, pour une inscription. */
@@ -12208,6 +12736,16 @@ export type Retraits = {
 	absence: number,
 	/**  Par retard. */
 	retard: number,
+};
+
+/**  Les questions d'une révision, tirées au hasard, et les images qu'elles appellent. */
+export type RevisionChapitre = {
+	/**  Titre du chapitre. */
+	titre: string,
+	/**  Dix questions au plus. */
+	questions: QuestionQuiz[],
+	/**  Images des contenus d'où viennent les questions. */
+	images: ImageLecon[],
 };
 
 /**  Rôle d'un établissement, système ou créé par l'administrateur. */
@@ -12531,6 +13069,28 @@ export type Scolarite = {
 	bulletins_a_publier: number,
 	/**  Exclusions en cours. */
 	exclusions_en_cours: number,
+};
+
+/**  Les scores d'un élève à un quiz (grain « par élève » seulement). */
+export type ScoreEleveQuiz = {
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  Premier essai. */
+	premier: ScoreQuiz | null,
+	/**  Meilleur essai. */
+	meilleur: ScoreQuiz | null,
+	/**  Essais. */
+	essais: number,
+};
+
+/**  Un score à un quiz : réponses justes sur questions posées. */
+export type ScoreQuiz = {
+	/**  Réponses justes. */
+	score: number,
+	/**  Questions posées. */
+	sur: number,
 };
 
 /**  Séance de l'emploi du temps d'une classe. */
@@ -12979,6 +13539,19 @@ export type SorteMouvement =
 /**  Remis. */
 "remise";
 
+/**  Sorte d'une question. */
+export type SorteQuestion = 
+/**  Une seule bonne réponse parmi les choix. */
+"choix_unique" | 
+/**  Plusieurs bonnes réponses ; le point seulement si toutes, et elles seules. */
+"choix_multiples" | 
+/**  Deux choix « Vrai » et « Faux ». */
+"vrai_faux" | 
+/**  Pas de choix : une réponse écrite. */
+"reponse_courte" | 
+/**  Choix « A) … » à relier à des éléments « 1) … ». */
+"appariement";
+
 /**  D'où vient une image. */
 export type SourceImage = 
 /**  Un fichier du paquet, par son nom (`figure-1.svg`). */
@@ -13332,63 +13905,6 @@ export type SuiviClasse = {
 	quiz: QuizSuivi[],
 };
 
-/**  Un score à un quiz : réponses justes sur questions posées. */
-export type ScoreQuiz = {
-	/**  Réponses justes. */
-	score: number,
-	/**  Questions posées. */
-	sur: number,
-};
-
-/**  Une question souvent manquée, dans la version où elle a été posée. */
-export type QuestionManquee = {
-	/**  Numéro de la question. */
-	numero: number,
-	/**  Énoncé, tel qu'il a été posé (vide s'il n'a pas pu être relu). */
-	enonce: string,
-	/**  Posée dans une version remplacée depuis. */
-	ancienne: boolean,
-	/**  Réponses fausses. */
-	fautes: number,
-	/**  Réponses données. */
-	reponses: number,
-};
-
-/**  Les scores d'un élève à un quiz (grain « par élève » seulement). */
-export type ScoreEleveQuiz = {
-	/**  Élève. */
-	eleve_id: string,
-	/**  Nom et prénoms. */
-	nom: string,
-	/**  Premier essai. */
-	premier: ScoreQuiz | null,
-	/**  Meilleur essai. */
-	meilleur: ScoreQuiz | null,
-	/**  Essais. */
-	essais: number,
-};
-
-/**  Un quiz dans le suivi : combien d'élèves l'ont fait, la moyenne du premier essai, les
- *  questions les plus manquées et, par élève, le premier essai et le meilleur. */
-export type QuizSuivi = {
-	/**  Contenu. */
-	id: string,
-	/**  Titre. */
-	titre: string,
-	/**  Titre de son chapitre. */
-	chapitre: string,
-	/**  Questions dans la version visible. */
-	questions: number,
-	/**  Élèves qui l'ont fait. */
-	eleves: number,
-	/**  Moyenne du premier essai, en bonnes réponses pour cent. */
-	moyenne_premier: number | null,
-	/**  Questions les plus manquées, la plus manquée d'abord. */
-	manquees: QuestionManquee[],
-	/**  Élèves, dans l'ordre alphabétique ; vide au grain « par classe ». */
-	par_eleve: ScoreEleveQuiz[],
-};
-
 /**  Tableau de bord : chaque bloc n'est rempli que si le compte a le droit d'en voir le détail. */
 export type TableauDeBord = {
 	/**  Année en cours ; rien si aucune n'est ouverte. */
@@ -13464,6 +13980,12 @@ version_id: string } |
 { type: "recue"; 
 /**  Identifiant de la version reçue. */
 version_recue_id: string };
+
+/**  Le texte de l'éditeur après le geste. */
+export type TexteQuiz = {
+	/**  Texte complet. */
+	texte: string,
+};
 
 /**  Thème d'une rubrique : l'ordre des groupes à l'écran. */
 export type ThemeRubrique = 
@@ -14159,505 +14681,3 @@ export type VueContenu =
 "brouillon" | 
 /**  La version soumise, en attente de validation. */
 "soumise";
-
-/**  Sorte d'une question. */
-export type SorteQuestion = "choix_unique" | "choix_multiples" | "vrai_faux" | "reponse_courte" | "appariement";
-
-/**  Un choix d'une question (« A) … » ou, pour un appariement, « 1) … »). */
-export type ChoixQuestion = {
-	/**  Repère : « A » à « F », ou « 1 », « 2 »… */
-	repere: string,
-	/**  Texte du choix. */
-	texte: Enligne[],
-};
-
-/**  Une question reconnue. */
-export type QuestionQuiz = {
-	/**  Numéro écrit dans le texte. */
-	numero: number,
-	/**  Sorte. */
-	sorte: SorteQuestion,
-	/**  Énoncé (formules et images comprises). */
-	enonce: Bloc[],
-	/**  Choix « A) … ». */
-	choix: ChoixQuestion[],
-	/**  Éléments « 1) … » d'un appariement. */
-	elements: ChoixQuestion[],
-	/**  Bonnes réponses : lettres (« B »), paires (« A-2 ») ou réponses écrites admises. */
-	bonnes: string[],
-	/**  Explication de la réponse. */
-	explication: Bloc[],
-};
-
-/**  Une question qui ne sera pas proposée en quiz, et pourquoi (pour l'auteur seul). */
-export type QuestionEcartee = {
-	/**  Numéro écrit dans le texte. */
-	numero: number,
-	/**  Raison, en une phrase. */
-	raison: string,
-};
-
-/**  Le quiz d'un contenu. */
-export type Quiz = {
-	/**  Questions reconnues, dans l'ordre du texte. */
-	questions: QuestionQuiz[],
-	/**  Questions écrites mais pas reconnues. */
-	ecartees: QuestionEcartee[],
-};
-
-/**  Ajouter une question au texte de l'éditeur. */
-export type DemandeQuestionQuiz = {
-	/**  Contenu écrit (sa nature dit où va la question). */
-	contenu_id: string,
-	/**  Texte tapé. */
-	texte: string,
-};
-
-/**  Le texte de l'éditeur après le geste. */
-export type TexteQuiz = {
-	/**  Texte complet. */
-	texte: string,
-};
-
-/**  Corriger une réponse pendant un essai, sur un poste (rien n'est écrit). */
-export type DemandeCorrectionQuiz = {
-	/**  La question telle qu'elle est posée. */
-	question: QuestionQuiz,
-	/**  Réponse donnée (« B », « A,C », « A-2,B-1 » ou la réponse écrite). */
-	reponse: string,
-};
-
-/**  Écrire le modèle d'import. */
-export type DemandeModeleQuiz = {
-	/**  Chemin du classeur à écrire. */
-	chemin: string,
-};
-
-/**  Importer des questions depuis un classeur, dans le texte de l'éditeur. */
-export type DemandeImportQuiz = {
-	/**  Contenu écrit. */
-	contenu_id: string,
-	/**  Classeur choisi. */
-	chemin: string,
-	/**  Texte tapé, auquel les questions s'ajoutent. */
-	texte: string,
-};
-
-/**  Une ligne du classeur qui n'est pas écrite, et pourquoi. */
-export type LigneQuizRefusee = {
-	/**  Numéro de la ligne dans le classeur. */
-	ligne: number,
-	/**  Raison, en une phrase. */
-	raison: string,
-};
-
-/**  Le texte après l'import, à enregistrer dans le brouillon. */
-export type ImportQuiz = {
-	/**  Texte complet, questions ajoutées. */
-	texte: string,
-	/**  Questions écrites. */
-	ecrites: number,
-	/**  Lignes non écrites. */
-	refusees: LigneQuizRefusee[],
-};
-
-/**  Réviser un chapitre sur un poste. */
-export type DemandeRevisionChapitre = {
-	/**  Chapitre de la bibliothèque. */
-	chapitre_id: string,
-};
-
-/**  Les questions d'une révision, tirées au hasard, et les images qu'elles appellent. */
-export type RevisionChapitre = {
-	/**  Titre du chapitre. */
-	titre: string,
-	/**  Dix questions au plus. */
-	questions: QuestionQuiz[],
-	/**  Images des contenus d'où viennent les questions. */
-	images: ImageLecon[],
-};
-
-/**  Façon dont les élèves rendent le devoir. */
-export type FormeRendu =
-/**  Un texte tapé. */
-"texte" |
-/**  Des photos de la copie. */
-"photos" |
-/**  Un texte ou des photos (par défaut). */
-"texte_ou_photos" |
-/**  Sur papier seulement : le maître note dans l'écran du devoir. */
-"papier";
-
-/**  État d'un devoir. */
-export type EtatDevoir =
-/**  Le maître l'écrit ; les élèves ne le voient pas. */
-"brouillon" |
-/**  Visible des élèves de la classe ; on peut rendre. */
-"donne" |
-/**  Plus de rendu. */
-"clos";
-
-/**  Une matière où donner un devoir. */
-export type MatiereDevoir = {
-	/**  Identifiant. */
-	id: string,
-	/**  Libellé. */
-	libelle: string,
-};
-
-/**  Une classe où donner un devoir, et ses matières permises. */
-export type ClasseDevoir = {
-	/**  Identifiant. */
-	id: string,
-	/**  Libellé. */
-	libelle: string,
-	/**  Matières permises dans cette classe. */
-	matieres: MatiereDevoir[],
-};
-
-/**  Devoirs d'une classe et d'une matière, ou tous ceux qu'on peut voir. */
-export type DemandeDevoirs = {
-	/**  Classe ; absente : toutes. */
-	classe_id: string | null,
-	/**  Matière ; absente : toutes. */
-	matiere_id: string | null,
-};
-
-/**  Un devoir dans la liste. */
-export type DevoirResume = {
-	/**  Identifiant. */
-	id: string,
-	/**  Titre. */
-	titre: string,
-	/**  Classe. */
-	classe_id: string,
-	/**  Libellé de la classe. */
-	classe: string,
-	/**  Matière. */
-	matiere_id: string,
-	/**  Libellé de la matière. */
-	matiere: string,
-	/**  État. */
-	etat: EtatDevoir,
-	/**  Date et heure limites (millisecondes). */
-	date_limite: number,
-	/**  Façon de rendre. */
-	forme_rendu: FormeRendu,
-	/**  Élèves qui ont rendu. */
-	rendus: number,
-};
-
-/**  Les devoirs qu'on peut voir. */
-export type ListeDevoirs = {
-	/**  La bibliothèque est allumée : sinon les devoirs sont coupés (données gardées). */
-	actif: boolean,
-	/**  Le compte peut écrire, donner, clore, corriger. */
-	peut_donner: boolean,
-	/**  Le compte peut voir la place des photos des copies et la libérer (direction). */
-	peut_liberer: boolean,
-	/**  Classes et matières où ce compte peut donner un devoir. */
-	classes: ClasseDevoir[],
-	/**  Devoirs, du plus récent au plus ancien (date limite). */
-	devoirs: DevoirResume[],
-};
-
-/**  Où en est un élève pour un devoir. */
-export type EtatCopie = "rendu" | "en_retard" | "sur_papier" | "pas_rendu";
-
-/**  Un élève de la classe, dans la liste des copies. */
-export type LigneCopie = {
-	/**  Élève. */
-	eleve_id: string,
-	/**  Nom et prénoms. */
-	nom: string,
-	/**  État de son dernier rendu. */
-	etat: EtatCopie,
-	/**  Dernier rendu le. */
-	rendu_le: number | null,
-	/**  Nombre de rendus (le dernier compte). */
-	rendus: number,
-	/**  Note du dernier rendu, en centièmes. */
-	note: number | null,
-	/**  Commentaire du dernier rendu. */
-	commentaire: string,
-	/**  Rendu et pas encore noté. */
-	a_corriger: boolean,
-};
-
-/**  Les copies d'un devoir : un élève par ligne, par ordre alphabétique. */
-export type CopiesDevoir = {
-	/**  Devoir. */
-	devoir_id: string,
-	/**  Barème en centièmes. */
-	bareme: number,
-	/**  Le compte peut noter, marquer un rendu sur papier, rendre les copies. */
-	peut_corriger: boolean,
-	/**  Copies corrigées rendues aux élèves le. */
-	copies_rendues_le: number | null,
-	/**  Élèves de la classe. */
-	lignes: LigneCopie[],
-};
-
-/**  Un élève d'un devoir. */
-export type DemandeCopie = {
-	/**  Devoir. */
-	devoir_id: string,
-	/**  Élève. */
-	eleve_id: string,
-};
-
-/**  Une photo d'un rendu, désignée. */
-export type PhotoCopie = {
-	/**  Rendu. */
-	rendu_id: string,
-	/**  Ordre dans le rendu (1 à 5). */
-	ordre: number,
-	/**  Place libérée : la photo n'est plus là. */
-	retiree: boolean,
-};
-
-/**  Un rendu d'un élève, pour le maître. */
-export type RenduAffiche = {
-	/**  Identifiant. */
-	id: string,
-	/**  Numéro (le plus grand compte). */
-	numero: number,
-	/**  Rendu sur papier, marqué par le maître. */
-	sur_papier: boolean,
-	/**  Texte rendu. */
-	texte: string,
-	/**  Rendu le. */
-	rendu_le: number,
-	/**  Après la date limite. */
-	en_retard: boolean,
-	/**  Note en centièmes. */
-	note: number | null,
-	/**  Commentaire. */
-	commentaire: string,
-	/**  Photos, dans l'ordre. */
-	photos: PhotoCopie[],
-};
-
-/**  La copie d'un élève : ses rendus, du premier au dernier. */
-export type CopieEleve = {
-	/**  Élève. */
-	eleve_id: string,
-	/**  Nom et prénoms. */
-	nom: string,
-	/**  Rendus, du premier au dernier ; le dernier compte. */
-	rendus: RenduAffiche[],
-};
-
-/**  Une photo d'une copie demandée par le maître. */
-export type DemandePhotoCopie = {
-	/**  Devoir. */
-	devoir_id: string,
-	/**  Rendu. */
-	rendu_id: string,
-	/**  Ordre dans le rendu. */
-	ordre: number,
-};
-
-/**  Une photo servie : absente quand la place a été libérée. */
-export type PhotoCopieServie = {
-	/**  Type MIME. */
-	type_mime: string,
-	/**  Contenu en base64 ; `None` : photo retirée pour libérer de la place. */
-	donnees: string | null,
-};
-
-/**  La note et le commentaire du maître pour un élève. */
-export type DemandeNoteCopie = {
-	/**  Devoir. */
-	devoir_id: string,
-	/**  Élève. */
-	eleve_id: string,
-	/**  Note tapée (« 13,5 ») ; vide : pas de note. */
-	note: string,
-	/**  Commentaire. */
-	commentaire: string,
-};
-
-/**  Une période où reporter. */
-export type PeriodeReport = {
-	/**  Identifiant. */
-	id: string,
-	/**  « 1er trimestre ». */
-	libelle: string,
-};
-
-/**  L'évaluation née d'un report. */
-export type EvaluationReportee = {
-	/**  Identifiant. */
-	id: string,
-	/**  Période. */
-	periode_id: string,
-	/**  Validée par la direction : elle ne bouge plus sans déverrouillage. */
-	validee: boolean,
-	/**  Pondération. */
-	ponderation: number,
-};
-
-/**  Ce que la confirmation du report dit, et où en est le report. */
-export type ReportDevoir = {
-	/**  Le compte peut reporter (création des évaluations de cette classe et de cette matière). */
-	peut_reporter: boolean,
-	/**  Périodes de la classe. */
-	periodes: PeriodeReport[],
-	/**  Période proposée : celle de l'évaluation déjà reportée, sinon celle de la date limite. */
-	periode_id: string | null,
-	/**  Barème en centièmes (celui du devoir). */
-	bareme: number,
-	/**  Pondération proposée. */
-	ponderation: number,
-	/**  Notes qui entreront. */
-	notes: number,
-	/**  L'évaluation déjà reportée. */
-	evaluation: EvaluationReportee | null,
-	/**  Une note a changé dans le devoir depuis le dernier report. */
-	notes_changees: boolean,
-};
-
-/**  Reporter (ou reporter de nouveau) un devoir. */
-export type DemandeReportDevoir = {
-	/**  Devoir. */
-	id: string,
-	/**  Période. */
-	periode_id: string,
-	/**  Pondération (1 à 10). */
-	ponderation: number,
-};
-
-/**  La place des photos d'une année. */
-export type PlaceAnnee = {
-	/**  Année. */
-	annee_id: string,
-	/**  « 2025-2026 ». */
-	libelle: string,
-	/**  L'année est close : sa place peut être libérée. */
-	close: boolean,
-	/**  Photos gardées. */
-	photos: number,
-	/**  Octets pris par les photos gardées. */
-	octets: number,
-	/**  Photos déjà retirées. */
-	retirees: number,
-};
-
-/**  La place des photos, année par année (de la plus récente à la plus ancienne). */
-export type PlacePhotos = {
-	/**  Années qui ont des photos de copies. */
-	annees: PlaceAnnee[],
-};
-
-/**  Une année désignée. */
-export type DemandeLibererPhotos = {
-	/**  Année. */
-	annee_id: string,
-};
-
-/**  Un devoir désigné. */
-export type DemandeIdDevoir = {
-	/**  Identifiant. */
-	id: string,
-};
-
-/**  Ce que le maître écrit d'un devoir. */
-export type DemandeDevoir = {
-	/**  Classe. */
-	classe_id: string,
-	/**  Matière. */
-	matiere_id: string,
-	/**  Titre. */
-	titre: string,
-	/**  Consignes, au format des leçons. */
-	consignes: string,
-	/**  Leçon liée. */
-	contenu_id: string | null,
-	/**  Date et heure limites (millisecondes). */
-	date_limite: number,
-	/**  Barème en centièmes (de 1 000 à 10 000). */
-	bareme: number,
-	/**  Façon de rendre. */
-	forme_rendu: FormeRendu,
-};
-
-/**  Modifier un devoir : l'instant lu avec lui protège ce qu'un autre a écrit entre-temps. */
-export type DemandeDevoirModifie = {
-	/**  Devoir. */
-	id: string,
-	/**  Instant de dernière modification lu avec le devoir. */
-	lue_le: number,
-	/**  Ce qui est écrit. */
-	devoir: DemandeDevoir,
-};
-
-/**  Donner aussi le devoir à une autre classe. */
-export type DemandeCopieDevoir = {
-	/**  Devoir copié. */
-	id: string,
-	/**  Autre classe. */
-	classe_id: string,
-};
-
-/**  Aperçu des consignes. */
-export type DemandeApercuDevoir = {
-	/**  Texte tapé. */
-	texte: string,
-};
-
-/**  Consignes rendues comme une leçon. */
-export type ApercuDevoir = {
-	/**  Le texte en arbre de blocs. */
-	lecon: Lecon,
-	/**  Images appelées. */
-	images: ImageLecon[],
-};
-
-/**  Un devoir ouvert. */
-export type DevoirAffiche = {
-	/**  Identifiant. */
-	id: string,
-	/**  Titre. */
-	titre: string,
-	/**  Consignes, telles qu'écrites. */
-	consignes: string,
-	/**  Classe. */
-	classe_id: string,
-	/**  Libellé de la classe. */
-	classe: string,
-	/**  Matière. */
-	matiere_id: string,
-	/**  Libellé de la matière. */
-	matiere: string,
-	/**  Leçon liée. */
-	contenu_id: string | null,
-	/**  Titre de la leçon liée. */
-	lecon_liee: string | null,
-	/**  Date et heure limites (millisecondes). */
-	date_limite: number,
-	/**  Barème en centièmes. */
-	bareme: number,
-	/**  Façon de rendre. */
-	forme_rendu: FormeRendu,
-	/**  État. */
-	etat: EtatDevoir,
-	/**  Donné le. */
-	donne_le: number | null,
-	/**  Clos le. */
-	clos_le: number | null,
-	/**  Copies corrigées rendues aux élèves le. */
-	copies_rendues_le: number | null,
-	/**  Devoir dont celui-ci est la copie. */
-	copie_de: string | null,
-	/**  Consignes en arbre de blocs. */
-	lecon: Lecon,
-	/**  Images des consignes. */
-	images: ImageLecon[],
-	/**  Instant de dernière modification, à renvoyer avec une modification. */
-	modifie_le: number,
-	/**  Le compte peut l'écrire, le donner, le clore. */
-	peut_modifier: boolean,
-	/**  Autres classes où ce compte peut donner le même devoir (même matière). */
-	autres_classes: MatiereDevoir[],
-};

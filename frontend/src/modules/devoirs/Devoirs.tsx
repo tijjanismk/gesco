@@ -19,13 +19,13 @@ const CHAMP = "rounded border border-muet bg-surface px-2 py-1.5 text-primaire f
 /** Délai entre la dernière frappe et l'aperçu des consignes. */
 const DELAI_APERCU = 500;
 
-export const ETATS: Record<EtatDevoir, Cle> = {
+const ETATS: Record<EtatDevoir, Cle> = {
   brouillon: "devoirs.etat.brouillon",
   donne: "devoirs.etat.donne",
   clos: "devoirs.etat.clos",
 };
 
-export const FORMES: Record<FormeRendu, Cle> = {
+const FORMES: Record<FormeRendu, Cle> = {
   texte_ou_photos: "devoirs.forme.texte_ou_photos",
   texte: "devoirs.forme.texte",
   photos: "devoirs.forme.photos",
@@ -33,7 +33,7 @@ export const FORMES: Record<FormeRendu, Cle> = {
 };
 
 /** Barème en points : « 20 », « 12,5 ». */
-export function points(centiemes: number): string {
+function points(centiemes: number): string {
   return (centiemes / 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
 }
 
@@ -137,7 +137,7 @@ function Consignes({ valeur, surChangement }: { valeur: string; surChangement: (
 }
 
 /** Écrire ou récrire un devoir. */
-export function FormulaireDevoir({
+function FormulaireDevoir({
   classes,
   devoir,
   contenuId = null,
@@ -286,7 +286,7 @@ function DonnerAussi({ devoir, surFini }: { devoir: DevoirAffiche; surFini: (d: 
 }
 
 /** Un devoir ouvert : consignes, état, gestes du maître, feuille à imprimer. */
-export function DevoirOuvert({
+function DevoirOuvert({
   id,
   classes,
   surRetour,

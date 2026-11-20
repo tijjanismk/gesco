@@ -249,6 +249,8 @@ avancement n'est gardé.
    la maison ; **« Mon avancement »** pour voir où il en est ; **« Sortir »** à la fin.
 5. **« Faire le quiz »** sous une leçon qui en a un, **« Réviser le chapitre »** sous un chapitre
    (voir « Les quiz », §10).
+6. **« Mes devoirs »** pour lire et rendre les devoirs de sa classe (voir « Les devoirs à
+   rendre », §11).
 
 ### Suivre ses élèves (maîtres, direction)
 
@@ -317,7 +319,7 @@ leçon de l'école : il est soumis, publié, et peut être réservé à certaine
 ### Passer un quiz
 
 - **Au bureau** : **« S'entraîner »** dans la barre de la leçon ouvre le quiz au-dessus du texte.
-  Une question par écran ; **« Vérifier »** dit « ✓ Juste » ou « ✗ Pas tout à fait », montre la
+  Une question par écran ; **« Vérifier »** dit « Juste » ou « Pas tout à fait », montre la
   bonne réponse et l'explication. À la fin, le score (« 4 sur 5 ») et **« Recommencer »**. Rien
   n'est enregistré.
 - **En classe** : en mode classe, le bouton **« Le quiz »** montre la question en grand ;
@@ -354,3 +356,75 @@ font aussi pour tout un chapitre.
 Quand la direction éteint le module E-learning, les quiz disparaissent avec la bibliothèque, au
 bureau comme sur les téléphones. Rien n'est effacé : rallumé, les quiz et les essais des élèves
 reviennent tels qu'ils étaient.
+
+## 11. Les devoirs à rendre
+
+Le maître donne un devoir à sa classe ; l'élève le lit et le rend depuis le portail, en texte ou
+en photos de sa copie ; le maître corrige, rend les copies, puis, s'il le veut, reporte les notes
+au bulletin. Aucune note n'entre au bulletin sans ce dernier geste.
+
+### Donner un devoir (maîtres, direction)
+
+Scolarité → **Devoirs**. **« Donner un devoir »** : la classe, la matière, un titre, la date
+« À rendre le » (proposée dans une semaine, à 23 h 59), la note « Sur » (de 10 à 100, 20 par
+défaut), ce que rendent les élèves (texte ou photos, texte, photos de la copie, sur papier
+seulement) et les consignes. La petite barre met en forme les consignes (gras, liste, formule,
+image) ; « Ce que liront les élèves » les montre telles quelles. Sous une leçon de la
+bibliothèque, **« Donner un devoir sur cette leçon »** prépare un devoir lié à elle : l'élève
+pourra rouvrir la leçon depuis son devoir.
+
+Le devoir commence en **brouillon** : les élèves ne le voient pas. **« Donner le devoir »** le
+montre à la classe. **« Clore »** arrête les rendus ; **« Rouvrir »** les reprend. Un maître ne
+voit et ne donne des devoirs qu'à ses classes, dans ses matières ; la direction voit toute
+l'école. **« Feuille du devoir »** imprime les consignes, pour la classe sans téléphone ;
+**« Donner aussi à cette classe »** copie le devoir pour une autre classe de la même matière.
+
+### Ce que fait l'élève
+
+Sur le portail, **« Mes devoirs »**, en tête de « Mes matières », liste les devoirs de sa classe
+avec leur état en mots : à rendre, en retard, rendu le…, corrigé, clos. Il ouvre un devoir, lit
+les consignes, écrit sa réponse ou **« Ajouter une photo »** de sa copie (cinq au plus ; les photos
+sont réduites sur le téléphone avant l'envoi, et GESCO retire leur date et leur position), puis
+**« Rendre mon devoir »**. Il peut **« Rendre de nouveau »** : le dernier rendu compte, les
+précédents restent visibles du maître. Après la date limite, le rendu est accepté et marqué
+« Rendu après la date limite ». Un devoir clos ne se rend plus. Pour rendre, il faut être entré
+avec son code ; sans code, l'élève lit les leçons mais pas ses devoirs.
+
+### Corriger (maîtres, direction)
+
+Sous un devoir donné, **« Copies des élèves »** liste chaque élève de la classe avec son état
+(rendu, en retard, sur papier, pas rendu) ; « Montrer » filtre **« À corriger »** ou **« Pas
+rendu »**. **« Ouvrir la copie »** montre ses rendus, du dernier au premier, avec le texte et les
+photos (« Agrandir », « Tourner », « Photo suivante »). Le maître écrit la note et un commentaire,
+puis **« Enregistrer la note »** et **« Élève suivant »**. Une copie remise à la main se note
+après **« Rendu sur papier »** : sa note compte comme les autres.
+
+Les élèves ne voient ni leur note ni le commentaire avant **« Rendre les copies corrigées »**.
+Ensuite, une note changée leur est visible aussitôt. Chaque élève ne voit que sa propre copie.
+**« Imprimer la liste des notes »** donne la liste de la classe avec la moyenne.
+
+### Reporter au bulletin
+
+Dans la section **« Bulletin »** du devoir : la période, la pondération, puis **« Reporter au
+bulletin »**. GESCO crée une évaluation « devoir » en saisie, sur le même barème, avec la note de
+chaque élève ; un élève sans note reste sans note, à compléter dans l'évaluation. La direction la
+valide comme les autres. Une note changée après le report fait paraître « Notes changées depuis le
+report » : **« Reporter de nouveau »** met l'évaluation à jour tant qu'elle n'est pas validée. Une
+fois validée, il faut la déverrouiller dans Notes. Dans Notes, l'évaluation porte « Devoir rendu
+par les élèves » et « Voir le devoir ». Le bulletin ne change en rien de forme.
+
+Un maître reporte lui-même si la saisie des notes par les maîtres est allumée ; sinon, la
+direction ou le secrétariat le fait.
+
+### Libérer la place des photos (direction)
+
+Les photos des copies prennent de la place. Dans Devoirs, **« Place des photos des copies »**
+montre, par année, le nombre de photos et leur taille. Une fois l'année close, **« Libérer la
+place des photos de cette année »** retire les photos ; les rendus, les notes, les commentaires et
+les évaluations restent, et la copie montre « Photo retirée pour libérer de la place ». L'année en
+cours ne se libère pas.
+
+### E-learning éteint
+
+Les devoirs s'éteignent avec la bibliothèque, au bureau comme sur le portail. Rien n'est effacé :
+rallumé, les devoirs, les copies et les notes reviennent tels qu'ils étaient.

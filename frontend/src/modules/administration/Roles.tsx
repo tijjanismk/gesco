@@ -20,7 +20,7 @@ export const DOMAINES: readonly { cle: Cle; prefixes: readonly string[] }[] = [
   { cle: "roles.domaine.personnel", prefixes: ["employees", "contracts", "leave", "payroll"] },
   { cle: "roles.domaine.documents", prefixes: ["documents", "templates", "notifications"] },
   { cle: "roles.domaine.donnees", prefixes: ["import", "export", "licence", "workstations", "statistics", "school_profile", "inventory", "school_reports"] },
-  { cle: "roles.domaine.bibliotheque", prefixes: ["library", "portal"] },
+  { cle: "roles.domaine.bibliotheque", prefixes: ["library", "portal", "homework"] },
 ];
 
 const ADMINISTRATEUR = "administrateur";

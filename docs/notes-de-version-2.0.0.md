@@ -83,6 +83,18 @@ manquées ; l'élève voit ses derniers scores. Un quiz ne donne aucune note et 
 bulletin. « Quiz seul » et « Réponses du quiz » s'impriment pour une leçon ou un chapitre. Usage :
 manuel de la bibliothèque, §10.
 
+**Des devoirs à rendre.** Scolarité → Devoirs : le maître donne un devoir à sa classe, avec une
+date limite, une note sur 10 à 100 et ses consignes, ou « sur cette leçon » depuis la
+bibliothèque ; la feuille du devoir s'imprime. L'élève le voit dans « Mes devoirs » sur le portail
+et le rend en texte ou en photos de sa copie (cinq au plus, réduites sur le téléphone, sans date ni
+position) ; il peut rendre de nouveau, le dernier rendu compte ; après la date limite, le rendu est
+accepté et marqué en retard ; un devoir clos ne se rend plus. Le maître ouvre chaque copie, la
+note, la commente, marque une copie rendue sur papier, puis « Rendre les copies corrigées » :
+l'élève voit alors sa note et le commentaire, jamais ceux d'un autre. « Reporter au bulletin »
+crée une évaluation « devoir » en saisie, que la direction valide comme les autres ; sans ce geste,
+rien n'entre au bulletin. Une année close, la direction libère la place des photos ; notes et
+commentaires restent. Usage : manuel de la bibliothèque, §11.
+
 **Une copie hors de l'école.** Outils → Sauvegarde, section « Copie hors de l'école » : GESCO
 propose les dossiers Google Drive, OneDrive et Dropbox qu'il trouve sur le poste principal, ou
 tout autre dossier, et y dépose une copie de la sauvegarde, déjà chiffrée, que le logiciel du

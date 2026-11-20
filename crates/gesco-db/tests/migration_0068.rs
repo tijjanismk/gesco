@@ -205,3 +205,45 @@ async fn les_devoirs_s_ajoutent_et_les_evaluations_restent_saisies() {
         );
     }
 }
+
+/// Une base de la 1.2 (dernière migration 0049) menée jusqu'au bout : son évaluation validée
+/// reste validée, marquée « saisie », sans devoir.
+#[tokio::test]
+async fn une_base_de_la_1_2_garde_ses_evaluations_saisies() {
+    let dossier = tempfile::tempdir().unwrap();
+    let base = Base::ouvrir_sans_migrer(OptionsBase::fichier(dossier.path().join("gesco.db")))
+        .await
+        .unwrap();
+    MIGRATIONS.run_to(49, base.pool_critique()).await.unwrap();
+    let mut cnx = base.pool_critique().acquire().await.unwrap();
+    sqlx::query("PRAGMA foreign_keys = OFF")
+        .execute(&mut *cnx)
+        .await
+        .unwrap();
+    let evaluation = id();
+    sqlx::query(
+        "INSERT INTO evaluation (id, etablissement_id, annee_id, periode_id, classe_id,
+            matiere_id, type_evaluation, libelle, date, bareme, ponderation, statut, cree_le,
+            mis_a_jour_le, identifiant_poste)
+         VALUES (?, 'e', 'a', 'p', 'c', 'm', 'composition', 'Composition', '2025-12-10', 2000,
+            1, 'validee', 1, 1, 'poste')",
+    )
+    .bind(&evaluation)
+    .execute(&mut *cnx)
+    .await
+    .unwrap();
+    drop(cnx);
+
+    MIGRATIONS.run(base.pool_critique()).await.unwrap();
+    assert!(base.version_schema().await.unwrap() >= 68);
+    let (origine, devoir, statut, libelle): (String, Option<String>, String, String) =
+        sqlx::query_as("SELECT origine, devoir_id, statut, libelle FROM evaluation WHERE id = ?")
+            .bind(&evaluation)
+            .fetch_one(base.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        (origine.as_str(), devoir, statut.as_str(), libelle.as_str()),
+        ("saisie", None, "validee", "Composition")
+    );
+}

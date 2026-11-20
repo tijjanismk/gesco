@@ -8,7 +8,7 @@ import { t } from "../../i18n";
 import type { PlaceAnnee } from "../../types/gesco";
 
 /** Octets lisibles : « 312 Ko », « 4,2 Mo », « 1,3 Go ». */
-export function taille(octets: number): string {
+function taille(octets: number): string {
   const unites = ["octets", "Ko", "Mo", "Go"];
   let valeur = octets;
   let i = 0;

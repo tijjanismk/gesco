@@ -4037,3 +4037,95 @@ test("portail des élèves, école d'essai : le réseau et le portail allumés, 
   await expect(codes.getByText(/^(\d+) élèves sur \1 ont leur code\.$/)).toBeVisible({ timeout: 30_000 });
   await capturer("441-ecole-essai-billets-7e-a");
 });
+
+test("lots 3 et 5, école d'essai : des quiz faits sur le téléphone, un devoir corrigé et reporté", async () => {
+  test.skip(process.env["GESCO_ECOLE_ESSAI"] === undefined, "réservé à l'école d'essai");
+  test.setTimeout(600_000);
+  // Le devoir de mathématiques de la 7e A, donné par la direction, à rendre le 21 octobre.
+  const devoir = await parCommandes<string>(`
+    const liste = await api.appeler("devoirs_lister", {});
+    const classe = liste.classes.find((c) => c.libelle === "7e A");
+    const matiere = classe.matieres.find((m) => /math/i.test(m.libelle));
+    const d = await api.appeler("devoir_creer", { classe_id: classe.id, matiere_id: matiere.id,
+      titre: "Nombres décimaux : exercices 1 à 3",
+      consignes: "1. Range du plus petit au plus grand : 3,5 ; 3,05 ; 3,55.\\n\\n2. Calcule 12,4 + 7,85.\\n\\n3. Écris 3/4 sous forme décimale.",
+      contenu_id: null, date_limite: Date.parse("2026-10-21T23:59:00"), bareme: 2000, forme_rendu: "texte_ou_photos" });
+    await api.appeler("devoir_donner", { id: d.id });
+    return d.id;
+  `);
+
+  // Trois élèves de la 7e A, chacun sur son téléphone : un quiz, et le devoir pour deux d'entre eux.
+  const codes = JSON.parse(readFileSync(join(dossier, "donnees", "codes-portail-essai.json"), "utf8")) as Record<string, string>;
+  const edge = await chromium.launch({ channel: "msedge" });
+  try {
+    for (const [rang, [matricule, code]] of Object.entries(codes).slice(0, 3).entries()) {
+      const contexte = await edge.newContext({ viewport: { width: 360, height: 740 }, isMobile: true, hasTouch: true, locale: "fr-FR" });
+      const p = await contexte.newPage();
+      await p.goto("http://127.0.0.1:47801");
+      await p.getByLabel("Matricule").fill(matricule);
+      await p.getByLabel("Code").fill(code);
+      await p.getByRole("button", { name: "Entrer", exact: true }).click();
+      await expect(p.getByRole("heading", { name: "Mes matières" })).toBeVisible({ timeout: 30_000 });
+      await p.getByRole("link", { name: /Mathématiques/ }).first().click();
+      const lecons = await p.locator('a[href^="#/lecon/"]').evaluateAll((liens) => liens.map((a) => a.getAttribute("href") ?? ""));
+      for (const lien of lecons.slice(0, 15)) {
+        await p.goto(`http://127.0.0.1:47801/${lien}`);
+        const quiz = p.getByRole("link", { name: "Faire le quiz" });
+        await p.getByRole("heading").first().waitFor({ timeout: 30_000 });
+        if ((await quiz.count()) === 0) continue;
+        await quiz.click();
+        for (let tour = 0; tour < 30; tour += 1) {
+          if (await p.getByRole("button", { name: "Recommencer" }).isVisible()) break;
+          const courte = p.getByLabel("Ta réponse");
+          if ((await courte.count()) > 0 && (await courte.first().isEnabled())) await courte.first().fill(rang === 0 ? "3,5" : "7");
+          const listes = p.locator("select:enabled");
+          for (let i = 0; i < (await listes.count()); i += 1) await listes.nth(i).selectOption({ index: 1 + ((i + rang) % 2) });
+          const choix = p.locator("button[aria-pressed]:enabled");
+          if ((await choix.count()) > 0) await choix.nth(rang % (await choix.count())).click();
+          await p.getByRole("button", { name: "Vérifier" }).click();
+          await p.getByRole("button", { name: /^(Question suivante|Voir mon score)$/ }).click();
+        }
+        break;
+      }
+      if (rang < 2) {
+        await p.goto("http://127.0.0.1:47801/#/devoirs");
+        await p.getByText("Nombres décimaux : exercices 1 à 3").click();
+        await p.getByLabel("Ta réponse").fill(rang === 0 ? "1. 3,05 ; 3,5 ; 3,55.\n2. 20,25.\n3. 0,75." : "1. 3,5 ; 3,05 ; 3,55.\n2. 20,25.\n3. 0,75.");
+        await p.getByRole("button", { name: "Rendre mon devoir" }).click();
+        await expect(p.getByText(/^Ton devoir est rendu le /)).toBeVisible({ timeout: 60_000 });
+      }
+      // Les essais des quiz s'écrivent toutes les cinq secondes.
+      await p.waitForTimeout(6_000);
+      await contexte.close();
+    }
+  } finally {
+    await edge.close();
+  }
+
+  // La direction corrige, marque une copie remise sur papier, rend les copies et reporte au
+  // bulletin ; l'évaluation reste en saisie, à valider à la main.
+  const reporte = await parCommandes<boolean>(`
+    const id = ${JSON.stringify(devoir)};
+    const copies = await api.appeler("devoir_copies", { id });
+    const notes = ["17", "12,5"];
+    let rang = 0;
+    for (const ligne of copies.lignes.filter((l) => l.etat !== "pas_rendu")) {
+      await api.appeler("devoir_noter", { devoir_id: id, eleve_id: ligne.eleve_id, note: notes[rang] ?? "10",
+        commentaire: rang === 0 ? "Très bien." : "Revois le rangement des décimaux." });
+      rang += 1;
+    }
+    const papier = copies.lignes.find((l) => l.etat === "pas_rendu");
+    await api.appeler("devoir_rendu_papier", { devoir_id: id, eleve_id: papier.eleve_id });
+    await api.appeler("devoir_noter", { devoir_id: id, eleve_id: papier.eleve_id, note: "14", commentaire: "" });
+    await api.appeler("devoir_copies_rendre", { id });
+    const report = await api.appeler("devoir_report", { id });
+    await api.appeler("devoir_reporter", { id, periode_id: report.periode_id, ponderation: 1 });
+    const relu = await api.appeler("devoir_report", { id });
+    return relu.evaluation !== null;
+  `);
+  expect(reporte).toBe(true);
+  await allerA("nav.devoirs");
+  await page.getByRole("button", { name: "Nombres décimaux : exercices 1 à 3", exact: true }).click();
+  await expect(page.getByText(/^Copies rendues aux élèves le /)).toBeVisible({ timeout: 30_000 });
+  await capturer("442-ecole-essai-devoir-corrige-et-reporte");
+});

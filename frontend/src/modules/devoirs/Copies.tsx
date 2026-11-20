@@ -22,6 +22,12 @@ type Filtre = "tous" | "a_corriger" | "pas_rendu";
 
 const FILTRES: readonly Filtre[] = ["tous", "a_corriger", "pas_rendu"];
 
+const LIBELLES_FILTRES: Record<Filtre, Cle> = {
+  tous: "devoirs.filtre.tous",
+  a_corriger: "devoirs.filtre.a_corriger",
+  pas_rendu: "devoirs.filtre.pas_rendu",
+};
+
 /** Points lisibles : « 13,5 ». */
 function points(centiemes: number): string {
   return (centiemes / 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
@@ -75,11 +81,11 @@ function PhotoGrande({ devoirId, photos, depart, surFermer }: { devoirId: string
       {photo.retiree || (lue.data !== undefined && donnees === null) ? (
         <p className="text-sm text-muet">{t("devoirs.photo_retiree")}</p>
       ) : donnees === null || lue.data === undefined ? null : (
-        <div className={`overflow-auto ${grand ? "" : "max-h-[70vh]"}`}>
+        <div className={`overflow-auto ${grand ? "" : "max-h-screen"}`}>
           <img
             src={`data:${lue.data.type_mime};base64,${donnees}`}
             alt={t("devoirs.photo", { ordre: String(photo.ordre) })}
-            className={grand ? "max-w-none" : "mx-auto max-h-[65vh] max-w-full"}
+            className={grand ? "max-w-none" : "mx-auto max-h-screen max-w-full"}
             style={{ transform: `rotate(${tours * 90}deg)` }}
           />
         </div>
@@ -288,7 +294,7 @@ export function Copies({ devoir, surDevoir }: { devoir: DevoirAffiche; surDevoir
       <div role="group" aria-label={t("devoirs.filtre")} className="flex flex-wrap gap-1">
         {FILTRES.map((f) => (
           <Bouton key={f} variante="secondaire" aria-pressed={filtre === f} onClick={() => setFiltre(f)}>
-            {t(`devoirs.filtre.${f}`)}
+            {t(LIBELLES_FILTRES[f])}
           </Bouton>
         ))}
       </div>

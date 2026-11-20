@@ -666,4 +666,5 @@ export const COMMANDES_DE_LA_SAISIE: readonly NomCommande[] = [
   "absences_periode_lire",
   "absences_seances_lire",
   "absences_seances_enregistrer",
+  "devoir_reporter",
 ];

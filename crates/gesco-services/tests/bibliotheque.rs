@@ -1256,11 +1256,18 @@ async fn l_ecole_ajoute_un_chapitre_une_lecon_un_sujet_et_son_corrige() {
     let deux = deux["texte"].as_str().unwrap();
     assert!(deux.contains("**Question 2.**"));
     assert_eq!(deux.matches("Réponses").count(), 1);
+    // Une troisième question sans réponse, posée avant la section des réponses.
+    let debut_reponses = deux[..deux.find("Réponses").unwrap()].rfind('\n').unwrap() + 1;
+    let avec_trois = format!(
+        "{}**Question 3.** Sans réponse ?\nA) un  B) deux\n\n{}",
+        &deux[..debut_reponses],
+        &deux[debut_reponses..]
+    );
     let apercu_quiz = p
         .ok(
             "bibliotheque_apercu",
             Some(&admin),
-            json!({ "contenu_id": quiz["contenu_id"], "texte": format!("{deux}\n**Question 3.** Sans réponse ?\nA) un  B) deux\n") }),
+            json!({ "contenu_id": quiz["contenu_id"], "texte": avec_trois }),
         )
         .await;
     assert_eq!(
@@ -4613,6 +4620,7 @@ async fn l_eleve_passe_le_quiz_et_seule_sa_tentative_corrigee_s_ecrit() {
     let p = poste_vierge(dossier.path()).await;
     p.installer().await;
     let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let _maitres = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
     let annees = p.ok("annees_lister", Some(&admin), Value::Null).await;
     let annee = annees
         .as_array()
@@ -5399,6 +5407,9 @@ async fn un_eleve_rend_son_devoir_par_le_portail() {
     assert_eq!(ouvert.rendus[1].texte, "Copie revue.");
 
     // Clos : on ne rend plus ; « Clos » pour qui n'a pas rendu.
+    // Deux heures ont passé : maître et direction rouvrent leur session.
+    let sekou = &p.connecter("sekou", "enseignant-2026").await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
     p.ok("devoir_clore", Some(sekou), json!({ "id": id })).await;
     let refus = lu(p
         .application
@@ -6037,4 +6048,216 @@ async fn la_direction_libere_la_place_des_photos_d_une_annee_close() {
         )
         .await;
     assert!(servie["donnees"].is_null());
+}
+
+/// Phase 12, lot 5, critère 7 du §0.3 : sans « Reporter au bulletin », un devoir rendu, noté et
+/// dont les copies sont rendues ne change rien aux bulletins, recalculés avant et après.
+#[tokio::test]
+async fn sans_report_les_bulletins_ne_changent_pas() {
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let maitres = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let sekou = &maitres[0];
+    let (annee, math, _, neuf_a, _) = annee_des_devoirs(&p, &admin).await;
+    crate::commun::poser_grille(&p, &admin, &annee).await;
+    let adama = eleve_dans(&p, &admin, &neuf_a, "Adama", "E-981").await;
+    let awa = eleve_dans(&p, &admin, &neuf_a, "Awa", "E-982").await;
+    let mut ecrit = devoir_ecrit(&neuf_a, &math, "Racines carrées");
+    ecrit["date_limite"] = json!(crate::commun::DEBUT + 3_600_000);
+    let devoir = p.ok("devoir_creer", Some(sekou), ecrit).await;
+    let id = devoir["id"].as_str().unwrap().to_owned();
+    p.ok("devoir_donner", Some(sekou), json!({ "id": id }))
+        .await;
+    let periode = p
+        .ok("devoir_report", Some(&admin), json!({ "id": id }))
+        .await["periode_id"]
+        .clone();
+
+    // Une composition de mathématiques, notée et validée, dans la période du devoir.
+    let compo = p
+        .ok(
+            "evaluation_creer",
+            Some(&admin),
+            json!({ "classe_id": neuf_a, "periode_id": periode, "matiere_id": math,
+                "type_evaluation": "composition", "libelle": "Composition", "date": "2026-10-04",
+                "bareme": null }),
+        )
+        .await["id"]
+        .clone();
+    let grille = p
+        .ok("notes_grille", Some(&admin), json!({ "id": compo }))
+        .await;
+    for (rang, ligne) in grille["lignes"].as_array().unwrap().iter().enumerate() {
+        p.ok(
+            "note_saisir",
+            Some(&admin),
+            json!({ "evaluation_id": compo, "inscription_id": ligne["inscription_id"],
+                "saisie": if rang == 0 { "11" } else { "9,5" } }),
+        )
+        .await;
+    }
+    p.ok("evaluation_valider", Some(&admin), json!({ "id": compo }))
+        .await;
+    let demande = json!({ "classe_id": neuf_a, "periode_id": periode });
+    let avant = p
+        .ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+
+    // Le devoir est rendu, noté, ses copies rendues ; aucun report.
+    for (eleve, note) in [(&adama, "18"), (&awa, "4")] {
+        p.ok(
+            "devoir_rendu_papier",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": eleve }),
+        )
+        .await;
+        p.ok(
+            "devoir_noter",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": eleve, "note": note, "commentaire": "" }),
+        )
+        .await;
+    }
+    p.ok("devoir_copies_rendre", Some(sekou), json!({ "id": id }))
+        .await;
+    let apres = p
+        .ok("resultats_calculer", Some(&admin), demande.clone())
+        .await;
+    let contenus = |v: &Value| -> Vec<Value> {
+        v["bulletins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| b["bulletin"]["contenu"].clone())
+            .collect()
+    };
+    assert_eq!(contenus(&avant).len(), 2);
+    assert_eq!(contenus(&avant), contenus(&apres));
+    let evaluations = p.ok("evaluations_lister", Some(&admin), demande).await;
+    assert_eq!(
+        evaluations.as_array().unwrap().len(),
+        1,
+        "seule la composition"
+    );
+}
+
+/// Phase 12, lot 5, critère 11 du §0.3 : après sauvegarde et restauration sur un ordinateur
+/// neuf, le devoir, le rendu de l'élève, ses photos, sa note et le commentaire sont là.
+#[tokio::test]
+async fn devoirs_rendus_et_photos_reviennent_avec_la_sauvegarde() {
+    use base64::Engine as _;
+    use gesco_services::portail::devoirs::DemandeRendu;
+
+    let dossier = tempfile::tempdir().unwrap();
+    let origine = poste_vierge(&dossier.path().join("origine")).await;
+    let phrase = origine.installer().await;
+    let admin = origine.connecter("admin", MOT_DE_PASSE).await;
+    let maitres = maitres_de_math(&origine, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let sekou = &maitres[0];
+    let (annee, math, _, neuf_a, _) = annee_des_devoirs(&origine, &admin).await;
+    crate::commun::poser_grille(&origine, &admin, &annee).await;
+    let adama = eleve_dans(&origine, &admin, &neuf_a, "Adama", "E-991").await;
+    let devoir = origine
+        .ok(
+            "devoir_creer",
+            Some(sekou),
+            devoir_ecrit(&neuf_a, &math, "Racines carrées"),
+        )
+        .await;
+    let id = devoir["id"].as_str().unwrap().to_owned();
+    origine
+        .ok("devoir_donner", Some(sekou), json!({ "id": id }))
+        .await;
+    let a = entrer_au_portail(&origine, &adama, "E-991").await;
+    let photos = [jpeg_avec_gps(150_000), jpeg_avec_gps(160_000)];
+    lu(origine
+        .application
+        .portail_rendre(
+            Some(&a),
+            &DemandeRendu {
+                devoir_id: id.clone(),
+                texte: "Ma réponse.".to_owned(),
+                photos: photos
+                    .iter()
+                    .map(|o| base64::engine::general_purpose::STANDARD.encode(o))
+                    .collect(),
+            },
+        )
+        .await
+        .unwrap())
+    .unwrap();
+    origine
+        .ok(
+            "devoir_noter",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": adama, "note": "12", "commentaire": "Lisible." }),
+        )
+        .await;
+    let copie = origine
+        .ok(
+            "devoir_copie",
+            Some(&admin),
+            json!({ "devoir_id": id, "eleve_id": adama }),
+        )
+        .await;
+    let rendu = copie["rendus"][0]["id"].clone();
+    let mut avant = Vec::new();
+    for ordre in [1, 2] {
+        let servie = origine
+            .ok(
+                "devoir_photo",
+                Some(&admin),
+                json!({ "devoir_id": id, "rendu_id": rendu, "ordre": ordre }),
+            )
+            .await;
+        assert!(servie["donnees"].is_string());
+        avant.push(servie["donnees"].clone());
+    }
+    let archive = origine
+        .sauvegarder(&admin, &dossier.path().join("cle-usb"))
+        .await;
+    origine.application.fermer().await.unwrap();
+    drop(origine);
+
+    let neuf = poste_vierge(&dossier.path().join("neuf")).await;
+    neuf.ok(
+        "sauvegarde_restaurer_initiale",
+        None,
+        json!({ "chemin": archive, "phrase": phrase }),
+    )
+    .await;
+    let admin = neuf.connecter("admin", MOT_DE_PASSE).await;
+    let liste = neuf.ok("devoirs_lister", Some(&admin), json!({})).await;
+    assert!(
+        liste["devoirs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["id"] == id.as_str() && d["titre"] == "Racines carrées")
+    );
+    let copie = neuf
+        .ok(
+            "devoir_copie",
+            Some(&admin),
+            json!({ "devoir_id": id, "eleve_id": adama }),
+        )
+        .await;
+    let rendus = copie["rendus"].as_array().unwrap();
+    assert_eq!(rendus.len(), 1);
+    assert_eq!(rendus[0]["texte"], "Ma réponse.");
+    assert_eq!(rendus[0]["note"], 1200);
+    assert_eq!(rendus[0]["commentaire"], "Lisible.");
+    assert_eq!(rendus[0]["photos"].as_array().unwrap().len(), 2);
+    for (ordre, attendue) in [1, 2].into_iter().zip(&avant) {
+        let servie = neuf
+            .ok(
+                "devoir_photo",
+                Some(&admin),
+                json!({ "devoir_id": id, "rendu_id": rendu, "ordre": ordre }),
+            )
+            .await;
+        assert_eq!(&servie["donnees"], attendue);
+    }
 }

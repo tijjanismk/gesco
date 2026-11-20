@@ -36,7 +36,7 @@ type PartieEleve = { titre: string; chapitres: ChapitreEleve[] };
 type MatiereEleve = { cle: string; libelle: string; lecons: number; parties: PartieEleve[] };
 export type CatalogueEleve = { niveau: string; matieres: MatiereEleve[] };
 
-export type ImageEleve = { cle: string; empreinte: string };
+type ImageEleve = { cle: string; empreinte: string };
 type MediaEleve = { empreinte: string; type_mime: string };
 type FichierEleve = { empreinte: string; nom: string; type_mime: string; taille: number };
 type LienEleve = { id: string; titre: string; nature: Nature };
@@ -72,7 +72,7 @@ export type QuizEleve = {
 /** Avancement d'un élève entré avec son code, quand le suivi est allumé. */
 type MatiereAvancement = { cle: string; libelle: string; finies: number; visibles: number };
 type LeconRecente = { id: string; titre: string; matiere: string };
-export type ScoreRecent = {
+type ScoreRecent = {
   titre: string;
   score: number;
   sur: number;
@@ -88,10 +88,10 @@ export type MonAvancement = {
 
 /** Où en est un devoir pour l'élève. */
 export type EtatPourEleve = "a_rendre" | "en_retard" | "rendu" | "corrige" | "clos" | "papier";
-export type FormeRendu = "texte" | "photos" | "texte_ou_photos" | "papier";
+type FormeRendu = "texte" | "photos" | "texte_ou_photos" | "papier";
 
 /** Un devoir dans « Mes devoirs ». */
-export type DevoirDeLEleve = {
+type DevoirDeLEleve = {
   id: string;
   titre: string;
   matiere: string;
@@ -106,7 +106,7 @@ export type MesDevoirs = { avec_code: boolean; devoirs: DevoirDeLEleve[] };
 
 type PhotoEleve = { ordre: number; retiree: boolean };
 
-export type RenduEleve = {
+type RenduEleve = {
   id: string;
   numero: number;
   rendu_le: number;

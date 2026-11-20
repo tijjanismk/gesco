@@ -18,7 +18,7 @@ interface Saisie {
 const SAISIE_VIDE: Saisie = { lettres: [], ecrite: "", paires: {} };
 
 /** La réponse envoyée à la correction : « B », « A,C », « A-2,B-1 » ou la réponse écrite. */
-export function reponseDe(q: QuestionQuiz, s: Saisie): string {
+function reponseDe(q: QuestionQuiz, s: Saisie): string {
   switch (q.sorte) {
     case "reponse_courte":
       return s.ecrite;
@@ -183,7 +183,7 @@ function Reponse({
 function Correction({ juste, q, images }: { juste: boolean | null; q: QuestionQuiz; images: ReadonlyMap<string, string> }) {
   return (
     <div role="status" className="flex flex-col gap-2 rounded border border-muet bg-fond p-3 text-encre">
-      {juste === null ? null : <p className={`font-semibold ${juste ? "text-vert" : "text-rouge"}`}>{juste ? `✓ ${t("quiz.juste")}` : `✗ ${t("quiz.pas_tout_a_fait")}`}</p>}
+      {juste === null ? null : <p className={`font-semibold ${juste ? "text-vert" : "text-rouge"}`}>{juste ? t("quiz.juste") : t("quiz.pas_tout_a_fait")}</p>}
       <div>
         <p className="font-semibold">{t("quiz.bonne_reponse")}</p>
         <BonneReponse q={q} images={images} />
@@ -285,7 +285,6 @@ export function PasserQuiz({
             const r = resultats[i] ?? null;
             return (
               <li key={`${x.numero}-${i}`}>
-                {r === null ? "– " : r ? "✓ " : "✗ "}
                 {t("quiz.question_n", { n: i + 1 })}
                 {r === null ? "" : r ? ` : ${t("quiz.juste")}` : ` : ${t("quiz.pas_tout_a_fait")}`}
               </li>

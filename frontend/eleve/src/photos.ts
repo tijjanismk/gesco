@@ -6,7 +6,7 @@
 export const COTE_MAX = 1600;
 
 /** Qualité du JPEG produit. */
-export const QUALITE = 0.72;
+const QUALITE = 0.72;
 
 /** Photos d'un rendu, au plus. */
 export const PHOTOS_MAX = 5;
