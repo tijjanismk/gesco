@@ -2766,6 +2766,20 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	devoir_feuille: Signature<DemandeIdDevoir, PdfRapport>,
 	/**  Signature de la commande du même nom. */
+	devoir_copies: Signature<DemandeIdDevoir, CopiesDevoir>,
+	/**  Signature de la commande du même nom. */
+	devoir_copie: Signature<DemandeCopie, CopieEleve>,
+	/**  Signature de la commande du même nom. */
+	devoir_photo: Signature<DemandePhotoCopie, PhotoCopieServie>,
+	/**  Signature de la commande du même nom. */
+	devoir_noter: Signature<DemandeNoteCopie, CopiesDevoir>,
+	/**  Signature de la commande du même nom. */
+	devoir_rendu_papier: Signature<DemandeCopie, CopiesDevoir>,
+	/**  Signature de la commande du même nom. */
+	devoir_copies_rendre: Signature<DemandeIdDevoir, DevoirAffiche>,
+	/**  Signature de la commande du même nom. */
+	devoir_notes_imprimer: Signature<DemandeIdDevoir, PdfRapport>,
+	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
 	categorie_personnel_enregistrer: Signature<DemandeCategoriePersonnel, CategoriePersonnel>,
@@ -14331,6 +14345,123 @@ export type ListeDevoirs = {
 	classes: ClasseDevoir[],
 	/**  Devoirs, du plus récent au plus ancien (date limite). */
 	devoirs: DevoirResume[],
+};
+
+/**  Où en est un élève pour un devoir. */
+export type EtatCopie = "rendu" | "en_retard" | "sur_papier" | "pas_rendu";
+
+/**  Un élève de la classe, dans la liste des copies. */
+export type LigneCopie = {
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  État de son dernier rendu. */
+	etat: EtatCopie,
+	/**  Dernier rendu le. */
+	rendu_le: number | null,
+	/**  Nombre de rendus (le dernier compte). */
+	rendus: number,
+	/**  Note du dernier rendu, en centièmes. */
+	note: number | null,
+	/**  Commentaire du dernier rendu. */
+	commentaire: string,
+	/**  Rendu et pas encore noté. */
+	a_corriger: boolean,
+};
+
+/**  Les copies d'un devoir : un élève par ligne, par ordre alphabétique. */
+export type CopiesDevoir = {
+	/**  Devoir. */
+	devoir_id: string,
+	/**  Barème en centièmes. */
+	bareme: number,
+	/**  Le compte peut noter, marquer un rendu sur papier, rendre les copies. */
+	peut_corriger: boolean,
+	/**  Copies corrigées rendues aux élèves le. */
+	copies_rendues_le: number | null,
+	/**  Élèves de la classe. */
+	lignes: LigneCopie[],
+};
+
+/**  Un élève d'un devoir. */
+export type DemandeCopie = {
+	/**  Devoir. */
+	devoir_id: string,
+	/**  Élève. */
+	eleve_id: string,
+};
+
+/**  Une photo d'un rendu, désignée. */
+export type PhotoCopie = {
+	/**  Rendu. */
+	rendu_id: string,
+	/**  Ordre dans le rendu (1 à 5). */
+	ordre: number,
+	/**  Place libérée : la photo n'est plus là. */
+	retiree: boolean,
+};
+
+/**  Un rendu d'un élève, pour le maître. */
+export type RenduAffiche = {
+	/**  Identifiant. */
+	id: string,
+	/**  Numéro (le plus grand compte). */
+	numero: number,
+	/**  Rendu sur papier, marqué par le maître. */
+	sur_papier: boolean,
+	/**  Texte rendu. */
+	texte: string,
+	/**  Rendu le. */
+	rendu_le: number,
+	/**  Après la date limite. */
+	en_retard: boolean,
+	/**  Note en centièmes. */
+	note: number | null,
+	/**  Commentaire. */
+	commentaire: string,
+	/**  Photos, dans l'ordre. */
+	photos: PhotoCopie[],
+};
+
+/**  La copie d'un élève : ses rendus, du premier au dernier. */
+export type CopieEleve = {
+	/**  Élève. */
+	eleve_id: string,
+	/**  Nom et prénoms. */
+	nom: string,
+	/**  Rendus, du premier au dernier ; le dernier compte. */
+	rendus: RenduAffiche[],
+};
+
+/**  Une photo d'une copie demandée par le maître. */
+export type DemandePhotoCopie = {
+	/**  Devoir. */
+	devoir_id: string,
+	/**  Rendu. */
+	rendu_id: string,
+	/**  Ordre dans le rendu. */
+	ordre: number,
+};
+
+/**  Une photo servie : absente quand la place a été libérée. */
+export type PhotoCopieServie = {
+	/**  Type MIME. */
+	type_mime: string,
+	/**  Contenu en base64 ; `None` : photo retirée pour libérer de la place. */
+	donnees: string | null,
+};
+
+/**  La note et le commentaire du maître pour un élève. */
+export type DemandeNoteCopie = {
+	/**  Devoir. */
+	devoir_id: string,
+	/**  Élève. */
+	eleve_id: string,
+	/**  Note tapée (« 13,5 ») ; vide : pas de note. */
+	note: string,
+	/**  Commentaire. */
+	commentaire: string,
 };
 
 /**  Un devoir désigné. */

@@ -434,3 +434,48 @@ pub async fn photo_du_rendu(
     .fetch_optional(cnx)
     .await?)
 }
+
+/// Écrit la note et le commentaire d'un rendu (note `None` : retirée).
+pub async fn noter_rendu(
+    cnx: &mut Connexion,
+    rendu_id: &str,
+    (note, commentaire): (Option<i64>, &str),
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE rendu_devoir SET note = ?3, commentaire = ?4, note_le = ?5, note_par = ?6,
+            identifiant_poste = ?7
+         WHERE etablissement_id = ?1 AND id = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(rendu_id)
+    .bind(note)
+    .bind(commentaire)
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}
+
+/// « Rendre les copies corrigées » : notes et commentaires visibles des élèves.
+pub async fn marquer_copies_rendues(
+    cnx: &mut Connexion,
+    devoir_id: &str,
+    contexte: &Contexte,
+) -> Resultat<()> {
+    sqlx::query(
+        "UPDATE devoir SET copies_rendues_le = ?3, mis_a_jour_le = ?3, mis_a_jour_par = ?4,
+            identifiant_poste = ?5
+         WHERE etablissement_id = ?1 AND id = ?2",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(devoir_id)
+    .bind(contexte.maintenant.millis_epoque())
+    .bind(contexte.auteur())
+    .bind(&contexte.poste.0)
+    .execute(cnx)
+    .await?;
+    Ok(())
+}

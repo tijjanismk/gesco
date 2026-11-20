@@ -197,6 +197,13 @@ export const ACCES = {
   devoir_clore: { type: "permission", permission: "homework:manage" },
   devoir_rouvrir: { type: "permission", permission: "homework:manage" },
   devoir_copier: { type: "permission", permission: "homework:manage" },
+  devoir_copies: { type: "permission", permission: "library:follow" },
+  devoir_copie: { type: "permission", permission: "library:follow" },
+  devoir_photo: { type: "permission", permission: "library:follow" },
+  devoir_notes_imprimer: { type: "permission", permission: "library:follow" },
+  devoir_noter: { type: "permission", permission: "homework:manage" },
+  devoir_rendu_papier: { type: "permission", permission: "homework:manage" },
+  devoir_copies_rendre: { type: "permission", permission: "homework:manage" },
   examens_lire: { type: "permission", permission: "school_profile:manage" },
   resultat_examen_regler: { type: "permission", permission: "school_profile:manage" },
   total_examen_regler: { type: "permission", permission: "school_profile:manage" },
@@ -625,6 +632,13 @@ export const COMMANDES_DU_MAITRE: readonly NomCommande[] = [
   "devoir_clore",
   "devoir_rouvrir",
   "devoir_copier",
+  "devoir_copies",
+  "devoir_copie",
+  "devoir_photo",
+  "devoir_noter",
+  "devoir_rendu_papier",
+  "devoir_copies_rendre",
+  "devoir_notes_imprimer",
 ];
 
 /** Commandes de la saisie des maîtres : ouvertes seulement quand l'école a ouvert la saisie des notes. */

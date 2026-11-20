@@ -10,6 +10,7 @@ import { MessageErreur, Section } from "../../composants/Messages";
 import { type Cle, dateHeure, t } from "../../i18n";
 import type { ClasseDevoir, DemandeDevoir, DevoirAffiche, DevoirResume, EtatDevoir, FormeRendu } from "../../types/gesco";
 import { imagesParCle, RenduLecon } from "../bibliotheque/RenduLecon";
+import { Copies } from "./Copies";
 
 const CHAMP = "rounded border border-muet bg-surface px-2 py-1.5 text-primaire focus:outline-2 focus:outline-primaire";
 
@@ -376,6 +377,7 @@ export function DevoirOuvert({ id, classes, surRetour, surOuvrir }: { id: string
           <ApercuPdf base64={feuille} />
         </Section>
       )}
+      {d.etat === "brouillon" ? null : <Copies devoir={d} surDevoir={relire} />}
     </article>
   );
 }

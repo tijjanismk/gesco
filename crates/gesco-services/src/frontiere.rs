@@ -1378,6 +1378,13 @@ contrat! {
     devoir_rouvrir(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::DevoirAffiche;
     devoir_copier(crate::devoirs::DemandeCopieDevoir) -> crate::devoirs::DevoirAffiche;
     devoir_feuille(crate::devoirs::DemandeIdDevoir) -> PdfRapport;
+    devoir_copies(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::CopiesDevoir;
+    devoir_copie(crate::devoirs::DemandeCopie) -> crate::devoirs::CopieEleve;
+    devoir_photo(crate::devoirs::DemandePhotoCopie) -> crate::devoirs::PhotoCopieServie;
+    devoir_noter(crate::devoirs::DemandeNoteCopie) -> crate::devoirs::CopiesDevoir;
+    devoir_rendu_papier(crate::devoirs::DemandeCopie) -> crate::devoirs::CopiesDevoir;
+    devoir_copies_rendre(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::DevoirAffiche;
+    devoir_notes_imprimer(crate::devoirs::DemandeIdDevoir) -> PdfRapport;
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -7346,6 +7353,86 @@ impl Application {
         let session = appel.session()?;
         let impression = Box::pin(
             crate::devoirs::ServiceDevoirs::nouveau(&ouverte.noyau).feuille(session, &entree.id),
+        )
+        .await?;
+        let documents = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier);
+        let pdf = Box::pin(impression.composer(&documents, session, &|t| {
+            self.noter_au_journal_technique(t);
+        }))
+        .await?;
+        Ok(PdfRapport { pdf: base64(&pdf) })
+    }
+
+    async fn devoir_copies(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeIdDevoir,
+    ) -> Resultat<crate::devoirs::CopiesDevoir> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .copies(appel.session()?, &entree.id)
+            .await
+    }
+
+    async fn devoir_copie(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeCopie,
+    ) -> Resultat<crate::devoirs::CopieEleve> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .copie(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoir_photo(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandePhotoCopie,
+    ) -> Resultat<crate::devoirs::PhotoCopieServie> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .photo_copie(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoir_noter(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeNoteCopie,
+    ) -> Resultat<crate::devoirs::CopiesDevoir> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .noter(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoir_rendu_papier(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeCopie,
+    ) -> Resultat<crate::devoirs::CopiesDevoir> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .rendu_papier(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoir_copies_rendre(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeIdDevoir,
+    ) -> Resultat<crate::devoirs::DevoirAffiche> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .rendre_copies(appel.session()?, &entree.id)
+            .await
+    }
+
+    async fn devoir_notes_imprimer(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeIdDevoir,
+    ) -> Resultat<PdfRapport> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let impression = Box::pin(
+            crate::devoirs::ServiceDevoirs::nouveau(&ouverte.noyau)
+                .liste_des_notes(session, &entree.id),
         )
         .await?;
         let documents = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier);

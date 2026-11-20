@@ -26,7 +26,7 @@ pub fn date_limite_longue(millis: i64) -> String {
 }
 
 /// Barème lisible : « sur 20 », « sur 12,5 ».
-fn sur(bareme: i64) -> String {
+pub(crate) fn sur(bareme: i64) -> String {
     let entier = bareme / 100;
     let reste = bareme % 100;
     if reste == 0 {

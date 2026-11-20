@@ -1055,5 +1055,10 @@ fn audit_devoir(d: &LigneDevoir) -> serde_json::Value {
     })
 }
 
+mod corriger;
 mod feuille;
+pub use corriger::{
+    COMMENTAIRE_MAX, CopieEleve, CopiesDevoir, DemandeCopie, DemandeNoteCopie, DemandePhotoCopie,
+    EtatCopie, LigneCopie, PhotoCopie, PhotoCopieServie, RenduAffiche,
+};
 pub use feuille::date_limite_longue;

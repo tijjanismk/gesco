@@ -5466,3 +5466,235 @@ async fn un_eleve_rend_son_devoir_par_le_portail() {
     let de_a = lu(p.application.portail_mes_devoirs(Some(&a)).await.unwrap());
     assert_eq!(de_a.devoirs.len(), 2);
 }
+
+/// Phase 12, lot 5, étape 4 (SPEC_PHASE_12_LOT_5 §0.3 critères 5 et 6, §5) : la liste des élèves
+/// avec leur état ; la copie, ses photos et son historique ; la note sur le barème et le
+/// commentaire ; « Rendu sur papier » puis la note ; notes et commentaires invisibles des élèves
+/// avant « Rendre les copies corrigées », visibles après, une note changée ensuite visible
+/// aussitôt ; un élève ne voit jamais la note d'un autre ; la liste des notes s'imprime.
+#[tokio::test]
+async fn le_maitre_corrige_et_rend_les_copies() {
+    use base64::Engine as _;
+    use gesco_services::portail::devoirs::{DemandeRendu, EtatPourEleve};
+    use sqlx::Connection as _;
+
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let maitres = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let sekou = &maitres[0];
+    let (annee, math, _, neuf_a, _) = annee_des_devoirs(&p, &admin).await;
+    crate::commun::poser_grille(&p, &admin, &annee).await;
+    let adama = eleve_dans(&p, &admin, &neuf_a, "Adama", "E-941").await;
+    let awa = eleve_dans(&p, &admin, &neuf_a, "Awa", "E-942").await;
+    let fanta = eleve_dans(&p, &admin, &neuf_a, "Fanta", "E-943").await;
+    let mut ecrit = devoir_ecrit(&neuf_a, &math, "Racines carrées");
+    ecrit["date_limite"] = json!(crate::commun::DEBUT + 3_600_000);
+    let devoir = p.ok("devoir_creer", Some(sekou), ecrit).await;
+    let id = devoir["id"].as_str().unwrap().to_owned();
+
+    // Brouillon : rien à corriger.
+    let refus = p
+        .refus(
+            "devoir_rendu_papier",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": awa }),
+        )
+        .await;
+    assert_eq!(refus.cle, "devoir.pas_donne");
+    p.ok("devoir_donner", Some(sekou), json!({ "id": id }))
+        .await;
+
+    // Adama rend deux photos par le portail.
+    let a = entrer_au_portail(&p, &adama, "E-941").await;
+    let w = entrer_au_portail(&p, &awa, "E-942").await;
+    let photos = [jpeg_avec_gps(200_000), jpeg_avec_gps(210_000)];
+    lu(p.application
+        .portail_rendre(
+            Some(&a),
+            &DemandeRendu {
+                devoir_id: id.clone(),
+                texte: "Ma copie.".into(),
+                photos: photos
+                    .iter()
+                    .map(|o| base64::engine::general_purpose::STANDARD.encode(o))
+                    .collect(),
+            },
+        )
+        .await
+        .unwrap())
+    .unwrap();
+
+    // La liste : trois élèves, Adama rendu et à corriger, les deux autres pas rendu.
+    let copies = p
+        .ok("devoir_copies", Some(sekou), json!({ "id": id }))
+        .await;
+    assert_eq!(copies["peut_corriger"], true);
+    assert!(copies["copies_rendues_le"].is_null());
+    assert_eq!(copies["lignes"].as_array().unwrap().len(), 3);
+    let ligne = |c: &Value, eleve: &str| {
+        c["lignes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["eleve_id"] == eleve)
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(ligne(&copies, &adama)["etat"], "rendu");
+    assert_eq!(ligne(&copies, &adama)["a_corriger"], true);
+    assert_eq!(ligne(&copies, &awa)["etat"], "pas_rendu");
+    assert_eq!(ligne(&copies, &fanta)["etat"], "pas_rendu");
+
+    // La copie d'Adama : son texte, ses deux photos, servies au maître.
+    let copie = p
+        .ok(
+            "devoir_copie",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": adama }),
+        )
+        .await;
+    let rendus = copie["rendus"].as_array().unwrap();
+    assert_eq!(rendus.len(), 1);
+    assert_eq!(rendus[0]["texte"], "Ma copie.");
+    assert_eq!(rendus[0]["photos"].as_array().unwrap().len(), 2);
+    let rendu_a = rendus[0]["id"].clone();
+    let photo = p
+        .ok(
+            "devoir_photo",
+            Some(sekou),
+            json!({ "devoir_id": id, "rendu_id": rendu_a, "ordre": 2 }),
+        )
+        .await;
+    assert_eq!(photo["type_mime"], "image/jpeg");
+    assert!(!photo["donnees"].as_str().unwrap().is_empty());
+
+    // La note se lit sur le barème : hors barème, lettre refusées ; 13,5 accepté.
+    for (note, cle) in [("21", "note.hors_bareme"), ("abs", "devoir.note_lettre")] {
+        let refus = p
+            .refus(
+                "devoir_noter",
+                Some(sekou),
+                json!({ "devoir_id": id, "eleve_id": adama, "note": note, "commentaire": "" }),
+            )
+            .await;
+        assert_eq!(refus.cle, cle);
+    }
+    let refus = p
+        .refus(
+            "devoir_noter",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": awa, "note": "12", "commentaire": "" }),
+        )
+        .await;
+    assert_eq!(refus.cle, "devoir.pas_de_rendu");
+    let copies = p
+        .ok(
+            "devoir_noter",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": adama, "note": "13,5",
+                "commentaire": "Bon raisonnement." }),
+        )
+        .await;
+    assert_eq!(ligne(&copies, &adama)["note"], 1350);
+    assert_eq!(ligne(&copies, &adama)["a_corriger"], false);
+
+    // Awa rend sur papier, puis le maître la note ; deux fois le même geste ne double rien.
+    p.ok(
+        "devoir_rendu_papier",
+        Some(sekou),
+        json!({ "devoir_id": id, "eleve_id": awa }),
+    )
+    .await;
+    let copies = p
+        .ok(
+            "devoir_rendu_papier",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": awa }),
+        )
+        .await;
+    assert_eq!(ligne(&copies, &awa)["etat"], "sur_papier");
+    assert_eq!(ligne(&copies, &awa)["rendus"], 1);
+    let copies = p
+        .ok(
+            "devoir_noter",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": awa, "note": "15", "commentaire": "" }),
+        )
+        .await;
+    assert_eq!(ligne(&copies, &awa)["note"], 1500);
+
+    // Avant « Rendre les copies corrigées », les élèves ne voient ni note ni commentaire.
+    let ouvert = lu(p.application.portail_devoir(Some(&a), &id).await.unwrap());
+    assert!(ouvert.correction.is_none());
+    let rendu = p
+        .ok("devoir_copies_rendre", Some(sekou), json!({ "id": id }))
+        .await;
+    assert!(rendu["copies_rendues_le"].is_i64());
+    let ouvert = lu(p.application.portail_devoir(Some(&a), &id).await.unwrap());
+    let correction = ouvert.correction.expect("note rendue");
+    assert_eq!(correction.note, 1350);
+    assert_eq!(correction.commentaire, "Bon raisonnement.");
+    let de_a = lu(p.application.portail_mes_devoirs(Some(&a)).await.unwrap());
+    assert_eq!(de_a.devoirs[0].etat, EtatPourEleve::Corrige);
+    // Awa voit sa note, jamais celle d'Adama.
+    let de_w = lu(p.application.portail_devoir(Some(&w), &id).await.unwrap());
+    assert_eq!(de_w.correction.unwrap().note, 1500);
+
+    // Une note changée ensuite est visible aussitôt, et va au journal.
+    p.ok(
+        "devoir_noter",
+        Some(sekou),
+        json!({ "devoir_id": id, "eleve_id": adama, "note": "14",
+            "commentaire": "Bon raisonnement." }),
+    )
+    .await;
+    let ouvert = lu(p.application.portail_devoir(Some(&a), &id).await.unwrap());
+    assert_eq!(ouvert.correction.unwrap().note, 1400);
+
+    // Adama rend de nouveau : son nouveau rendu est à corriger, l'ancien garde sa note.
+    lu(p.application
+        .portail_rendre(
+            Some(&a),
+            &DemandeRendu {
+                devoir_id: id.clone(),
+                texte: "Copie revue.".into(),
+                photos: Vec::new(),
+            },
+        )
+        .await
+        .unwrap())
+    .unwrap();
+    let copies = p
+        .ok("devoir_copies", Some(sekou), json!({ "id": id }))
+        .await;
+    assert_eq!(ligne(&copies, &adama)["a_corriger"], true);
+    assert!(ligne(&copies, &adama)["note"].is_null());
+    let copie = p
+        .ok(
+            "devoir_copie",
+            Some(sekou),
+            json!({ "devoir_id": id, "eleve_id": adama }),
+        )
+        .await;
+    assert_eq!(copie["rendus"][0]["note"], 1400);
+
+    // La liste des notes s'imprime ; la direction la voit aussi.
+    for compte in [sekou, &admin] {
+        let pdf = p
+            .ok("devoir_notes_imprimer", Some(compte), json!({ "id": id }))
+            .await;
+        assert!(!pdf["pdf"].as_str().unwrap().is_empty());
+    }
+
+    // Au journal : deux notes d'Adama, une d'Awa, son rendu sur papier ; les copies rendues.
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    let audits: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM journal_audit WHERE entite = 'rendu_devoir'")
+            .fetch_one(&mut cnx)
+            .await
+            .unwrap();
+    assert_eq!(audits, 4);
+    cnx.close().await.unwrap();
+}
