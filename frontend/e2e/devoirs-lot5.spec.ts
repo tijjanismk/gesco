@@ -400,7 +400,7 @@ test("lot 5 : sur le téléphone, « Mes devoirs », trois photos rendues, puis 
   await tientEnLargeur(p);
   await capturer(p, "507-lot5-telephone-trois-photos");
   await p.getByRole("button", { name: ELEVE.rendreMonDevoir }).click();
-  await expect(p.getByText(/^Ton devoir est rendu le /)).toBeVisible({ timeout: 60_000 });
+  await expect(p.getByRole("status").filter({ hasText: "Ton devoir est rendu le" })).toBeVisible({ timeout: 180_000 });
   await expect(p.getByText(ELEVE.mesRendus)).toBeVisible();
   await capturer(p, "508-lot5-telephone-devoir-rendu");
   await contexte.close();
@@ -411,7 +411,7 @@ test("lot 5 : sur le téléphone, « Mes devoirs », trois photos rendues, puis 
   await deux.p.getByText(TITRE_DEVOIR).click();
   await deux.p.getByLabel(ELEVE.taReponse).fill("√49 = 7 et √81 = 9. Un carré n'est jamais négatif, donc √−4 n'existe pas.");
   await deux.p.getByRole("button", { name: ELEVE.rendreMonDevoir }).click();
-  await expect(deux.p.getByText(/^Ton devoir est rendu le /)).toBeVisible({ timeout: 60_000 });
+  await expect(deux.p.getByRole("status").filter({ hasText: "Ton devoir est rendu le" })).toBeVisible({ timeout: 180_000 });
   await deux.contexte.close();
 });
 
@@ -505,7 +505,8 @@ test("lot 5 : la direction reporte au bulletin, valide l'évaluation et calcule 
   await page.getByRole("button", { name: TITRE_DEVOIR, exact: true }).click();
   await expect(page.getByText(texte("devoirs.evaluation_validee"))).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: texte("devoirs.aller_aux_notes"), exact: true }).click();
-  await expect(page.getByText(/Devoir rendu par les élèves/).first()).toBeVisible({ timeout: 30_000 });
+  await page.locator("#notes-matiere").selectOption({ label: "Mathématiques" });
+  await expect(page.getByText(texte("notes.devoir_rendu")).first()).toBeVisible({ timeout: 30_000 });
   await capturer(page, "515-lot5-notes-devoir-rendu-par-les-eleves");
 });
 

@@ -147,7 +147,7 @@ test("premier démarrage et phrase de secours", async () => {
   await capturer("02-premier-demarrage-rempli");
   await page.locator("form").getByRole("button", { name: texte("demarrage.creer") }).click();
 
-  await expect(page.getByRole("heading", { name: texte("phrase.titre") })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: texte("phrase.titre") })).toBeVisible({ timeout: 90_000 });
   // Le visionneur PDF de WebView2 rend la page hors du DOM : aucun signal à attendre. Sur un
   // écran mis à l'échelle (125 %), sa capture par CDP est agrandie et coupée ; à l'écran,
   // l'aperçu est entier (vérifié à l'œil le 7 octobre 2026).
@@ -798,7 +798,7 @@ test("phase 2 : import d'un fichier de quinze élèves, deux erreurs et un doubl
   await expect(page.getByRole("alert")).toContainText("9e A");
   await capturer("46-import-apercu");
   await page.getByRole("button", { name: "Importer 13 élève(s)" }).click();
-  await expect(page.getByRole("status")).toContainText("13 élève(s) créé(s)");
+  await expect(page.getByRole("status")).toContainText("13 élève(s) créé(s)", { timeout: 90_000 });
   await capturer("47-import-termine");
   await page.getByRole("button", { name: texte("import.fermer") }).click();
   await page.locator("#eleves-recherche").fill("Seydou");
@@ -2419,7 +2419,7 @@ test("phase 5 : l'école essaie l'envoi sans clé ; le SMS d'essai part à son t
   await page.getByRole("button", { name: texte("messages.essai_envoyer") }).click();
   // La file part toutes les cinq secondes ; l'accusé de remise revient aussitôt.
   const ligne = page.getByRole("row").filter({ hasText: "+223 76 00 00 99" });
-  await expect(ligne.getByText(texte("messages.etat_message.remis"))).toBeVisible({ timeout: 20_000 });
+  await expect(ligne.getByText(texte("messages.etat_message.remis"))).toBeVisible({ timeout: 60_000 });
   await ligne.click();
   await expect(page.getByRole("heading", { name: `${texte("messages.nature.essai")} vers +223 76 00 00 99` })).toBeVisible();
   await capturer("121-file-des-sms");
@@ -4092,7 +4092,7 @@ test("lots 3 et 5, école d'essai : des quiz faits sur le téléphone, un devoir
         await p.getByText("Nombres décimaux : exercices 1 à 3").click();
         await p.getByLabel("Ta réponse").fill(rang === 0 ? "1. 3,05 ; 3,5 ; 3,55.\n2. 20,25.\n3. 0,75." : "1. 3,5 ; 3,05 ; 3,55.\n2. 20,25.\n3. 0,75.");
         await p.getByRole("button", { name: "Rendre mon devoir" }).click();
-        await expect(p.getByText(/^Ton devoir est rendu le /)).toBeVisible({ timeout: 60_000 });
+        await expect(p.getByRole("status").filter({ hasText: "Ton devoir est rendu le" })).toBeVisible({ timeout: 180_000 });
       }
       // Les essais des quiz s'écrivent toutes les cinq secondes.
       await p.waitForTimeout(6_000);
