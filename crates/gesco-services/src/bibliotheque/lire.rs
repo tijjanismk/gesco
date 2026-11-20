@@ -131,6 +131,8 @@ pub struct LectureContenu {
     pub classes_seulement: Vec<String>,
     /// Fichiers d'un document de l'école, dans l'ordre.
     pub fichiers: Vec<super::FichierDocument>,
+    /// Questions reconnues du quiz (« S'entraîner » se montre s'il y en a).
+    pub quiz: Vec<gesco_core::bibliotheque::QuestionQuiz>,
 }
 
 /// Chercher dans la bibliothèque.
@@ -439,6 +441,9 @@ impl ServiceBibliotheque<'_> {
             VueContenu::Soumise => soumise,
         }
         .unwrap_or_default();
+        let quiz =
+            gesco_core::bibliotheque::analyser_quiz(&texte, contenu.nature == NatureContenu::Quiz)
+                .questions;
         let mut lecon = analyser(&texte);
         if !peut_ecrire {
             lecon = lecon.pour_les_eleves();
@@ -492,6 +497,7 @@ impl ServiceBibliotheque<'_> {
             Vec::new()
         };
         Ok(LectureContenu {
+            quiz,
             faits,
             videos,
             sons,

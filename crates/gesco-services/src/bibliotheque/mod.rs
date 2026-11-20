@@ -77,8 +77,9 @@ pub use lire::{
     ImageLecon, LectureContenu, ResultatRechercheBibliotheque, VueContenu,
 };
 pub use quiz::{
-    DemandeCorrectionQuiz, DemandeImportQuiz, DemandeModeleQuiz, DemandeQuestionQuiz, ImportQuiz,
-    LigneQuizRefusee, TexteQuiz, corriger_reponse,
+    DemandeCorrectionQuiz, DemandeImportQuiz, DemandeModeleQuiz, DemandeQuestionQuiz,
+    DemandeRevisionChapitre, ImportQuiz, LigneQuizRefusee, RevisionChapitre, TexteQuiz,
+    corriger_reponse,
 };
 pub use retirer::{
     ApercuRetrait, CorrespondanceAffichee, CorrespondancesBibliotheque, DemandeCorrespondance,

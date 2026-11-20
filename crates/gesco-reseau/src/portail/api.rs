@@ -17,6 +17,7 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use gesco_services::portail::entree::{DemandeEntrer, DemandeLireSansCode, Entree};
 use gesco_services::portail::lecture::{FichierEnvoye, FichierLuPortail, Plage, ReponseLecture};
+use gesco_services::portail::quiz::DemandeTentative;
 use gesco_services::portail::suivi::DemandeAvancement;
 use http_body_util::Full;
 use hyper::body::{Frame, SizeHint};
@@ -347,6 +348,72 @@ pub(crate) async fn avancement(
     match etat
         .application
         .portail_avancement(jeton.as_deref(), &demande)
+        .await
+    {
+        Ok(ReponseLecture::Lu(())) => StatusCode::NO_CONTENT.into_response(),
+        Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
+        Err(_) => panne(),
+    }
+}
+
+/// Le quiz d'un contenu visible.
+pub(crate) async fn quiz(
+    State(etat): State<EtatPortail>,
+    Path(id): Path<String>,
+    entetes: HeaderMap,
+) -> Response {
+    if !identifiant_sur(&id) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let jeton = jeton(&entetes);
+    match etat.application.portail_quiz(jeton.as_deref(), &id).await {
+        Ok(ReponseLecture::Lu(q)) => Json(q).into_response(),
+        Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
+        Err(_) => panne(),
+    }
+}
+
+/// « Réviser le chapitre » : dix questions tirées des quiz du chapitre.
+pub(crate) async fn revision(
+    State(etat): State<EtatPortail>,
+    Path(id): Path<String>,
+    entetes: HeaderMap,
+) -> Response {
+    if !identifiant_sur(&id) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let jeton = jeton(&entetes);
+    match etat
+        .application
+        .portail_revision(jeton.as_deref(), &id)
+        .await
+    {
+        Ok(ReponseLecture::Lu(q)) => Json(q).into_response(),
+        Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
+        Err(_) => panne(),
+    }
+}
+
+/// Un quiz passé jusqu'au bout. Comme l'avancement, rien n'est refusé à l'élève : sans code ou
+/// suivi éteint, la réponse est la même et rien ne s'écrit.
+pub(crate) async fn tentative(
+    State(etat): State<EtatPortail>,
+    entetes: HeaderMap,
+    Json(demande): Json<DemandeTentative>,
+) -> Response {
+    let sures = demande.contenu_id.as_deref().is_none_or(identifiant_sur)
+        && demande.chapitre_id.as_deref().is_none_or(identifiant_sur)
+        && demande
+            .reponses
+            .iter()
+            .all(|r| identifiant_sur(&r.contenu_id) && r.version.len() <= 128);
+    if !sures {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let jeton = jeton(&entetes);
+    match etat
+        .application
+        .portail_tentative(jeton.as_deref(), &demande)
         .await
     {
         Ok(ReponseLecture::Lu(())) => StatusCode::NO_CONTENT.into_response(),

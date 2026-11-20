@@ -1337,6 +1337,7 @@ contrat! {
     bibliotheque_word_importer(crate::bibliotheque::DemandeImportWord) -> crate::bibliotheque::ImportWord;
     bibliotheque_quiz_question(crate::bibliotheque::DemandeQuestionQuiz) -> crate::bibliotheque::TexteQuiz;
     bibliotheque_quiz_verifier(crate::bibliotheque::DemandeCorrectionQuiz) -> bool;
+    bibliotheque_revision(crate::bibliotheque::DemandeRevisionChapitre) -> crate::bibliotheque::RevisionChapitre;
     bibliotheque_quiz_modele(crate::bibliotheque::DemandeModeleQuiz) -> FichierEcrit;
     bibliotheque_quiz_importer(crate::bibliotheque::DemandeImportQuiz) -> crate::bibliotheque::ImportQuiz;
     bibliotheque_export_apercu(crate::bibliotheque::DemandeExportApercu) -> crate::bibliotheque::ApercuExport;
@@ -2174,6 +2175,119 @@ impl Application {
         Ok(ReponseLecture::Lu(()))
     }
 
+    /// Le quiz d'un contenu visible pour l'élève, avec les bonnes réponses et les explications
+    /// (le téléphone corrige chaque question tout de suite). Sans code, il se passe aussi.
+    pub async fn portail_quiz(
+        &self,
+        jeton: Option<&str>,
+        contenu_id: &str,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<crate::portail::quiz::QuizEleve>,
+        ErreurCommande,
+    > {
+        Ok(self
+            .portail_lecture(jeton)
+            .await?
+            .et_puis(|l| l.lecture.quiz(contenu_id, &l.session)))
+    }
+
+    /// « Réviser le chapitre » : dix questions tirées au hasard des quiz des contenus visibles
+    /// du chapitre, pour la classe de l'élève ; toutes s'il y en a moins.
+    pub async fn portail_revision(
+        &self,
+        jeton: Option<&str>,
+        chapitre_id: &str,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<crate::portail::quiz::QuizEleve>,
+        ErreurCommande,
+    > {
+        let graine = crate::alea::octets::<8>()
+            .map(u64::from_le_bytes)
+            .unwrap_or_else(|_| {
+                u64::try_from(self.horloge.maintenant().millis_epoque()).unwrap_or(1)
+            });
+        Ok(self.portail_lecture(jeton).await?.et_puis(|l| {
+            let (titre, questions, images) =
+                l.lecture.questions_du_chapitre(chapitre_id, &l.session)?;
+            Some(crate::portail::quiz::QuizEleve {
+                titre,
+                contenu_id: None,
+                chapitre_id: Some(chapitre_id.to_owned()),
+                questions: crate::portail::quiz::tirer(questions, graine),
+                images,
+            })
+        }))
+    }
+
+    /// Un quiz passé jusqu'au bout. Le poste principal corrige chaque réponse sur la question
+    /// telle qu'elle est visible ; il ne s'écrit que pour un élève entré avec son code, suivi
+    /// allumé, et seulement si chaque question est encore dans la version reçue (sinon la
+    /// tentative est oubliée : le score ne mêle jamais deux versions). Rien ne bloque l'élève.
+    pub async fn portail_tentative(
+        &self,
+        jeton: Option<&str>,
+        demande: &crate::portail::quiz::DemandeTentative,
+    ) -> Result<crate::portail::lecture::ReponseLecture<()>, ErreurCommande> {
+        use crate::portail::lecture::ReponseLecture;
+        use crate::portail::quiz::{REPONSES_MAX, corriger_donnee, empreinte_revision};
+        let l = match self.portail_lecture(jeton).await? {
+            ReponseLecture::Lu(l) => l,
+            autre => return Ok(autre.et_puis(|_| None)),
+        };
+        let (Some(eleve), Some(annee)) = (&l.session.eleve_id, &l.session.annee_id) else {
+            return Ok(ReponseLecture::Lu(()));
+        };
+        if !l.lecture.suivi()
+            || demande.reponses.is_empty()
+            || demande.reponses.len() > REPONSES_MAX
+            || demande.contenu_id.is_some() == demande.chapitre_id.is_some()
+        {
+            return Ok(ReponseLecture::Lu(()));
+        }
+        let mut corrigees = Vec::with_capacity(demande.reponses.len());
+        for r in &demande.reponses {
+            let Some((question, version, chapitre)) =
+                l.lecture.question(&r.contenu_id, r.numero, &l.session)
+            else {
+                return Ok(ReponseLecture::Lu(()));
+            };
+            let du_quiz = match (&demande.contenu_id, &demande.chapitre_id) {
+                (Some(c), _) => *c == r.contenu_id,
+                (_, Some(ch)) => ch == chapitre,
+                _ => false,
+            };
+            if !du_quiz || version != r.version {
+                return Ok(ReponseLecture::Lu(()));
+            }
+            corrigees.push(corriger_donnee(question, &r.contenu_id, version, r));
+        }
+        let version = match &demande.contenu_id {
+            Some(_) => corrigees
+                .first()
+                .map(|r| r.version.clone())
+                .unwrap_or_default(),
+            None => empreinte_revision(&corrigees),
+        };
+        let maintenant = self.horloge.maintenant().millis_epoque();
+        // L'horloge du téléphone n'est pas sûre : la tentative commence au plus tôt une journée
+        // avant d'être finie.
+        let commencee = demande
+            .commencee_le
+            .unwrap_or(maintenant)
+            .clamp(maintenant.saturating_sub(86_400_000), maintenant);
+        self.portail.tentatives.noter(
+            (eleve, annee),
+            (
+                demande.contenu_id.as_deref(),
+                demande.chapitre_id.as_deref(),
+            ),
+            &version,
+            (commencee, maintenant),
+            corrigees,
+        );
+        Ok(ReponseLecture::Lu(()))
+    }
+
     /// « Mon avancement » d'un élève entré avec son code, suivi allumé ; ce qui attend encore
     /// dans la file compte déjà.
     pub async fn portail_mon_avancement(
@@ -2224,14 +2338,15 @@ impl Application {
     /// Écrit d'un coup les gestes d'avancement en attente ; rend leur nombre. Le poste principal
     /// l'appelle toutes les cinq secondes ; un échec les remet dans la file.
     pub async fn portail_avancement_ecrire(&self) -> usize {
-        if self.portail.avancement.longueur() == 0 {
+        if self.portail.avancement.longueur() == 0 && self.portail.tentatives.longueur() == 0 {
             return 0;
         }
         let Ok(Some((ouverte, etablissement_id))) = self.etablissement_ouvert().await else {
             return 0;
         };
         let gestes = self.portail.avancement.prendre();
-        let nombre = gestes.len();
+        let tentatives = self.portail.tentatives.prendre();
+        let nombre = gestes.len().saturating_add(tentatives.len());
         let noyau = &ouverte.noyau;
         let ecrit = crate::origine::dans(crate::origine::Origine::Portail, async {
             let contexte = noyau.contexte(etablissement_id, None);
@@ -2240,6 +2355,12 @@ impl Application {
                 .await?;
             gesco_db::depots::portail::ecrire_avancement(unite.connexion(), &gestes, &contexte)
                 .await?;
+            gesco_db::depots::portail::ecrire_tentatives_quiz(
+                unite.connexion(),
+                &tentatives,
+                &contexte,
+            )
+            .await?;
             noyau.terminer(unite).await?;
             Ok::<(), ErreurService>(())
         })
@@ -2247,6 +2368,7 @@ impl Application {
         if let Err(e) = ecrit {
             self.noter_au_journal_technique(&format!("portail avancement non ecrit : {e}"));
             self.portail.avancement.remettre(gestes);
+            self.portail.tentatives.remettre(tentatives);
             return 0;
         }
         nombre
@@ -6425,6 +6547,19 @@ impl Application {
     ) -> Resultat<bool> {
         appel.session()?;
         Ok(crate::bibliotheque::corriger_reponse(&entree))
+    }
+
+    async fn bibliotheque_revision(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeRevisionChapitre,
+    ) -> Resultat<crate::bibliotheque::RevisionChapitre> {
+        let graine = crate::alea::octets::<8>()
+            .map(u64::from_le_bytes)
+            .unwrap_or(1);
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .reviser_chapitre(appel.session()?, &entree, graine)
+            .await
     }
 
     async fn bibliotheque_quiz_modele(

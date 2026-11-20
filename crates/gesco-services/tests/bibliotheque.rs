@@ -110,6 +110,12 @@ const RACINE_REVUE: LeconEssai<'static> = (
     "La racine carrée",
     "# La racine carrée\n\nLa racine carrée de $25$ est $5$.\n",
 );
+/// La racine carrée, avec son quiz : un choix unique et une réponse courte.
+const RACINE_QUIZ: LeconEssai<'static> = (
+    "9e-annee/mathematiques/racine-carree",
+    "La racine carrée",
+    "# La racine carrée\n\nLa racine carrée de $16$ est $4$.\n\n## Quiz\n\n**Question 1.** √25 est égal à :\nA) 5  B) 25  C) 12\n\n**Question 2.** Combien font 7 / 2 ?\n\n### Réponses\n\n1. **A.** 5 × 5 = 25.\n2. **« 3,5 » ou « 7/2 ».** On partage 7 en deux.\n",
+);
 const PYTHAGORE: LeconEssai<'static> = (
     "9e-annee/mathematiques/pythagore",
     "Le théorème de Pythagore",
@@ -1257,7 +1263,10 @@ async fn l_ecole_ajoute_un_chapitre_une_lecon_un_sujet_et_son_corrige() {
             json!({ "contenu_id": quiz["contenu_id"], "texte": format!("{deux}\n**Question 3.** Sans réponse ?\nA) un  B) deux\n") }),
         )
         .await;
-    assert_eq!(apercu_quiz["quiz"]["questions"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        apercu_quiz["quiz"]["questions"].as_array().unwrap().len(),
+        2
+    );
     assert_eq!(apercu_quiz["quiz"]["ecartees"][0]["numero"], 3);
     // Essayer le quiz : la correction ne demande rien d'autre que la question et la réponse.
     let premiere = apercu_quiz["quiz"]["questions"][0].clone();
@@ -4579,4 +4588,193 @@ async fn le_maitre_voit_au_suivi_ce_que_ses_eleves_ont_ouvert_et_fini() {
         )
         .await;
     assert_eq!(refus.cle, "connexion.maitres_non_admis");
+}
+
+/// Phase 12, lot 3, étape 4 (SPEC_PHASE_12_LOT_3 §0.3 critères 4 et 6, §5, §7) : un élève entré
+/// avec son code passe le quiz de « La racine carrée » ; le téléphone reçoit les bonnes réponses
+/// et les explications ; le poste principal corrige de nouveau et n'accepte jamais le score du
+/// téléphone ; la tentative s'écrit au passage de la file ; un élève sans code passe le quiz et
+/// rien ne s'écrit ; une version qui ne correspond plus fait oublier la tentative ; réviser le
+/// chapitre donne toutes ses questions quand il en a moins de dix ; un quiz abandonné n'envoie
+/// rien.
+#[tokio::test]
+async fn l_eleve_passe_le_quiz_et_seule_sa_tentative_corrigee_s_ecrit() {
+    use gesco_services::portail::entree::DemandeLireSansCode;
+    use gesco_services::portail::lecture::ReponseLecture;
+    use gesco_services::portail::quiz::{DemandeTentative, ReponseDonnee};
+    use sqlx::Connection as _;
+
+    let dossier = tempfile::tempdir().unwrap();
+    deposer(
+        dossier.path(),
+        "bibliotheque-mali-1.gbib",
+        &paquet("2026.11.1", &[RACINE_QUIZ, PUISSANCES]),
+    );
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let annees = p.ok("annees_lister", Some(&admin), Value::Null).await;
+    let annee = annees
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["libelle"] == "2026-2027")
+        .unwrap()["id"]
+        .clone();
+    crate::commun::poser_grille(&p, &admin, &annee).await;
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee }))
+        .await;
+    let neuvieme = ped["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .unwrap()["id"]
+        .clone();
+    let classes = p
+        .ok("classes_lister", Some(&admin), json!({ "annee_id": annee }))
+        .await;
+    let neuf_a = classes
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["classe"]["libelle"] == "9e A")
+        .unwrap()["classe"]["id"]
+        .clone();
+    let adama = eleve_dans(&p, &admin, &neuf_a, "Adama", "E-931").await;
+    let a = entrer_au_portail(&p, &adama, "E-931").await;
+    let sans_code = match p
+        .application
+        .portail_lire_sans_code(&DemandeLireSansCode {
+            niveau_id: neuvieme.as_str().unwrap().to_owned(),
+            serie_id: None,
+        })
+        .await
+        .unwrap()
+    {
+        Some((jeton, _)) => jeton,
+        None => panic!("la 9e se lit sans code"),
+    };
+    let ReponseLecture::Lu(catalogue) = p.application.portail_catalogue(Some(&a)).await.unwrap()
+    else {
+        panic!("le catalogue se lit");
+    };
+    let chapitre = catalogue
+        .matieres
+        .iter()
+        .flat_map(|m| m.parties.iter())
+        .flat_map(|pa| pa.chapitres.iter())
+        .find(|c| c.contenus.iter().any(|x| x.titre == "La racine carrée"))
+        .unwrap();
+    let racine = chapitre
+        .contenus
+        .iter()
+        .find(|x| x.titre == "La racine carrée")
+        .unwrap()
+        .id
+        .clone();
+
+    // La leçon dit qu'elle a un quiz ; la page de la leçon ne montre pas les réponses.
+    let ReponseLecture::Lu(lecon) = p
+        .application
+        .portail_contenu(Some(&a), &racine)
+        .await
+        .unwrap()
+    else {
+        panic!("la racine se lit");
+    };
+    assert_eq!(lecon.questions, 2);
+    // Le quiz, avec bonnes réponses et explications ; sans code aussi.
+    let ReponseLecture::Lu(quiz) = p.application.portail_quiz(Some(&a), &racine).await.unwrap()
+    else {
+        panic!("le quiz se lit");
+    };
+    assert_eq!(quiz.questions.len(), 2);
+    assert_eq!(quiz.questions[0].question.bonnes, vec!["A"]);
+    assert!(!quiz.questions[0].question.explication.is_empty());
+    assert!(matches!(
+        p.application
+            .portail_quiz(Some(&sans_code), &racine)
+            .await
+            .unwrap(),
+        ReponseLecture::Lu(_)
+    ));
+    // Une leçon sans quiz n'en a pas.
+    let puissances = chapitre
+        .contenus
+        .iter()
+        .find(|x| x.titre == "Les puissances")
+        .map(|x| x.id.clone());
+    if let Some(id) = puissances {
+        assert!(matches!(
+            p.application.portail_quiz(Some(&a), &id).await.unwrap(),
+            ReponseLecture::Introuvable
+        ));
+    }
+    // Réviser le chapitre : moins de dix questions, toutes viennent.
+    let ReponseLecture::Lu(revision) = p
+        .application
+        .portail_revision(Some(&a), &chapitre.id)
+        .await
+        .unwrap()
+    else {
+        panic!("la révision se lit");
+    };
+    assert_eq!(revision.questions.len(), 2);
+    assert!(revision.questions.iter().all(|q| q.contenu_id == racine));
+
+    // Le téléphone envoie ses réponses : une juste (« 3.5 » pour « 3,5 »), une fausse.
+    let version = quiz.questions[0].version.clone();
+    let tentative = |reponses: [&str; 2], version: &str| DemandeTentative {
+        contenu_id: Some(racine.clone()),
+        chapitre_id: None,
+        commencee_le: Some(0),
+        reponses: reponses
+            .iter()
+            .zip([1u32, 2])
+            .map(|(r, n)| ReponseDonnee {
+                contenu_id: racine.clone(),
+                version: version.to_owned(),
+                numero: n,
+                reponse: (*r).to_owned(),
+            })
+            .collect(),
+    };
+    for (jeton, reponses, v) in [
+        (&a, ["B", "3.5"], version.as_str()),
+        (&sans_code, ["A", "3,5"], version.as_str()),
+        (&a, ["A", "3,5"], "une-autre-version"),
+    ] {
+        assert!(matches!(
+            p.application
+                .portail_tentative(Some(jeton), &tentative(reponses, v))
+                .await
+                .unwrap(),
+            ReponseLecture::Lu(())
+        ));
+    }
+    // Une seule tentative s'écrit : celle d'Adama dans la bonne version.
+    assert_eq!(p.application.portail_avancement_ecrire().await, 1);
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    let lignes: Vec<(i64, i64, String, String)> =
+        sqlx::query_as("SELECT score, sur, eleve_id, empreinte_version FROM tentative_quiz")
+            .fetch_all(&mut cnx)
+            .await
+            .unwrap();
+    assert_eq!(
+        lignes,
+        vec![(1, 2, adama.clone(), version.clone())],
+        "le score vient du poste principal"
+    );
+    let reponses: Vec<(i64, String, i64)> =
+        sqlx::query_as("SELECT numero, reponse, juste FROM reponse_quiz ORDER BY numero")
+            .fetch_all(&mut cnx)
+            .await
+            .unwrap();
+    assert_eq!(
+        reponses,
+        vec![(1, "B".to_owned(), 0), (2, "3.5".to_owned(), 1)]
+    );
+    cnx.close().await.unwrap();
 }

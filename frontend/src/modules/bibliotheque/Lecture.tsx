@@ -9,6 +9,7 @@ import type { ExamenSujet, LectureContenu, NatureContenu, VueContenu } from "../
 import { Editeur } from "./Editeur";
 import { FichiersDocument, Imprimer } from "./Fichiers";
 import { Historique } from "./Historique";
+import { PasserQuiz } from "./PasserQuiz";
 import { MarqueClasses, PourQui } from "./PourQui";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
 import { type PlaceAuCatalogue, RetirerAutour } from "./Retraits";
@@ -71,6 +72,7 @@ function libelleVue(vue: VueContenu): string {
 function ModeClasse({ contenu, surFermer }: { contenu: LectureContenu; surFermer: () => void }) {
   const cadre = useRef<HTMLDivElement>(null);
   const images = useMemo(() => imagesParCle(contenu.images), [contenu.images]);
+  const [quiz, setQuiz] = useState(false);
   useEffect(() => {
     const element = cadre.current;
     element?.focus();
@@ -106,9 +108,23 @@ function ModeClasse({ contenu, surFermer }: { contenu: LectureContenu; surFermer
       >
         {t("bibliotheque.mode_classe.quitter")}
       </button>
+      {contenu.quiz.length === 0 ? null : (
+        <button
+          type="button"
+          onClick={() => setQuiz((q) => !q)}
+          aria-pressed={quiz}
+          className="fixed top-2 right-28 rounded border border-muet bg-surface px-2 py-1 text-sm text-encre focus-visible:outline-2 focus-visible:outline-primaire"
+        >
+          {quiz ? t("quiz.revenir_lecon") : t("quiz.quiz_en_classe")}
+        </button>
+      )}
       <div className="mx-auto max-w-5xl" style={{ fontSize: "170%" }}>
         <h1 className="mb-4 text-3xl font-semibold text-marine">{contenu.titre}</h1>
-        <RenduLecon lecon={contenu.lecon} images={images} videos={contenu.videos} sons={contenu.sons} sansNotes classe />
+        {quiz ? (
+          <PasserQuiz questions={contenu.quiz} images={images} classe surFermer={() => setQuiz(false)} />
+        ) : (
+          <RenduLecon lecon={contenu.lecon} images={images} videos={contenu.videos} sons={contenu.sons} sansNotes classe />
+        )}
       </div>
     </div>
   );
@@ -174,6 +190,7 @@ export function Lecture({
   const [vue, setVue] = useState<VueContenu | null>(null);
   const [taille, setTaille] = useState(tailleRetenue);
   const [classe, setClasse] = useState(false);
+  const [entrainement, setEntrainement] = useState(false);
   const [faits, setFaits] = useState(false);
   const [pourQui, setPourQui] = useState(false);
   const lecture = useQuery({
@@ -224,6 +241,11 @@ export function Lecture({
           <Bouton variante="secondaire" onClick={() => setClasse(true)}>
             {t("bibliotheque.mode_classe")}
           </Bouton>
+          {contenu.quiz.length === 0 ? null : (
+            <Bouton variante="secondaire" aria-pressed={entrainement} onClick={() => setEntrainement((e) => !e)}>
+              {t("quiz.s_entrainer")}
+            </Bouton>
+          )}
           {contenu.peut_modifier && contenu.origine === "ecole" ? (
             <Bouton variante="secondaire" onClick={() => setPourQui(true)}>
               {t("bibliotheque.pour_qui.bouton")}
@@ -274,6 +296,9 @@ export function Lecture({
       {mode !== "lire" && contenu.peut_modifier ? null : (
         <div className={faits && contenu.faits !== null ? "grid gap-4 lg:grid-cols-2" : ""}>
           <div className="flex flex-col gap-3">
+            {entrainement && contenu.quiz.length > 0 ? (
+              <PasserQuiz key={contenu.id} questions={contenu.quiz} images={images} titre={contenu.titre} surFermer={() => setEntrainement(false)} />
+            ) : null}
             {contenu.presentation === "" ? null : <p className="text-encre">{contenu.presentation}</p>}
             <div style={{ fontSize: `${taille}%` }}>
               {contenu.lecon.blocs.length === 0 ? (

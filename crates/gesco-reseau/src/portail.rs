@@ -108,6 +108,9 @@ pub const ROUTES_PORTAIL: &[(&str, &str)] = &[
     ("GET", "/eleve/api/pdf/{id}"),
     ("POST", "/eleve/api/avancement"),
     ("GET", "/eleve/api/mon-avancement"),
+    ("GET", "/eleve/api/quiz/{id}"),
+    ("GET", "/eleve/api/revision/{id}"),
+    ("POST", "/eleve/api/tentative"),
 ];
 
 /// Ce que chaque route du portail connaît.
@@ -140,6 +143,9 @@ fn routes() -> Vec<(&'static str, &'static str, MethodRouter<EtatPortail>)> {
         ("GET", "/eleve/api/pdf/{id}", get(api::pdf)),
         ("POST", "/eleve/api/avancement", post(api::avancement)),
         ("GET", "/eleve/api/mon-avancement", get(api::mon_avancement)),
+        ("GET", "/eleve/api/quiz/{id}", get(api::quiz)),
+        ("GET", "/eleve/api/revision/{id}", get(api::revision)),
+        ("POST", "/eleve/api/tentative", post(api::tentative)),
     ]
 }
 

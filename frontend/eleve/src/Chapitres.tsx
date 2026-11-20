@@ -27,6 +27,14 @@ export function Chapitres({ cle }: { cle: string }) {
               {partie.chapitres.map((chapitre) => (
                 <div key={chapitre.id} className="mb-4">
                   <h3 className="mb-2 text-lg font-bold">{chapitre.titre}</h3>
+                  {chapitre.contenus.some((c) => c.nature === "lecon" || c.nature === "quiz") && (
+                    <a
+                      href={`#/revision/${encodeURIComponent(chapitre.id)}/${encodeURIComponent(cle)}`}
+                      className="cible mb-2 inline-flex items-center rounded border-2 border-primaire px-4 font-bold text-primaire"
+                    >
+                      {T.reviserChapitre}
+                    </a>
+                  )}
                   <ul className="flex flex-col gap-2">
                     {chapitre.contenus.map((c) => {
                       const finie = suivi.actif && finies.has(c.id);

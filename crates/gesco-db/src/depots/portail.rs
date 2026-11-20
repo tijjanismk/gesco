@@ -385,6 +385,108 @@ pub async fn ecrire_avancement(
     Ok(())
 }
 
+/// Une réponse d'une tentative de quiz, telle que la question a été posée.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReponseQuizAEcrire {
+    /// Identifiant de la ligne.
+    pub id: String,
+    /// Contenu d'où vient la question.
+    pub contenu_id: String,
+    /// Empreinte de la version de ce contenu quand la question a été posée.
+    pub version: String,
+    /// Numéro de la question dans ce contenu.
+    pub numero: u32,
+    /// Réponse donnée.
+    pub reponse: String,
+    /// Juste, recalculé par le poste principal.
+    pub juste: bool,
+}
+
+/// Une tentative de quiz passée jusqu'au bout, à écrire.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TentativeQuizAEcrire {
+    /// Identifiant de la ligne.
+    pub id: String,
+    /// Élève entré avec son code.
+    pub eleve_id: String,
+    /// Année scolaire en cours.
+    pub annee_id: String,
+    /// Quiz d'un contenu…
+    pub contenu_id: Option<String>,
+    /// … ou révision d'un chapitre.
+    pub chapitre_id: Option<String>,
+    /// Empreinte de la version (du contenu, ou des questions tirées pour une révision).
+    pub version: String,
+    /// Commencée le (millisecondes).
+    pub commencee_le: i64,
+    /// Finie le (millisecondes).
+    pub finie_le: i64,
+    /// Réponses justes.
+    pub score: u32,
+    /// Questions posées.
+    pub sur: u32,
+    /// Chaque réponse.
+    pub reponses: Vec<ReponseQuizAEcrire>,
+}
+
+/// Écrit des tentatives de quiz et leurs réponses. Une tentative dont l'élève, le contenu ou le
+/// chapitre n'existe plus est ignorée ; une réponse sur un contenu disparu aussi.
+pub async fn ecrire_tentatives_quiz(
+    cnx: &mut Connexion,
+    tentatives: &[TentativeQuizAEcrire],
+    contexte: &Contexte,
+) -> Resultat<()> {
+    for t in tentatives {
+        let ecrite = sqlx::query(
+            "INSERT INTO tentative_quiz (id, etablissement_id, eleve_id, annee_id, contenu_id,
+                chapitre_id, empreinte_version, origine, commencee_le, finie_le, score, sur)
+             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, 'portail', ?8, ?9, ?10, ?11
+             WHERE EXISTS (SELECT 1 FROM eleve WHERE id = ?3)
+               AND EXISTS (SELECT 1 FROM annee_scolaire WHERE id = ?4)
+               AND (?5 IS NULL OR EXISTS (SELECT 1 FROM contenu WHERE id = ?5))
+               AND (?6 IS NULL OR EXISTS (SELECT 1 FROM chapitre_programme WHERE id = ?6))
+               AND ?11 > 0
+             ON CONFLICT (id) DO NOTHING",
+        )
+        .bind(&t.id)
+        .bind(contexte.etablissement_id.vers_chaine())
+        .bind(&t.eleve_id)
+        .bind(&t.annee_id)
+        .bind(&t.contenu_id)
+        .bind(&t.chapitre_id)
+        .bind(&t.version)
+        .bind(t.commencee_le)
+        .bind(t.finie_le)
+        .bind(i64::from(t.score.min(t.sur)))
+        .bind(i64::from(t.sur))
+        .execute(&mut *cnx)
+        .await?
+        .rows_affected();
+        if ecrite == 0 {
+            continue;
+        }
+        for r in &t.reponses {
+            sqlx::query(
+                "INSERT INTO reponse_quiz (id, tentative_id, contenu_id, empreinte_version, numero,
+                    reponse, juste)
+                 SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+                 WHERE EXISTS (SELECT 1 FROM contenu WHERE id = ?3)
+                 ON CONFLICT (id) DO NOTHING",
+            )
+            .bind(&r.id)
+            .bind(&t.id)
+            .bind(&r.contenu_id)
+            .bind(&r.version)
+            .bind(i64::from(r.numero))
+            .bind(&r.reponse)
+            .bind(i64::from(r.juste))
+            .execute(&mut *cnx)
+            .await?;
+        }
+    }
+    Ok(())
+}
+
 /// Avancement d'un élève dans une leçon.
 #[derive(Debug, Clone, PartialEq, Eq, FromRow)]
 pub struct LigneAvancement {

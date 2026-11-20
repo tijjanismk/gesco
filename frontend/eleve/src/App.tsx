@@ -13,16 +13,28 @@ import type { Accueil, MonAvancement } from "./types";
 
 // La leçon apporte KaTeX : elle se charge seulement à l'ouverture d'une leçon.
 const Lecon = lazy(() => import("./Lecon").then((m) => ({ default: m.Lecon })));
+const Quiz = lazy(() => import("./Quiz").then((m) => ({ default: m.Quiz })));
 
 /** Écran montré, lu dans l'adresse (`#/matiere/…`, `#/lecon/…`) : le bouton « retour » du
  *  téléphone marche comme partout. */
-export type Ecran = { nom: "matieres" } | { nom: "matiere"; cle: string } | { nom: "lecon"; id: string } | { nom: "avancement" };
+export type Ecran =
+  | { nom: "matieres" }
+  | { nom: "matiere"; cle: string }
+  | { nom: "lecon"; id: string }
+  | { nom: "quiz"; id: string }
+  | { nom: "revision"; id: string; matiere: string }
+  | { nom: "avancement" };
 
 function lireAdresse(): Ecran {
   const [nom, argument] = window.location.hash.replace(/^#\/?/, "").split("/");
   const valeur = argument === undefined ? "" : decodeURIComponent(argument);
   if (nom === "matiere" && valeur !== "") return { nom: "matiere", cle: valeur };
   if (nom === "lecon" && valeur !== "") return { nom: "lecon", id: valeur };
+  if (nom === "quiz" && valeur !== "") return { nom: "quiz", id: valeur };
+  if (nom === "revision" && valeur !== "") {
+    const matiere = window.location.hash.replace(/^#\/?/, "").split("/")[2];
+    return { nom: "revision", id: valeur, matiere: matiere === undefined ? "" : decodeURIComponent(matiere) };
+  }
   if (nom === "avancement") return { nom: "avancement" };
   return { nom: "matieres" };
 }
@@ -102,6 +114,19 @@ export function App() {
             {ecran.nom === "lecon" && (
               <Suspense fallback={<Chargement />}>
                 <Lecon id={ecran.id} accueil={donnees} />
+              </Suspense>
+            )}
+            {ecran.nom === "quiz" && (
+              <Suspense fallback={<Chargement />}>
+                <Quiz chemin={`quiz/${encodeURIComponent(ecran.id)}`} retour={`#/lecon/${encodeURIComponent(ecran.id)}`} />
+              </Suspense>
+            )}
+            {ecran.nom === "revision" && (
+              <Suspense fallback={<Chargement />}>
+                <Quiz
+                  chemin={`revision/${encodeURIComponent(ecran.id)}`}
+                  retour={ecran.matiere === "" ? "#/" : `#/matiere/${encodeURIComponent(ecran.matiere)}`}
+                />
               </Suspense>
             )}
           </main>

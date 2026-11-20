@@ -14,13 +14,13 @@ import { nature, T, voirLie } from "./textes";
 import type { Accueil, Bloc, ContenuEleve, Enligne } from "./types";
 
 /** Ce que la leçon appelle : images par clé, sons et vidéos présents par empreinte. */
-type Medias = {
+export type Medias = {
   images: ReadonlyMap<string, string>;
   sons: ReadonlyMap<string, string>;
   videos: ReadonlyMap<string, string>;
 };
 
-const ContexteMedias = createContext<Medias>({ images: new Map(), sons: new Map(), videos: new Map() });
+export const ContexteMedias = createContext<Medias>({ images: new Map(), sons: new Map(), videos: new Map() });
 
 /** Tailles du texte de la leçon, en rem ; la deuxième est celle d'arrivée. */
 const TAILLES = [1, 1.125, 1.25, 1.4, 1.6] as const;
@@ -135,7 +135,7 @@ function Media({ sorte, adresse }: { sorte: "video" | "audio"; adresse: string }
   );
 }
 
-function Enlignes({ elements }: { elements: readonly Enligne[] }) {
+export function Enlignes({ elements }: { elements: readonly Enligne[] }) {
   return (
     <>
       {elements.map((e, i) => (
@@ -198,7 +198,7 @@ function EnligneRendu({ element }: { element: Enligne }): ReactNode {
   }
 }
 
-function Blocs({ blocs }: { blocs: readonly Bloc[] }) {
+export function Blocs({ blocs }: { blocs: readonly Bloc[] }) {
   return (
     <>
       {blocs.map((b, i) => (
@@ -420,6 +420,14 @@ function LeconOuverte({ contenu, pdfPermis }: { contenu: ContenuEleve; pdfPermis
       )}
 
       <div className="mt-8 flex flex-col gap-3">
+        {contenu.questions > 0 && (
+          <a
+            href={`#/quiz/${encodeURIComponent(contenu.id)}`}
+            className="cible flex items-center justify-center rounded bg-primaire px-4 text-lg font-bold text-surface"
+          >
+            {T.faireLeQuiz}
+          </a>
+        )}
         {suivi.actif &&
           (fini || dejaFinie ? (
             <p role="status" className="cible flex items-center justify-center rounded bg-surface px-4 font-bold text-vert">

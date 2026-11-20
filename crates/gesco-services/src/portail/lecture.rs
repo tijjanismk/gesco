@@ -17,8 +17,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use gesco_core::bibliotheque::{
-    ClasseChoisie, ExamenSujet, Lecon, NatureContenu, OrigineBibliotheque, SourceImage, analyser,
-    classes_de_l_annee, visible_pour_classe,
+    ClasseChoisie, ExamenSujet, Lecon, NatureContenu, OrigineBibliotheque, QuestionQuiz,
+    SourceImage, analyser, analyser_quiz, classes_de_l_annee, visible_pour_classe,
 };
 use gesco_core::commun::Id;
 use gesco_core::core::Etablissement;
@@ -239,6 +239,8 @@ pub struct ContenuEleve {
     pub version: String,
     /// « Enregistrer en PDF » se montre.
     pub pdf: bool,
+    /// Questions reconnues du quiz (« Faire le quiz » se montre s'il y en a).
+    pub questions: u32,
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -285,6 +287,8 @@ struct ContenuLu {
     lie_id: Option<String>,
     /// Texte visible, pour le PDF.
     paquet: Option<(String, String)>,
+    /// Questions reconnues du quiz, avec leurs réponses (servies seulement au quiz).
+    quiz: Vec<QuestionQuiz>,
 }
 
 /// La bibliothèque telle que les élèves la voient, en mémoire.
@@ -476,6 +480,9 @@ impl LecturePortail {
                                 }
                                 .unwrap_or_default();
                                 let lecon = analyser(&texte).pour_les_eleves();
+                                let quiz =
+                                    analyser_quiz(&texte, contenu.nature == NatureContenu::Quiz)
+                                        .questions;
                                 let documents = if contenu.nature == NatureContenu::Document {
                                     depot::fichiers_du_contenu(&mut cnx, &entree.id, &contexte)
                                         .await?
@@ -609,6 +616,8 @@ impl LecturePortail {
                                             lie: None,
                                             version: empreinte(&a_hacher),
                                             pdf,
+                                            questions: u32::try_from(quiz.len())
+                                                .unwrap_or(u32::MAX),
                                         },
                                         livre: contenu.origine == OrigineBibliotheque::Livre,
                                         chapitre_ecole: chapitres_ecole.contains(&chapitre_id),
@@ -622,6 +631,7 @@ impl LecturePortail {
                                             .paquet_code
                                             .clone()
                                             .map(|p| (p, contenu.cle.clone())),
+                                        quiz,
                                     },
                                 );
                             }
@@ -776,6 +786,83 @@ impl LecturePortail {
             niveau: session.niveau.clone(),
             matieres,
         }
+    }
+
+    /// Le quiz d'un contenu visible pour cette session ; aucun s'il n'a pas de question.
+    pub fn quiz(&self, contenu_id: &str, session: &SessionEleve) -> Option<super::quiz::QuizEleve> {
+        if !self.visible(contenu_id, session) {
+            return None;
+        }
+        let lu = self.contenus.get(contenu_id)?;
+        if lu.quiz.is_empty() {
+            return None;
+        }
+        Some(super::quiz::QuizEleve {
+            titre: lu.eleve.titre.clone(),
+            contenu_id: Some(lu.eleve.id.clone()),
+            chapitre_id: None,
+            questions: lu
+                .quiz
+                .iter()
+                .map(|q| super::quiz::QuestionEleve {
+                    contenu_id: lu.eleve.id.clone(),
+                    version: lu.eleve.version.clone(),
+                    question: q.clone(),
+                })
+                .collect(),
+            images: lu.eleve.images.clone(),
+        })
+    }
+
+    /// Toutes les questions des contenus visibles d'un chapitre pour cette session, dans
+    /// l'ordre des contenus, et le titre du chapitre ; aucune si le chapitre n'en a pas.
+    pub fn questions_du_chapitre(
+        &self,
+        chapitre_id: &str,
+        session: &SessionEleve,
+    ) -> Option<(String, Vec<super::quiz::QuestionEleve>, Vec<ImageEleve>)> {
+        let mut lus: Vec<&ContenuLu> = self
+            .contenus
+            .values()
+            .filter(|l| l.chapitre_id == chapitre_id && !l.quiz.is_empty())
+            .filter(|l| self.visible(&l.eleve.id, session))
+            .collect();
+        lus.sort_by(|a, b| a.eleve.id.cmp(&b.eleve.id));
+        let titre = lus.first()?.eleve.chapitre.clone();
+        let questions = lus
+            .iter()
+            .flat_map(|lu| {
+                lu.quiz.iter().map(|q| super::quiz::QuestionEleve {
+                    contenu_id: lu.eleve.id.clone(),
+                    version: lu.eleve.version.clone(),
+                    question: q.clone(),
+                })
+            })
+            .collect();
+        let mut images: Vec<ImageEleve> = Vec::new();
+        for lu in &lus {
+            for i in &lu.eleve.images {
+                if !images.iter().any(|x| x.cle == i.cle) {
+                    images.push(i.clone());
+                }
+            }
+        }
+        Some((titre, questions, images))
+    }
+
+    /// Une question d'un contenu visible, dans sa version visible, et le chapitre du contenu.
+    pub fn question(
+        &self,
+        contenu_id: &str,
+        numero: u32,
+        session: &SessionEleve,
+    ) -> Option<(&QuestionQuiz, &str, &str)> {
+        if !self.visible(contenu_id, session) {
+            return None;
+        }
+        let lu = self.contenus.get(contenu_id)?;
+        let q = lu.quiz.iter().find(|q| q.numero == numero)?;
+        Some((q, lu.eleve.version.as_str(), lu.chapitre_id.as_str()))
     }
 
     /// Un contenu visible pour cette session ; son lien seulement s'il est visible aussi.

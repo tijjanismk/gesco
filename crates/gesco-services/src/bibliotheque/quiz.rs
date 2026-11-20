@@ -93,6 +93,24 @@ pub struct ImportQuiz {
     pub refusees: Vec<LigneQuizRefusee>,
 }
 
+/// Réviser un chapitre sur un poste.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct DemandeRevisionChapitre {
+    /// Chapitre de la bibliothèque.
+    pub chapitre_id: String,
+}
+
+/// Les questions d'une révision, tirées au hasard, et les images qu'elles appellent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct RevisionChapitre {
+    /// Titre du chapitre.
+    pub titre: String,
+    /// Dix questions au plus.
+    pub questions: Vec<QuestionQuiz>,
+    /// Images des contenus d'où viennent les questions.
+    pub images: Vec<super::ImageLecon>,
+}
+
 /// Une cellule ramenée à une ligne de texte.
 fn une_ligne(cellule: &str) -> String {
     cellule.split_whitespace().collect::<Vec<_>>().join(" ")
@@ -304,6 +322,77 @@ impl ServiceBibliotheque<'_> {
             return Err(regle("bibliotheque.texte_trop_long"));
         }
         Ok(import)
+    }
+}
+
+impl ServiceBibliotheque<'_> {
+    /// « Réviser le chapitre » sur un poste : dix questions tirées au hasard des quiz des
+    /// contenus que le catalogue montre dans ce chapitre ; toutes s'il y en a moins. Rien n'est
+    /// écrit.
+    pub async fn reviser_chapitre(
+        &self,
+        session: &Session,
+        demande: &DemandeRevisionChapitre,
+        graine: u64,
+    ) -> Resultat<RevisionChapitre> {
+        let catalogue = self.catalogue(session).await?;
+        let chapitre = catalogue
+            .niveaux
+            .iter()
+            .flat_map(|n| n.series.iter())
+            .flat_map(|s| s.matieres.iter())
+            .flat_map(|m| m.parties.iter())
+            .flat_map(|p| p.chapitres.iter())
+            .find(|c| c.id == demande.chapitre_id);
+        let Some(chapitre) = chapitre else {
+            return Ok(RevisionChapitre {
+                titre: String::new(),
+                questions: Vec::new(),
+                images: Vec::new(),
+            });
+        };
+        let mut questions = Vec::new();
+        let mut images: Vec<super::ImageLecon> = Vec::new();
+        for c in &chapitre.contenus {
+            if !matches!(c.nature, NatureContenu::Lecon | NatureContenu::Quiz) {
+                continue;
+            }
+            let lu = self
+                .lire(
+                    session,
+                    &super::DemandeLectureContenu {
+                        contenu_id: c.id.clone(),
+                        vue: None,
+                    },
+                )
+                .await?;
+            if lu.quiz.is_empty() {
+                continue;
+            }
+            questions.extend(
+                lu.quiz
+                    .into_iter()
+                    .map(|q| crate::portail::quiz::QuestionEleve {
+                        contenu_id: c.id.clone(),
+                        version: String::new(),
+                        question: q,
+                    }),
+            );
+            for i in lu.images {
+                if !images.iter().any(|x| x.cle == i.cle) {
+                    images.push(i);
+                }
+            }
+        }
+        let questions = crate::portail::quiz::tirer(questions, graine)
+            .into_iter()
+            .map(|q| q.question)
+            .collect();
+        Ok(RevisionChapitre {
+            titre: chapitre.titre.clone(),
+            questions,
+            images,
+        })
     }
 }
 

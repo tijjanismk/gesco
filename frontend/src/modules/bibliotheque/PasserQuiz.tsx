@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 
 import { appeler } from "../../api";
 import { Bouton } from "../../composants/Bouton";
 import { MessageErreur } from "../../composants/Messages";
 import { t } from "../../i18n";
 import type { ChoixQuestion, Enligne, QuestionQuiz } from "../../types/gesco";
-import { Enlignes, RenduLecon } from "./RenduLecon";
+import { Enlignes, imagesParCle, RenduLecon } from "./RenduLecon";
 
 /** Réponse en cours de saisie : lettres choisies, réponse écrite, ou paires d'un appariement. */
 interface Saisie {
@@ -363,5 +364,26 @@ export function PasserQuiz({
         </>
       )}
     </section>
+  );
+}
+
+/** « Réviser le chapitre » sur un poste : dix questions tirées des quiz du chapitre, dans une
+ *  fenêtre au-dessus du catalogue. Rien n'est écrit. */
+export function RevisionPoste({ chapitreId, surFermer }: { chapitreId: string; surFermer: () => void }) {
+  const revision = useQuery({
+    queryKey: ["bibliotheque", "revision", chapitreId],
+    queryFn: () => appeler("bibliotheque_revision", { chapitre_id: chapitreId }),
+    gcTime: 0,
+  });
+  const images = useMemo(() => imagesParCle(revision.data?.images ?? []), [revision.data?.images]);
+  return (
+    <div role="dialog" aria-modal="true" aria-label={t("quiz.reviser")} className="fixed inset-0 z-40 overflow-auto bg-encre/40 p-4">
+      <div className="mx-auto max-w-3xl">
+        <MessageErreur erreur={revision.error} />
+        {revision.data === undefined ? null : (
+          <PasserQuiz questions={revision.data.questions} images={images} titre={revision.data.titre} surFermer={surFermer} />
+        )}
+      </div>
+    </div>
   );
 }

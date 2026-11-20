@@ -1,7 +1,7 @@
 // Ce que le poste principal envoie aux écrans des élèves (`gesco-services/src/portail`).
-import type { Lecon } from "../../src/types/gesco";
+import type { Lecon, QuestionQuiz } from "../../src/types/gesco";
 
-export type { Bloc, Enligne } from "../../src/types/gesco";
+export type { Bloc, ChoixQuestion, Enligne, QuestionQuiz } from "../../src/types/gesco";
 
 type VueEleve = {
   prenom: string | null;
@@ -36,7 +36,7 @@ type PartieEleve = { titre: string; chapitres: ChapitreEleve[] };
 type MatiereEleve = { cle: string; libelle: string; lecons: number; parties: PartieEleve[] };
 export type CatalogueEleve = { niveau: string; matieres: MatiereEleve[] };
 
-type ImageEleve = { cle: string; empreinte: string };
+export type ImageEleve = { cle: string; empreinte: string };
 type MediaEleve = { empreinte: string; type_mime: string };
 type FichierEleve = { empreinte: string; nom: string; type_mime: string; taille: number };
 type LienEleve = { id: string; titre: string; nature: Nature };
@@ -53,6 +53,20 @@ export type ContenuEleve = EntreeEleve & {
   lie: LienEleve | null;
   version: string;
   pdf: boolean;
+  /** Questions reconnues du quiz : « Faire le quiz » se montre s'il y en a. */
+  questions: number;
+};
+
+/** Une question d'un quiz, avec le contenu et la version d'où elle vient. */
+export type QuestionEleve = { contenu_id: string; version: string; question: QuestionQuiz };
+
+/** Le quiz d'une leçon, ou la révision d'un chapitre. */
+export type QuizEleve = {
+  titre: string;
+  contenu_id: string | null;
+  chapitre_id: string | null;
+  questions: QuestionEleve[];
+  images: ImageEleve[];
 };
 
 /** Avancement d'un élève entré avec son code, quand le suivi est allumé. */

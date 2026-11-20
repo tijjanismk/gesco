@@ -2684,6 +2684,8 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	bibliotheque_quiz_verifier: Signature<DemandeCorrectionQuiz, boolean>,
 	/**  Signature de la commande du même nom. */
+	bibliotheque_revision: Signature<DemandeRevisionChapitre, RevisionChapitre>,
+	/**  Signature de la commande du même nom. */
 	bibliotheque_quiz_modele: Signature<DemandeModeleQuiz, FichierEcrit>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_quiz_importer: Signature<DemandeImportQuiz, ImportQuiz>,
@@ -8911,6 +8913,8 @@ export type LectureContenu = {
 	classes_seulement: string[],
 	/**  Fichiers d'un document de l'école, dans l'ordre. */
 	fichiers: FichierDocument[],
+	/**  Questions reconnues du quiz (« S'entraîner » se montre s'il y en a). */
+	quiz: QuestionQuiz[],
 };
 
 /**  Contenu signé d'une licence. */
@@ -14144,4 +14148,20 @@ export type ImportQuiz = {
 	ecrites: number,
 	/**  Lignes non écrites. */
 	refusees: LigneQuizRefusee[],
+};
+
+/**  Réviser un chapitre sur un poste. */
+export type DemandeRevisionChapitre = {
+	/**  Chapitre de la bibliothèque. */
+	chapitre_id: string,
+};
+
+/**  Les questions d'une révision, tirées au hasard, et les images qu'elles appellent. */
+export type RevisionChapitre = {
+	/**  Titre du chapitre. */
+	titre: string,
+	/**  Dix questions au plus. */
+	questions: QuestionQuiz[],
+	/**  Images des contenus d'où viennent les questions. */
+	images: ImageLecon[],
 };

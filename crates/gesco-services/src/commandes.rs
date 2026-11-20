@@ -410,6 +410,7 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     "bibliotheque_word_importer",
     "bibliotheque_quiz_question",
     "bibliotheque_quiz_verifier",
+    "bibliotheque_revision",
     "bibliotheque_quiz_modele",
     "bibliotheque_quiz_importer",
     "bibliotheque_export_apercu",
@@ -707,6 +708,7 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("bibliotheque_word_importer", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_quiz_question", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_quiz_verifier", Permission::LIBRARY_READ),
+    Commande::permise("bibliotheque_revision", Permission::LIBRARY_READ),
     Commande::permise("bibliotheque_quiz_modele", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_quiz_importer", Permission::LIBRARY_EDIT),
     // Échange de leçons entre écoles (SPEC_PHASE_12_LOT_2 §6).

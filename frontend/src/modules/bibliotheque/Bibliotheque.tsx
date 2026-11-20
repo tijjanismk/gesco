@@ -14,6 +14,7 @@ import type {
   ResultatRechercheBibliotheque,
   SelectionExport,
 } from "../../types/gesco";
+import { RevisionPoste } from "./PasserQuiz";
 import { Ajouter } from "./Ajouter";
 import { DroitsPublication } from "./DroitsPublication";
 import { ExporterLecons } from "./Echange";
@@ -149,9 +150,11 @@ function Arbre({
 }) {
   const ouvert = niveaux.length === 1;
   const [pourQui, setPourQui] = useState<CiblePourQui | null>(null);
+  const [revision, setRevision] = useState<string | null>(null);
   return (
     <nav aria-label={t("bibliotheque.titre")} className="flex flex-col gap-1">
       {pourQui === null ? null : <PourQui cible={pourQui} surFermer={() => setPourQui(null)} />}
+      {revision === null ? null : <RevisionPoste chapitreId={revision} surFermer={() => setRevision(null)} />}
       {niveaux.map((n) => (
         <details key={n.code} open={ouvert}>
           <summary className="cursor-pointer rounded px-1 py-1 font-semibold text-marine focus-visible:outline-2 focus-visible:outline-primaire">
@@ -184,6 +187,13 @@ function Arbre({
                             <summary className="cursor-pointer rounded px-1 py-0.5 text-sm text-encre focus-visible:outline-2 focus-visible:outline-primaire">
                               {c.titre} <MarqueClasses classes={c.classes_seulement} />
                             </summary>
+                            <div className="ml-3 flex flex-wrap gap-1 py-0.5">
+                              {c.contenus.some((x) => x.nature === "lecon" || x.nature === "quiz") ? (
+                                <Bouton variante="secondaire" className="px-2! py-0.5! text-xs!" onClick={() => setRevision(c.id)}>
+                                  {t("quiz.reviser")}
+                                </Bouton>
+                              ) : null}
+                            </div>
                             {peutEcrire ? (
                               <div className="ml-3 flex flex-wrap gap-1 py-0.5">
                                 {c.origine === "ecole" ? (
