@@ -593,3 +593,58 @@ pub async fn marquer_reporte(
     .await?;
     Ok(())
 }
+
+/// Place prise par les photos des copies d'une année : (nombre de photos gardées, octets gardés,
+/// nombre de photos déjà retirées). Une photo rangée une fois compte une fois.
+pub async fn place_des_photos(
+    cnx: &mut Connexion,
+    annee_id: &str,
+    contexte: &Contexte,
+) -> Resultat<(i64, i64, i64)> {
+    Ok(sqlx::query_as(
+        "SELECT COALESCE(SUM(f.libere_le IS NULL), 0),
+                COALESCE(SUM(CASE WHEN f.libere_le IS NULL THEN f.taille ELSE 0 END), 0),
+                COALESCE(SUM(f.libere_le IS NOT NULL), 0)
+         FROM fichier_rendu f
+         WHERE f.etablissement_id = ?1 AND f.empreinte IN (
+            SELECT p.empreinte FROM photo_rendu p
+            JOIN rendu_devoir r ON r.id = p.rendu_id
+            JOIN devoir d ON d.id = r.devoir_id
+            WHERE d.etablissement_id = ?1 AND d.annee_id = ?2)",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(annee_id)
+    .fetch_one(cnx)
+    .await?)
+}
+
+/// Vide le contenu des photos des copies d'une année ; une photo aussi rendue pour un devoir
+/// d'une autre année encore ouverte est gardée. Rend le nombre de photos retirées.
+pub async fn liberer_les_photos(
+    cnx: &mut Connexion,
+    annee_id: &str,
+    contexte: &Contexte,
+) -> Resultat<u64> {
+    let fait = sqlx::query(
+        "UPDATE fichier_rendu SET contenu = NULL, libere_le = ?3
+         WHERE etablissement_id = ?1 AND libere_le IS NULL
+           AND empreinte IN (
+            SELECT p.empreinte FROM photo_rendu p
+            JOIN rendu_devoir r ON r.id = p.rendu_id
+            JOIN devoir d ON d.id = r.devoir_id
+            WHERE d.etablissement_id = ?1 AND d.annee_id = ?2)
+           AND empreinte NOT IN (
+            SELECT p.empreinte FROM photo_rendu p
+            JOIN rendu_devoir r ON r.id = p.rendu_id
+            JOIN devoir d ON d.id = r.devoir_id
+            JOIN annee_scolaire a ON a.id = d.annee_id
+            WHERE d.etablissement_id = ?1 AND d.annee_id <> ?2
+              AND a.statut NOT IN ('cloturee', 'archivee'))",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(annee_id)
+    .bind(contexte.maintenant.millis_epoque())
+    .execute(cnx)
+    .await?;
+    Ok(fait.rows_affected())
+}

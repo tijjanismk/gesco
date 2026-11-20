@@ -177,6 +177,8 @@ pub struct ListeDevoirs {
     pub actif: bool,
     /// Le compte peut écrire, donner, clore, corriger.
     pub peut_donner: bool,
+    /// Le compte peut voir la place des photos des copies et la libérer (direction).
+    pub peut_liberer: bool,
     /// Classes et matières où ce compte peut donner un devoir.
     pub classes: Vec<ClasseDevoir>,
     /// Devoirs, du plus récent au plus ancien (date limite).
@@ -301,6 +303,7 @@ pub struct DevoirAffiche {
 pub(crate) struct Portee {
     couples: Option<HashSet<(String, String)>>,
     peut_donner: bool,
+    peut_liberer: bool,
 }
 
 impl Portee {
@@ -421,6 +424,8 @@ impl<'n> ServiceDevoirs<'n> {
             .droits_de(session.utilisateur_id, &contexte)
             .await?;
         let peut_donner = droits.permissions.contains(&Permission::HOMEWORK_MANAGE);
+        let peut_liberer =
+            droits.permissions.contains(&Permission::LIBRARY_MANAGE) && !droits.maitre;
         let couples = if droits.maitre {
             let mut cnx = self.connexion().await?;
             Some(
@@ -439,6 +444,7 @@ impl<'n> ServiceDevoirs<'n> {
         Ok(Portee {
             couples,
             peut_donner,
+            peut_liberer,
         })
     }
 
@@ -532,6 +538,7 @@ impl<'n> ServiceDevoirs<'n> {
         let mut liste = ListeDevoirs {
             actif,
             peut_donner: portee.peut_donner,
+            peut_liberer: portee.peut_liberer,
             classes: Vec::new(),
             devoirs: Vec::new(),
         };
@@ -1057,10 +1064,12 @@ fn audit_devoir(d: &LigneDevoir) -> serde_json::Value {
 
 mod corriger;
 mod feuille;
+mod place;
 mod report;
 pub use corriger::{
     COMMENTAIRE_MAX, CopieEleve, CopiesDevoir, DemandeCopie, DemandeNoteCopie, DemandePhotoCopie,
     EtatCopie, LigneCopie, PhotoCopie, PhotoCopieServie, RenduAffiche,
 };
 pub use feuille::date_limite_longue;
+pub use place::{DemandeLibererPhotos, PlaceAnnee, PlacePhotos};
 pub use report::{DemandeReportDevoir, EvaluationReportee, PeriodeReport, ReportDevoir};

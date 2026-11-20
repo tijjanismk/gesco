@@ -1387,6 +1387,8 @@ contrat! {
     devoir_notes_imprimer(crate::devoirs::DemandeIdDevoir) -> PdfRapport;
     devoir_report(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::ReportDevoir;
     devoir_reporter(crate::devoirs::DemandeReportDevoir) -> crate::devoirs::ReportDevoir;
+    devoirs_place_lire(()) -> crate::devoirs::PlacePhotos;
+    devoirs_photos_liberer(crate::devoirs::DemandeLibererPhotos) -> crate::devoirs::PlacePhotos;
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -7462,6 +7464,26 @@ impl Application {
     ) -> Resultat<crate::devoirs::ReportDevoir> {
         crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
             .reporter(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoirs_place_lire(
+        &self,
+        appel: Appel,
+        _entree: (),
+    ) -> Resultat<crate::devoirs::PlacePhotos> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .place(appel.session()?)
+            .await
+    }
+
+    async fn devoirs_photos_liberer(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeLibererPhotos,
+    ) -> Resultat<crate::devoirs::PlacePhotos> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .liberer_photos(appel.session()?, &entree)
             .await
     }
 

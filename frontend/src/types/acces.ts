@@ -206,6 +206,8 @@ export const ACCES = {
   devoir_copies_rendre: { type: "permission", permission: "homework:manage" },
   devoir_report: { type: "permission", permission: "library:follow" },
   devoir_reporter: { type: "permission", permission: "grades:create" },
+  devoirs_place_lire: { type: "permission", permission: "library:manage" },
+  devoirs_photos_liberer: { type: "permission", permission: "library:manage" },
   examens_lire: { type: "permission", permission: "school_profile:manage" },
   resultat_examen_regler: { type: "permission", permission: "school_profile:manage" },
   total_examen_regler: { type: "permission", permission: "school_profile:manage" },

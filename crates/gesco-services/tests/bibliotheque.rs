@@ -5900,3 +5900,141 @@ async fn le_devoir_corrige_se_reporte_au_bulletin_d_un_geste() {
         2
     );
 }
+
+/// Phase 12, lot 5, étape 6 (SPEC_PHASE_12_LOT_5 §0.3 critère 10, §7) : la place des photos se
+/// lit par année ; la libérer est refusé sur une année ouverte et au maître ; sur une année close,
+/// le contenu des photos est vidé, les rendus et les notes restent, la copie montre la photo
+/// retirée ; le geste est au journal.
+#[tokio::test]
+async fn la_direction_libere_la_place_des_photos_d_une_annee_close() {
+    use base64::Engine as _;
+    use gesco_services::portail::devoirs::DemandeRendu;
+    use sqlx::Connection as _;
+
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let maitres = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let sekou = &maitres[0];
+    let (annee, math, _, neuf_a, _) = annee_des_devoirs(&p, &admin).await;
+    crate::commun::poser_grille(&p, &admin, &annee).await;
+    let adama = eleve_dans(&p, &admin, &neuf_a, "Adama", "E-961").await;
+    let devoir = p
+        .ok(
+            "devoir_creer",
+            Some(sekou),
+            devoir_ecrit(&neuf_a, &math, "Racines carrées"),
+        )
+        .await;
+    let id = devoir["id"].as_str().unwrap().to_owned();
+    p.ok("devoir_donner", Some(sekou), json!({ "id": id }))
+        .await;
+    let a = entrer_au_portail(&p, &adama, "E-961").await;
+    let photos = [jpeg_avec_gps(200_000), jpeg_avec_gps(210_000)];
+    lu(p.application
+        .portail_rendre(
+            Some(&a),
+            &DemandeRendu {
+                devoir_id: id.clone(),
+                texte: String::new(),
+                photos: photos
+                    .iter()
+                    .map(|o| base64::engine::general_purpose::STANDARD.encode(o))
+                    .collect(),
+            },
+        )
+        .await
+        .unwrap())
+    .unwrap();
+    p.ok(
+        "devoir_noter",
+        Some(sekou),
+        json!({ "devoir_id": id, "eleve_id": adama, "note": "12", "commentaire": "Lisible." }),
+    )
+    .await;
+
+    // La place se lit par année ; l'année en cours ne se libère pas ; le maître n'y a pas accès.
+    let place = p.ok("devoirs_place_lire", Some(&admin), json!(null)).await;
+    let annees = place["annees"].as_array().unwrap();
+    assert_eq!(annees.len(), 1);
+    assert_eq!(annees[0]["close"], false);
+    assert_eq!(annees[0]["photos"], 2);
+    assert!(annees[0]["octets"].as_i64().unwrap() > 0);
+    let refus = p
+        .refus(
+            "devoirs_photos_liberer",
+            Some(&admin),
+            json!({ "annee_id": annee }),
+        )
+        .await;
+    assert_eq!(refus.cle, "devoir.annee_ouverte");
+    let liste = p.ok("devoirs_lister", Some(sekou), json!({})).await;
+    assert_eq!(liste["peut_liberer"], false);
+    let refus = p
+        .refus("devoirs_place_lire", Some(sekou), json!(null))
+        .await;
+    assert!(!refus.cle.is_empty());
+
+    // L'année close, la direction libère : contenus vidés, rendus, note et commentaire gardés.
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    sqlx::query("UPDATE annee_scolaire SET statut = 'cloturee' WHERE id = ?1")
+        .bind(annee.as_str().unwrap())
+        .execute(&mut cnx)
+        .await
+        .unwrap();
+    cnx.close().await.unwrap();
+    let place = p
+        .ok(
+            "devoirs_photos_liberer",
+            Some(&admin),
+            json!({ "annee_id": annee }),
+        )
+        .await;
+    assert_eq!(place["annees"][0]["photos"], 0);
+    assert_eq!(place["annees"][0]["retirees"], 2);
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    let vides: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM fichier_rendu WHERE contenu IS NULL AND libere_le IS NOT NULL",
+    )
+    .fetch_one(&mut cnx)
+    .await
+    .unwrap();
+    assert_eq!(vides, 2);
+    let (rendus, note, commentaire): (i64, Option<i64>, String) =
+        sqlx::query_as("SELECT COUNT(*), MAX(note), MAX(commentaire) FROM rendu_devoir")
+            .fetch_one(&mut cnx)
+            .await
+            .unwrap();
+    assert_eq!(
+        (rendus, note, commentaire.as_str()),
+        (1, Some(1200), "Lisible.")
+    );
+    let audits: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM journal_audit WHERE entite = 'annee_scolaire' AND apres LIKE '%photos_retirees%'",
+    )
+    .fetch_one(&mut cnx)
+    .await
+    .unwrap();
+    assert_eq!(audits, 1);
+    cnx.close().await.unwrap();
+
+    // La copie montre la photo retirée.
+    let copie = p
+        .ok(
+            "devoir_copie",
+            Some(&admin),
+            json!({ "devoir_id": id, "eleve_id": adama }),
+        )
+        .await;
+    let photo = &copie["rendus"][0]["photos"][0];
+    assert_eq!(photo["retiree"], true);
+    let servie = p
+        .ok(
+            "devoir_photo",
+            Some(&admin),
+            json!({ "devoir_id": id, "rendu_id": photo["rendu_id"], "ordre": 1 }),
+        )
+        .await;
+    assert!(servie["donnees"].is_null());
+}

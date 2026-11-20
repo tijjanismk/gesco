@@ -2784,6 +2784,10 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	devoir_reporter: Signature<DemandeReportDevoir, ReportDevoir>,
 	/**  Signature de la commande du même nom. */
+	devoirs_place_lire: Signature<null, PlacePhotos>,
+	/**  Signature de la commande du même nom. */
+	devoirs_photos_liberer: Signature<DemandeLibererPhotos, PlacePhotos>,
+	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
 	categorie_personnel_enregistrer: Signature<DemandeCategoriePersonnel, CategoriePersonnel>,
@@ -14349,6 +14353,8 @@ export type ListeDevoirs = {
 	actif: boolean,
 	/**  Le compte peut écrire, donner, clore, corriger. */
 	peut_donner: boolean,
+	/**  Le compte peut voir la place des photos des copies et la libérer (direction). */
+	peut_liberer: boolean,
 	/**  Classes et matières où ce compte peut donner un devoir. */
 	classes: ClasseDevoir[],
 	/**  Devoirs, du plus récent au plus ancien (date limite). */
@@ -14520,6 +14526,34 @@ export type DemandeReportDevoir = {
 	periode_id: string,
 	/**  Pondération (1 à 10). */
 	ponderation: number,
+};
+
+/**  La place des photos d'une année. */
+export type PlaceAnnee = {
+	/**  Année. */
+	annee_id: string,
+	/**  « 2025-2026 ». */
+	libelle: string,
+	/**  L'année est close : sa place peut être libérée. */
+	close: boolean,
+	/**  Photos gardées. */
+	photos: number,
+	/**  Octets pris par les photos gardées. */
+	octets: number,
+	/**  Photos déjà retirées. */
+	retirees: number,
+};
+
+/**  La place des photos, année par année (de la plus récente à la plus ancienne). */
+export type PlacePhotos = {
+	/**  Années qui ont des photos de copies. */
+	annees: PlaceAnnee[],
+};
+
+/**  Une année désignée. */
+export type DemandeLibererPhotos = {
+	/**  Année. */
+	annee_id: string,
 };
 
 /**  Un devoir désigné. */

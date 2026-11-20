@@ -11,6 +11,7 @@ import { type Cle, dateHeure, t } from "../../i18n";
 import type { ClasseDevoir, DemandeDevoir, DevoirAffiche, DevoirResume, EtatDevoir, FormeRendu } from "../../types/gesco";
 import { imagesParCle, RenduLecon } from "../bibliotheque/RenduLecon";
 import { Copies } from "./Copies";
+import { PlacePhotos } from "./PlacePhotos";
 import { Report } from "./Report";
 
 const CHAMP = "rounded border border-muet bg-surface px-2 py-1.5 text-primaire focus:outline-2 focus:outline-primaire";
@@ -419,6 +420,7 @@ export function Devoirs({ ouvertAuDebut = null, surNotes }: { ouvertAuDebut?: st
   const [matiereId, setMatiereId] = useState("");
   const [ouvert, setOuvert] = useState<string | null>(ouvertAuDebut);
   const [nouveau, setNouveau] = useState(false);
+  const [place, setPlace] = useState(false);
   const liste = useQuery({
     queryKey: ["devoirs", "liste", classeId, matiereId],
     queryFn: () => appeler("devoirs_lister", { classe_id: classeId === "" ? null : classeId, matiere_id: matiereId === "" ? null : matiereId }),
@@ -479,6 +481,14 @@ export function Devoirs({ ouvertAuDebut = null, surNotes }: { ouvertAuDebut?: st
               />
             </Section>
           ) : null}
+          {donnees.peut_liberer ? (
+            <div>
+              <Bouton variante="secondaire" aria-expanded={place} onClick={() => setPlace((x) => !x)}>
+                {t("devoirs.place")}
+              </Bouton>
+            </div>
+          ) : null}
+          {place ? <PlacePhotos /> : null}
           {donnees.devoirs.length === 0 ? (
             <p className="text-sm text-muet">{t("devoirs.aucun")}</p>
           ) : (
