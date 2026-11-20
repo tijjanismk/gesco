@@ -1368,6 +1368,16 @@ contrat! {
     bibliotheque_imprimer(crate::bibliotheque::DemandeImpressionContenu) -> ();
     bibliotheque_faits_imprimer(crate::bibliotheque::DemandeImpressionContenu) -> ();
     bibliotheque_chapitre_imprimer(crate::bibliotheque::DemandeImpressionChapitre) -> ();
+    devoirs_lister(crate::devoirs::DemandeDevoirs) -> crate::devoirs::ListeDevoirs;
+    devoir_lire(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::DevoirAffiche;
+    devoir_apercu(crate::devoirs::DemandeApercuDevoir) -> crate::devoirs::ApercuDevoir;
+    devoir_creer(crate::devoirs::DemandeDevoir) -> crate::devoirs::DevoirAffiche;
+    devoir_enregistrer(crate::devoirs::DemandeDevoirModifie) -> crate::devoirs::DevoirAffiche;
+    devoir_donner(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::DevoirAffiche;
+    devoir_clore(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::DevoirAffiche;
+    devoir_rouvrir(crate::devoirs::DemandeIdDevoir) -> crate::devoirs::DevoirAffiche;
+    devoir_copier(crate::devoirs::DemandeCopieDevoir) -> crate::devoirs::DevoirAffiche;
+    devoir_feuille(crate::devoirs::DemandeIdDevoir) -> PdfRapport;
     personnel_referentiel_lire(()) -> ReferentielPersonnel;
     categorie_personnel_enregistrer(DemandeCategoriePersonnel) -> gesco_core::rh::CategoriePersonnel;
     fonction_personnel_enregistrer(DemandeFonctionPersonnel) -> gesco_core::rh::FonctionPersonnel;
@@ -7131,6 +7141,115 @@ impl Application {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .comparer(appel.session()?, &entree)
             .await
+    }
+
+    async fn devoirs_lister(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeDevoirs,
+    ) -> Resultat<crate::devoirs::ListeDevoirs> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .lister(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoir_lire(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeIdDevoir,
+    ) -> Resultat<crate::devoirs::DevoirAffiche> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .lire(appel.session()?, &entree.id)
+            .await
+    }
+
+    async fn devoir_apercu(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeApercuDevoir,
+    ) -> Resultat<crate::devoirs::ApercuDevoir> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .apercu(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoir_creer(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeDevoir,
+    ) -> Resultat<crate::devoirs::DevoirAffiche> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .creer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoir_enregistrer(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeDevoirModifie,
+    ) -> Resultat<crate::devoirs::DevoirAffiche> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .enregistrer(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoir_donner(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeIdDevoir,
+    ) -> Resultat<crate::devoirs::DevoirAffiche> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .donner(appel.session()?, &entree.id)
+            .await
+    }
+
+    async fn devoir_clore(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeIdDevoir,
+    ) -> Resultat<crate::devoirs::DevoirAffiche> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .clore(appel.session()?, &entree.id)
+            .await
+    }
+
+    async fn devoir_rouvrir(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeIdDevoir,
+    ) -> Resultat<crate::devoirs::DevoirAffiche> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .rouvrir(appel.session()?, &entree.id)
+            .await
+    }
+
+    async fn devoir_copier(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeCopieDevoir,
+    ) -> Resultat<crate::devoirs::DevoirAffiche> {
+        crate::devoirs::ServiceDevoirs::nouveau(&appel.ouverte()?.noyau)
+            .copier(appel.session()?, &entree)
+            .await
+    }
+
+    async fn devoir_feuille(
+        &self,
+        appel: Appel,
+        entree: crate::devoirs::DemandeIdDevoir,
+    ) -> Resultat<PdfRapport> {
+        let ouverte = appel.ouverte()?;
+        let session = appel.session()?;
+        let impression = Box::pin(
+            crate::devoirs::ServiceDevoirs::nouveau(&ouverte.noyau).feuille(session, &entree.id),
+        )
+        .await?;
+        let documents = ServiceDocuments::nouveau(&ouverte.noyau, &self.atelier);
+        let pdf = Box::pin(impression.composer(&documents, session, &|t| {
+            self.noter_au_journal_technique(t);
+        }))
+        .await?;
+        Ok(PdfRapport { pdf: base64(&pdf) })
     }
 
     async fn personnel_referentiel_lire(

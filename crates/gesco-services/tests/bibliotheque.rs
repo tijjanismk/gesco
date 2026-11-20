@@ -4926,3 +4926,253 @@ async fn l_eleve_passe_le_quiz_et_seule_sa_tentative_corrigee_s_ecrit() {
         assert!(std::fs::read(&tout).unwrap().starts_with(b"%PDF-"));
     }
 }
+
+/// Identifiant de la classe de ce libellé dans l'année.
+async fn classe_nommee(
+    p: &crate::commun::Poste_,
+    admin: &gesco_services::session::Jeton,
+    annee: &Value,
+    libelle: &str,
+) -> Value {
+    p.ok("classes_lister", Some(admin), json!({ "annee_id": annee }))
+        .await
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["classe"]["libelle"] == libelle)
+        .unwrap()["classe"]["id"]
+        .clone()
+}
+
+/// Un devoir de mathématiques à écrire.
+fn devoir_ecrit(classe: &Value, matiere: &Value, titre: &str) -> Value {
+    json!({ "classe_id": classe, "matiere_id": matiere, "titre": titre,
+        "consignes": "Calcule $\\sqrt{49}$ et explique.", "contenu_id": null,
+        "date_limite": 1_789_000_000_000_i64, "bareme": 2000, "forme_rendu": "texte_ou_photos" })
+}
+
+/// L'année 2026-2027 de `maitres_de_math`, ses mathématiques, une autre matière, la 9e A et
+/// une 9e B sans maître.
+async fn annee_des_devoirs(
+    p: &crate::commun::Poste_,
+    admin: &gesco_services::session::Jeton,
+) -> (Value, Value, Value, Value, Value) {
+    let annees = p.ok("annees_lister", Some(admin), Value::Null).await;
+    let annee = annees
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["libelle"] == "2026-2027")
+        .unwrap()["id"]
+        .clone();
+    let ped = p
+        .ok("pedagogie_lire", Some(admin), json!({ "id": annee }))
+        .await;
+    let matieres = ped["matieres"].as_array().unwrap();
+    let math = matieres.iter().find(|m| m["code"] == "MATH").unwrap()["id"].clone();
+    let autre = matieres.iter().find(|m| m["code"] != "MATH").unwrap()["id"].clone();
+    let neuvieme = ped["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .unwrap()["id"]
+        .clone();
+    let neuf_a = classe_nommee(p, admin, &annee, "9e A").await;
+    let neuf_b = p
+        .ok(
+            "classe_creer",
+            Some(admin),
+            json!({ "annee_id": annee, "niveau_id": neuvieme, "serie_id": null,
+                "libelle": "9e B" }),
+        )
+        .await["id"]
+        .clone();
+    (annee, math, autre, neuf_a, neuf_b)
+}
+
+#[tokio::test]
+async fn le_maitre_donne_un_devoir_dans_ses_seules_classes_et_matieres() {
+    use sqlx::Connection as _;
+
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let maitres = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let sekou = &maitres[0];
+    let (_, math, autre, neuf_a, neuf_b) = annee_des_devoirs(&p, &admin).await;
+
+    // Le maître ne se voit proposer que la 9e A, en mathématiques.
+    let liste = p.ok("devoirs_lister", Some(sekou), json!({})).await;
+    assert_eq!(liste["actif"], true);
+    assert_eq!(liste["peut_donner"], true);
+    let classes = liste["classes"].as_array().unwrap();
+    assert_eq!(classes.len(), 1);
+    assert_eq!(classes[0]["id"], neuf_a);
+    let matieres = classes[0]["matieres"].as_array().unwrap();
+    assert_eq!(matieres.len(), 1);
+    assert_eq!(matieres[0]["id"], math);
+
+    // Il donne un devoir à la 9e A ; pas dans une autre matière, pas à la 9e B.
+    let devoir = p
+        .ok(
+            "devoir_creer",
+            Some(sekou),
+            devoir_ecrit(&neuf_a, &math, "Racines carrées"),
+        )
+        .await;
+    assert_eq!(devoir["etat"], "brouillon");
+    assert_eq!(devoir["classe"], "9e A");
+    assert!(!devoir["lecon"]["blocs"].as_array().unwrap().is_empty());
+    let id = devoir["id"].clone();
+    for (classe, m) in [(&neuf_a, &autre), (&neuf_b, &math)] {
+        let refus = p
+            .refus(
+                "devoir_creer",
+                Some(sekou),
+                devoir_ecrit(classe, m, "Hors de sa portée"),
+            )
+            .await;
+        assert_eq!(refus.cle, "erreur.portee_refusee");
+    }
+    let mut sans_titre = devoir_ecrit(&neuf_a, &math, "  ");
+    sans_titre["forme_rendu"] = json!("texte");
+    let refus = p.refus("devoir_creer", Some(sekou), sans_titre).await;
+    assert_eq!(refus.cle, "devoir.titre_vide");
+
+    // Modifier : l'instant lu protège ce qu'un autre a écrit entre-temps.
+    let mut modifie = devoir_ecrit(&neuf_a, &math, "Racines carrées (exercices)");
+    modifie["bareme"] = json!(1000);
+    let refus = p
+        .refus(
+            "devoir_enregistrer",
+            Some(sekou),
+            json!({ "id": id, "lue_le": 1, "devoir": modifie }),
+        )
+        .await;
+    assert_eq!(refus.cle, "fiche.modifiee_entre_temps");
+    let devoir = p
+        .ok(
+            "devoir_enregistrer",
+            Some(sekou),
+            json!({ "id": id, "lue_le": devoir["modifie_le"], "devoir": modifie }),
+        )
+        .await;
+    assert_eq!(devoir["titre"], "Racines carrées (exercices)");
+    assert_eq!(devoir["bareme"], 1000);
+
+    // Brouillon → donné → clos → rouvert ; la feuille s'imprime.
+    let pdf = p
+        .ok("devoir_feuille", Some(sekou), json!({ "id": id }))
+        .await;
+    assert!(!pdf["pdf"].as_str().unwrap().is_empty());
+    let donne = p
+        .ok("devoir_donner", Some(sekou), json!({ "id": id }))
+        .await;
+    assert_eq!(donne["etat"], "donne");
+    assert!(donne["donne_le"].is_i64());
+    // Donné, il ne change plus de classe.
+    let refus = p
+        .refus(
+            "devoir_enregistrer",
+            Some(sekou),
+            json!({ "id": id, "lue_le": donne["modifie_le"],
+                "devoir": devoir_ecrit(&neuf_b, &math, "Ailleurs") }),
+        )
+        .await;
+    assert_eq!(refus.cle, "devoir.classe_fixee");
+    let clos = p.ok("devoir_clore", Some(sekou), json!({ "id": id })).await;
+    assert_eq!(clos["etat"], "clos");
+    assert!(clos["clos_le"].is_i64());
+    let refus = p
+        .refus("devoir_donner", Some(sekou), json!({ "id": id }))
+        .await;
+    assert_eq!(refus.cle, "devoir.etat_invalide");
+    let rouvert = p
+        .ok("devoir_rouvrir", Some(sekou), json!({ "id": id }))
+        .await;
+    assert_eq!(rouvert["etat"], "donne");
+    assert!(rouvert["clos_le"].is_null());
+    let pdf = p
+        .ok("devoir_feuille", Some(sekou), json!({ "id": id }))
+        .await;
+    assert!(!pdf["pdf"].as_str().unwrap().is_empty());
+
+    // La direction le donne aussi à la 9e B : une copie, donnée, que le maître ne voit pas.
+    let copie = p
+        .ok(
+            "devoir_copier",
+            Some(&admin),
+            json!({ "id": id, "classe_id": neuf_b }),
+        )
+        .await;
+    assert_eq!(copie["etat"], "donne");
+    assert_eq!(copie["classe"], "9e B");
+    assert_eq!(copie["copie_de"], id);
+    let refus = p
+        .refus(
+            "devoir_copier",
+            Some(sekou),
+            json!({ "id": id, "classe_id": neuf_b }),
+        )
+        .await;
+    assert_eq!(refus.cle, "erreur.portee_refusee");
+    let refus = p
+        .refus("devoir_lire", Some(sekou), json!({ "id": copie["id"] }))
+        .await;
+    assert_eq!(refus.cle, "erreur.portee_refusee");
+    let du_maitre = p.ok("devoirs_lister", Some(sekou), json!({})).await;
+    assert_eq!(du_maitre["devoirs"].as_array().unwrap().len(), 1);
+    let de_la_direction = p.ok("devoirs_lister", Some(&admin), json!({})).await;
+    assert_eq!(de_la_direction["devoirs"].as_array().unwrap().len(), 2);
+    let de_la_b = p
+        .ok(
+            "devoirs_lister",
+            Some(&admin),
+            json!({ "classe_id": neuf_b, "matiere_id": null }),
+        )
+        .await;
+    assert_eq!(de_la_b["devoirs"].as_array().unwrap().len(), 1);
+
+    // L'interrupteur de la bibliothèque coupe les devoirs ; ils sont gardés et reviennent.
+    let non = json!({ "type": "booleen", "valeur": false });
+    let oui = json!({ "type": "booleen", "valeur": true });
+    regler(&p, &admin, "module.bibliotheque", non).await;
+    let eteint = p.ok("devoirs_lister", Some(&admin), json!({})).await;
+    assert_eq!(eteint["actif"], false);
+    assert!(eteint["devoirs"].as_array().unwrap().is_empty());
+    let refus = p
+        .refus(
+            "devoir_creer",
+            Some(&admin),
+            devoir_ecrit(&neuf_a, &math, "Module éteint"),
+        )
+        .await;
+    assert_eq!(refus.cle, "devoir.module_eteint");
+    let refus = p
+        .refus("devoir_clore", Some(&admin), json!({ "id": id }))
+        .await;
+    assert_eq!(refus.cle, "devoir.module_eteint");
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    let gardes: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM devoir")
+        .fetch_one(&mut cnx)
+        .await
+        .unwrap();
+    assert_eq!(gardes, 2, "module éteint, les devoirs sont gardés");
+    cnx.close().await.unwrap();
+    regler(&p, &admin, "module.bibliotheque", oui).await;
+    let rallume = p.ok("devoirs_lister", Some(&admin), json!({})).await;
+    assert_eq!(rallume["actif"], true);
+    assert_eq!(rallume["devoirs"].as_array().unwrap().len(), 2);
+
+    // Chaque geste est au journal d'audit : création, modification, donné, clos, rouvert, copie.
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    let audits: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM journal_audit WHERE entite = 'devoir'")
+            .fetch_one(&mut cnx)
+            .await
+            .unwrap();
+    assert_eq!(audits, 6);
+    cnx.close().await.unwrap();
+}

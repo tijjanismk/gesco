@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { appeler } from "../../api";
+import { commandeAutorisee } from "../../app/navigation";
 import { Bouton } from "../../composants/Bouton";
 import { MessageErreur } from "../../composants/Messages";
 import { t } from "../../i18n";
 import type { ExamenSujet, LectureContenu, NatureContenu, VueContenu } from "../../types/gesco";
+import { DonnerSurLecon } from "../devoirs/Devoirs";
 import { Editeur } from "./Editeur";
 import { FichiersDocument, Imprimer } from "./Fichiers";
 import { Historique } from "./Historique";
@@ -197,6 +199,9 @@ export function Lecture({
     queryKey: ["bibliotheque", "lire", contenuId, vue],
     queryFn: () => appeler("bibliotheque_lire", { contenu_id: contenuId, vue }),
   });
+  const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
+  const peutDonner =
+    session.data !== undefined && session.data.modules.includes("bibliotheque") && commandeAutorisee("devoir_creer", session.data.permissions, session.data.maitre);
   const contenu = lecture.data;
   const images = useMemo(() => imagesParCle(contenu?.images ?? []), [contenu?.images]);
   const changerTaille = (pas: number) => {
@@ -258,6 +263,7 @@ export function Lecture({
           )}
           {peutGerer && place !== null ? <RetirerAutour place={place} /> : null}
           <Imprimer contenu={contenu} place={place} />
+          {peutDonner && contenu.nature === "lecon" ? <DonnerSurLecon contenuId={contenu.id} titre={contenu.titre} /> : null}
           {contenu.nature === "sujet" && contenu.lie === null && contenu.peut_modifier ? (
             <AjouterCorrige contenu={contenu} surEcrire={surEcrire} />
           ) : null}

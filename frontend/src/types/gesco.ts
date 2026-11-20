@@ -2746,6 +2746,26 @@ export type Contrat = {
 	/**  Signature de la commande du même nom. */
 	bibliotheque_chapitre_imprimer: Signature<DemandeImpressionChapitre, null>,
 	/**  Signature de la commande du même nom. */
+	devoirs_lister: Signature<DemandeDevoirs, ListeDevoirs>,
+	/**  Signature de la commande du même nom. */
+	devoir_lire: Signature<DemandeIdDevoir, DevoirAffiche>,
+	/**  Signature de la commande du même nom. */
+	devoir_apercu: Signature<DemandeApercuDevoir, ApercuDevoir>,
+	/**  Signature de la commande du même nom. */
+	devoir_creer: Signature<DemandeDevoir, DevoirAffiche>,
+	/**  Signature de la commande du même nom. */
+	devoir_enregistrer: Signature<DemandeDevoirModifie, DevoirAffiche>,
+	/**  Signature de la commande du même nom. */
+	devoir_donner: Signature<DemandeIdDevoir, DevoirAffiche>,
+	/**  Signature de la commande du même nom. */
+	devoir_clore: Signature<DemandeIdDevoir, DevoirAffiche>,
+	/**  Signature de la commande du même nom. */
+	devoir_rouvrir: Signature<DemandeIdDevoir, DevoirAffiche>,
+	/**  Signature de la commande du même nom. */
+	devoir_copier: Signature<DemandeCopieDevoir, DevoirAffiche>,
+	/**  Signature de la commande du même nom. */
+	devoir_feuille: Signature<DemandeIdDevoir, PdfRapport>,
+	/**  Signature de la commande du même nom. */
 	personnel_referentiel_lire: Signature<null, ReferentielPersonnel>,
 	/**  Signature de la commande du même nom. */
 	categorie_personnel_enregistrer: Signature<DemandeCategoriePersonnel, CategoriePersonnel>,
@@ -14229,4 +14249,192 @@ export type RevisionChapitre = {
 	questions: QuestionQuiz[],
 	/**  Images des contenus d'où viennent les questions. */
 	images: ImageLecon[],
+};
+
+/**  Façon dont les élèves rendent le devoir. */
+export type FormeRendu =
+/**  Un texte tapé. */
+"texte" |
+/**  Des photos de la copie. */
+"photos" |
+/**  Un texte ou des photos (par défaut). */
+"texte_ou_photos" |
+/**  Sur papier seulement : le maître note dans l'écran du devoir. */
+"papier";
+
+/**  État d'un devoir. */
+export type EtatDevoir =
+/**  Le maître l'écrit ; les élèves ne le voient pas. */
+"brouillon" |
+/**  Visible des élèves de la classe ; on peut rendre. */
+"donne" |
+/**  Plus de rendu. */
+"clos";
+
+/**  Une matière où donner un devoir. */
+export type MatiereDevoir = {
+	/**  Identifiant. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+};
+
+/**  Une classe où donner un devoir, et ses matières permises. */
+export type ClasseDevoir = {
+	/**  Identifiant. */
+	id: string,
+	/**  Libellé. */
+	libelle: string,
+	/**  Matières permises dans cette classe. */
+	matieres: MatiereDevoir[],
+};
+
+/**  Devoirs d'une classe et d'une matière, ou tous ceux qu'on peut voir. */
+export type DemandeDevoirs = {
+	/**  Classe ; absente : toutes. */
+	classe_id: string | null,
+	/**  Matière ; absente : toutes. */
+	matiere_id: string | null,
+};
+
+/**  Un devoir dans la liste. */
+export type DevoirResume = {
+	/**  Identifiant. */
+	id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Classe. */
+	classe_id: string,
+	/**  Libellé de la classe. */
+	classe: string,
+	/**  Matière. */
+	matiere_id: string,
+	/**  Libellé de la matière. */
+	matiere: string,
+	/**  État. */
+	etat: EtatDevoir,
+	/**  Date et heure limites (millisecondes). */
+	date_limite: number,
+	/**  Façon de rendre. */
+	forme_rendu: FormeRendu,
+	/**  Élèves qui ont rendu. */
+	rendus: number,
+};
+
+/**  Les devoirs qu'on peut voir. */
+export type ListeDevoirs = {
+	/**  La bibliothèque est allumée : sinon les devoirs sont coupés (données gardées). */
+	actif: boolean,
+	/**  Le compte peut écrire, donner, clore, corriger. */
+	peut_donner: boolean,
+	/**  Classes et matières où ce compte peut donner un devoir. */
+	classes: ClasseDevoir[],
+	/**  Devoirs, du plus récent au plus ancien (date limite). */
+	devoirs: DevoirResume[],
+};
+
+/**  Un devoir désigné. */
+export type DemandeIdDevoir = {
+	/**  Identifiant. */
+	id: string,
+};
+
+/**  Ce que le maître écrit d'un devoir. */
+export type DemandeDevoir = {
+	/**  Classe. */
+	classe_id: string,
+	/**  Matière. */
+	matiere_id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Consignes, au format des leçons. */
+	consignes: string,
+	/**  Leçon liée. */
+	contenu_id: string | null,
+	/**  Date et heure limites (millisecondes). */
+	date_limite: number,
+	/**  Barème en centièmes (de 1 000 à 10 000). */
+	bareme: number,
+	/**  Façon de rendre. */
+	forme_rendu: FormeRendu,
+};
+
+/**  Modifier un devoir : l'instant lu avec lui protège ce qu'un autre a écrit entre-temps. */
+export type DemandeDevoirModifie = {
+	/**  Devoir. */
+	id: string,
+	/**  Instant de dernière modification lu avec le devoir. */
+	lue_le: number,
+	/**  Ce qui est écrit. */
+	devoir: DemandeDevoir,
+};
+
+/**  Donner aussi le devoir à une autre classe. */
+export type DemandeCopieDevoir = {
+	/**  Devoir copié. */
+	id: string,
+	/**  Autre classe. */
+	classe_id: string,
+};
+
+/**  Aperçu des consignes. */
+export type DemandeApercuDevoir = {
+	/**  Texte tapé. */
+	texte: string,
+};
+
+/**  Consignes rendues comme une leçon. */
+export type ApercuDevoir = {
+	/**  Le texte en arbre de blocs. */
+	lecon: Lecon,
+	/**  Images appelées. */
+	images: ImageLecon[],
+};
+
+/**  Un devoir ouvert. */
+export type DevoirAffiche = {
+	/**  Identifiant. */
+	id: string,
+	/**  Titre. */
+	titre: string,
+	/**  Consignes, telles qu'écrites. */
+	consignes: string,
+	/**  Classe. */
+	classe_id: string,
+	/**  Libellé de la classe. */
+	classe: string,
+	/**  Matière. */
+	matiere_id: string,
+	/**  Libellé de la matière. */
+	matiere: string,
+	/**  Leçon liée. */
+	contenu_id: string | null,
+	/**  Titre de la leçon liée. */
+	lecon_liee: string | null,
+	/**  Date et heure limites (millisecondes). */
+	date_limite: number,
+	/**  Barème en centièmes. */
+	bareme: number,
+	/**  Façon de rendre. */
+	forme_rendu: FormeRendu,
+	/**  État. */
+	etat: EtatDevoir,
+	/**  Donné le. */
+	donne_le: number | null,
+	/**  Clos le. */
+	clos_le: number | null,
+	/**  Copies corrigées rendues aux élèves le. */
+	copies_rendues_le: number | null,
+	/**  Devoir dont celui-ci est la copie. */
+	copie_de: string | null,
+	/**  Consignes en arbre de blocs. */
+	lecon: Lecon,
+	/**  Images des consignes. */
+	images: ImageLecon[],
+	/**  Instant de dernière modification, à renvoyer avec une modification. */
+	modifie_le: number,
+	/**  Le compte peut l'écrire, le donner, le clore. */
+	peut_modifier: boolean,
+	/**  Autres classes où ce compte peut donner le même devoir (même matière). */
+	autres_classes: MatiereDevoir[],
 };

@@ -19,6 +19,7 @@ pub mod conges;
 pub mod consultation;
 pub mod departs;
 pub mod depenses;
+pub mod devoirs;
 pub mod discipline;
 pub mod document;
 pub mod emploi_du_temps;

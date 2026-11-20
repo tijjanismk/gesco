@@ -172,6 +172,7 @@ pub const COMMANDES_DE_FICHE: &[&str] = &[
     "versement_etat_repartir",
     "versement_etat_annuler",
     "versement_etat_importer",
+    "devoir_enregistrer",
 ];
 
 /// Pourquoi une commande qui modifie ne vérifie pas l'instant de dernière modification.
@@ -429,6 +430,17 @@ pub const COMMANDES_DU_MAITRE: &[&str] = &[
     // Le suivi des élèves de ses classes, dans ses matières.
     "bibliotheque_suivi_lire",
     "bibliotheque_suivi_imprimer",
+    // Les devoirs à rendre de ses classes, dans ses matières.
+    "devoirs_lister",
+    "devoir_lire",
+    "devoir_feuille",
+    "devoir_apercu",
+    "devoir_creer",
+    "devoir_enregistrer",
+    "devoir_donner",
+    "devoir_clore",
+    "devoir_rouvrir",
+    "devoir_copier",
 ];
 
 /// Commandes de la liste du maître qui relèvent de la saisie (notes, appréciations, absences,
@@ -752,6 +764,17 @@ pub const COMMANDES: &[Commande] = &[
     Commande::permise("bibliotheque_imprimer", Permission::LIBRARY_READ),
     Commande::permise("bibliotheque_faits_imprimer", Permission::LIBRARY_EDIT),
     Commande::permise("bibliotheque_chapitre_imprimer", Permission::LIBRARY_READ),
+    // Devoirs à rendre (SPEC_PHASE_12_LOT_5 §10) : voir avec le suivi, écrire avec `homework:manage`.
+    Commande::permise("devoirs_lister", Permission::LIBRARY_FOLLOW),
+    Commande::permise("devoir_lire", Permission::LIBRARY_FOLLOW),
+    Commande::permise("devoir_feuille", Permission::LIBRARY_FOLLOW),
+    Commande::permise("devoir_apercu", Permission::HOMEWORK_MANAGE),
+    Commande::permise("devoir_creer", Permission::HOMEWORK_MANAGE),
+    Commande::permise("devoir_enregistrer", Permission::HOMEWORK_MANAGE),
+    Commande::permise("devoir_donner", Permission::HOMEWORK_MANAGE),
+    Commande::permise("devoir_clore", Permission::HOMEWORK_MANAGE),
+    Commande::permise("devoir_rouvrir", Permission::HOMEWORK_MANAGE),
+    Commande::permise("devoir_copier", Permission::HOMEWORK_MANAGE),
     // Résultats aux examens (SPEC_PHASE_9 §8.5) : tenus avec la fiche de l'établissement.
     Commande::permise("examens_lire", Permission::SCHOOL_PROFILE_MANAGE),
     Commande::permise("resultat_examen_regler", Permission::SCHOOL_PROFILE_MANAGE),

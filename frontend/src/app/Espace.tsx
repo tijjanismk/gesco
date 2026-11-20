@@ -27,6 +27,7 @@ import { Inscriptions } from "../modules/scolarite/Inscriptions";
 import { Enseignants } from "../modules/pedagogie/Enseignants";
 import { Absences } from "../modules/pedagogie/Absences";
 import { Bulletins } from "../modules/pedagogie/Bulletins";
+import { Devoirs } from "../modules/devoirs/Devoirs";
 import { EmploiDuTemps } from "../modules/pedagogie/EmploiDuTemps";
 import { Bibliotheque } from "../modules/bibliotheque/Bibliotheque";
 import { useLeconsAValider } from "../modules/bibliotheque/EnAttente";
@@ -336,6 +337,8 @@ function Contenu({
       return <EmploiDuTemps />;
     case "bibliotheque":
       return <Bibliotheque />;
+    case "devoirs":
+      return <Devoirs />;
     case "discipline":
       return <Discipline />;
     case "conduite":

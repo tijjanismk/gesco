@@ -447,6 +447,37 @@ impl Impression {
         }
     }
 
+    /// La feuille d'un devoir (SPEC_PHASE_12_LOT_5 §3) : son titre, une ligne qui dit la date
+    /// limite et le barème, ses consignes ; l'en-tête porte l'école, la classe et la matière.
+    /// `images` : (clé dans les consignes, type MIME, octets).
+    pub(crate) fn feuille_de_devoir(
+        titre: &str,
+        sous_titre: &str,
+        place: (&str, &str),
+        lecon: &Lecon,
+        images: Vec<(String, String, Vec<u8>)>,
+    ) -> Self {
+        Self {
+            titre: titre.to_owned(),
+            brouillon: false,
+            contenus: vec![ContenuImprime {
+                titre: titre.to_owned(),
+                sous_titre: sous_titre.to_owned(),
+                niveau: place.0.to_owned(),
+                matiere: place.1.to_owned(),
+                lecon: lecon.pour_les_eleves(),
+                images: images
+                    .into_iter()
+                    .map(|(cle, type_mime, octets)| ImageImprimee {
+                        extension: extension(&type_mime),
+                        cle,
+                        octets,
+                    })
+                    .collect(),
+            }],
+        }
+    }
+
     /// Compose le PDF pour un établissement (voir [`Self::composer`]).
     pub(crate) async fn composer_pour(
         &self,

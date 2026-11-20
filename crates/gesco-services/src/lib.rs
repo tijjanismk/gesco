@@ -27,6 +27,7 @@ pub mod consultation;
 pub mod convocations;
 pub mod departs;
 pub mod depenses;
+pub mod devoirs;
 pub mod discipline;
 pub mod documents;
 pub mod documents_paie;
