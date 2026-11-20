@@ -1,7 +1,7 @@
 # Actes délivrés et vérification par le QR : un registre unique des actes, et le conseil de classe en deux tables
 
 **Date** : 20 novembre 2026
-**Statut** : proposé le 20 novembre 2026
+**Statut** : proposé le 20 novembre 2026, accepté le 20 novembre 2026 (avec la spécification v1.1)
 **Précise** : choix du porteur du 20 novembre 2026 (onze documents de l'école) ;
 `PROJECT_BLUEPRINT.md` §13.2, §25.9 ; ADR-004 (numérotation) ; migrations `0001_socle`
 (`document`, compteurs), `0021_departs` (`certificat_transfert`), `0039_discipline` ; R-14, R-20,

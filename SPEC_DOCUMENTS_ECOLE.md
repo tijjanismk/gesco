@@ -2,7 +2,8 @@
 
 **Projet** : ERP de gestion scolaire — Tauri 2 + Rust + React/TypeScript
 **Phase** : documents de l'école, phase à part, codée après la phase 12 ; version 2.x
-**Statut** : v1.0 — proposée le 20 novembre 2026 ; questions T-172 à T-186 au porteur (§14)
+**Statut** : v1.1 — recommandations de T-172 à T-186 validées par le porteur du projet le
+20 novembre 2026 ; à coder après la phase 12
 **Documents parents** : choix du porteur du 20 novembre 2026 (onze documents) ;
 `SPEC_PHASE_2.md` (élèves, inscriptions, matricules, photos) ; `SPEC_PHASE_4.md` §9 (départs,
 exclusions, certificat de transfert) ; `SPEC_PHASE_5.md` (convocations, remise des bulletins) ;
@@ -841,8 +842,8 @@ peuvent se faire dans n'importe quel ordre.
 
 ## 14. Questions au porteur
 
-Chacune a une recommandation. La phase peut commencer sur les recommandations ; aucune n'est
-nécessaire avant l'étape 3.
+Chacune a une recommandation. Le porteur a validé toutes les recommandations le 20 novembre
+2026 : la phase se code telle que décrite ici.
 
 ### T-172 — Les documents qu'une école délivre le plus
 
@@ -975,3 +976,5 @@ bulletins de paie validés quand ils existent, sinon la rémunération convenue,
 
 - v1.0, 20 novembre 2026 : première rédaction, d'après les onze documents retenus par le
   porteur le 20 novembre 2026 et le relevé du dépôt du même jour.
+- v1.1, 20 novembre 2026 : recommandations de T-172 à T-186 validées par le porteur ; ADR des
+  actes délivrés accepté.
