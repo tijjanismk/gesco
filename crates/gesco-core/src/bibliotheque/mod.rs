@@ -45,7 +45,7 @@ pub use paquet::{
 };
 pub use quiz::{
     CHOIX_MAX, ChoixQuestion, QUESTIONS_REVISION, QuestionEcartee, QuestionQuiz, Quiz,
-    SorteQuestion, ajouter_question, analyser_quiz, corriger, gabarit_question, normaliser_reponse,
-    score,
+    SorteQuestion, ajouter_question, analyser_quiz, corriger, dernier_numero, gabarit_question,
+    normaliser_reponse, score,
 };
 pub use word::{ErreurWord, ImageWord, LeconWord, NoteWord, TAILLE_WORD_MAX, convertir_docx};

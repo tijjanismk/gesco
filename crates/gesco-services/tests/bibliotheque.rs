@@ -1223,6 +1223,60 @@ async fn l_ecole_ajoute_un_chapitre_une_lecon_un_sujet_et_son_corrige() {
             .unwrap()
             .contains("## L'essentiel")
     );
+
+    // Un quiz de chapitre naît brouillon, avec une première question reconnue ; le bouton
+    // Question en ajoute une deuxième, numérotée, sa réponse sous « Réponses » ; l'aperçu
+    // rend le quiz tel que l'élève le passera et l'auteur seul lit les questions écartées.
+    let quiz = p
+        .ok(
+            "bibliotheque_contenu_ajouter",
+            Some(&admin),
+            json!({ "nature": "quiz", "chapitre_id": chapitre["id"], "niveau_id": null,
+                "matiere_id": null, "titre": "Quiz des équations", "presentation": "",
+                "examen": null, "serie_code": null, "session": null, "sujet_id": null,
+                "apres_cle": null }),
+        )
+        .await;
+    assert_eq!(quiz["nature"], "quiz");
+    let texte_quiz = quiz["brouillon"]["texte"].as_str().unwrap().to_owned();
+    assert!(texte_quiz.contains("**Question 1.**"));
+    let deux = p
+        .ok(
+            "bibliotheque_quiz_question",
+            Some(&admin),
+            json!({ "contenu_id": quiz["contenu_id"], "texte": texte_quiz }),
+        )
+        .await;
+    let deux = deux["texte"].as_str().unwrap();
+    assert!(deux.contains("**Question 2.**"));
+    assert_eq!(deux.matches("Réponses").count(), 1);
+    let apercu_quiz = p
+        .ok(
+            "bibliotheque_apercu",
+            Some(&admin),
+            json!({ "contenu_id": quiz["contenu_id"], "texte": format!("{deux}\n**Question 3.** Sans réponse ?\nA) un  B) deux\n") }),
+        )
+        .await;
+    assert_eq!(apercu_quiz["quiz"]["questions"].as_array().unwrap().len(), 2);
+    assert_eq!(apercu_quiz["quiz"]["ecartees"][0]["numero"], 3);
+    // Essayer le quiz : la correction ne demande rien d'autre que la question et la réponse.
+    let premiere = apercu_quiz["quiz"]["questions"][0].clone();
+    let juste = p
+        .ok(
+            "bibliotheque_quiz_verifier",
+            Some(&admin),
+            json!({ "question": premiere, "reponse": "A" }),
+        )
+        .await;
+    assert_eq!(juste, json!(true));
+    let faux = p
+        .ok(
+            "bibliotheque_quiz_verifier",
+            Some(&admin),
+            json!({ "question": premiere, "reponse": "" }),
+        )
+        .await;
+    assert_eq!(faux, json!(false));
     // Le chapitre de l'école paraît, rangé après le chapitre livré, pour qui écrit.
     let catalogue = p
         .ok("bibliotheque_catalogue", Some(&admin), Value::Null)

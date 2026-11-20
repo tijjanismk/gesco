@@ -575,7 +575,7 @@ pub fn score<'a>(questions: impl IntoIterator<Item = (&'a QuestionQuiz, &'a str)
 // ---------------------------------------------------------------------------------------------
 
 /// Plus grand numéro de question écrit dans le texte.
-fn dernier_numero(texte: &str) -> u32 {
+pub fn dernier_numero(texte: &str) -> u32 {
     texte
         .lines()
         .filter_map(|l| tete_de_question(l).map(|(n, _)| n))

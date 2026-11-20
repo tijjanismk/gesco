@@ -5,10 +5,11 @@ import { appeler, ErreurApi } from "../../api";
 import { Bouton } from "../../composants/Bouton";
 import { MessageEnregistre, MessageErreur } from "../../composants/Messages";
 import { date, t } from "../../i18n";
-import type { BrouillonOuvert, DepartBrouillon, EcritureOuverte, ImportWord, NoteWord, VersionSoumise } from "../../types/gesco";
-import { choisirImageBibliotheque, choisirSon, choisirVideo, choisirWord } from "../../api/fichiers";
+import type { BrouillonOuvert, DepartBrouillon, EcritureOuverte, ImportQuiz, ImportWord, NoteWord, VersionSoumise } from "../../types/gesco";
+import { choisirClasseur, choisirImageBibliotheque, choisirSon, choisirTableur, choisirVideo, choisirWord } from "../../api/fichiers";
 import { VideosCle } from "./Fichiers";
 import { Comparaison } from "./Historique";
+import { PasserQuiz } from "./PasserQuiz";
 import { imagesParCle, RenduLecon } from "./RenduLecon";
 import { GuidesVideo } from "./Video";
 
@@ -202,6 +203,65 @@ function BoutonWord({ contenuId, brouillon }: { contenuId: string; brouillon: { 
   );
 }
 
+/** Bouton Question, import de questions depuis Excel et son modèle. Le texte change dans
+ *  l'éditeur ; il s'enregistre ensuite comme toute modification. */
+function BoutonsQuiz({ contenuId, texte, surTexte }: { contenuId: string; texte: string; surTexte: (t: string) => void }) {
+  const [bilan, setBilan] = useState<ImportQuiz | null>(null);
+  const question = useMutation({
+    mutationFn: () => appeler("bibliotheque_quiz_question", { contenu_id: contenuId, texte }),
+    onSuccess: (r) => surTexte(r.texte),
+  });
+  const modele = useMutation({
+    mutationFn: async () => {
+      const chemin = await choisirClasseur(t("bibliotheque.quiz.nom_modele"), t("commun.classeur_excel"));
+      return chemin === null ? null : appeler("bibliotheque_quiz_modele", { chemin });
+    },
+  });
+  const importer = useMutation({
+    mutationFn: async () => {
+      const chemin = await choisirTableur(t("import.filtre"));
+      return chemin === null ? null : appeler("bibliotheque_quiz_importer", { contenu_id: contenuId, chemin, texte });
+    },
+    onSuccess: (r) => {
+      if (r === null) return;
+      surTexte(r.texte);
+      setBilan(r);
+    },
+  });
+  return (
+    <>
+      <Bouton variante="secondaire" onClick={() => question.mutate()} disabled={question.isPending}>
+        {t("bibliotheque.quiz.question")}
+      </Bouton>
+      <Bouton variante="secondaire" onClick={() => importer.mutate()} disabled={importer.isPending}>
+        {t("bibliotheque.quiz.importer")}
+      </Bouton>
+      <Bouton variante="secondaire" onClick={() => modele.mutate()} disabled={modele.isPending}>
+        {t("bibliotheque.quiz.modele")}
+      </Bouton>
+      <MessageErreur erreur={question.error ?? importer.error ?? modele.error} />
+      {modele.data === undefined || modele.data === null ? null : (
+        <p role="status" className="basis-full text-sm text-encre">
+          {t("bibliotheque.quiz.modele_ecrit", { chemin: modele.data.chemin })}
+        </p>
+      )}
+      {bilan === null ? null : (
+        <div role="status" className="flex basis-full flex-col gap-1 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">
+          <p className="font-semibold">{t("bibliotheque.quiz.importees", { n: bilan.ecrites })}</p>
+          {bilan.refusees.map((l) => (
+            <p key={l.ligne}>{t("bibliotheque.quiz.ligne_refusee", { ligne: l.ligne, raison: l.raison })}</p>
+          ))}
+          <div>
+            <Bouton variante="secondaire" onClick={() => setBilan(null)}>
+              {t("bibliotheque.quiz.compris")}
+            </Bouton>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /** Écrit une balise autour de la sélection de la zone de texte ; rend le texte et la sélection. */
 function baliser(texte: string, debut: number, fin: number, b: Balise): { texte: string; debut: number; fin: number } {
   const choisi = texte.slice(debut, fin) || b.exemple;
@@ -226,6 +286,9 @@ function Apercu({ contenuId, texte, notesWord = [] }: { contenuId: string; texte
   });
   const donnees = apercu.data;
   const images = useMemo(() => imagesParCle(donnees?.images ?? []), [donnees?.images]);
+  const [essai, setEssai] = useState(false);
+  const questions = donnees?.quiz.questions ?? [];
+  const ecartees = donnees?.quiz.ecartees ?? [];
   return (
     <div className="flex flex-col gap-3">
       <MessageErreur erreur={apercu.error} />
@@ -234,7 +297,16 @@ function Apercu({ contenuId, texte, notesWord = [] }: { contenuId: string; texte
           <div className="min-h-64 rounded border border-muet/40 p-3">
             <RenduLecon lecon={donnees.lecon} images={images} sons={donnees.sons} />
           </div>
-          {donnees.formules_brutes.length === 0 && donnees.images_a_ajouter.length === 0 && notesWord.length === 0 ? null : (
+          {questions.length === 0 ? null : essai ? (
+            <PasserQuiz questions={questions} images={images} surFermer={() => setEssai(false)} />
+          ) : (
+            <div>
+              <Bouton variante="secondaire" onClick={() => setEssai(true)}>
+                {t("bibliotheque.editeur.essayer_quiz", { n: questions.length })}
+              </Bouton>
+            </div>
+          )}
+          {donnees.formules_brutes.length === 0 && donnees.images_a_ajouter.length === 0 && notesWord.length === 0 && ecartees.length === 0 ? null : (
             <div className="flex flex-col gap-1 rounded border border-muet/40 bg-fond p-3 text-sm text-encre">
               <p className="font-semibold">{t("bibliotheque.editeur.notes_auteur")}</p>
               {notesWord.map((n) => (
@@ -247,6 +319,9 @@ function Apercu({ contenuId, texte, notesWord = [] }: { contenuId: string; texte
               ))}
               {donnees.images_a_ajouter.map((i, n) => (
                 <p key={`i-${n}`}>{t("bibliotheque.editeur.image_a_ajouter", { description: i })}</p>
+              ))}
+              {ecartees.map((e) => (
+                <p key={`q-${e.numero}`}>{t("bibliotheque.editeur.question_ecartee", { n: e.numero, raison: e.raison })}</p>
               ))}
             </div>
           )}
@@ -321,6 +396,7 @@ function EditeurBrouillon({
         ))}
         <BoutonsFichiers surAppel={appliquer} />
         <BoutonWord contenuId={contenuId} brouillon={{ version_id: brouillon.version_id, revision }} />
+        <BoutonsQuiz contenuId={contenuId} texte={texte} surTexte={setTexte} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <label htmlFor="bibliotheque-editeur" className="flex flex-col gap-1 text-sm text-encre">

@@ -499,6 +499,8 @@ export type ApercuLecon = {
 	images_a_ajouter: string[],
 	/**  Sons appelés et leur présence dans la base. */
 	sons: SonLecon[],
+	/**  Le quiz tel que l'élève le passera, et les questions écartées (pour l'auteur seul). */
+	quiz: Quiz,
 };
 
 /**  Aperçu d'un geste pour un élève ou une sélection (§6.1). */
@@ -2677,6 +2679,14 @@ export type Contrat = {
 	bibliotheque_son_ajouter: Signature<DemandeSonBibliotheque, SonAjoute>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_word_importer: Signature<DemandeImportWord, ImportWord>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_quiz_question: Signature<DemandeQuestionQuiz, TexteQuiz>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_quiz_verifier: Signature<DemandeCorrectionQuiz, boolean>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_quiz_modele: Signature<DemandeModeleQuiz, FichierEcrit>,
+	/**  Signature de la commande du même nom. */
+	bibliotheque_quiz_importer: Signature<DemandeImportQuiz, ImportQuiz>,
 	/**  Signature de la commande du même nom. */
 	bibliotheque_export_apercu: Signature<DemandeExportApercu, ApercuExport>,
 	/**  Signature de la commande du même nom. */
@@ -14034,3 +14044,104 @@ export type VueContenu =
 "brouillon" | 
 /**  La version soumise, en attente de validation. */
 "soumise";
+
+/**  Sorte d'une question. */
+export type SorteQuestion = "choix_unique" | "choix_multiples" | "vrai_faux" | "reponse_courte" | "appariement";
+
+/**  Un choix d'une question (« A) … » ou, pour un appariement, « 1) … »). */
+export type ChoixQuestion = {
+	/**  Repère : « A » à « F », ou « 1 », « 2 »… */
+	repere: string,
+	/**  Texte du choix. */
+	texte: Enligne[],
+};
+
+/**  Une question reconnue. */
+export type QuestionQuiz = {
+	/**  Numéro écrit dans le texte. */
+	numero: number,
+	/**  Sorte. */
+	sorte: SorteQuestion,
+	/**  Énoncé (formules et images comprises). */
+	enonce: Bloc[],
+	/**  Choix « A) … ». */
+	choix: ChoixQuestion[],
+	/**  Éléments « 1) … » d'un appariement. */
+	elements: ChoixQuestion[],
+	/**  Bonnes réponses : lettres (« B »), paires (« A-2 ») ou réponses écrites admises. */
+	bonnes: string[],
+	/**  Explication de la réponse. */
+	explication: Bloc[],
+};
+
+/**  Une question qui ne sera pas proposée en quiz, et pourquoi (pour l'auteur seul). */
+export type QuestionEcartee = {
+	/**  Numéro écrit dans le texte. */
+	numero: number,
+	/**  Raison, en une phrase. */
+	raison: string,
+};
+
+/**  Le quiz d'un contenu. */
+export type Quiz = {
+	/**  Questions reconnues, dans l'ordre du texte. */
+	questions: QuestionQuiz[],
+	/**  Questions écrites mais pas reconnues. */
+	ecartees: QuestionEcartee[],
+};
+
+/**  Ajouter une question au texte de l'éditeur. */
+export type DemandeQuestionQuiz = {
+	/**  Contenu écrit (sa nature dit où va la question). */
+	contenu_id: string,
+	/**  Texte tapé. */
+	texte: string,
+};
+
+/**  Le texte de l'éditeur après le geste. */
+export type TexteQuiz = {
+	/**  Texte complet. */
+	texte: string,
+};
+
+/**  Corriger une réponse pendant un essai, sur un poste (rien n'est écrit). */
+export type DemandeCorrectionQuiz = {
+	/**  La question telle qu'elle est posée. */
+	question: QuestionQuiz,
+	/**  Réponse donnée (« B », « A,C », « A-2,B-1 » ou la réponse écrite). */
+	reponse: string,
+};
+
+/**  Écrire le modèle d'import. */
+export type DemandeModeleQuiz = {
+	/**  Chemin du classeur à écrire. */
+	chemin: string,
+};
+
+/**  Importer des questions depuis un classeur, dans le texte de l'éditeur. */
+export type DemandeImportQuiz = {
+	/**  Contenu écrit. */
+	contenu_id: string,
+	/**  Classeur choisi. */
+	chemin: string,
+	/**  Texte tapé, auquel les questions s'ajoutent. */
+	texte: string,
+};
+
+/**  Une ligne du classeur qui n'est pas écrite, et pourquoi. */
+export type LigneQuizRefusee = {
+	/**  Numéro de la ligne dans le classeur. */
+	ligne: number,
+	/**  Raison, en une phrase. */
+	raison: string,
+};
+
+/**  Le texte après l'import, à enregistrer dans le brouillon. */
+export type ImportQuiz = {
+	/**  Texte complet, questions ajoutées. */
+	texte: string,
+	/**  Questions écrites. */
+	ecrites: number,
+	/**  Lignes non écrites. */
+	refusees: LigneQuizRefusee[],
+};

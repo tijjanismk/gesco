@@ -10,7 +10,7 @@ import type { CatalogueBibliotheque, ChoixEcriture, DemandeAjoutContenu, Ecritur
 import { choisirWord } from "../../api/fichiers";
 import { cleNotesWord } from "./Editeur";
 
-type Sorte = "chapitre" | "lecon" | "sujet" | "document";
+type Sorte = "chapitre" | "lecon" | "quiz" | "sujet" | "document";
 
 /** Libellé du choix et du bouton d'ajout de chaque sorte. */
 function libelles(sorte: Sorte): { choix: string; bouton: string } {
@@ -19,6 +19,8 @@ function libelles(sorte: Sorte): { choix: string; bouton: string } {
       return { choix: t("bibliotheque.ajouter.sorte.chapitre"), bouton: t("bibliotheque.ajouter.chapitre") };
     case "lecon":
       return { choix: t("bibliotheque.ajouter.sorte.lecon"), bouton: t("bibliotheque.ajouter.lecon") };
+    case "quiz":
+      return { choix: t("bibliotheque.ajouter.sorte.quiz"), bouton: t("bibliotheque.ajouter.quiz") };
     case "sujet":
       return { choix: t("bibliotheque.ajouter.sorte.sujet"), bouton: t("bibliotheque.ajouter.sujet") };
     case "document":
@@ -301,7 +303,7 @@ function AjoutContenu({
         <Bouton type="submit" disabled={!pret || ajouter.isPending || depuisWord.isPending}>
           {libelles(sorte).bouton}
         </Bouton>
-        {sorte === "document" ? null : (
+        {sorte === "document" || sorte === "quiz" ? null : (
           <Bouton variante="secondaire" onClick={() => depuisWord.mutate()} disabled={!pret || ajouter.isPending || depuisWord.isPending}>
             {depuisWord.isPending ? t("bibliotheque.word.en_cours") : t("bibliotheque.ajouter.depuis_word")}
           </Bouton>
@@ -327,7 +329,7 @@ export function Ajouter({
     queryKey: ["bibliotheque", "choix-ecriture"],
     queryFn: () => appeler("bibliotheque_ecriture_choix", null),
   });
-  const sortes: Sorte[] = ["chapitre", "lecon", "sujet", "document"];
+  const sortes: Sorte[] = ["chapitre", "lecon", "quiz", "sujet", "document"];
   return (
     <section aria-label={t("bibliotheque.ajouter")} className="flex flex-col gap-3 rounded border border-muet bg-surface p-4">
       <div role="group" aria-label={t("bibliotheque.ajouter.quoi")} className="flex flex-wrap gap-1">

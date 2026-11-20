@@ -35,7 +35,7 @@ function Formule({ latex, seule }: { latex: string; seule: boolean }) {
   );
 }
 
-function Enlignes({ elements, images }: { elements: readonly Enligne[]; images: ReadonlyMap<string, string> }) {
+export function Enlignes({ elements, images }: { elements: readonly Enligne[]; images: ReadonlyMap<string, string> }) {
   return (
     <>
       {elements.map((e, i) => (

@@ -1335,6 +1335,10 @@ contrat! {
     bibliotheque_image_ajouter(crate::bibliotheque::DemandeImageBibliotheque) -> crate::bibliotheque::ImageAjoutee;
     bibliotheque_son_ajouter(crate::bibliotheque::DemandeSonBibliotheque) -> crate::bibliotheque::SonAjoute;
     bibliotheque_word_importer(crate::bibliotheque::DemandeImportWord) -> crate::bibliotheque::ImportWord;
+    bibliotheque_quiz_question(crate::bibliotheque::DemandeQuestionQuiz) -> crate::bibliotheque::TexteQuiz;
+    bibliotheque_quiz_verifier(crate::bibliotheque::DemandeCorrectionQuiz) -> bool;
+    bibliotheque_quiz_modele(crate::bibliotheque::DemandeModeleQuiz) -> FichierEcrit;
+    bibliotheque_quiz_importer(crate::bibliotheque::DemandeImportQuiz) -> crate::bibliotheque::ImportQuiz;
     bibliotheque_export_apercu(crate::bibliotheque::DemandeExportApercu) -> crate::bibliotheque::ApercuExport;
     bibliotheque_exporter(crate::bibliotheque::DemandeExportLecons) -> crate::bibliotheque::ExportFait;
     bibliotheque_import_apercu(crate::bibliotheque::DemandeImportLecons) -> crate::bibliotheque::ApercuImport;
@@ -6401,6 +6405,46 @@ impl Application {
     ) -> Resultat<crate::bibliotheque::SonAjoute> {
         self.bibliotheque(&appel.ouverte()?.noyau)
             .ajouter_son(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_quiz_question(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeQuestionQuiz,
+    ) -> Resultat<crate::bibliotheque::TexteQuiz> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .ajouter_question_quiz(appel.session()?, &entree)
+            .await
+    }
+
+    async fn bibliotheque_quiz_verifier(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeCorrectionQuiz,
+    ) -> Resultat<bool> {
+        appel.session()?;
+        Ok(crate::bibliotheque::corriger_reponse(&entree))
+    }
+
+    async fn bibliotheque_quiz_modele(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeModeleQuiz,
+    ) -> Resultat<FichierEcrit> {
+        appel.session()?;
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .ecrire_modele_quiz(entree)
+            .await
+    }
+
+    async fn bibliotheque_quiz_importer(
+        &self,
+        appel: Appel,
+        entree: crate::bibliotheque::DemandeImportQuiz,
+    ) -> Resultat<crate::bibliotheque::ImportQuiz> {
+        self.bibliotheque(&appel.ouverte()?.noyau)
+            .importer_quiz(appel.session()?, &entree)
             .await
     }
 

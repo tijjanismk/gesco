@@ -207,6 +207,8 @@ pub struct ApercuLecon {
     pub images_a_ajouter: Vec<String>,
     /// Sons appelés et leur présence dans la base.
     pub sons: Vec<super::SonLecon>,
+    /// Le quiz tel que l'élève le passera, et les questions écartées (pour l'auteur seul).
+    pub quiz: gesco_core::bibliotheque::Quiz,
 }
 
 /// Ajouter un chapitre de l'école.
@@ -1082,6 +1084,12 @@ impl ServiceBibliotheque<'_> {
         let mut cnx = self.connexion().await?;
         let contenu = depot::contenu(&mut cnx, &demande.contenu_id, &contexte).await?;
         let lecon = analyser(&demande.texte);
+        let quiz = gesco_core::bibliotheque::analyser_quiz(
+            &demande.texte,
+            contenu
+                .as_ref()
+                .is_some_and(|c| c.nature == NatureContenu::Quiz),
+        );
         let images = self
             .images_de(&mut cnx, contenu.as_ref(), &lecon, &contexte)
             .await?;
@@ -1102,6 +1110,7 @@ impl ServiceBibliotheque<'_> {
             formules_brutes,
             images_a_ajouter,
             sons,
+            quiz,
         })
     }
 
@@ -1462,10 +1471,15 @@ impl ServiceBibliotheque<'_> {
             &id,
             valeur,
         );
-        let texte = if demande.nature == NatureContenu::Lecon {
-            PLAN_LECON
-        } else {
-            ""
+        // Un quiz de chapitre naît avec une première question à remplir.
+        let gabarit_quiz = {
+            let (question, reponse) = gesco_core::bibliotheque::gabarit_question("");
+            gesco_core::bibliotheque::ajouter_question("", true, &question, &reponse)
+        };
+        let texte = match demande.nature {
+            NatureContenu::Lecon => PLAN_LECON,
+            NatureContenu::Quiz => gabarit_quiz.as_str(),
+            _ => "",
         };
         self.creer_brouillon(
             &mut unite,

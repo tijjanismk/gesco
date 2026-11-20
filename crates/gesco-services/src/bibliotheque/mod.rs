@@ -37,6 +37,7 @@ mod fichiers;
 mod imprimer;
 mod lire;
 mod publier;
+mod quiz;
 mod retirer;
 mod word;
 
@@ -74,6 +75,10 @@ pub use publier::{
 pub use lire::{
     CatalogueBibliotheque, ContenuLie, DemandeLectureContenu, DemandeRechercheBibliotheque,
     ImageLecon, LectureContenu, ResultatRechercheBibliotheque, VueContenu,
+};
+pub use quiz::{
+    DemandeCorrectionQuiz, DemandeImportQuiz, DemandeModeleQuiz, DemandeQuestionQuiz, ImportQuiz,
+    LigneQuizRefusee, TexteQuiz, corriger_reponse,
 };
 pub use retirer::{
     ApercuRetrait, CorrespondanceAffichee, CorrespondancesBibliotheque, DemandeCorrespondance,
