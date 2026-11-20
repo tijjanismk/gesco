@@ -4,6 +4,7 @@ import { envoyer } from "./api";
 import { Avancement } from "./Avancement";
 import { Attente, Chargement } from "./communs";
 import { Chapitres } from "./Chapitres";
+import { Devoirs } from "./Devoirs";
 import { Entrer } from "./Entrer";
 import { ContexteSortie, useLecture } from "./lecture";
 import { Matieres } from "./Matieres";
@@ -14,6 +15,7 @@ import type { Accueil, MonAvancement } from "./types";
 // La leçon apporte KaTeX : elle se charge seulement à l'ouverture d'une leçon.
 const Lecon = lazy(() => import("./Lecon").then((m) => ({ default: m.Lecon })));
 const Quiz = lazy(() => import("./Quiz").then((m) => ({ default: m.Quiz })));
+const Devoir = lazy(() => import("./Devoir").then((m) => ({ default: m.Devoir })));
 
 /** Écran montré, lu dans l'adresse (`#/matiere/…`, `#/lecon/…`) : le bouton « retour » du
  *  téléphone marche comme partout. */
@@ -23,7 +25,9 @@ export type Ecran =
   | { nom: "lecon"; id: string }
   | { nom: "quiz"; id: string }
   | { nom: "revision"; id: string; matiere: string }
-  | { nom: "avancement" };
+  | { nom: "avancement" }
+  | { nom: "devoirs" }
+  | { nom: "devoir"; id: string };
 
 function lireAdresse(): Ecran {
   const [nom, argument] = window.location.hash.replace(/^#\/?/, "").split("/");
@@ -36,6 +40,8 @@ function lireAdresse(): Ecran {
     return { nom: "revision", id: valeur, matiere: matiere === undefined ? "" : decodeURIComponent(matiere) };
   }
   if (nom === "avancement") return { nom: "avancement" };
+  if (nom === "devoirs") return { nom: "devoirs" };
+  if (nom === "devoir" && valeur !== "") return { nom: "devoir", id: valeur };
   return { nom: "matieres" };
 }
 
@@ -111,6 +117,12 @@ export function App() {
             {ecran.nom === "matieres" && <Matieres />}
             {ecran.nom === "matiere" && <Chapitres cle={ecran.cle} />}
             {ecran.nom === "avancement" && <Avancement />}
+            {ecran.nom === "devoirs" && <Devoirs />}
+            {ecran.nom === "devoir" && (
+              <Suspense fallback={<Chargement />}>
+                <Devoir id={ecran.id} avecCode={eleve.avec_code} />
+              </Suspense>
+            )}
             {ecran.nom === "lecon" && (
               <Suspense fallback={<Chargement />}>
                 <Lecon id={ecran.id} accueil={donnees} />

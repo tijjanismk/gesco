@@ -22,6 +22,10 @@ export function Matieres() {
           <span className="block text-lg">{derniere.titre}</span>
         </a>
       )}
+      <a href="#/devoirs" className="cible mb-4 flex items-center justify-between rounded border-2 border-primaire bg-surface px-4 text-lg font-bold text-primaire">
+        {T.mesDevoirs}
+        <span aria-hidden="true">→</span>
+      </a>
       <h1 className="mb-3 text-2xl font-bold">{T.mesMatieres}</h1>
       {matieres.length === 0 ? (
         <p className="text-muet">{T.aucuneLecon}</p>

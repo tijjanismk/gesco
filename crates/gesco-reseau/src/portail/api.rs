@@ -15,6 +15,7 @@ use axum::http::header::{
 };
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
+use gesco_services::portail::devoirs::DemandeRendu;
 use gesco_services::portail::entree::{DemandeEntrer, DemandeLireSansCode, Entree};
 use gesco_services::portail::lecture::{FichierEnvoye, FichierLuPortail, Plage, ReponseLecture};
 use gesco_services::portail::quiz::DemandeTentative;
@@ -434,6 +435,94 @@ pub(crate) async fn mon_avancement(
         .await
     {
         Ok(ReponseLecture::Lu(a)) => Json(a).into_response(),
+        Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
+        Err(_) => panne(),
+    }
+}
+
+/// « Mes devoirs » de l'élève.
+pub(crate) async fn mes_devoirs(State(etat): State<EtatPortail>, entetes: HeaderMap) -> Response {
+    let jeton = jeton(&entetes);
+    match etat.application.portail_mes_devoirs(jeton.as_deref()).await {
+        Ok(ReponseLecture::Lu(d)) => Json(d).into_response(),
+        Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
+        Err(_) => panne(),
+    }
+}
+
+/// Un devoir de l'élève, ouvert.
+pub(crate) async fn devoir(
+    State(etat): State<EtatPortail>,
+    Path(id): Path<String>,
+    entetes: HeaderMap,
+) -> Response {
+    if !identifiant_sur(&id) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let jeton = jeton(&entetes);
+    match etat.application.portail_devoir(jeton.as_deref(), &id).await {
+        Ok(ReponseLecture::Lu(d)) => Json(d).into_response(),
+        Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
+        Err(_) => panne(),
+    }
+}
+
+/// L'élève rend un devoir. Reçu : 200 avec l'instant ; refusé (clos, photo qui n'en est pas
+/// une, trop de photos…) : 422 avec la raison, que la page dit en une phrase.
+pub(crate) async fn rendre(
+    State(etat): State<EtatPortail>,
+    entetes: HeaderMap,
+    Json(demande): Json<DemandeRendu>,
+) -> Response {
+    if !identifiant_sur(&demande.devoir_id) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let jeton = jeton(&entetes);
+    match etat
+        .application
+        .portail_rendre(jeton.as_deref(), &demande)
+        .await
+    {
+        Ok(ReponseLecture::Lu(Ok(fait))) => Json(fait).into_response(),
+        Ok(ReponseLecture::Lu(Err(refus))) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "refus": refus })),
+        )
+            .into_response(),
+        Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
+        Err(_) => panne(),
+    }
+}
+
+/// Une photo d'un rendu de l'élève. Retirée pour libérer la place : 410.
+pub(crate) async fn photo_rendu(
+    State(etat): State<EtatPortail>,
+    Path((id, ordre)): Path<(String, String)>,
+    entetes: HeaderMap,
+) -> Response {
+    let Ok(ordre) = ordre.parse::<i64>() else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if !identifiant_sur(&id) || !(1..=5).contains(&ordre) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let jeton = jeton(&entetes);
+    match etat
+        .application
+        .portail_photo_rendu(jeton.as_deref(), &id, ordre)
+        .await
+    {
+        Ok(ReponseLecture::Lu(photo)) => match photo.octets {
+            Some(octets) => {
+                let mut reponse = octets.into_response();
+                let h = reponse.headers_mut();
+                h.insert(CONTENT_TYPE, HeaderValue::from_static(photo.type_mime));
+                h.insert(CACHE_CONTROL, HeaderValue::from_static("private, no-store"));
+                h.insert(CONTENT_DISPOSITION, HeaderValue::from_static("inline"));
+                reponse
+            }
+            None => StatusCode::GONE.into_response(),
+        },
         Ok(autre) => sans_lecture(&autre).unwrap_or_else(panne),
         Err(_) => panne(),
     }

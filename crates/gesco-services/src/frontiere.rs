@@ -2366,6 +2366,110 @@ impl Application {
         )))
     }
 
+    /// « Mes devoirs » de l'élève : les devoirs donnés à sa classe. Sans code, la page dit
+    /// seulement d'entrer avec son code.
+    pub async fn portail_mes_devoirs(
+        &self,
+        jeton: Option<&str>,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<crate::portail::devoirs::MesDevoirs>,
+        ErreurCommande,
+    > {
+        use crate::portail::lecture::ReponseLecture;
+        let l = match self.portail_lecture(jeton).await? {
+            ReponseLecture::Lu(l) => l,
+            autre => return Ok(autre.et_puis(|_| None)),
+        };
+        Ok(crate::origine::dans(
+            crate::origine::Origine::Portail,
+            crate::portail::devoirs::mes_devoirs(&l.ouverte.noyau, l.etablissement_id, &l.session),
+        )
+        .await?)
+    }
+
+    /// Un devoir ouvert par l'élève entré avec son code : consignes, ses rendus, sa note une
+    /// fois les copies rendues.
+    pub async fn portail_devoir(
+        &self,
+        jeton: Option<&str>,
+        devoir_id: &str,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<crate::portail::devoirs::DevoirOuvertEleve>,
+        ErreurCommande,
+    > {
+        use crate::portail::lecture::ReponseLecture;
+        let l = match self.portail_lecture(jeton).await? {
+            ReponseLecture::Lu(l) => l,
+            autre => return Ok(autre.et_puis(|_| None)),
+        };
+        Ok(crate::origine::dans(
+            crate::origine::Origine::Portail,
+            crate::portail::devoirs::devoir(
+                &l.ouverte.noyau,
+                l.etablissement_id,
+                (&l.session, &l.lecture),
+                devoir_id,
+            ),
+        )
+        .await?)
+    }
+
+    /// Un élève rend un devoir : écrit tout de suite, accepté après la date limite (marqué en
+    /// retard), refusé quand le devoir est clos.
+    pub async fn portail_rendre(
+        &self,
+        jeton: Option<&str>,
+        demande: &crate::portail::devoirs::DemandeRendu,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<
+            Result<crate::portail::devoirs::RenduFait, crate::portail::devoirs::RefusRendu>,
+        >,
+        ErreurCommande,
+    > {
+        use crate::portail::lecture::ReponseLecture;
+        let l = match self.portail_lecture(jeton).await? {
+            ReponseLecture::Lu(l) => l,
+            autre => return Ok(autre.et_puis(|_| None)),
+        };
+        Ok(crate::origine::dans(
+            crate::origine::Origine::Portail,
+            crate::portail::devoirs::rendre(
+                &l.ouverte.noyau,
+                l.etablissement_id,
+                &l.session,
+                demande,
+            ),
+        )
+        .await?)
+    }
+
+    /// Une photo d'un des rendus de l'élève ; jamais celle d'un autre élève.
+    pub async fn portail_photo_rendu(
+        &self,
+        jeton: Option<&str>,
+        rendu_id: &str,
+        ordre: i64,
+    ) -> Result<
+        crate::portail::lecture::ReponseLecture<crate::portail::devoirs::PhotoServie>,
+        ErreurCommande,
+    > {
+        use crate::portail::lecture::ReponseLecture;
+        let l = match self.portail_lecture(jeton).await? {
+            ReponseLecture::Lu(l) => l,
+            autre => return Ok(autre.et_puis(|_| None)),
+        };
+        Ok(crate::origine::dans(
+            crate::origine::Origine::Portail,
+            crate::portail::devoirs::photo(
+                &l.ouverte.noyau,
+                l.etablissement_id,
+                &l.session,
+                (rendu_id, ordre),
+            ),
+        )
+        .await?)
+    }
+
     /// Écrit d'un coup les gestes d'avancement en attente ; rend leur nombre. Le poste principal
     /// l'appelle toutes les cinq secondes ; un échec les remet dans la file.
     pub async fn portail_avancement_ecrire(&self) -> usize {

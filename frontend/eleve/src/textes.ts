@@ -1,5 +1,5 @@
 // Textes des écrans des élèves : tutoiement, phrases courtes, aucun mot technique.
-import type { EntreeEleve } from "./types";
+import type { EntreeEleve, EtatPourEleve, RefusRendu } from "./types";
 
 export const T = {
   titreEntree: "Les cours de ton école",
@@ -49,7 +49,100 @@ export const T = {
   derniersQuiz: "Mes derniers quiz",
   chargement: "Un instant…",
   introuvable: "Cette leçon n'est plus là. Reviens à tes matières.",
+  mesDevoirs: "Mes devoirs",
+  aucunDevoir: "Aucun devoir pour le moment.",
+  entrerPourRendre: "Pour rendre un devoir, entre avec ton code.",
+  devoirIntrouvable: "Ce devoir n'est plus là. Reviens à tes devoirs.",
+  aRendrePapier: "À rendre sur papier à ton maître",
+  devoirClos: "Ce devoir est clos",
+  rendreMonDevoir: "Rendre mon devoir",
+  rendreDeNouveau: "Rendre de nouveau",
+  taReponseDevoir: "Ta réponse",
+  ajouterPhoto: "Ajouter une photo",
+  retirer: "Retirer",
+  envoiEnCours: "Envoi en cours…",
+  pasParti: "Ton devoir n'est pas parti. Le Wi-Fi ou l'ordinateur de l'école ne répond pas.",
+  reessayer: "Réessayer",
+  apresLimite: "Rendu après la date limite",
+  mesRendus: "Ce que tu as rendu",
+  photoRetiree: "Photo retirée pour libérer de la place",
+  surPapier: "Rendu sur papier",
+  correction: "Correction",
+  commentaireMaitre: "Mot du maître",
+  leconLiee: "Leçon à revoir",
+  reduction: "Préparation de la photo…",
+  photoIllisible: "Cette photo ne s'ouvre pas. Reprends-la.",
+  brouillonGarde: "Ton texte est gardé sur ce téléphone tant que tu n'as pas rendu.",
 } as const;
+
+/** « 12 mars à 10 h 40 ». */
+export function dateEtHeure(ms: number): string {
+  const d = new Date(ms);
+  const jour = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${jour} à ${d.getHours()} h ${minutes}`;
+}
+
+/** Une note en centièmes : « 14,5 sur 20 ». */
+export function noteSur(note: number, bareme: number): string {
+  const ecrire = (n: number) => (n / 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+  return `${ecrire(note)} sur ${ecrire(bareme)}`;
+}
+
+/** L'état d'un devoir dit en mots. */
+export function etatDevoir(etat: EtatPourEleve, renduLe: number | null, apresLimite: boolean): string {
+  switch (etat) {
+    case "a_rendre":
+      return "À rendre";
+    case "en_retard":
+      return "En retard";
+    case "rendu":
+      if (renduLe === null) return "Rendu";
+      return apresLimite ? `Rendu le ${dateEtHeure(renduLe)}, après la date limite` : `Rendu le ${dateEtHeure(renduLe)}`;
+    case "corrige":
+      return "Corrigé";
+    case "clos":
+      return "Clos";
+    case "papier":
+      return "À rendre sur papier";
+  }
+}
+
+/** Pourquoi un rendu n'est pas reçu, en une phrase. */
+export function refusRendu(refus: RefusRendu): string {
+  switch (refus) {
+    case "sans_code":
+      return "Pour rendre un devoir, entre avec ton code.";
+    case "clos":
+      return "Ce devoir est clos : tu ne peux plus le rendre.";
+    case "papier":
+      return "Ce devoir se rend sur papier à ton maître.";
+    case "vide":
+      return "Écris ta réponse ou ajoute une photo de ta copie.";
+    case "texte_non_permis":
+      return "Pour ce devoir, envoie seulement des photos de ta copie.";
+    case "photos_non_permises":
+      return "Pour ce devoir, écris seulement ta réponse.";
+    case "trop_de_photos":
+      return "Cinq photos au plus.";
+    case "pas_une_photo":
+      return "Ce fichier n'est pas une photo. Prends ta copie en photo.";
+    case "photo_trop_grosse":
+      return "Cette photo est trop lourde. Reprends-la de plus loin.";
+    case "texte_long":
+      return "Ta réponse est trop longue.";
+  }
+}
+
+/** « Ton devoir est rendu le 12 mars à 10 h 40. » */
+export function renduLe(ms: number): string {
+  return `Ton devoir est rendu le ${dateEtHeure(ms)}.`;
+}
+
+/** « À rendre le 12 mars à 23 h 59 ». */
+export function aRendreLe(ms: number): string {
+  return `À rendre le ${dateEtHeure(ms)}`;
+}
 
 export function lecons(n: number): string {
   return n === 1 ? "1 leçon" : `${n} leçons`;

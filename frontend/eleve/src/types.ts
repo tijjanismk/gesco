@@ -85,3 +85,68 @@ export type MonAvancement = {
   finies: string[];
   scores: ScoreRecent[];
 };
+
+/** Où en est un devoir pour l'élève. */
+export type EtatPourEleve = "a_rendre" | "en_retard" | "rendu" | "corrige" | "clos" | "papier";
+export type FormeRendu = "texte" | "photos" | "texte_ou_photos" | "papier";
+
+/** Un devoir dans « Mes devoirs ». */
+export type DevoirDeLEleve = {
+  id: string;
+  titre: string;
+  matiere: string;
+  date_limite: number;
+  forme_rendu: FormeRendu;
+  etat: EtatPourEleve;
+  rendu_le: number | null;
+  apres_limite: boolean;
+};
+
+export type MesDevoirs = { avec_code: boolean; devoirs: DevoirDeLEleve[] };
+
+type PhotoEleve = { ordre: number; retiree: boolean };
+
+export type RenduEleve = {
+  id: string;
+  numero: number;
+  rendu_le: number;
+  apres_limite: boolean;
+  sur_papier: boolean;
+  texte: string;
+  photos: PhotoEleve[];
+};
+
+/** Une image des consignes, envoyée avec le devoir. */
+type ImageDevoir = { cle: string; type_mime: string; donnees: string };
+
+/** Un devoir ouvert par l'élève. */
+export type DevoirOuvertEleve = {
+  id: string;
+  titre: string;
+  matiere: string;
+  date_limite: number;
+  bareme: number;
+  forme_rendu: FormeRendu;
+  clos: boolean;
+  etat: EtatPourEleve;
+  lecon: Lecon;
+  images: ImageDevoir[];
+  lecon_liee: { id: string; titre: string } | null;
+  rendus: RenduEleve[];
+  correction: { note: number; bareme: number; commentaire: string } | null;
+};
+
+/** Pourquoi un rendu n'est pas reçu. */
+export type RefusRendu =
+  | "sans_code"
+  | "clos"
+  | "papier"
+  | "vide"
+  | "texte_non_permis"
+  | "photos_non_permises"
+  | "trop_de_photos"
+  | "pas_une_photo"
+  | "photo_trop_grosse"
+  | "texte_long";
+
+export type RenduFait = { numero: number; rendu_le: number; apres_limite: boolean };

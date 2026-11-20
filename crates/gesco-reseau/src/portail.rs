@@ -12,7 +12,7 @@ use std::path::{Path as Chemin, PathBuf};
 use std::sync::Arc;
 
 use axum::Router;
-use axum::extract::{Path, Request, State};
+use axum::extract::{DefaultBodyLimit, Path, Request, State};
 use axum::http::header::{
     ACCEPT_ENCODING, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_SECURITY_POLICY, CONTENT_TYPE,
     REFERRER_POLICY, RETRY_AFTER, VARY, X_CONTENT_TYPE_OPTIONS, X_FRAME_OPTIONS,
@@ -111,7 +111,14 @@ pub const ROUTES_PORTAIL: &[(&str, &str)] = &[
     ("GET", "/eleve/api/quiz/{id}"),
     ("GET", "/eleve/api/revision/{id}"),
     ("POST", "/eleve/api/tentative"),
+    ("GET", "/eleve/api/devoirs"),
+    ("GET", "/eleve/api/devoir/{id}"),
+    ("POST", "/eleve/api/rendu"),
+    ("GET", "/eleve/api/rendu/{id}/photo/{ordre}"),
 ];
+
+/// Corps d'un rendu, au plus : cinq photos de 2 Mo en base 64 et le texte.
+pub const CORPS_RENDU_MAX: usize = 14 * 1024 * 1024;
 
 /// Ce que chaque route du portail connaît.
 #[derive(Clone)]
@@ -146,6 +153,18 @@ fn routes() -> Vec<(&'static str, &'static str, MethodRouter<EtatPortail>)> {
         ("GET", "/eleve/api/quiz/{id}", get(api::quiz)),
         ("GET", "/eleve/api/revision/{id}", get(api::revision)),
         ("POST", "/eleve/api/tentative", post(api::tentative)),
+        ("GET", "/eleve/api/devoirs", get(api::mes_devoirs)),
+        ("GET", "/eleve/api/devoir/{id}", get(api::devoir)),
+        (
+            "POST",
+            "/eleve/api/rendu",
+            post(api::rendre).layer(DefaultBodyLimit::max(CORPS_RENDU_MAX)),
+        ),
+        (
+            "GET",
+            "/eleve/api/rendu/{id}/photo/{ordre}",
+            get(api::photo_rendu),
+        ),
     ]
 }
 

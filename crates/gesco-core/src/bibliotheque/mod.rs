@@ -3,6 +3,7 @@
 
 pub mod catalogue;
 pub mod classes;
+pub mod copies;
 pub mod echange;
 pub mod ecriture;
 pub mod fichiers;

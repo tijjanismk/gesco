@@ -1369,7 +1369,8 @@ async fn le_portail_ne_repond_a_aucune_route_de_la_gestion() {
         let chemin = chemin
             .replace("{fichier}", "index.js")
             .replace("{id}", "01ARZ3NDEKTSV4RRFFQ69G5FAV")
-            .replace("{empreinte}", &"a".repeat(64));
+            .replace("{empreinte}", &"a".repeat(64))
+            .replace("{ordre}", "1");
         let (statut, tete, corps) = portail_brut(adresse, methode, &chemin).await;
         assert!(
             !(statut == 404 && corps.is_empty()) || chemin.starts_with("/assets/"),

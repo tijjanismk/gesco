@@ -4,6 +4,7 @@
 //! [`crate::Origine::Portail`], jamais une commande de gestion.
 
 pub mod codes;
+pub mod devoirs;
 pub mod entree;
 pub mod lecture;
 pub mod quiz;

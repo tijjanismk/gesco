@@ -209,3 +209,228 @@ pub async fn titre_du_contenu(
             .await?,
     )
 }
+
+/// Devoirs donnés (ou clos) à une classe d'une année, par date limite : ce que voient ses élèves.
+pub async fn donnes_a_la_classe(
+    cnx: &mut Connexion,
+    classe_id: &str,
+    annee_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneDevoir>> {
+    Ok(
+        sqlx::query_as::<_, LigneDevoir>(sqlx::AssertSqlSafe(format!(
+            "SELECT {COLONNES} FROM devoir
+         WHERE etablissement_id = ?1 AND classe_id = ?2 AND annee_id = ?3
+           AND etat IN ('donne', 'clos')
+         ORDER BY date_limite, titre"
+        )))
+        .bind(contexte.etablissement_id.vers_chaine())
+        .bind(classe_id)
+        .bind(annee_id)
+        .fetch_all(cnx)
+        .await?,
+    )
+}
+
+/// Un rendu d'un élève.
+#[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+pub struct LigneRendu {
+    /// Identifiant.
+    pub id: String,
+    /// Devoir.
+    pub devoir_id: String,
+    /// Élève.
+    pub eleve_id: String,
+    /// Numéro du rendu pour ce devoir et cet élève ; le plus grand compte.
+    pub numero: i64,
+    /// `portail` ou `papier`.
+    pub origine: String,
+    /// Texte rendu.
+    pub texte: String,
+    /// Rendu le.
+    pub rendu_le: i64,
+    /// Rendu après la date limite.
+    pub en_retard: bool,
+    /// Note en centièmes.
+    pub note: Option<i64>,
+    /// Commentaire du maître.
+    pub commentaire: String,
+    /// Noté le.
+    pub note_le: Option<i64>,
+    /// Noté par.
+    pub note_par: Option<String>,
+}
+
+const COLONNES_RENDU: &str = "r.id, r.devoir_id, r.eleve_id, r.numero, r.origine, r.texte,
+    r.rendu_le, r.en_retard, r.note, r.commentaire, r.note_le, r.note_par";
+
+/// Rendus d'un élève (d'un devoir, ou de tous), par devoir puis numéro.
+pub async fn rendus_de_l_eleve(
+    cnx: &mut Connexion,
+    eleve_id: &str,
+    devoir_id: Option<&str>,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneRendu>> {
+    Ok(sqlx::query_as::<_, LigneRendu>(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLONNES_RENDU} FROM rendu_devoir r
+         WHERE r.etablissement_id = ?1 AND r.eleve_id = ?2 AND (?3 IS NULL OR r.devoir_id = ?3)
+         ORDER BY r.devoir_id, r.numero"
+    )))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(eleve_id)
+    .bind(devoir_id)
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Rendus d'un devoir, tous élèves, par élève puis numéro.
+pub async fn rendus_du_devoir(
+    cnx: &mut Connexion,
+    devoir_id: &str,
+    contexte: &Contexte,
+) -> Resultat<Vec<LigneRendu>> {
+    Ok(sqlx::query_as::<_, LigneRendu>(sqlx::AssertSqlSafe(format!(
+        "SELECT {COLONNES_RENDU} FROM rendu_devoir r
+         WHERE r.etablissement_id = ?1 AND r.devoir_id = ?2
+         ORDER BY r.eleve_id, r.numero"
+    )))
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(devoir_id)
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Une photo d'un rendu : (rendu, ordre, empreinte, place libérée).
+pub type LignePhoto = (String, i64, String, bool);
+
+/// Photos des rendus d'un devoir (d'un élève, ou de tous), par rendu puis ordre.
+pub async fn photos_du_devoir(
+    cnx: &mut Connexion,
+    devoir_id: &str,
+    eleve_id: Option<&str>,
+    contexte: &Contexte,
+) -> Resultat<Vec<LignePhoto>> {
+    Ok(sqlx::query_as(
+        "SELECT p.rendu_id, p.ordre, p.empreinte, f.libere_le IS NOT NULL
+         FROM photo_rendu p
+         JOIN rendu_devoir r ON r.id = p.rendu_id
+         JOIN fichier_rendu f ON f.empreinte = p.empreinte
+         WHERE r.etablissement_id = ?1 AND r.devoir_id = ?2 AND (?3 IS NULL OR r.eleve_id = ?3)
+         ORDER BY p.rendu_id, p.ordre",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(devoir_id)
+    .bind(eleve_id)
+    .fetch_all(cnx)
+    .await?)
+}
+
+/// Numéro du prochain rendu d'un élève pour un devoir.
+pub async fn prochain_numero(
+    cnx: &mut Connexion,
+    devoir_id: &str,
+    eleve_id: &str,
+) -> Resultat<i64> {
+    let dernier: Option<i64> = sqlx::query_scalar(
+        "SELECT MAX(numero) FROM rendu_devoir WHERE devoir_id = ?1 AND eleve_id = ?2",
+    )
+    .bind(devoir_id)
+    .bind(eleve_id)
+    .fetch_one(cnx)
+    .await?;
+    Ok(dernier.unwrap_or(0).saturating_add(1))
+}
+
+/// Une photo à ranger avec un rendu, déjà vérifiée et nettoyée.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PhotoAEcrire {
+    /// Ordre dans le rendu (1 à 5).
+    pub ordre: i64,
+    /// Empreinte SHA-256 du contenu nettoyé.
+    pub empreinte: String,
+    /// Contenu nettoyé.
+    pub contenu: Vec<u8>,
+    /// `jpeg` ou `png`.
+    pub sorte: String,
+}
+
+/// Ajoute un rendu et ses photos ; une photo déjà rangée (même empreinte) n'est pas recopiée.
+pub async fn inserer_rendu(
+    cnx: &mut Connexion,
+    r: &LigneRendu,
+    photos: &[PhotoAEcrire],
+    contexte: &Contexte,
+) -> Resultat<()> {
+    let etablissement = contexte.etablissement_id.vers_chaine();
+    sqlx::query(
+        "INSERT INTO rendu_devoir (id, etablissement_id, devoir_id, eleve_id, numero, origine,
+            texte, rendu_le, en_retard, note, commentaire, note_le, note_par, identifiant_poste)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+    )
+    .bind(&r.id)
+    .bind(&etablissement)
+    .bind(&r.devoir_id)
+    .bind(&r.eleve_id)
+    .bind(r.numero)
+    .bind(&r.origine)
+    .bind(&r.texte)
+    .bind(r.rendu_le)
+    .bind(r.en_retard)
+    .bind(r.note)
+    .bind(&r.commentaire)
+    .bind(r.note_le)
+    .bind(&r.note_par)
+    .bind(&contexte.poste.0)
+    .execute(&mut *cnx)
+    .await?;
+    for p in photos {
+        sqlx::query(
+            "INSERT INTO fichier_rendu (empreinte, etablissement_id, contenu, taille, sorte, cree_le)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT (empreinte) DO NOTHING",
+        )
+        .bind(&p.empreinte)
+        .bind(&etablissement)
+        .bind(&p.contenu)
+        .bind(i64::try_from(p.contenu.len()).unwrap_or(i64::MAX))
+        .bind(&p.sorte)
+        .bind(r.rendu_le)
+        .execute(&mut *cnx)
+        .await?;
+        sqlx::query(
+            "INSERT INTO photo_rendu (id, rendu_id, ordre, empreinte) VALUES (?1, ?2, ?3, ?4)",
+        )
+        .bind(crate::nouvel_id::<()>().vers_chaine())
+        .bind(&r.id)
+        .bind(p.ordre)
+        .bind(&p.empreinte)
+        .execute(&mut *cnx)
+        .await?;
+    }
+    Ok(())
+}
+
+/// Une photo d'un rendu : (sorte, contenu) ; contenu `None` quand la place a été libérée.
+/// `eleve_id` borne aux rendus de cet élève (portail).
+pub async fn photo_du_rendu(
+    cnx: &mut Connexion,
+    rendu_id: &str,
+    ordre: i64,
+    eleve_id: Option<&str>,
+    contexte: &Contexte,
+) -> Resultat<Option<(String, Option<Vec<u8>>)>> {
+    Ok(sqlx::query_as(
+        "SELECT f.sorte, f.contenu
+         FROM photo_rendu p
+         JOIN rendu_devoir r ON r.id = p.rendu_id
+         JOIN fichier_rendu f ON f.empreinte = p.empreinte
+         WHERE r.etablissement_id = ?1 AND p.rendu_id = ?2 AND p.ordre = ?3
+           AND (?4 IS NULL OR r.eleve_id = ?4)",
+    )
+    .bind(contexte.etablissement_id.vers_chaine())
+    .bind(rendu_id)
+    .bind(ordre)
+    .bind(eleve_id)
+    .fetch_optional(cnx)
+    .await?)
+}

@@ -5176,3 +5176,293 @@ async fn le_maitre_donne_un_devoir_dans_ses_seules_classes_et_matieres() {
     assert_eq!(audits, 6);
     cnx.close().await.unwrap();
 }
+
+/// Un JPEG de forme juste avec un EXIF qui porte une position GPS ; `taille` le grossit.
+fn jpeg_avec_gps(taille: usize) -> Vec<u8> {
+    fn segment(marqueur: u8, donnees: &[u8]) -> Vec<u8> {
+        let mut s = vec![0xFF, marqueur];
+        s.extend_from_slice(&u16::try_from(donnees.len() + 2).unwrap().to_be_bytes());
+        s.extend_from_slice(donnees);
+        s
+    }
+    let mut o = vec![0xFF, 0xD8];
+    o.extend(segment(0xE1, b"Exif\0\0MM\0*GPSLatitude 12.6392 N"));
+    o.extend(segment(0xDB, &[0u8; 65]));
+    o.extend(segment(0xC0, &[8, 0, 16, 0, 16, 1, 1, 0x11, 0]));
+    o.extend(segment(0xC4, &[0u8; 20]));
+    o.extend(segment(0xDA, &[1, 1, 0, 0, 63, 0]));
+    let donnees = taille.saturating_sub(o.len() + 2).max(4);
+    o.extend((0..donnees).map(|i| u8::try_from(i % 200).unwrap()));
+    o.extend_from_slice(&[0xFF, 0xD9]);
+    o
+}
+
+/// Lit une réponse du portail qui doit être lue.
+fn lu<T: std::fmt::Debug>(r: gesco_services::portail::lecture::ReponseLecture<T>) -> T {
+    match r {
+        gesco_services::portail::lecture::ReponseLecture::Lu(t) => t,
+        autre => panic!("{autre:?}"),
+    }
+}
+
+/// Phase 12, lot 5, étape 3 (SPEC_PHASE_12_LOT_5 §0.3 critères 2 à 4, §4 ; ADR « copies
+/// photographiées ») : les élèves de 9e A voient le devoir dans « Mes devoirs », ceux de 9e B
+/// non ; sans code, rien à rendre ; trois photos arrivent sans position GPS ; un fichier qui
+/// n'est pas une photo, une photo trop grosse, une sixième photo sont refusés ; rendre de nouveau
+/// garde l'ancien rendu ; après la date limite le rendu est marqué en retard ; clos, on ne rend
+/// plus ; un élève ne voit jamais la photo d'un autre ; bibliothèque éteinte, le portail ne sert
+/// plus les devoirs, qui sont gardés.
+#[tokio::test]
+async fn un_eleve_rend_son_devoir_par_le_portail() {
+    use base64::Engine as _;
+    use gesco_services::portail::devoirs::{DemandeRendu, EtatPourEleve, RefusRendu};
+    use gesco_services::portail::entree::DemandeLireSansCode;
+    use gesco_services::portail::lecture::ReponseLecture;
+    use sqlx::Connection as _;
+
+    let dossier = tempfile::tempdir().unwrap();
+    let p = poste_vierge(dossier.path()).await;
+    p.installer().await;
+    let admin = p.connecter("admin", MOT_DE_PASSE).await;
+    let maitres = maitres_de_math(&p, &admin, &[("sekou", "Traoré", "Sékou")]).await;
+    let sekou = &maitres[0];
+    let (annee, math, _, neuf_a, neuf_b) = annee_des_devoirs(&p, &admin).await;
+    crate::commun::poser_grille(&p, &admin, &annee).await;
+    let adama = eleve_dans(&p, &admin, &neuf_a, "Adama", "E-931").await;
+    let awa = eleve_dans(&p, &admin, &neuf_a, "Awa", "E-932").await;
+    let binta = eleve_dans(&p, &admin, &neuf_b, "Binta", "E-933").await;
+
+    // Un devoir donné à la 9e A, à rendre dans une heure ; un brouillon qui ne se voit pas.
+    let mut ecrit = devoir_ecrit(&neuf_a, &math, "Racines carrées");
+    ecrit["date_limite"] = json!(crate::commun::DEBUT + 3_600_000);
+    let devoir = p.ok("devoir_creer", Some(sekou), ecrit).await;
+    let id = devoir["id"].as_str().unwrap().to_owned();
+    p.ok("devoir_donner", Some(sekou), json!({ "id": id }))
+        .await;
+    p.ok(
+        "devoir_creer",
+        Some(sekou),
+        devoir_ecrit(&neuf_a, &math, "Brouillon caché"),
+    )
+    .await;
+
+    let a = entrer_au_portail(&p, &adama, "E-931").await;
+    let w = entrer_au_portail(&p, &awa, "E-932").await;
+    let b = entrer_au_portail(&p, &binta, "E-933").await;
+    let de_a = lu(p.application.portail_mes_devoirs(Some(&a)).await.unwrap());
+    assert!(de_a.avec_code);
+    assert_eq!(de_a.devoirs.len(), 1, "le brouillon ne se voit pas");
+    assert_eq!(de_a.devoirs[0].titre, "Racines carrées");
+    assert_eq!(de_a.devoirs[0].etat, EtatPourEleve::ARendre);
+    let de_b = lu(p.application.portail_mes_devoirs(Some(&b)).await.unwrap());
+    assert!(de_b.devoirs.is_empty(), "la 9e B ne le voit pas");
+    assert!(matches!(
+        p.application.portail_devoir(Some(&b), &id).await.unwrap(),
+        ReponseLecture::Introuvable
+    ));
+
+    // Sans code : la page dit d'entrer avec son code ; rien ne se rend.
+    let ped = p
+        .ok("pedagogie_lire", Some(&admin), json!({ "id": annee }))
+        .await;
+    let neuvieme = ped["niveaux"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["code"] == "9")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let (sans_code, _) = p
+        .application
+        .portail_lire_sans_code(&DemandeLireSansCode {
+            niveau_id: neuvieme,
+            serie_id: None,
+        })
+        .await
+        .unwrap()
+        .expect("la 9e se lit sans code");
+    let sans = lu(p
+        .application
+        .portail_mes_devoirs(Some(&sans_code))
+        .await
+        .unwrap());
+    assert!(!sans.avec_code && sans.devoirs.is_empty());
+    let demande = |devoir: &str, texte: &str, photos: &[Vec<u8>]| DemandeRendu {
+        devoir_id: devoir.to_owned(),
+        texte: texte.to_owned(),
+        photos: photos
+            .iter()
+            .map(|o| base64::engine::general_purpose::STANDARD.encode(o))
+            .collect(),
+    };
+    let refus = lu(p
+        .application
+        .portail_rendre(Some(&sans_code), &demande(&id, "x", &[]))
+        .await
+        .unwrap());
+    assert_eq!(refus.err(), Some(RefusRendu::SansCode));
+
+    // Refus : pas une photo, trop grosse (4 Mo non réduite), six photos, rien du tout.
+    let cas: [(Vec<Vec<u8>>, &str, RefusRendu); 4] = [
+        (vec![b"%PDF-1.7".to_vec()], "", RefusRendu::PasUnePhoto),
+        (
+            vec![jpeg_avec_gps(4 * 1024 * 1024)],
+            "",
+            RefusRendu::PhotoTropGrosse,
+        ),
+        (vec![jpeg_avec_gps(1000); 6], "", RefusRendu::TropDePhotos),
+        (Vec::new(), "  ", RefusRendu::Vide),
+    ];
+    for (photos, texte, attendu) in cas {
+        let r = lu(p
+            .application
+            .portail_rendre(Some(&a), &demande(&id, texte, &photos))
+            .await
+            .unwrap());
+        assert_eq!(r.err(), Some(attendu));
+    }
+
+    // Trois photos réduites : elles arrivent sans position GPS.
+    let photos = [
+        jpeg_avec_gps(300_000),
+        jpeg_avec_gps(310_000),
+        jpeg_avec_gps(320_000),
+    ];
+    let fait = lu(p
+        .application
+        .portail_rendre(Some(&a), &demande(&id, "Voici ma copie.", &photos))
+        .await
+        .unwrap())
+    .unwrap();
+    assert_eq!(fait.numero, 1);
+    assert!(!fait.apres_limite);
+    let ouvert = lu(p.application.portail_devoir(Some(&a), &id).await.unwrap());
+    assert_eq!(ouvert.etat, EtatPourEleve::Rendu);
+    assert_eq!(ouvert.rendus.len(), 1);
+    assert_eq!(ouvert.rendus[0].photos.len(), 3);
+    assert!(ouvert.correction.is_none());
+    let rendu_a = ouvert.rendus[0].id.clone();
+    let photo = lu(p
+        .application
+        .portail_photo_rendu(Some(&a), &rendu_a, 2)
+        .await
+        .unwrap());
+    assert_eq!(photo.type_mime, "image/jpeg");
+    let octets = photo.octets.unwrap();
+    assert!(!octets.windows(3).any(|f| f == b"GPS"), "sans position");
+    assert!(octets.starts_with(&[0xFF, 0xD8]) && octets.ends_with(&[0xFF, 0xD9]));
+    // Un autre élève, même de la classe, ne voit jamais la photo ni le rendu d'Adama.
+    for autre in [&w, &b] {
+        assert!(matches!(
+            p.application
+                .portail_photo_rendu(Some(autre), &rendu_a, 2)
+                .await
+                .unwrap(),
+            ReponseLecture::Introuvable
+        ));
+    }
+    let de_w = lu(p.application.portail_devoir(Some(&w), &id).await.unwrap());
+    assert!(de_w.rendus.is_empty());
+    assert_eq!(de_w.etat, EtatPourEleve::ARendre);
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    let fichiers: Vec<Vec<u8>> = sqlx::query_scalar("SELECT contenu FROM fichier_rendu")
+        .fetch_all(&mut cnx)
+        .await
+        .unwrap();
+    assert_eq!(fichiers.len(), 3);
+    assert!(
+        fichiers
+            .iter()
+            .all(|f| !f.windows(3).any(|x| x == b"GPS") && f.len() < 330_000)
+    );
+    cnx.close().await.unwrap();
+
+    // Après la date limite : rendre de nouveau est accepté, marqué en retard ; l'ancien reste.
+    p.horloge.avancer(2 * 3_600_000);
+    let de_w = lu(p.application.portail_mes_devoirs(Some(&w)).await.unwrap());
+    assert_eq!(de_w.devoirs[0].etat, EtatPourEleve::EnRetard);
+    let fait = lu(p
+        .application
+        .portail_rendre(Some(&a), &demande(&id, "Copie revue.", &[]))
+        .await
+        .unwrap())
+    .unwrap();
+    assert_eq!(fait.numero, 2);
+    assert!(fait.apres_limite);
+    let de_a = lu(p.application.portail_mes_devoirs(Some(&a)).await.unwrap());
+    assert_eq!(de_a.devoirs[0].etat, EtatPourEleve::Rendu);
+    assert!(de_a.devoirs[0].apres_limite);
+    let ouvert = lu(p.application.portail_devoir(Some(&a), &id).await.unwrap());
+    assert_eq!(ouvert.rendus.len(), 2);
+    assert_eq!(ouvert.rendus[1].texte, "Copie revue.");
+
+    // Clos : on ne rend plus ; « Clos » pour qui n'a pas rendu.
+    p.ok("devoir_clore", Some(sekou), json!({ "id": id })).await;
+    let refus = lu(p
+        .application
+        .portail_rendre(Some(&w), &demande(&id, "Trop tard", &[]))
+        .await
+        .unwrap());
+    assert_eq!(refus.err(), Some(RefusRendu::Clos));
+    let de_w = lu(p.application.portail_mes_devoirs(Some(&w)).await.unwrap());
+    assert_eq!(de_w.devoirs[0].etat, EtatPourEleve::Clos);
+
+    // Un devoir sur papier seulement : consignes lisibles, rien ne se rend par le portail.
+    let mut papier = devoir_ecrit(&neuf_a, &math, "Sur la feuille");
+    papier["forme_rendu"] = json!("papier");
+    let papier = p.ok("devoir_creer", Some(sekou), papier).await;
+    let papier_id = papier["id"].as_str().unwrap().to_owned();
+    p.ok("devoir_donner", Some(sekou), json!({ "id": papier_id }))
+        .await;
+    let de_w = lu(p.application.portail_mes_devoirs(Some(&w)).await.unwrap());
+    let ligne = de_w
+        .devoirs
+        .iter()
+        .find(|d| d.titre == "Sur la feuille")
+        .unwrap();
+    assert_eq!(ligne.etat, EtatPourEleve::Papier);
+    let refus = lu(p
+        .application
+        .portail_rendre(Some(&w), &demande(&papier_id, "x", &[]))
+        .await
+        .unwrap());
+    assert_eq!(refus.err(), Some(RefusRendu::Papier));
+
+    // Bibliothèque éteinte : le portail ne sert plus les devoirs ; tout est gardé.
+    regler(
+        &p,
+        &admin,
+        "module.bibliotheque",
+        json!({ "type": "booleen", "valeur": false }),
+    )
+    .await;
+    assert!(matches!(
+        p.application.portail_mes_devoirs(Some(&a)).await.unwrap(),
+        ReponseLecture::Ferme
+    ));
+    assert!(matches!(
+        p.application
+            .portail_photo_rendu(Some(&a), &rendu_a, 1)
+            .await
+            .unwrap(),
+        ReponseLecture::Ferme
+    ));
+    let mut cnx = crate::commun::base_brute(dossier.path(), p.trousseau.clone()).await;
+    let rendus: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM rendu_devoir")
+        .fetch_one(&mut cnx)
+        .await
+        .unwrap();
+    assert_eq!(rendus, 2);
+    cnx.close().await.unwrap();
+    regler(
+        &p,
+        &admin,
+        "module.bibliotheque",
+        json!({ "type": "booleen", "valeur": true }),
+    )
+    .await;
+    let de_a = lu(p.application.portail_mes_devoirs(Some(&a)).await.unwrap());
+    assert_eq!(de_a.devoirs.len(), 2);
+}
