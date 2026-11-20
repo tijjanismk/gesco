@@ -72,6 +72,17 @@ elles arrivent en brouillons, rangées sous les matières de l'école, et ne son
 qu'une fois publiées ; le même fichier importé deux fois n'ajoute rien, un fichier abîmé est
 refusé entier.
 
+**Des quiz pour s'entraîner.** Les leçons livrées finissent par un quiz, avec la bonne réponse
+et une explication pour chaque question ; l'école en écrit pour ses leçons (bouton « Question »
+de l'éditeur, ou import d'un classeur Excel) et ajoute des quiz de chapitre. Cinq sortes de
+questions : un bon choix, plusieurs bons choix, vrai ou faux, réponse courte, relier. Un quiz se
+passe au bureau (« S'entraîner »), en classe sur grand écran (« Montrer la réponse »), et sur le
+téléphone de l'élève ; « Réviser le chapitre » pose dix questions tirées au hasard. Le maître voit
+dans le suivi qui a fait chaque quiz, la moyenne du premier essai et les questions les plus
+manquées ; l'élève voit ses derniers scores. Un quiz ne donne aucune note et n'entre pas au
+bulletin. « Quiz seul » et « Réponses du quiz » s'impriment pour une leçon ou un chapitre. Usage :
+manuel de la bibliothèque, §10.
+
 **Une copie hors de l'école.** Outils → Sauvegarde, section « Copie hors de l'école » : GESCO
 propose les dossiers Google Drive, OneDrive et Dropbox qu'il trouve sur le poste principal, ou
 tout autre dossier, et y dépose une copie de la sauvegarde, déjà chiffrée, que le logiciel du

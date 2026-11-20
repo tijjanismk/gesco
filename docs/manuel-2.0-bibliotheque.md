@@ -247,6 +247,8 @@ avancement n'est gardé.
    corrigés ».
 4. **« J'ai fini cette leçon »** quand il l'a finie ; **« Enregistrer en PDF »** pour la relire à
    la maison ; **« Mon avancement »** pour voir où il en est ; **« Sortir »** à la fin.
+5. **« Faire le quiz »** sous une leçon qui en a un, **« Réviser le chapitre »** sous un chapitre
+   (voir « Les quiz », §10).
 
 ### Suivre ses élèves (maîtres, direction)
 
@@ -263,3 +265,92 @@ nombres, sans noms), ou aucun. Éteint, rien n'est écrit ; rallumé, ce qui ét
 la direction allume ce réglage dans Paramètres. Le maître ouvre alors sa session pour la
 bibliothèque et le suivi ; la saisie des notes reste fermée tant que « Les maîtres saisissent
 leurs notes » est éteint. Sans ce réglage, la direction imprime le suivi pour eux.
+
+## 10. Les quiz
+
+Une leçon peut finir par un quiz : quelques questions, chacune avec sa bonne réponse et une
+explication. Les leçons livrées en ont déjà ; l'école en écrit pour ses propres leçons, ou fait un
+quiz à part pour tout un chapitre. Un quiz ne donne aucune note : il sert à s'entraîner.
+
+### Les cinq sortes de questions
+
+- **Un seul bon choix** : l'élève choisit une réponse parmi deux à six.
+- **Plusieurs bons choix** : il coche toutes les bonnes réponses, et seulement elles.
+- **Vrai ou faux.**
+- **Réponse courte** : il écrit un mot ou un nombre. GESCO ne tient compte ni des majuscules, ni
+  des accents, ni des espaces ; « 3,5 », « 3.5 » et « 3,50 » valent la même chose.
+- **Relier** : il relie chaque élément de gauche à un élément de droite.
+
+### Écrire un quiz (maîtres, direction)
+
+Dans l'éditeur d'une leçon, le bouton **Question** de la barre ajoute une question toute prête à
+remplir, avec sa ligne de réponse. Le quiz se trouve dans la section « Quiz », à la fin de la
+leçon ; les réponses vont dans la sous-section « Réponses ». Exemple :
+
+```
+**Question 3.** Combien vaut la racine carrée de 49 ?
+A) 6   B) 7   C) 8
+
+### Réponses
+3. **B.** 7 × 7 = 49.
+```
+
+Pour plusieurs bons choix, écrire « **A, C.** » ; pour vrai ou faux, deux choix « Vrai » et
+« Faux » ; pour une réponse courte, aucun choix et la réponse entre guillemets (« **« 3,5 » ou
+« 7/2 ».** ») ; pour relier, des lignes « 1) … 2) … » après les choix et « **A-2, B-1.** ».
+
+Sous l'aperçu, **« Essayer ce quiz »** fait passer le quiz comme un élève, sans rien enregistrer.
+Une question mal écrite (sans réponse, ou avec une réponse qui n'est pas parmi les choix) n'empêche
+rien : elle reste du texte de la leçon, et l'auteur seul lit, dans ses notes sous l'aperçu,
+pourquoi elle ne sera pas posée.
+
+**Importer des questions depuis Excel** : dans l'éditeur, téléchargez d'abord le modèle (colonnes
+Question, Choix A à F, Bonne réponse, Explication), remplissez-le, puis importez-le. Les questions
+s'ajoutent au texte ouvert ; enregistrez ensuite comme pour toute modification. Une ligne qui ne
+peut pas devenir une question n'est pas ajoutée, et GESCO dit pourquoi (« Ligne 8 : la bonne
+réponse D n'est pas parmi les choix. »). Une question à relier s'écrit à la main.
+
+**Un quiz pour tout un chapitre** : dans le panneau « Ajouter », choisissez **« Un quiz de
+chapitre »**. Il commence en brouillon avec une première question et suit le même chemin qu'une
+leçon de l'école : il est soumis, publié, et peut être réservé à certaines classes.
+
+### Passer un quiz
+
+- **Au bureau** : **« S'entraîner »** dans la barre de la leçon ouvre le quiz au-dessus du texte.
+  Une question par écran ; **« Vérifier »** dit « ✓ Juste » ou « ✗ Pas tout à fait », montre la
+  bonne réponse et l'explication. À la fin, le score (« 4 sur 5 ») et **« Recommencer »**. Rien
+  n'est enregistré.
+- **En classe** : en mode classe, le bouton **« Le quiz »** montre la question en grand ;
+  **« Montrer la réponse »** affiche la bonne réponse et l'explication pour toute la classe.
+- **Réviser un chapitre** : **« Réviser le chapitre »**, sous un chapitre du catalogue, pose dix
+  questions tirées au hasard dans ses leçons et ses quiz (toutes, s'il y en a moins de dix).
+- **Sur le téléphone de l'élève** : **« Faire le quiz »** sous la leçon, **« Réviser le
+  chapitre »** sous le chapitre. L'élève voit chaque correction et son score à la fin ; dans
+  **« Mon avancement »**, ses derniers scores. Il n'y a ni chronomètre ni classement.
+
+### Ce que voit le maître
+
+Seul le quiz fini par un élève entré avec son code est enregistré (un élève sans code, ou suivi
+éteint : le quiz se passe, rien n'est écrit). Dans **« Suivi des élèves »**, la vue **« Quiz »**
+montre pour chaque quiz de la matière combien d'élèves l'ont fait, la moyenne du premier essai,
+et les trois questions les plus manquées avec leur énoncé : ce qu'il faut reprendre en classe.
+**« Voir le détail »** donne, pour chaque élève, son premier essai et son meilleur. La vue « Par
+élève » montre combien de quiz chacun a faits. Au réglage « par classe seulement », seuls les
+nombres paraissent, sans noms.
+
+Quand la direction publie une nouvelle version d'une leçon, les essais passés gardent leur score
+et la question telle qu'elle était posée ; une question manquée d'une ancienne version porte
+« version précédente ». Aucun quiz ne change une note ni un bulletin.
+
+### Imprimer un quiz
+
+**Imprimer…**, dans la barre d'une leçon qui a un quiz, propose aussi **« Quiz seul »** (les
+questions avec « Nom : » en tête et une ligne pour écrire la réponse, sans aucune réponse) et
+**« Réponses du quiz »** (pour le maître : chaque bonne réponse et son explication). Les deux se
+font aussi pour tout un chapitre.
+
+### E-learning éteint
+
+Quand la direction éteint le module E-learning, les quiz disparaissent avec la bibliothèque, au
+bureau comme sur les téléphones. Rien n'est effacé : rallumé, les quiz et les essais des élèves
+reviennent tels qu'ils étaient.
