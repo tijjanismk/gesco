@@ -60,7 +60,7 @@ rembourser) avec le modèle et le cahier importé, les deux apprentis du CAP 1 p
 l'État avec un virement réparti et l'état exporté ; LISEZ-MOI complété.
 
 **Installeur** : `GESCO_2.0.0_x64-setup.exe` (312 Mo, SHA-256
-`F4CE6E790536FE51BF5EC54A9A34879D06C84ED0B6B91E5C11F482DCC479DB62`), reconstruit le 21 novembre 2026 avec les lots 3 et 5 (quiz et devoirs ; `elaguer-target.ps1 -Release -Incremental` avant, 9,6 Go gagnés, `CARGO_BUILD_JOBS=4`, 17 min 36 s), à la place de celui du 20 novembre au matin,
+`1B0A7DF12EC9D7DF47CE8F1C6BCA89BF6C1EDD4ABEA0C6E48DB747400DE364D7`), reconstruit le 21 novembre 2026 avec les lots 3 et 5 et « Ouvrir Notes » qui ouvre la grille du devoir (quiz et devoirs ; `elaguer-target.ps1 -Release -Incremental` avant, 9,6 Go gagnés, `CARGO_BUILD_JOBS=4`, 17 min 36 s), à la place de celui du 20 novembre au matin,
 avec le paquet `bibliotheque-mali-2026.11.1.gbib` et les écrans des élèves ; copié avec un court
 `LISEZ-MOI.txt` (installer GESCO dans une école déjà au deuxième mois, avec la reprise avant
 GESCO, dans l'ordre du manuel) dans `Documents\GESCO-2.0.0-ecole-test`. Une coupure du réseau
