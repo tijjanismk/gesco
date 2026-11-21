@@ -410,7 +410,8 @@ bulletin »**. GESCO crée une évaluation « devoir » en saisie, sur le même 
 chaque élève ; un élève sans note reste sans note, à compléter dans l'évaluation. La direction la
 valide comme les autres. Une note changée après le report fait paraître « Notes changées depuis le
 report » : **« Reporter de nouveau »** met l'évaluation à jour tant qu'elle n'est pas validée. Une
-fois validée, il faut la déverrouiller dans Notes. Dans Notes, l'évaluation porte « Devoir rendu
+fois validée, il faut la déverrouiller dans Notes : **« Ouvrir Notes »** ouvre directement sa grille,
+dans la classe, la période et la matière du devoir. Dans Notes, l'évaluation porte « Devoir rendu
 par les élèves » et « Voir le devoir ». Le bulletin ne change en rien de forme.
 
 Un maître reporte lui-même si la saisie des notes par les maîtres est allumée ; sinon, la

@@ -504,10 +504,16 @@ test("lot 5 : la direction reporte au bulletin, valide l'évaluation et calcule 
   await allerA("nav.devoirs");
   await page.getByRole("button", { name: TITRE_DEVOIR, exact: true }).click();
   await expect(page.getByText(texte("devoirs.evaluation_validee"))).toBeVisible({ timeout: 30_000 });
+  // « Ouvrir Notes » ouvre la grille de l'évaluation du devoir, sans rien choisir.
   await page.getByRole("button", { name: texte("devoirs.aller_aux_notes"), exact: true }).click();
-  await page.locator("#notes-matiere").selectOption({ label: "Mathématiques" });
-  await expect(page.getByText(texte("notes.devoir_rendu")).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: `9e A · Mathématiques · ${TITRE_DEVOIR}` })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(texte("notes.devoir_rendu")).first()).toBeVisible();
   await capturer(page, "515-lot5-notes-devoir-rendu-par-les-eleves");
+  // Le retour mène à la liste de cette classe, de cette période et de cette matière.
+  await page.getByRole("button", { name: texte("notes.retour"), exact: true }).click();
+  await expect(page.locator("#notes-classe option:checked")).toHaveText(/^9e A/);
+  await expect(page.locator("#notes-matiere option:checked")).toHaveText("Mathématiques");
+  await expect(page.getByText(texte("notes.devoir_rendu")).first()).toBeVisible();
 });
 
 test("lot 5 : la place des photos se lit ; module éteint, les devoirs disparaissent puis reviennent", async () => {

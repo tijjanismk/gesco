@@ -41,7 +41,7 @@ import { JournalTresorerie } from "../modules/finance/Journal";
 import { Livres } from "../modules/finance/Livres";
 import { Recettes } from "../modules/finance/Recettes";
 import { Tresorerie } from "../modules/finance/Tresorerie";
-import { Notes } from "../modules/pedagogie/Notes";
+import { Notes, type NotesAOuvrir } from "../modules/pedagogie/Notes";
 import { Pedagogie } from "../modules/pedagogie/Pedagogie";
 import { Niveaux } from "../modules/scolarite/Niveaux";
 import { Conges } from "../modules/rh/Conges";
@@ -102,6 +102,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
   const [deplies, setDeplies] = useState<readonly string[]>([]);
   const [eleveOuvert, setEleveOuvert] = useState<string | null>(null);
   const [devoirOuvert, setDevoirOuvert] = useState<string | null>(null);
+  const [notesOuvertes, setNotesOuvertes] = useState<NotesAOuvrir | null>(null);
   // Chaque clic du menu rouvre l'écran à son début, même s'il est déjà affiché (une grille de
   // notes ouverte revient à la liste des évaluations).
   const [visite, setVisite] = useState(0);
@@ -176,6 +177,7 @@ export function Espace({ etablissement }: { etablissement: string }) {
                     setSection(s.id);
                     setEleveOuvert(null);
                     setDevoirOuvert(null);
+                    setNotesOuvertes(null);
                     setVisite((v) => v + 1);
                   }}
                   className={`rounded px-2 py-1 text-left text-sm ${section === s.id ? "bg-sur-marine/15 font-medium" : "hover:bg-sur-marine/10"}`}
@@ -264,7 +266,14 @@ export function Espace({ etablissement }: { etablissement: string }) {
               }}
               surAller={(s) => {
                 setDevoirOuvert(null);
+                setNotesOuvertes(null);
                 setSection(s);
+              }}
+              notesOuvertes={notesOuvertes}
+              surOuvrirNotes={(cible) => {
+                setDevoirOuvert(null);
+                setNotesOuvertes(cible);
+                setSection("notes");
               }}
             />
           )}
@@ -294,6 +303,8 @@ function Contenu({
   devoirOuvert,
   surOuvrirDevoir,
   surAller,
+  notesOuvertes,
+  surOuvrirNotes,
 }: {
   section: IdSection;
   nom: string;
@@ -303,6 +314,8 @@ function Contenu({
   devoirOuvert: string | null;
   surOuvrirDevoir: (id: string) => void;
   surAller: (section: IdSection) => void;
+  notesOuvertes: NotesAOuvrir | null;
+  surOuvrirNotes: (cible: NotesAOuvrir) => void;
 }) {
   switch (section) {
     case "accueil":
@@ -340,7 +353,7 @@ function Contenu({
     case "paie":
       return <Paie />;
     case "notes":
-      return <Notes surOuvrirDevoir={surOuvrirDevoir} />;
+      return <Notes surOuvrirDevoir={surOuvrirDevoir} ouvertAuDebut={notesOuvertes} />;
     case "absences":
       return <Absences />;
     case "bulletins":
@@ -352,7 +365,7 @@ function Contenu({
     case "bibliotheque":
       return <Bibliotheque />;
     case "devoirs":
-      return <Devoirs ouvertAuDebut={devoirOuvert} surNotes={() => surAller("notes")} />;
+      return <Devoirs ouvertAuDebut={devoirOuvert} surNotes={surOuvrirNotes} />;
     case "discipline":
       return <Discipline />;
     case "conduite":

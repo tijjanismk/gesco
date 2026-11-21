@@ -35,17 +35,20 @@ function texteNote(note: NoteEleve | null): string {
 }
 
 /** Notes (SPEC_PHASE_4 §4, UC-03) : évaluations d'une classe, grille de saisie au clavier. */
-export function Notes({ surOuvrirDevoir }: { surOuvrirDevoir?: (id: string) => void } = {}) {
+/** Une évaluation à ouvrir dès l'arrivée sur l'écran (« Ouvrir Notes » d'un devoir reporté). */
+export type NotesAOuvrir = { classeId: string; periodeId: string; matiereId: string; evaluationId: string };
+
+export function Notes({ surOuvrirDevoir, ouvertAuDebut = null }: { surOuvrirDevoir?: (id: string) => void; ouvertAuDebut?: NotesAOuvrir | null } = {}) {
   const session = useQuery({ queryKey: ["session"], queryFn: () => appeler("session_courante", null) });
   const annees = useQuery({ queryKey: ["annees"], queryFn: () => appeler("annees_lister", null) });
   const anneeId = annees.data?.find((a) => a.est_courante)?.id ?? null;
   const classes = useQuery({ queryKey: ["classes", anneeId], queryFn: () => appeler("classes_lister", { annee_id: anneeId ?? "" }), enabled: anneeId !== null });
   const pedagogie = useQuery({ queryKey: ["pedagogie", anneeId], queryFn: () => appeler("pedagogie_lire", { id: anneeId ?? "" }), enabled: anneeId !== null });
   const portee = useQuery({ queryKey: ["portee-notes"], queryFn: () => appeler("portee_notes_lire", null) });
-  const [classeChoisie, setClasseChoisie] = useState<string | null>(null);
-  const [periodeChoisie, setPeriodeChoisie] = useState<string | null>(null);
-  const [matiereChoisie, setMatiereChoisie] = useState<string | null>(null);
-  const [ouverte, setOuverte] = useState<string | null>(null);
+  const [classeChoisie, setClasseChoisie] = useState<string | null>(ouvertAuDebut?.classeId ?? null);
+  const [periodeChoisie, setPeriodeChoisie] = useState<string | null>(ouvertAuDebut?.periodeId ?? null);
+  const [matiereChoisie, setMatiereChoisie] = useState<string | null>(ouvertAuDebut?.matiereId ?? null);
+  const [ouverte, setOuverte] = useState<string | null>(ouvertAuDebut?.evaluationId ?? null);
   const permissions = session.data?.permissions ?? [];
   const autorise = (classe: string, matiere: string) =>
     portee.data === undefined || portee.data.type === "etablissement" || portee.data.couples.some(([c, m]) => c === classe && m === matiere);

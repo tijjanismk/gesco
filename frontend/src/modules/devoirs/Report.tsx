@@ -7,6 +7,7 @@ import { Selection } from "../../composants/Champ";
 import { MessageErreur, Section } from "../../composants/Messages";
 import { t } from "../../i18n";
 import type { DevoirAffiche } from "../../types/gesco";
+import type { NotesAOuvrir } from "../pedagogie/Notes";
 
 /** Points lisibles : « 20 », « 12,5 ». */
 function points(centiemes: number): string {
@@ -16,7 +17,7 @@ function points(centiemes: number): string {
 const PONDERATIONS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 
 /** « Reporter au bulletin » : un geste, avec la période, le barème, la pondération et le nombre de notes. */
-export function Report({ devoir, surNotes }: { devoir: DevoirAffiche; surNotes?: () => void }) {
+export function Report({ devoir, surNotes }: { devoir: DevoirAffiche; surNotes?: (cible: NotesAOuvrir) => void }) {
   const client = useQueryClient();
   const cle = ["devoirs", "report", devoir.id];
   const lu = useQuery({ queryKey: cle, queryFn: () => appeler("devoir_report", { id: devoir.id }) });
@@ -46,7 +47,16 @@ export function Report({ devoir, surNotes }: { devoir: DevoirAffiche; surNotes?:
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm text-ocre">{t("devoirs.evaluation_validee")}</p>
           {surNotes === undefined ? null : (
-            <Bouton variante="secondaire" onClick={surNotes}>
+            <Bouton
+              variante="secondaire"
+              onClick={() => {
+                // L'évaluation du devoir s'ouvre aussitôt, dans sa classe, sa période et sa matière.
+                const evaluation = r.evaluation;
+                if (evaluation !== null) {
+                  surNotes({ classeId: devoir.classe_id, periodeId: evaluation.periode_id, matiereId: devoir.matiere_id, evaluationId: evaluation.id });
+                }
+              }}
+            >
               {t("devoirs.aller_aux_notes")}
             </Bouton>
           )}

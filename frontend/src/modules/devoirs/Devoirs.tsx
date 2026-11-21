@@ -13,6 +13,7 @@ import { imagesParCle, RenduLecon } from "../bibliotheque/RenduLecon";
 import { Copies } from "./Copies";
 import { PlacePhotos } from "./PlacePhotos";
 import { Report } from "./Report";
+import type { NotesAOuvrir } from "../pedagogie/Notes";
 
 const CHAMP = "rounded border border-muet bg-surface px-2 py-1.5 text-primaire focus:outline-2 focus:outline-primaire";
 
@@ -297,7 +298,7 @@ function DevoirOuvert({
   classes: readonly ClasseDevoir[];
   surRetour: () => void;
   surOuvrir: (id: string) => void;
-  surNotes?: () => void;
+  surNotes?: (cible: NotesAOuvrir) => void;
 }) {
   const client = useQueryClient();
   const lu = useQuery({ queryKey: ["devoirs", "devoir", id], queryFn: () => appeler("devoir_lire", { id }) });
@@ -415,7 +416,7 @@ function LigneDevoir({ devoir, surOuvrir }: { devoir: DevoirResume; surOuvrir: (
 }
 
 /** Devoirs à rendre (SPEC_PHASE_12_LOT_5 §3, §11) : la liste par classe et matière, « Donner un devoir ». */
-export function Devoirs({ ouvertAuDebut = null, surNotes }: { ouvertAuDebut?: string | null; surNotes?: () => void }) {
+export function Devoirs({ ouvertAuDebut = null, surNotes }: { ouvertAuDebut?: string | null; surNotes?: (cible: NotesAOuvrir) => void }) {
   const [classeId, setClasseId] = useState("");
   const [matiereId, setMatiereId] = useState("");
   const [ouvert, setOuvert] = useState<string | null>(ouvertAuDebut);
