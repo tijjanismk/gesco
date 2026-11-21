@@ -130,6 +130,35 @@ pub async fn inserer(
             id: sauvegarde.id.vers_chaine(),
         });
     }
+    // La sauvegarde qui précède les migrations s'écrit dans une base encore ancienne : avant la
+    // migration 0062, la table n'a ni la sorte ni l'état d'envoi. La ligne s'écrit alors sans
+    // eux ; la migration lui donne ensuite la sorte « dossier », qui est la sienne.
+    let a_la_sorte: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM pragma_table_info('sauvegarde') WHERE name = 'sorte')",
+    )
+    .fetch_one(&mut *cnx)
+    .await?;
+    if !a_la_sorte {
+        sqlx::query(
+            "INSERT INTO sauvegarde (id, etablissement_id, horodatage, destination, taille, empreinte_sha256,
+                version_schema, version_applicative, resultat, dernier_test_restauration, identifiant_poste)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        )
+        .bind(sauvegarde.id.vers_chaine())
+        .bind(sauvegarde.etablissement_id.vers_chaine())
+        .bind(sauvegarde.horodatage.millis_epoque())
+        .bind(&sauvegarde.destination)
+        .bind(sauvegarde.taille)
+        .bind(&sauvegarde.empreinte_sha256)
+        .bind(sauvegarde.version_schema)
+        .bind(&sauvegarde.version_applicative)
+        .bind(sauvegarde.resultat.nom())
+        .bind(sauvegarde.dernier_test_restauration.map(|h| h.millis_epoque()))
+        .bind(&contexte.poste.0)
+        .execute(cnx)
+        .await?;
+        return Ok(());
+    }
     sqlx::query(
         "INSERT INTO sauvegarde (id, etablissement_id, horodatage, destination, taille, empreinte_sha256, version_schema,
             version_applicative, resultat, dernier_test_restauration, identifiant_poste, sorte, etat_envoi,
