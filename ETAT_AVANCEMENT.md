@@ -60,7 +60,7 @@ rembourser) avec le modèle et le cahier importé, les deux apprentis du CAP 1 p
 l'État avec un virement réparti et l'état exporté ; LISEZ-MOI complété.
 
 **Installeur** : `GESCO_2.0.0_x64-setup.exe` (312 Mo, SHA-256
-`1B0A7DF12EC9D7DF47CE8F1C6BCA89BF6C1EDD4ABEA0C6E48DB747400DE364D7`), reconstruit le 21 novembre 2026 avec les lots 3 et 5 et « Ouvrir Notes » qui ouvre la grille du devoir (quiz et devoirs ; `elaguer-target.ps1 -Release -Incremental` avant, 9,6 Go gagnés, `CARGO_BUILD_JOBS=4`, 17 min 36 s), à la place de celui du 20 novembre au matin,
+`F64A2BF7774DCC59EFAEAD9438E3044557AE5EAF5B9E85E07558CE362A3DF76D`), reconstruit le 21 novembre 2026 avec les lots 3 et 5, « Ouvrir Notes » qui ouvre la grille du devoir et la correction des bases d'avant la 0062 (voir plus bas) (quiz et devoirs ; `elaguer-target.ps1 -Release -Incremental` avant, 9,6 Go gagnés, `CARGO_BUILD_JOBS=4`, 17 min 36 s), à la place de celui du 20 novembre au matin,
 avec le paquet `bibliotheque-mali-2026.11.1.gbib` et les écrans des élèves ; copié avec un court
 `LISEZ-MOI.txt` (installer GESCO dans une école déjà au deuxième mois, avec la reprise avant
 GESCO, dans l'ordre du manuel) dans `Documents\GESCO-2.0.0-ecole-test`. Une coupure du réseau
@@ -68,6 +68,8 @@ a fait échouer un premier assemblage (Tauri télécharge un outil) ; le second 
 est resté au-dessus de 8 Go (33 Go libres) : pas de `cargo clean --release`. Le mode développement
 de `target` a été vidé avant, en gardant `target\debug\gesco-app.exe` pour le lanceur de l'école
 d'essai.
+
+**Correction (21 novembre 2026)** : installé sur le poste du porteur par-dessus une 2.0.0 du lot 1 (base à la migration 0061), GESCO se fermait au démarrage : la sauvegarde qui précède les migrations s'écrivait avec `sorte`, `etat_envoi` et `etat_verifie_le` (migration 0062) dans la base encore ancienne. Toute base de la 1.2 ou d'avant la 0062 était touchée ; les essais de migration migraient sans passer par cette sauvegarde. `depots::sauvegarde::inserer` écrit maintenant l'ancienne forme quand la table n'a pas la colonne `sorte` ; essai `sauvegarde_avant_0062` (base à la 0061, sauvegarde, toutes les migrations, ligne relue avec la sorte « dossier » ; il échoue sans la correction sur la même erreur). Réinstallé : la base du poste s'ouvre et migre. Remarque : `crates/gesco-db/tests/prise_en_charge_0066.rs` n'est pas déclaré dans `tests/db.rs` et ne tourne donc jamais.
 
 **Reste** : la mesure de charge du portail (`cargo test -p gesco-reseau --release --test reseau
 soixante_eleves -- --ignored --nocapture`) n'est pas lancée ; l'essai du portail sur un vrai
